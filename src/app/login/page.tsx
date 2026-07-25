@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { signIn } from './actions';
 
 interface LoginPageProps {
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ error?: string; password_updated?: string }>;
 }
 
 function getErrorMessage(error?: string) {
@@ -14,6 +14,7 @@ function getErrorMessage(error?: string) {
 export default async function LoginPage({ searchParams }: LoginPageProps) {
   const params = await searchParams;
   const errorMessage = getErrorMessage(params.error);
+  const passwordUpdated = params.password_updated === '1';
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-[radial-gradient(circle_at_top,_rgba(30,155,240,0.28)_0%,_#0C2340_34%,_#0A1830_78%)] px-6 py-12 text-white">
@@ -46,6 +47,12 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
         {errorMessage ? (
           <div className="mt-6 rounded-2xl border border-rose-400/30 bg-rose-400/10 p-4 text-sm text-rose-200">
             {errorMessage}
+          </div>
+        ) : null}
+
+        {passwordUpdated ? (
+          <div className="mt-6 rounded-2xl border border-emerald-400/30 bg-emerald-400/10 p-4 text-sm font-bold text-emerald-200">
+            Contraseña actualizada. Ya podés ingresar con tu nueva contraseña.
           </div>
         ) : null}
 
