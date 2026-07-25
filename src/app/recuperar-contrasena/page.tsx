@@ -14,6 +14,7 @@ function getStatusMessage(estado: string | null) {
   const messages: Record<string, string> = {
     missing_email: 'Ingresá un email para solicitar la recuperación.',
     invalid_email: 'El email ingresado no tiene un formato válido.',
+    invalid_or_expired: 'El enlace de recuperación es inválido, venció o ya fue utilizado.',
     send_failed:
       'No se pudo enviar el enlace de recuperación. Revisá el email o intentá nuevamente.',
     sent:
@@ -35,6 +36,7 @@ function getStatusType(estado: string | null) {
   if (
     estado === 'missing_email' ||
     estado === 'invalid_email' ||
+    estado === 'invalid_or_expired' ||
     estado === 'send_failed'
   ) {
     return 'error';
@@ -96,16 +98,6 @@ export default async function RecuperarContrasenaPage({
                 El usuario define una nueva contraseña.
               </p>
             </div>
-          </div>
-
-          <div className="mt-8 rounded-3xl border border-amber-400/30 bg-amber-400/10 p-6">
-            <p className="text-sm font-black text-amber-100">
-              Estado del bloque actual
-            </p>
-            <p className="mt-3 text-sm leading-7 text-amber-50">
-               La pantalla ya puede solicitar el envío del enlace de recuperación.
-               La contraseña todavía no se modifica desde esta pantalla.
-            </p>
           </div>
         </div>
 

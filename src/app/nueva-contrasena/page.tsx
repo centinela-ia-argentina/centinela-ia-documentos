@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { updateRecoveredPassword } from './actions';
+import NuevaContrasenaForm from './NuevaContrasenaForm';
 
 interface NuevaContrasenaPageProps {
   searchParams: Promise<{
@@ -17,7 +17,7 @@ function getStatusMessage(estado: string | null) {
     password_too_short: 'La contraseña debe tener al menos 8 caracteres.',
     passwords_do_not_match: 'Las contraseñas ingresadas no coinciden.',
     session_required:
-      'No hay una sesión válida de recuperación. Volvé a solicitar el enlace.',
+      'El enlace es inválido o venció. Solicitá uno nuevo.',
     update_failed:
       'No se pudo actualizar la contraseña. Intentá nuevamente o solicitá otro enlace.',
     updated:
@@ -104,17 +104,6 @@ const isUpdated = estado === 'updated';
               </p>
             </div>
           </div>
-
-          <div className="mt-8 rounded-3xl border border-amber-400/30 bg-amber-400/10 p-6">
-            <p className="text-sm font-black text-amber-100">
-              Estado del bloque actual
-            </p>
-            <p className="mt-3 text-sm leading-7 text-amber-50">
-              La pantalla ya puede intentar actualizar la contraseña usando
-              Supabase Auth. El cambio solo se completa si el usuario llega con
-              una sesión válida de recuperación.
-            </p>
-          </div>
         </div>
 
         <div className="rounded-[2rem] bg-white p-8 text-slate-950 shadow-2xl lg:p-10">
@@ -161,53 +150,8 @@ const isUpdated = estado === 'updated';
     </Link>
   </div>
 ) : (
-          <form action={updateRecoveredPassword} className="mt-8 space-y-5">
-            <label className="block">
-              <span className="text-sm font-bold text-slate-700">
-                Nueva contraseña
-              </span>
-              <input
-                type="password"
-                name="password"
-                placeholder="Mínimo 8 caracteres"
-                className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 text-sm font-semibold text-slate-950 outline-none transition focus:border-sky-400 focus:bg-white"
-              />
-            </label>
-
-            <label className="block">
-              <span className="text-sm font-bold text-slate-700">
-                Confirmar contraseña
-              </span>
-              <input
-                type="password"
-                name="confirmPassword"
-                placeholder="Repetí la nueva contraseña"
-                className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 text-sm font-semibold text-slate-950 outline-none transition focus:border-sky-400 focus:bg-white"
-              />
-            </label>
-
-            <button
-              type="submit"
-              className="w-full rounded-2xl bg-slate-900 px-5 py-4 text-sm font-black text-white transition hover:bg-slate-800"
-            >
-              Actualizar contraseña
-            </button>
-
-            <Link
-              href="/recuperar-contrasena"
-              className="block w-full rounded-2xl border border-slate-200 px-5 py-4 text-center text-sm font-black text-slate-800 transition hover:bg-slate-50"
-            >
-              Solicitar otro enlace
-            </Link>
-
-            <Link
-              href="/login"
-              className="block w-full rounded-2xl border border-slate-200 px-5 py-4 text-center text-sm font-black text-slate-800 transition hover:bg-slate-50"
-            >
-              Volver al login
-            </Link>
-          </form>
-          )}
+          <NuevaContrasenaForm />
+        )}
         </div>
       </section>
     </main>

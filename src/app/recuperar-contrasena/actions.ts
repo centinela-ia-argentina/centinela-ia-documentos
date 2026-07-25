@@ -37,11 +37,11 @@ export async function sendPasswordRecoveryLink(formData: FormData) {
   const headersList = await headers();
 
   const origin =
-    headersList.get('origin') ??
     process.env.NEXT_PUBLIC_SITE_URL ??
+    headersList.get('origin') ??
     'http://localhost:3000';
 
-  const redirectTo = `${origin}/nueva-contrasena`;
+  const redirectTo = `${origin}/auth/callback?next=/nueva-contrasena`;
 
   const { error } = await supabase.auth.resetPasswordForEmail(email, {
     redirectTo,
