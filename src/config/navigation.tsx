@@ -49,5 +49,5 @@ export const navigation: NavItem[] = [
   { name: 'Herramientas', href: '/herramientas', icon: ScanLine, roles: ['admin', 'employee', 'auditor', 'client'], industries: ['legal', 'escribania'], group: 'Utilidades', description: 'Utilidades extra para gestión documental.' },
   { name: 'Usuarios', href: '/usuarios', icon: Users, roles: ['admin'], group: 'Gestión', description: 'Administración de usuarios e invitaciones.' },
   { name: 'Reportes', href: '/reportes', icon: BarChart3, roles: ['admin', 'employee', 'auditor'], group: 'Gestión', description: 'Métricas y reportes de actividad.' },
-  { name: 'Configuración', href: '/configuracion', icon: Settings, roles: ['admin'], group: 'Gestión', description: 'Ajustes globales y preferencias de la plataforma.' },
+  { name: 'Ajustes', href: '/configuracion', icon: Settings, roles: ['admin'], group: 'Gestión', description: 'Ajustes globales y preferencias de la plataforma.' },
 ];
