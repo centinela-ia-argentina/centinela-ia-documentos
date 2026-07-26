@@ -4,9 +4,9 @@ import { Lock, Building2 } from 'lucide-react';
 import { AppShell } from '@/components/layout/AppShell';
 import { createClient } from '@/lib/supabase/server';
 import { getUserProfile } from '@/lib/auth/getUserProfile';
+import { isPlatformOwner } from '@/lib/permissions/platformOwner';
 import { updateOrganizationIndustryType, updateOrganizationName, updateOrganizationLogo } from './actions';
 import {
-  ACTIVE_INDUSTRY_TYPES,
   industryLabels,
   normalizeIndustryType,
 } from '@/lib/industries/documentTypes';
@@ -68,6 +68,7 @@ export default async function ConfiguracionPage({ searchParams }: ConfiguracionP
     .eq('id', profile.organization_id)
     .single();
 
+  const platformOwner = await isPlatformOwner(user.id);
   const currentIndustry = normalizeIndustryType(org?.industry_type);
   const isUnset = currentIndustry === 'general';
 
@@ -172,7 +173,7 @@ export default async function ConfiguracionPage({ searchParams }: ConfiguracionP
             </p>
           </div>
 
-          {isUnset ? (
+          {(isUnset || platformOwner) ? (
             <form action={updateOrganizationIndustryType} className="space-y-4">
               <input type="hidden" name="organization_id" value={profile.organization_id} />
               <div className="mb-2">
@@ -181,12 +182,24 @@ export default async function ConfiguracionPage({ searchParams }: ConfiguracionP
                 </label>
               </div>
 
+              {isUnset ? (
+                <p className="rounded-xl border border-amber-500/20 bg-amber-500/10 p-3.5 text-xs font-semibold text-amber-300">
+                  Elegí con cuidado: el rubro define tus herramientas y flujos y no se puede cambiar después.
+                </p>
+              ) : null}
+
+              {(!isUnset && platformOwner) ? (
+                <p className="rounded-xl border border-sky-500/20 bg-sky-500/10 p-3.5 text-xs font-semibold text-sky-300">
+                  Como administrador de plataforma, podés cambiar el rubro activo de este espacio.
+                </p>
+              ) : null}
+
               <select
                 name="industry_type"
-                defaultValue={currentIndustry}
+                defaultValue={['legal', 'escribania', 'inmobiliaria'].includes(currentIndustry) ? currentIndustry : 'legal'}
                 className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-white outline-none focus:border-accent focus:ring-1 focus:ring-accent"
               >
-                {ACTIVE_INDUSTRY_TYPES.map((t) => (
+                {(['legal', 'escribania', 'inmobiliaria'] as const).map((t) => (
                   <option key={t} value={t}>
                     {industryLabels[t]}
                   </option>

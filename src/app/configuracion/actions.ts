@@ -4,7 +4,7 @@ import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { isIndustryType, normalizeIndustryType } from '@/lib/industries/documentTypes';
+import { normalizeIndustryType } from '@/lib/industries/documentTypes';
 
 export async function updateOrganizationIndustryType(formData: FormData) {
   const supabase = await createClient();
@@ -17,7 +17,8 @@ export async function updateOrganizationIndustryType(formData: FormData) {
   const organizationId = String(formData.get('organization_id') || '');
   const industryType = String(formData.get('industry_type') || '');
 
-  if (!organizationId || !isIndustryType(industryType)) {
+  const selectableIndustries = ['legal', 'escribania', 'inmobiliaria'];
+  if (!organizationId || !selectableIndustries.includes(industryType)) {
     redirect('/configuracion?error=industry_invalid');
   }
 
