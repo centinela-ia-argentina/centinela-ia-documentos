@@ -10,8 +10,9 @@ export async function createOrganization(formData: FormData) {
   const province = String(formData.get('province') || 'Corrientes').trim();
   const adminName = String(formData.get('admin_full_name') || '').trim();
 
-  if (!orgName || !adminName) {
-    redirect('/onboarding?error=missing_fields');
+  const selectableIndustries = ['legal', 'escribania', 'inmobiliaria'];
+  if (!orgName || !adminName || !selectableIndustries.includes(industry)) {
+    redirect('/onboarding?error=invalid_input');
   }
 
   const supabase = await createClient();
