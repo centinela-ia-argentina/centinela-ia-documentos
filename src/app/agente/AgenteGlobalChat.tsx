@@ -2,12 +2,10 @@
 
 import { useState, useRef, useEffect, type ReactNode } from 'react';
 import { preguntarAgenteGlobal } from './actions';
-import { guardarPlazoDetectado } from '@/app/agenda/actions';
 import type { MensajeChat, AccionPropuesta } from '@/lib/ai/agente';
 import { MaquinaEscribir } from '@/components/MaquinaEscribir';
 
 type MensajeUI = MensajeChat & { acciones?: AccionPropuesta[] };
-type EstadoAccion = 'idle' | 'loading' | 'ok' | 'error' | 'descartado';
 
 const PRESENTACION: Record<string, { saludo: string; preguntas: string[] }> = {
   legal: {
@@ -47,12 +45,6 @@ function presentacionDe(industry: string) {
       ],
     }
   );
-}
-
-function formatFecha(iso: string) {
-  const [y, m, d] = iso.split('-');
-  if (!y || !m || !d) return iso;
-  return `${d}/${m}/${y}`;
 }
 
 function renderInline(text: string, keyPrefix: string): ReactNode[] {
@@ -116,12 +108,11 @@ function MensajeTexto({ texto }: { texto: string }) {
 type Props = { industry: string; puedeUsarIA: boolean };
 
 export function AgenteGlobalChat({ industry, puedeUsarIA }: Props) {
-  const { saludo, preguntas } = presentacionDe(industry);
+  const { preguntas } = presentacionDe(industry);
   const [mensajes, setMensajes] = useState<MensajeUI[]>([]);
   const [input, setInput] = useState('');
   const [cargando, setCargando] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [accEstados, setAccEstados] = useState<Record<string, EstadoAccion>>({});
   const scrollRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -152,24 +143,6 @@ export function AgenteGlobalChat({ industry, puedeUsarIA }: Props) {
     } finally {
       setCargando(false);
     }
-  }
-
-  async function agendar(clave: string, accion: AccionPropuesta) {
-    setAccEstados((p) => ({ ...p, [clave]: 'loading' }));
-    try {
-      const r = await guardarPlazoDetectado({
-        titulo: accion.titulo,
-        fecha: accion.fecha ?? '',
-        detalle: accion.motivo || 'Propuesto por el Agente IA',
-      });
-      setAccEstados((p) => ({ ...p, [clave]: r.ok ? 'ok' : 'error' }));
-    } catch {
-      setAccEstados((p) => ({ ...p, [clave]: 'error' }));
-    }
-  }
-
-  function descartar(clave: string) {
-    setAccEstados((p) => ({ ...p, [clave]: 'descartado' }));
   }
 
   if (!puedeUsarIA) return null;
@@ -207,15 +180,26 @@ export function AgenteGlobalChat({ industry, puedeUsarIA }: Props) {
             </div>
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <h2 className="text-lg font-bold text-white">Agente IA de Centinela</h2>
+        <div className="flex flex-wrap items-center justify-center gap-2">
+          <h2 className="text-lg font-bold text-white">Agente IA general</h2>
+          <span className="inline-flex items-center gap-1 rounded-full bg-cyan-500/15 px-2.5 py-0.5 text-xs font-medium text-cyan-300 border border-cyan-500/20">
+            🌐 Contexto: toda la organización
+          </span>
           <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2 py-0.5 text-xs font-medium text-emerald-300">
             <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400" /> En línea
           </span>
         </div>
-        <p className="mt-1 max-w-md text-sm text-slate-300">
-          <MaquinaEscribir texto={saludo} />
+        <p className="mt-1.5 max-w-lg text-sm text-slate-300">
+          Consultá el panorama general de tu organización: casos recientes, plazos, vencimientos y alertas.
         </p>
+        <div className="mt-3 flex flex-col items-center gap-1.5 text-xs text-slate-400 max-w-lg">
+          <p className="rounded-lg bg-slate-950/50 border border-slate-800 px-3 py-2 text-slate-300 w-full text-center">
+            ℹ️ Para trabajar sobre documentos o ejecutar acciones, abrí un expediente, legajo u operación y usá su Agente IA.
+          </p>
+          <p className="text-slate-500">
+            ⌛ Esta conversación es temporal y se reinicia al salir o recargar.
+          </p>
+        </div>
       </div>
 
       {/* Saludo conversacional: el agente inicia la charla */}
@@ -225,7 +209,7 @@ export function AgenteGlobalChat({ industry, puedeUsarIA }: Props) {
             👋 <MaquinaEscribir texto="¡Hola! ¿Cómo estás? ¿Qué tal tu día?" />
           </p>
           <p className="mt-1">
-            Estoy acá para ayudarte con tus legajos, vencimientos y actos. ¿En qué te doy una mano?
+            Estoy acá para ayudarte con el panorama de tu organización, sus vencimientos y prioridades. ¿En qué te doy una mano?
           </p>
         </div>
       )}
@@ -259,102 +243,6 @@ export function AgenteGlobalChat({ industry, puedeUsarIA }: Props) {
                   <div className="rounded-2xl rounded-bl-sm bg-slate-800/60 px-3 py-2 text-sm text-slate-200">
                     <MensajeTexto texto={m.texto} />
                   </div>
-                  {m.acciones && m.acciones.length > 0 && (
-                    <div className="mt-2 space-y-2">
-                      <div className="text-xs font-semibold uppercase tracking-wide text-violet-300">
-                        💡 La IA sugiere una acción
-                      </div>
-                      {m.acciones.filter((a) => a.tipo === 'agendar_plazo').map((accion, ai) => {
-                        const clave = `${i}-${ai}`;
-                        const estado = accEstados[clave] ?? 'idle';
-                        if (estado === 'descartado') {
-                          return (
-                            <div
-                              key={clave}
-                              className="flex items-center gap-2 rounded-xl border border-slate-800 bg-slate-900/40 px-3 py-2 text-xs text-slate-500"
-                            >
-                              <span>🚫</span>
-                              <span className="line-through">{accion.titulo}</span>
-                              <button
-                                onClick={() => setAccEstados((p) => ({ ...p, [clave]: 'idle' }))}
-                                className="ml-auto underline-offset-2 hover:text-cyan-300 hover:underline"
-                              >
-                                Deshacer
-                              </button>
-                            </div>
-                          );
-                        }
-                        const agendado = estado === 'ok';
-                        return (
-                          <div
-                            key={clave}
-                            className={`overflow-hidden rounded-xl border p-3 ${
-                              agendado
-                                ? 'border-emerald-500/40 bg-emerald-500/5'
-                                : 'border-violet-500/30 bg-gradient-to-br from-violet-500/10 via-slate-900/40 to-cyan-500/10'
-                            }`}
-                          >
-                            <div className="flex items-start gap-3">
-                              <div
-                                className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-lg ${
-                                  agendado ? 'bg-emerald-500/20' : 'bg-violet-500/20'
-                                }`}
-                              >
-                                {agendado ? '✅' : '📅'}
-                              </div>
-                              <div className="min-w-0 flex-1">
-                                <div className="flex flex-wrap items-center gap-2">
-                                  <span
-                                    className={`rounded-md px-2 py-0.5 text-xs font-semibold ${
-                                      agendado
-                                        ? 'bg-emerald-500/20 text-emerald-300'
-                                        : 'bg-violet-500/20 text-violet-200'
-                                    }`}
-                                  >
-                                    {accion.fecha ? formatFecha(accion.fecha) : ''}
-                                  </span>
-                                  <span className="text-sm font-semibold text-slate-100">
-                                    {accion.titulo}
-                                  </span>
-                                </div>
-                                {accion.motivo && (
-                                  <p className="mt-1 text-xs leading-relaxed text-slate-400">
-                                    {accion.motivo}
-                                  </p>
-                                )}
-                                {agendado ? (
-                                  <div className="mt-2 inline-flex items-center gap-1 rounded-lg bg-emerald-500/15 px-3 py-1.5 text-xs font-medium text-emerald-300">
-                                    <span>✓</span> Agendado en tu calendario
-                                  </div>
-                                ) : (
-                                  <div className="mt-2.5 flex flex-wrap items-center gap-2">
-                                    <button
-                                      onClick={() => agendar(clave, accion)}
-                                      disabled={estado === 'loading'}
-                                      className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-violet-600 to-violet-500 px-3.5 py-1.5 text-xs font-semibold text-white shadow-lg shadow-violet-900/30 transition hover:from-violet-500 hover:to-violet-400 disabled:opacity-60"
-                                    >
-                                      {estado === 'loading'
-                                        ? '⏳ Agendando…'
-                                        : estado === 'error'
-                                        ? '↻ Reintentar'
-                                        : '✅ Aprobar y agendar'}
-                                    </button>
-                                    <button
-                                      onClick={() => descartar(clave)}
-                                      disabled={estado === 'loading'}
-                                      className="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800/40 px-3 py-1.5 text-xs font-medium text-slate-300 transition hover:border-rose-500/50 hover:text-rose-300 disabled:opacity-60"
-                                    >
-                                      ✕ Descartar
-                                    </button>
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
                 </div>
               )}
             </div>

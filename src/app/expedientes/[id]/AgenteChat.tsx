@@ -113,15 +113,23 @@ function MensajeTexto({ texto }: { texto: string }) {
   return <div className="space-y-1">{bloques}</div>;
 }
 
+function getTituloAgente(industry: string): string {
+  if (industry === 'inmobiliaria') return 'Agente IA de la operación';
+  if (industry === 'escribania') return 'Agente IA del legajo';
+  if (industry === 'legal') return 'Agente IA del expediente';
+  return 'Agente IA del caso';
+}
+
 type Props = {
   caseId: string;
+  caseTitle?: string;
   industry: string;
   puedeUsarIA: boolean;
   historialInicial?: MensajeUI[];
   modeloUrl?: string;
 };
 
-export function AgenteChat({ caseId, industry, puedeUsarIA, historialInicial, modeloUrl }: Props) {
+export function AgenteChat({ caseId, caseTitle, industry, puedeUsarIA, historialInicial, modeloUrl }: Props) {
   const [mensajes, setMensajes] = useState<MensajeUI[]>(historialInicial ?? []);
   const [input, setInput] = useState('');
   const [cargando, setCargando] = useState(false);
@@ -246,7 +254,13 @@ export function AgenteChat({ caseId, industry, puedeUsarIA, historialInicial, mo
         </div>
         <div className="flex-1">
           <div className="flex flex-wrap items-center gap-2">
-            <h3 className="text-base font-semibold text-slate-50">Agente IA del legajo</h3>
+            <h3 className="text-base font-semibold text-slate-50">{getTituloAgente(industry)}</h3>
+            <span className="inline-flex items-center gap-1 rounded-full bg-cyan-500/15 px-2.5 py-0.5 text-xs font-medium text-cyan-300 border border-cyan-500/20">
+              📁 Contexto: {caseTitle || 'Este caso'}
+            </span>
+            <span className="inline-flex items-center gap-1 rounded-full bg-violet-500/15 px-2.5 py-0.5 text-xs font-medium text-violet-300 border border-violet-500/20">
+              💾 Memoria guardada
+            </span>
             <span className="flex items-center gap-1 rounded-full bg-cyan-500/15 px-2 py-0.5 text-[10px] font-medium text-cyan-300">
               <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-cyan-400" />
               En línea
@@ -256,13 +270,15 @@ export function AgenteChat({ caseId, industry, puedeUsarIA, historialInicial, mo
                 type="button"
                 onClick={borrarConversacion}
                 className="ml-auto rounded-lg border border-slate-700 bg-slate-800/40 px-2.5 py-1 text-xs text-slate-400 transition hover:border-rose-500/50 hover:text-rose-300"
-                title="Borrar la conversación de este legajo"
+                title="Borrar la conversación de este caso"
               >
                 🗑️ Borrar conversación
               </button>
             )}
           </div>
-          <p className="text-xs text-slate-400">Conversá sobre este legajo. La IA propone, vos decidís.</p>
+          <p className="mt-1.5 text-xs text-slate-300">
+            Trabaja con los documentos y antecedentes de este caso. Puede proponer acciones que solo se ejecutan con tu aprobación.
+          </p>
         </div>
       </div>
 

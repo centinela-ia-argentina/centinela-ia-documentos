@@ -71,6 +71,18 @@ export async function preguntarAgenteGlobal(input: {
 
   const partes: string[] = [];
   partes.push('VISTA GLOBAL DE LA ORGANIZACIÓN (todos los legajos activos).');
+  partes.push(
+    'REGLA DE ALCANCE Y LÍMITES DE EJECUCIÓN (INNEGOCIABLE):\n' +
+      'Estás operando exclusivamente como Agente IA general de orientación y panorama organizacional.\n' +
+      'Ante pedidos de ejecución o modificación (por ejemplo: cambiar estado de un expediente/legajo/operación, agendar un plazo procesal o de vencimiento, modificar un expediente, vincular documentos, generar un resultado dentro de un caso, o ejecutar cualquier acción sobre un expediente, legajo u operación), TENÉS ESTRICTAMENTE PROHIBIDO:\n' +
+      '- Pedir el ID, número o nombre del caso.\n' +
+      '- Pedir el nuevo estado, la fecha u otros parámetros de ejecución.\n' +
+      '- Prometer o dar a entender que podrás realizar la acción al recibir más datos u otra confirmación.\n' +
+      '- Devolver tokens o bloques de acción.\n' +
+      'En lugar de continuar recopilando parámetros para algo que no podés ejecutar, DEBÉS RESPONDER EXACTA Y CLARAMENTE CON ESTE TEXTO:\n' +
+      '“Desde el Agente IA general no puedo modificar casos ni ejecutar acciones concretas. Abrí el expediente, legajo u operación correspondiente y utilizá su Agente IA.”\n' +
+      'Podés complementar con orientación general del sistema, pero sin intentar recopilar datos de ejecución.'
+  );
   partes.push(`Total de legajos activos: ${cases.length}.`);
 
   if (cases.length) {
@@ -142,5 +154,6 @@ export async function preguntarAgenteGlobal(input: {
         : 'No pude generar una respuesta. Probá de nuevo.';
     return { ok: false, motivo };
   }
-  return { ok: true, respuesta: res.respuesta, acciones: res.acciones };
+  // Blindaje para agente global: las propuestas de acciones se eliminan de esta vista
+  return { ok: true, respuesta: res.respuesta, acciones: [] };
 }

@@ -110,9 +110,9 @@ export function CopilotoClient() {
 
       <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
         <div className="flex items-center gap-2 text-sm font-semibold text-white">
-          <MessageCircle className="h-4 w-4 text-cyan-300" /> Preguntale al copiloto
+          <MessageCircle className="h-4 w-4 text-cyan-300" /> Consultas de cartera
         </div>
-        <p className="mt-1 text-xs text-slate-400">Consultá sobre tu cartera, operaciones, clientes y alquileres.</p>
+        <p className="mt-1 text-xs text-slate-400">Preguntá sobre propiedades, clientes, alquileres y prioridades de la inmobiliaria.</p>
 
         {mensajes.length === 0 && (
           <div className="mt-4 flex flex-wrap gap-2">

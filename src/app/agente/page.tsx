@@ -141,7 +141,7 @@ export default async function AgentePage() {
           </div>
           <p className="mt-1 text-sm text-slate-400">
             Vencimientos y plazos de toda la organización (vencidos recientes y próximos 30 días).
-            Preguntale al agente <span className="text-cyan-300">"¿qué hago con estas alertas?"</span> y te propone la acción.
+            Preguntale al agente <span className="text-cyan-300">"¿qué hago con estas alertas?"</span> y te ayuda a entenderlas y priorizarlas.
           </p>
 
           {alertas.length === 0 ? (

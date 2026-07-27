@@ -13,7 +13,7 @@ function BotonGenerar({ tieneResumen }: { tieneResumen: boolean }) {
   return (
     <button type="submit" disabled={pending}
       className="rounded-xl bg-sky-600 px-4 py-2 text-sm font-medium text-white hover:bg-sky-700 disabled:opacity-60">
-      {pending ? 'Generando…' : tieneResumen ? 'Regenerar resumen' : 'Generar resumen con IA'}
+      {pending ? 'Generando…' : tieneResumen ? 'Actualizar resumen con IA' : 'Generar resumen con IA'}
     </button>
   );
 }
@@ -62,7 +62,7 @@ export function CopilotoExpediente({
 
       {!resumen && documentosAnalizados > 0 && (
         <p className="mt-4 text-sm text-slate-300">
-          Hay {documentosAnalizados} documento(s) analizado(s). Tocá “Generar resumen con IA” para armar el panorama del expediente.
+          Hay {documentosAnalizados} documento(s) analizado(s). Tocá “Generar resumen con IA” para armar el panorama de este caso.
         </p>
       )}
 
