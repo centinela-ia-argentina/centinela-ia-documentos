@@ -209,7 +209,7 @@ export function AgenteGlobalChat({ industry, puedeUsarIA }: Props) {
             👋 <MaquinaEscribir texto="¡Hola! ¿Cómo estás? ¿Qué tal tu día?" />
           </p>
           <p className="mt-1">
-            Estoy acá para ayudarte con tus legajos, vencimientos y actos. ¿En qué te doy una mano?
+            Estoy acá para ayudarte con el panorama de tu organización, sus vencimientos y prioridades. ¿En qué te doy una mano?
           </p>
         </div>
       )}
