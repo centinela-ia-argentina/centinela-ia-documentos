@@ -48,13 +48,18 @@ export default async function CopilotoPage() {
   return (
     <AppShell>
       <div className="mx-auto w-full max-w-5xl px-4 py-8">
-        <div className="flex items-center gap-3">
-          <div className="flex h-11 w-11 items-center justify-center rounded-xl border border-white/10 bg-gradient-to-br from-cyan-500/20 to-violet-500/20">
-            <Sparkles className="h-6 w-6 text-cyan-300" />
+        <div className="flex flex-col gap-4">
+          <div className="flex items-center gap-3">
+            <div className="flex h-11 w-11 items-center justify-center rounded-xl border border-white/10 bg-gradient-to-br from-cyan-500/20 to-violet-500/20">
+              <Sparkles className="h-6 w-6 text-cyan-300" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-semibold text-white">Panel inmobiliario</h1>
+              <p className="text-sm text-slate-400">Centro de control de operaciones inmobiliarias de tu organización: casos activos, vencimientos y alertas.</p>
+            </div>
           </div>
-          <div>
-            <h1 className="text-2xl font-semibold text-white">Copiloto de la inmobiliaria</h1>
-            <p className="text-sm text-slate-400">El estado de tu inmobiliaria hoy, con prioridades sugeridas por IA.</p>
+          <div className="rounded-xl border border-cyan-500/20 bg-slate-900/50 px-4 py-2.5 text-xs text-slate-300">
+            ℹ️ Este panel trabaja sobre la cartera y la actividad general de la inmobiliaria. Para consultar documentos o ejecutar acciones sobre una operación específica, abrila y usá su Agente IA.
           </div>
         </div>
 

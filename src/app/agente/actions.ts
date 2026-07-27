@@ -142,5 +142,6 @@ export async function preguntarAgenteGlobal(input: {
         : 'No pude generar una respuesta. Probá de nuevo.';
     return { ok: false, motivo };
   }
-  return { ok: true, respuesta: res.respuesta, acciones: res.acciones };
+  // Blindaje para agente global: las propuestas de acciones se eliminan de esta vista
+  return { ok: true, respuesta: res.respuesta, acciones: [] };
 }
