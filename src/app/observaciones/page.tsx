@@ -199,7 +199,7 @@ export default async function ObservacionesPage() {
               )) : (
                 <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-4 text-sm text-emerald-200/70">Sin documentos sensibles.</div>
               )}
-              {sensiblesAll.length > 8 && <Link href="/reportes?vista=sensibilidad" className="block text-sm font-bold text-cyan-400 hover:text-cyan-300">Ver todos los sensibles ({sensiblesAll.length})</Link>}
+              {sensiblesAll.length > 8 && <Link href="/reportes" className="block text-sm font-bold text-cyan-400 hover:text-cyan-300">Ver reporte de sensibilidad</Link>}
             </div>
           </MotionCard>
 
@@ -228,7 +228,7 @@ export default async function ObservacionesPage() {
               }) : (
                 <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-4 text-sm text-emerald-200/70">Sin vencimientos próximos.</div>
               )}
-              {vencimientosAll.length > 8 && <Link href="/reportes?vista=vencimientos" className="block text-sm font-bold text-cyan-400 hover:text-cyan-300">Ver todos los vencimientos ({vencimientosAll.length})</Link>}
+              {vencimientosAll.length > 8 && <Link href="/reportes" className="block text-sm font-bold text-cyan-400 hover:text-cyan-300">Ver reporte de vencimientos</Link>}
             </div>
           </MotionCard>
 
@@ -257,7 +257,8 @@ export default async function ObservacionesPage() {
           </MotionCard>
 
           {/* 4. Análisis IA pendientes */}
-          <MotionCard index={9} className="p-6">
+          <div id="analisis-ia-pendientes">
+            <MotionCard index={9} className="p-6 h-full">
             <h3 className="text-lg font-bold text-white">Análisis IA pendientes</h3>
             <p className="mt-1 text-sm text-slate-400">Documentos que no han sido procesados por la IA.</p>
             <div className="mt-4 space-y-3">
@@ -284,6 +285,7 @@ export default async function ObservacionesPage() {
               {iaPendientesAll.length > 8 && <Link href="/documentos?ia=pendientes" className="block text-sm font-bold text-cyan-400 hover:text-cyan-300">Ver todos los pendientes ({iaPendientesAll.length})</Link>}
             </div>
           </MotionCard>
+          </div>
 
           {/* 5. Documentos sin clasificar */}
           <MotionCard index={10} className="p-6 xl:col-span-2">
