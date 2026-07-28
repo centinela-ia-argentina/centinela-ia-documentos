@@ -5,7 +5,8 @@ import { createClient } from '@/lib/supabase/server';
 import { getUserProfile } from '@/lib/auth/getUserProfile';
 import { formatAuditActionLabel } from '@/lib/audit/actionLabels';
 import { normalizeIndustryType, industryLabels } from '@/lib/industries/documentTypes';
-import { getCaseStatusLabel } from '@/lib/industries/caseConfig';
+import { getCaseStatusLabel, isCaseActive } from '@/lib/industries/caseConfig';
+import { getIndustryTerms, type IndustryTerms } from '@/lib/industries/uiLabels';
 import { getDocumentExpiryStatus } from '@/lib/documents/expiry';
 import { MotionCard } from '@/components/ui/MotionCard';
 
@@ -274,7 +275,8 @@ function getActorRole(
 function getResourceLabel(
   log: AuditLogRecordForReport,
   documentsById: Map<string, DocumentRecordForReport>,
-  casesById: Map<string, CaseRecord>
+  casesById: Map<string, CaseRecord>,
+  terms?: IndustryTerms
 ) {
   const metadataFileName = metadataText(log.metadata, 'file_name');
   const metadataCaseTitle = metadataText(log.metadata, 'case_title');
@@ -307,7 +309,7 @@ function getResourceLabel(
   if (log.resource_type === 'case' && log.resource_id) {
     return (
       casesById.get(log.resource_id)?.title ??
-      `Expediente ${log.resource_id.slice(0, 8)}...`
+      `${terms ? terms.expedienteSingular : 'Expediente'} ${log.resource_id.slice(0, 8)}...`
     );
   }
 
@@ -419,7 +421,8 @@ if (
     .eq('id', profile.organization_id)
     .maybeSingle();
   const industry = normalizeIndustryType(organization?.industry_type);
-  const isLegal = industry === 'legal';
+  const terms = getIndustryTerms(industry);
+  const isFem = terms.expedientePlural.toLowerCase() === 'operaciones';
 
   const [
     casesResult,
@@ -479,7 +482,7 @@ if (
   const analysisCountByDocument = getAnalysisCountByDocument(aiOutputs);
 
   const totalCases = cases.length;
-  const activeCases = cases.filter((item) => item.status !== 'archived').length;
+  const activeCases = cases.filter((item) => isCaseActive(item.status)).length;
 
   const totalDocuments = documents.length;
 
@@ -552,9 +555,9 @@ if (
 
   const metrics = [
     {
-      label: 'Expedientes totales',
+      label: `${terms.expedientePlural} totales`,
       value: totalCases,
-      helper: `${activeCases} activos`,
+      helper: `${activeCases} ${isFem ? 'activas' : 'activos'}`,
     },
     {
       label: 'Análisis IA',
@@ -603,7 +606,7 @@ if (
       count: iaAuditLogs.length,
     },
     {
-      label: 'Expedientes',
+      label: terms.expedientePlural,
       value: 'expedientes',
       href: '/reportes?vista=auditoria&tipo=expedientes',
       count: caseAuditLogs.length,
@@ -629,7 +632,7 @@ if (
           </h2>
 
           <p className="mt-2 text-sm text-slate-300">
-            Análisis y visión de conjunto: métricas, cartera y auditoría para leer el panorama completo del estudio.
+            {terms.reportesSubtitulo}
           </p>
         </div>
       </div>
@@ -986,7 +989,7 @@ if (
 
                     <td className="px-4 py-4">
                       <p className="font-semibold text-slate-200">
-                        {getResourceLabel(log, documentsById, casesById)}
+                        {getResourceLabel(log, documentsById, casesById, terms)}
                       </p>
 
                       <p className="mt-1 text-xs text-slate-500">

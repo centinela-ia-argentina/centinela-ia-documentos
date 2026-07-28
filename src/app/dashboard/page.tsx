@@ -14,6 +14,7 @@ import {
 } from '@/lib/industries/documentTypes';
 import {
   getDashboardCards,
+  isCaseActive,
   type DashboardCardKey,
 } from '@/lib/industries/caseConfig';
 import { getIndustryTerms, type IndustryTerms } from '@/lib/industries/uiLabels';
@@ -89,14 +90,14 @@ function buildMetricCard(
       return {
         label: `${terms.expedientePlural} ${isFem ? 'activas' : 'activos'}`,
         value: String(values.activeCases),
-        helper: 'Estado Activo',
+        helper: terms.dashboardActivesHelper,
       };
     }
     case 'proximos_plazos':
       return {
         label: 'Próximos plazos',
         value: String(values.proximosPlazos ?? 0),
-        helper: 'Audiencias / plazos próximos o vencidos',
+        helper: terms.dashboardPlazosHelper,
         href: '/observaciones',
       };
     case 'documentos_cargados':
@@ -192,7 +193,7 @@ export default async function DashboardPage() {
   const recentActivity =
     (activityLogsResult.data ?? []) as DashboardActivityLog[];
 
-  const activeCasesCount = cases.filter((c) => c.status === 'active' || c.status === 'Activo').length;
+  const activeCasesCount = cases.filter((c) => isCaseActive(c.status)).length;
   const proximosPlazos = cases.filter((c) => {
     const fecha = ((c.metadata as Record<string, unknown> | null)?.fecha_relevante as string | undefined)?.trim();
     if (!fecha) return false;

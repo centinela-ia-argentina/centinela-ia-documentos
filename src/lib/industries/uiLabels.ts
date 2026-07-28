@@ -71,6 +71,19 @@ export type IndustryTerms = {
   // --- Radar de plazos / vigencias ---
   radarTitulo: string;
   radarSubtitulo: string;
+  // --- Observaciones / Operacional ---
+  observacionesSubtitulo: string;
+  observacionesIncompletosCard: string;
+  observacionesIncompletosTitulo: string;
+  observacionesPlazosCard: string;
+  observacionesPlazosTitulo: string;
+  observacionesPlazosDesc: string;
+  observacionesPlazosVacio: string;
+  // --- Dashboard helper ---
+  dashboardActivesHelper: string;
+  dashboardPlazosHelper: string;
+  // --- Reportes ---
+  reportesSubtitulo: string;
 };
 
 const defaultTerms: IndustryTerms = {
@@ -98,6 +111,16 @@ const defaultTerms: IndustryTerms = {
   dashboardSubtitulo: 'Tu panel operativo de expedientes, documentos e IA.',
   radarTitulo: 'Radar de plazos',
   radarSubtitulo: 'Plazos vencidos y próximos (hasta 30 días), ordenados por urgencia.',
+  observacionesSubtitulo: 'Lo que requiere tu acción ahora: documentos sensibles, vencimientos, casos incompletos, análisis pendientes y fechas clave.',
+  observacionesIncompletosCard: 'Incompletos',
+  observacionesIncompletosTitulo: 'Casos incompletos',
+  observacionesPlazosCard: 'Fechas clave',
+  observacionesPlazosTitulo: 'Plazos y fechas clave',
+  observacionesPlazosDesc: 'Casos con fechas próximas o vencidas.',
+  observacionesPlazosVacio: 'Sin fechas próximas.',
+  dashboardActivesHelper: 'Registros actualmente en curso',
+  dashboardPlazosHelper: 'Fechas clave próximas o vencidas',
+  reportesSubtitulo: 'Análisis y visión de conjunto: métricas, actividad y auditoría para leer el panorama general de la organización.',
 };
 
 const termsByIndustry: Partial<Record<IndustryType, IndustryTerms>> = {
@@ -126,6 +149,16 @@ const termsByIndustry: Partial<Record<IndustryType, IndustryTerms>> = {
     dashboardSubtitulo: 'Tu panel operativo de legajos, documentos e IA.',
     radarTitulo: 'Radar de vigencias',
     radarSubtitulo: 'Vigencias de certificados y plazos próximos (hasta 30 días), ordenados por urgencia.',
+    observacionesSubtitulo: 'Lo que requiere tu acción ahora: documentos sensibles, vencimientos, legajos incompletos, análisis pendientes y fechas clave.',
+    observacionesIncompletosCard: 'Leg. incompletos',
+    observacionesIncompletosTitulo: 'Legajos incompletos',
+    observacionesPlazosCard: 'Fechas clave',
+    observacionesPlazosTitulo: 'Fechas clave notariales',
+    observacionesPlazosDesc: 'Legajos con fechas próximas o vencidas.',
+    observacionesPlazosVacio: 'Sin fechas próximas.',
+    dashboardActivesHelper: 'Legajos actualmente en preparación o curso',
+    dashboardPlazosHelper: 'Fechas clave y vencimientos',
+    reportesSubtitulo: 'Análisis y visión de conjunto: métricas, actividad notarial y auditoría para leer el panorama general de la escribanía.',
   },
   inmobiliaria: {
     expedienteSingular: 'Operación',
@@ -152,6 +185,16 @@ const termsByIndustry: Partial<Record<IndustryType, IndustryTerms>> = {
     dashboardSubtitulo: 'Tu panel operativo de operaciones, documentos e IA.',
     radarTitulo: 'Radar de vencimientos',
     radarSubtitulo: 'Vencimientos de documentos y plazos próximos (hasta 30 días), ordenados por urgencia.',
+    observacionesSubtitulo: 'Lo que requiere tu acción ahora: documentos sensibles, vencimientos, operaciones incompletas, análisis pendientes y fechas clave.',
+    observacionesIncompletosCard: 'Oper. incompletas',
+    observacionesIncompletosTitulo: 'Operaciones incompletas',
+    observacionesPlazosCard: 'Fechas clave',
+    observacionesPlazosTitulo: 'Fechas clave de operaciones',
+    observacionesPlazosDesc: 'Operaciones con fechas próximas o vencidas.',
+    observacionesPlazosVacio: 'Sin fechas próximas.',
+    dashboardActivesHelper: 'Operaciones actualmente en captación o curso',
+    dashboardPlazosHelper: 'Fechas clave y vencimientos',
+    reportesSubtitulo: 'Análisis y visión de conjunto: métricas, cartera y auditoría para leer el panorama general de la inmobiliaria.',
   },
   legal: {
     expedienteSingular: 'Expediente',
@@ -178,6 +221,16 @@ const termsByIndustry: Partial<Record<IndustryType, IndustryTerms>> = {
     dashboardSubtitulo: 'Tu panel operativo de expedientes, plazos procesales, documentos e IA.',
     radarTitulo: 'Radar de plazos',
     radarSubtitulo: 'Plazos procesales vencidos y próximos (hasta 30 días), ordenados por urgencia.',
+    observacionesSubtitulo: 'Lo que requiere tu acción ahora: documentos sensibles, vencimientos, expedientes incompletos, análisis pendientes y plazos.',
+    observacionesIncompletosCard: 'Exp. incompletos',
+    observacionesIncompletosTitulo: 'Expedientes incompletos',
+    observacionesPlazosCard: 'Plazos',
+    observacionesPlazosTitulo: 'Plazos procesales y fechas clave',
+    observacionesPlazosDesc: 'Expedientes con audiencia o plazo próximo o vencido.',
+    observacionesPlazosVacio: 'Sin plazos próximos.',
+    dashboardActivesHelper: 'Expedientes actualmente en curso',
+    dashboardPlazosHelper: 'Audiencias y plazos próximos',
+    reportesSubtitulo: 'Análisis y visión de conjunto: métricas, actividad y auditoría para leer el panorama general del estudio.',
   },
 };
 
