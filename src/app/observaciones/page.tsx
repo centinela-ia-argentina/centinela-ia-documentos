@@ -5,7 +5,8 @@ import { createClient } from '@/lib/supabase/server';
 import { getUserProfile } from '@/lib/auth/getUserProfile';
 import { summarizeChecklistStatuses } from '@/lib/checklist/progress';
 import { getDocumentExpiryStatus, expiryStatusLabel, getExpiryBadgeStyles, getDaysUntilExpiry } from '@/lib/documents/expiry';
-import { getDocumentTypeLabel } from '@/lib/industries/documentTypes';
+import { getDocumentTypeLabel, normalizeIndustryType } from '@/lib/industries/documentTypes';
+import { getIndustryTerms } from '@/lib/industries/uiLabels';
 import { isSensitiveDocument } from '@/lib/documents/sensitivity';
 import { formatPlazoDate } from '@/lib/format/date';
 import { MotionCard } from '@/components/ui/MotionCard';
@@ -19,7 +20,7 @@ export default async function ObservacionesPage() {
 
   const supabase = await createClient();
 
-  const [documentsResult, aiOutputsResult, casesResult, checklistItemsResult] = await Promise.all([
+  const [documentsResult, aiOutputsResult, casesResult, checklistItemsResult, organizationResult] = await Promise.all([
     supabase
       .from('documents')
       .select('id, file_name, document_type, sensitivity_level, expires_at, case_id, file_mime_type, created_at')
@@ -43,13 +44,23 @@ export default async function ObservacionesPage() {
     supabase
       .from('checklist_items')
       .select('status, checklists!inner(case_id)')
-      .eq('checklists.organization_id', profile.organization_id)
+      .eq('checklists.organization_id', profile.organization_id),
+
+    supabase
+      .from('organizations')
+      .select('industry_type')
+      .eq('id', profile.organization_id)
+      .maybeSingle(),
   ]);
 
   const documents = documentsResult.data ?? [];
   const aiOutputs = aiOutputsResult.data ?? [];
   const cases = casesResult.data ?? [];
   const checklistItems = checklistItemsResult.data ?? [];
+
+  const industry = normalizeIndustryType(organizationResult?.data?.industry_type);
+  const terms = getIndustryTerms(industry);
+  const isFem = terms.expedientePlural.toLowerCase() === 'operaciones';
 
   // 1. Documentos sensibles
   const sensiblesAll = documents.filter((doc) => isSensitiveDocument(doc.sensitivity_level));
@@ -137,7 +148,7 @@ export default async function ObservacionesPage() {
           </p>
         </MotionCard>
         <MotionCard index={2} className="p-5">
-          <p className="text-sm font-semibold text-slate-400">Exp. incompletos</p>
+          <p className="text-sm font-semibold text-slate-400">{terms.observacionesIncompletosCard}</p>
           <p className={`mt-2 text-3xl font-bold ${incompletosAll.length > 0 ? 'text-amber-400' : 'text-white'}`}>
             {incompletosAll.length}
           </p>
@@ -155,7 +166,7 @@ export default async function ObservacionesPage() {
           </p>
         </MotionCard>
         <MotionCard index={5} className="p-5">
-          <p className="text-sm font-semibold text-slate-400">Plazos</p>
+          <p className="text-sm font-semibold text-slate-400">{terms.observacionesPlazosCard}</p>
           <p className={`mt-2 text-3xl font-bold ${plazosAll.length > 0 ? 'text-amber-400' : 'text-white'}`}>
             {plazosAll.length}
           </p>
@@ -223,13 +234,13 @@ export default async function ObservacionesPage() {
 
           {/* 3. Expedientes incompletos */}
           <MotionCard index={8} className="p-6">
-            <h3 className="text-lg font-bold text-white">Expedientes incompletos</h3>
+            <h3 className="text-lg font-bold text-white">{terms.observacionesIncompletosTitulo}</h3>
             <p className="mt-1 text-sm text-slate-400">Checklist documental sugerido, aún sin completar.</p>
             <div className="mt-4 space-y-3">
               {incompletos.length > 0 ? incompletos.map((c) => (
                 <Link key={c.id} href={`/expedientes/${c.id}`} className="flex items-center justify-between rounded-xl border border-white/10 bg-white/[0.02] p-3 cursor-pointer transition hover:bg-white/[0.04]">
                   <div className="overflow-hidden">
-                    <p className="truncate font-bold text-slate-200">{c.title || 'Expediente sin título'}</p>
+                    <p className="truncate font-bold text-slate-200">{c.title || terms.itemSinTitulo}</p>
                   </div>
                   <div className="ml-3 flex shrink-0 items-center gap-3">
                     <span className="rounded-full bg-white/10 px-2 py-1 text-xs font-bold text-slate-300">
@@ -239,9 +250,9 @@ export default async function ObservacionesPage() {
                   </div>
                 </Link>
               )) : (
-                <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-4 text-sm text-emerald-200/70">Todos los expedientes están completos.</div>
+                <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-4 text-sm text-emerald-200/70">Todos los {terms.expedientePlural.toLowerCase()} están {isFem ? 'completas' : 'completos'}.</div>
               )}
-              {incompletosAll.length > 8 && <Link href="/expedientes" className="block text-sm font-bold text-cyan-400 hover:text-cyan-300">Ver todos los expedientes</Link>}
+              {incompletosAll.length > 8 && <Link href="/expedientes" className="block text-sm font-bold text-cyan-400 hover:text-cyan-300">Ver {isFem ? 'todas las' : 'todos los'} {terms.expedientePlural.toLowerCase()}</Link>}
             </div>
           </MotionCard>
 
@@ -298,8 +309,8 @@ export default async function ObservacionesPage() {
 
           {/* 6. Plazos procesales / fechas clave */}
           <MotionCard index={11} className="p-6">
-            <h3 className="text-lg font-bold text-white">Plazos procesales / fechas clave</h3>
-            <p className="mt-1 text-sm text-slate-400">Expedientes con audiencia o plazo próximo o vencido.</p>
+            <h3 className="text-lg font-bold text-white">{terms.observacionesPlazosTitulo}</h3>
+            <p className="mt-1 text-sm text-slate-400">{terms.observacionesPlazosDesc}</p>
             <div className="mt-4 space-y-3">
               {plazos.length > 0 ? plazos.map((item) => {
                 const status = getDocumentExpiryStatus(item.fecha);
@@ -308,7 +319,7 @@ export default async function ObservacionesPage() {
                 return (
                   <Link key={item.id} href={`/expedientes/${item.id}`} className="flex items-center justify-between rounded-xl border border-white/10 bg-white/[0.02] p-3 cursor-pointer transition hover:bg-white/[0.04]">
                     <div className="overflow-hidden">
-                      <p className="truncate font-bold text-slate-200">{item.title || 'Expediente sin título'}</p>
+                      <p className="truncate font-bold text-slate-200">{item.title || terms.itemSinTitulo}</p>
                       <p className="truncate text-xs text-slate-400">{formatPlazoDate(item.fecha)}</p>
                     </div>
                     <div className="ml-3 flex shrink-0 items-center gap-3">
@@ -318,7 +329,7 @@ export default async function ObservacionesPage() {
                   </Link>
                 );
               }) : (
-                <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-4 text-sm text-emerald-200/70">Sin plazos próximos.</div>
+                <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-4 text-sm text-emerald-200/70">{terms.observacionesPlazosVacio}</div>
               )}
               {plazosAll.length > 8 && <Link href="/expedientes" className="block text-sm font-bold text-cyan-400 hover:text-cyan-300">Ver todos ({plazosAll.length})</Link>}
             </div>

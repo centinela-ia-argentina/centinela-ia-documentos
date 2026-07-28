@@ -89,14 +89,14 @@ function buildMetricCard(
       return {
         label: `${terms.expedientePlural} ${isFem ? 'activas' : 'activos'}`,
         value: String(values.activeCases),
-        helper: 'Estado Activo',
+        helper: terms.dashboardActivesHelper,
       };
     }
     case 'proximos_plazos':
       return {
         label: 'Próximos plazos',
         value: String(values.proximosPlazos ?? 0),
-        helper: 'Audiencias / plazos próximos o vencidos',
+        helper: terms.dashboardPlazosHelper,
         href: '/observaciones',
       };
     case 'documentos_cargados':
