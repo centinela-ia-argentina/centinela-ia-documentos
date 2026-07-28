@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/server';
 import { getUserProfile } from '@/lib/auth/getUserProfile';
 import { formatAuditActionLabel } from '@/lib/audit/actionLabels';
 import { normalizeIndustryType, industryLabels } from '@/lib/industries/documentTypes';
-import { getCaseStatusLabel } from '@/lib/industries/caseConfig';
+import { getCaseStatusLabel, isCaseActive } from '@/lib/industries/caseConfig';
 import { getIndustryTerms, type IndustryTerms } from '@/lib/industries/uiLabels';
 import { getDocumentExpiryStatus } from '@/lib/documents/expiry';
 import { MotionCard } from '@/components/ui/MotionCard';
@@ -482,7 +482,7 @@ if (
   const analysisCountByDocument = getAnalysisCountByDocument(aiOutputs);
 
   const totalCases = cases.length;
-  const activeCases = cases.filter((item) => item.status !== 'archived').length;
+  const activeCases = cases.filter((item) => isCaseActive(item.status)).length;
 
   const totalDocuments = documents.length;
 

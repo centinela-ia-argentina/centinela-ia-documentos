@@ -129,7 +129,7 @@ export default async function ObservacionesPage() {
             Centro de atención operativa
           </h2>
           <p className="mt-2 text-sm text-slate-400">
-            Lo que requiere tu acción ahora: pendientes operativos del día a día — documentos sensibles, vencimientos, checklist incompleto y plazos.
+            {terms.observacionesSubtitulo}
           </p>
         </div>
       </div>

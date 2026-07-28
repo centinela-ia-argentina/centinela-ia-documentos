@@ -241,6 +241,25 @@ export const legacyCaseStatusLabels: Record<string, string> = {
   'En tramite': 'En trámite',
   'En trámite': 'En trámite',
 };
+
+export const OPEN_CASE_STATUSES: readonly string[] = [
+  'new',
+  'active',
+  'in_review',
+  'waiting_client',
+  'incomplete',
+  'Activo',
+  'En tramite',
+  'En trámite',
+];
+
+export const TERMINAL_CASE_STATUSES: readonly string[] = [
+  'archived',
+  'complete',
+  'completed',
+  'Archivado',
+];
+
 export function getCaseFields(industry: IndustryType): CaseFieldDef[] {
   return caseFieldsByIndustry[industry] ?? [];
 }
@@ -307,4 +326,9 @@ export function getCaseTypeLabel(type?: string | null): string {
   }
   // Si no, ya es una etiqueta legible (Demanda, Escritura, etc.) -> dejar tal cual
   return value;
+}
+
+export function isCaseActive(status?: string | null): boolean {
+  if (!status) return false;
+  return OPEN_CASE_STATUSES.includes(status);
 }

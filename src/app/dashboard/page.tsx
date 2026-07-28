@@ -14,6 +14,7 @@ import {
 } from '@/lib/industries/documentTypes';
 import {
   getDashboardCards,
+  isCaseActive,
   type DashboardCardKey,
 } from '@/lib/industries/caseConfig';
 import { getIndustryTerms, type IndustryTerms } from '@/lib/industries/uiLabels';
@@ -192,7 +193,7 @@ export default async function DashboardPage() {
   const recentActivity =
     (activityLogsResult.data ?? []) as DashboardActivityLog[];
 
-  const activeCasesCount = cases.filter((c) => c.status === 'active' || c.status === 'Activo').length;
+  const activeCasesCount = cases.filter((c) => isCaseActive(c.status)).length;
   const proximosPlazos = cases.filter((c) => {
     const fecha = ((c.metadata as Record<string, unknown> | null)?.fecha_relevante as string | undefined)?.trim();
     if (!fecha) return false;
