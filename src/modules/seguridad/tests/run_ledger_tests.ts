@@ -2,12 +2,25 @@ import { createClient } from '@supabase/supabase-js';
 import crypto from 'crypto';
 
 // Setup connection (requires supabase credentials in env)
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+const rawUrl = process.env.SUPABASE_TEST_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+const supabaseUrl = rawUrl.replace(/\/rest\/v1\/?$/, '').replace(/\/+$/, '');
+const supabaseKey = process.env.SUPABASE_TEST_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 async function runTests() {
   console.log('--- INICIANDO PRUEBAS DEL LEDGER ---');
+  
+  // SALVAGUARDA ANTES DE OPERACIONES
+  const connectedId = supabaseUrl.replace(/^https?:\/\//, '').split('.')[0];
+  const testUrl = process.env.SUPABASE_TEST_URL || '';
+  const expectedId = testUrl.replace(/^https?:\/\//, '').split('.')[0];
+  if (!connectedId || connectedId !== expectedId || !expectedId) {
+    throw new Error(`ABORTANDO: El identificador del proyecto conectado (${connectedId}) no coincide exactamente con el de SUPABASE_TEST_URL (${expectedId}).`);
+  }
+  if (process.env.SEGURIDAD_TEST_CONFIRMADO !== 'si') {
+    throw new Error('ABORTANDO: La variable SEGURIDAD_TEST_CONFIRMADO no existe o no vale "si".');
+  }
+
   const org1 = crypto.randomUUID();
   const org2 = crypto.randomUUID();
 
@@ -102,6 +115,34 @@ async function runTests() {
       expectedPrevHash = Buffer.from(entry.entry_hash, 'base64').toString('hex');
     }
     console.log('✅ Criterio 7 cumplido: Se pueden reproducir y verificar los hashes.');
+
+    // VERIFICACIÓN EXTRA A: Un INSERT directo usando clave pública anónima
+    console.log('\n[Verificación Extra A] Intento de INSERT directo con clave pública anónima...');
+    const anonKey = process.env.SUPABASE_TEST_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+    const supabaseAnon = createClient(supabaseUrl, anonKey);
+    const { error: insertAnonError } = await supabaseAnon.from('security_ledger').insert({
+      org_id: org1,
+      seq: 999,
+      actor_type: 'human',
+      actor_id: 'anon',
+      action: 'ANON_ACTION',
+      prev_hash: '00',
+      entry_hash: '00'
+    });
+    if (insertAnonError) {
+      console.log('✅ Verificación Extra A cumplida: INSERT directo anónimo falla por permisos ->', insertAnonError.message);
+    } else {
+      throw new Error('INSERT directo anónimo no falló por permisos');
+    }
+
+    // VERIFICACIÓN EXTRA B: Un SELECT sobre security_ledger usando la clave pública anónima
+    console.log('\n[Verificación Extra B] Intento de SELECT con clave pública anónima...');
+    const { data: selectAnonData, error: selectAnonError } = await supabaseAnon.from('security_ledger').select('*');
+    if (selectAnonError || !selectAnonData || selectAnonData.length === 0) {
+      console.log('✅ Verificación Extra B cumplida: SELECT anónimo no devuelve filas ->', selectAnonError ? selectAnonError.message : '0 filas devueltas');
+    } else {
+      throw new Error(`SELECT anónimo devolvió ${selectAnonData.length} filas`);
+    }
 
     console.log('\n🎉 Todas las pruebas finalizadas exitosamente.');
 

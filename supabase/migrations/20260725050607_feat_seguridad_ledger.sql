@@ -1,5 +1,3 @@
-create extension if not exists pgcrypto;
-
 create table security_ledger (
   id          bigserial primary key,
   org_id      uuid not null,
@@ -16,6 +14,9 @@ create table security_ledger (
   unique (org_id, seq)
 );
 
+alter table security_ledger enable row level security;
+revoke all on security_ledger from public, anon, authenticated;
+
 create index idx_ledger_org_time
   on security_ledger (org_id, occurred_at desc);
 
@@ -24,6 +25,7 @@ revoke update, delete, truncate on security_ledger from public, authenticated, a
 create or replace function abort_ledger_modification()
 returns trigger
 language plpgsql
+set search_path = pg_catalog, public, pg_temp
 as $$
 begin
   raise exception 'Modification of security_ledger is strictly prohibited.';
@@ -44,17 +46,20 @@ create or replace function canonical_json(payload jsonb)
 returns text
 language plpgsql
 immutable
+set search_path = pg_catalog, public, pg_temp
 as $$
 begin
-  -- Casting jsonb to text in PostgreSQL natively orders keys.
-  -- This fulfills the requirement for a key-ordered serialization.
+  -- NOTA: Casting jsonb to text en PostgreSQL ordena las claves por longitud y despues por bytes (no lexicograficamente).
+  -- La serializacion canonica conforme a RFC 8785 es la OT-2; esta implementacion es provisoria y reemplazable.
   return payload::text;
 end;
 $$;
 
 create or replace function jsonb_has_float(val jsonb)
 returns boolean
-language plpgsql immutable
+language plpgsql
+immutable
+set search_path = pg_catalog, public, pg_temp
 as $$
 declare
   k text;
@@ -74,7 +79,7 @@ begin
       end if;
     end loop;
   elsif jsonb_typeof(val) = 'number' then
-    if (val::text) ~ '\.' then
+    if (val::text) ~ '[\.eE]' then
       return true;
     end if;
   end if;
@@ -94,6 +99,7 @@ create or replace function ledger_append(
 returns table(seq bigint, entry_hash bytea)
 security definer
 language plpgsql
+set search_path = pg_catalog, public, pg_temp
 as $$
 declare
   v_seq bigint;
@@ -150,7 +156,7 @@ begin
   end if;
 
   v_canonical := canonical_json(v_entry);
-  v_entry_hash := digest(v_prev_hash || convert_to(v_canonical, 'UTF8'), 'sha256');
+  v_entry_hash := sha256(v_prev_hash || convert_to(v_canonical, 'UTF8'));
 
   insert into security_ledger (
     org_id, seq, occurred_at, actor_type, actor_id, action, object_type, object_id, payload, prev_hash, entry_hash
@@ -161,3 +167,6 @@ begin
   return query select v_seq, v_entry_hash;
 end;
 $$;
+
+revoke all on function ledger_append(uuid, text, text, text, text, text, jsonb)
+  from public, anon, authenticated;
