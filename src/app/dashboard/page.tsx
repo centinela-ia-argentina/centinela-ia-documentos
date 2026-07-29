@@ -1,25 +1,19 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { getUserProfile } from '@/lib/auth/getUserProfile';
-import { formatAuditActionLabel } from '@/lib/audit/actionLabels';
 import { createClient } from '@/lib/supabase/server';
 import { AppShell } from '@/components/layout/AppShell';
 import { MetricCard } from '@/components/dashboard/MetricCard';
 import { Reveal } from '@/components/ui/Reveal';
 import { MotionCard } from '@/components/ui/MotionCard';
-import { MotionButton } from '@/components/ui/MotionButton';
-import {
-  getDocumentTypeLabel,
-  normalizeIndustryType,
-} from '@/lib/industries/documentTypes';
+import { normalizeIndustryType } from '@/lib/industries/documentTypes';
 import {
   getDashboardCards,
   isCaseActive,
   type DashboardCardKey,
 } from '@/lib/industries/caseConfig';
 import { getIndustryTerms, type IndustryTerms } from '@/lib/industries/uiLabels';
-import { analyzeDocument } from '../documentos/actions';
-import { canViewAudit, isUserRole } from '@/lib/permissions/roles';
+import { isUserRole } from '@/lib/permissions/roles';
 import { getDocumentExpiryStatus } from '@/lib/documents/expiry';
 import { sensitivityLabel, isSensitiveDocument } from '@/lib/documents/sensitivity';
 import { PrimerosPasos } from '@/components/dashboard/PrimerosPasos';
@@ -34,43 +28,7 @@ interface DashboardDocument {
   expires_at?: string | null;
 }
 
-interface DashboardActivityLog {
-  id: string;
-  action: string;
-  resource_type?: string | null;
-  created_at?: string | null;
-  metadata?: Record<string, unknown> | null;
-}
 
-function formatDate(value?: string | null) {
-  if (!value) return 'Sin registro';
-
-  const date = new Date(value);
-
-  if (Number.isNaN(date.getTime())) return 'Sin registro';
-
-  return new Intl.DateTimeFormat('es-AR', {
-    dateStyle: 'short',
-    timeStyle: 'short',
-  }).format(date);
-}
-
-function getAuditDetail(log: DashboardActivityLog) {
-  const metadata = log.metadata ?? {};
-  const candidates = [
-    metadata.file_name,
-    metadata.case_title,
-    metadata.email,
-    metadata.target_email,
-    log.resource_type,
-  ];
-
-  const detail = candidates.find(
-    (value) => typeof value === 'string' && value.trim().length > 0
-  );
-
-  return typeof detail === 'string' ? detail : 'Actividad registrada';
-}
 
 function buildMetricCard(
   card: DashboardCardKey,
@@ -106,12 +64,7 @@ function buildMetricCard(
         value: String(values.loadedDocuments),
         helper: 'Bóveda privada',
       };
-    case 'analisis_pendientes':
-      return {
-        label: 'Análisis pendientes',
-        value: String(values.pendingAnalysis),
-        helper: 'Sin análisis IA',
-      };
+
     case 'documentos_sensibles':
       return {
         label: 'Documentos sensibles',
@@ -124,8 +77,7 @@ function buildMetricCard(
         value: String(values.expiringDocuments),
         helper: 'Por vencer o vencidos',
       };
-    case 'actividad_reciente':
-      return null;
+
     default:
       return null;
   }
@@ -138,7 +90,6 @@ export default async function DashboardPage() {
   if (!profile) redirect('/onboarding');
 
   const role = isUserRole(profile.role) ? profile.role : null;
-  const mayViewAudit = role ? canViewAudit(role) : false;
 
   const supabase = await createClient();
 
@@ -147,7 +98,6 @@ export default async function DashboardPage() {
     casesResult,
     documentsResult,
     aiOutputsResult,
-    activityLogsResult,
   ] = await Promise.all([
     supabase
       .from('organizations')
@@ -173,15 +123,6 @@ export default async function DashboardPage() {
       .select('document_id')
       .eq('organization_id', profile.organization_id)
       .eq('output_type', 'document_analysis'),
-
-    mayViewAudit
-      ? supabase
-          .from('audit_logs')
-          .select('id, action, resource_type, metadata, created_at')
-          .eq('organization_id', profile.organization_id)
-          .order('created_at', { ascending: false })
-          .limit(5)
-      : Promise.resolve({ data: [], error: null }),
   ]);
 
   const industry = normalizeIndustryType(organizationResult.data?.industry_type);
@@ -190,8 +131,6 @@ export default async function DashboardPage() {
   const cases = (casesResult.data ?? []) as any[];
   const documents = (documentsResult.data ?? []) as DashboardDocument[];
   const aiOutputs = aiOutputsResult.data ?? [];
-  const recentActivity =
-    (activityLogsResult.data ?? []) as DashboardActivityLog[];
 
   const activeCasesCount = cases.filter((c) => isCaseActive(c.status)).length;
   const proximosPlazos = cases.filter((c) => {
@@ -228,7 +167,7 @@ export default async function DashboardPage() {
       ? Math.round((analyzedDocuments.length / documents.length) * 100)
       : 0;
 
-  const pendingPreview = pendingDocuments.slice(0, 5);
+
   const sensitiveDocuments = documents.filter((document) =>
     isSensitiveDocument(document.sensitivity_level)
   );
@@ -252,7 +191,7 @@ export default async function DashboardPage() {
     )
     .filter((card): card is NonNullable<typeof card> => Boolean(card));
 
-  const showRecentActivity = dashboardCards.includes('actividad_reciente');
+
 
 
   // Primeros pasos (home guiado)
@@ -320,7 +259,7 @@ export default async function DashboardPage() {
               </div>
 
               <Link
-                href="/documentos?ia=pendientes"
+                href="/observaciones#analisis-ia-pendientes"
                 className="quick-action"
               >
                 Ver pendientes
@@ -364,145 +303,8 @@ export default async function DashboardPage() {
             </div>
           </div>
         </MotionCard>
-
-        <MotionCard index={2} className="flex flex-col">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <div className="flex items-center gap-2.5">
-                <span className="h-6 w-1 rounded-full bg-gradient-to-b from-accent to-brandviolet" />
-                <h2 className="font-display text-lg font-semibold text-white">Documentos pendientes de análisis</h2>
-              </div>
-
-              <p className="mt-2 text-sm text-slate-400">
-                Primeros documentos que todavía requieren procesamiento IA.
-              </p>
-            </div>
-
-            <span className="rounded-full bg-cyan-500/10 px-3 py-1 text-xs font-bold text-cyan-400">
-              {pendingDocuments.length} pendientes
-            </span>
-          </div>
-
-          <div className="mt-5 space-y-3">
-            {pendingPreview.length > 0 ? (
-              pendingPreview.map((document) => {
-                const isPdf = document.file_mime_type === 'application/pdf';
-
-                return (
-                  <div
-                    key={document.id}
-                    className="rounded-2xl border border-white/5 bg-white/[0.02] p-4"
-                  >
-                    <Link href={`/documentos/${document.id}`}>
-                      <p className="font-bold text-white hover:text-cyan-400">
-                        {document.file_name}
-                      </p>
-                    </Link>
-
-                    <p className="mt-1 text-xs text-slate-400">
-                      Tipo: {getDocumentTypeLabel(document.document_type)} - Sensibilidad:{' '}
-                      {sensitivityLabel(document.sensitivity_level)}
-                    </p>
-
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      <Link
-                        href={`/documentos/${document.id}`}
-                        className="quick-action"
-                      >
-                        Ver documento
-                      </Link>
-
-                      {isPdf ? (
-                        <form action={analyzeDocument}>
-                          <input
-                            type="hidden"
-                            name="document_id"
-                            value={document.id}
-                          />
-
-                          <MotionButton className="bg-gradient-to-r from-accent to-brandviolet text-xs text-white">
-                            Analizar IA
-                          </MotionButton>
-                        </form>
-                      ) : (
-                        <span className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-bold text-slate-400">
-                          IA solo PDF
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                );
-              })
-            ) : (
-              <div className="rounded-2xl border border-cyan-500/20 bg-cyan-500/10 p-4 text-sm text-cyan-200">
-                Todos los documentos cargados ya tienen al menos un análisis IA.
-              </div>
-            )}
-          </div>
-
-          {pendingDocuments.length > 5 ? (
-            <Link
-              href="/documentos?ia=pendientes"
-              className="mt-5 inline-flex text-sm font-bold text-cyan-400 hover:text-cyan-300"
-            >
-              Ver todos los pendientes
-            </Link>
-          ) : null}
-        </MotionCard>
       </div>
 
-      {showRecentActivity ? (
-        <MotionCard index={3} className="mt-8">
-          <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-start">
-            <div>
-              <div className="flex items-center gap-2.5">
-                <span className="h-6 w-1 rounded-full bg-gradient-to-b from-accent to-brandviolet" />
-                <h2 className="font-display text-lg font-semibold text-white">Actividad reciente</h2>
-              </div>
-              <p className="mt-2 text-sm text-slate-400">
-                Últimos eventos auditados
-              </p>
-            </div>
-            <Link
-              href="/reportes"
-              className="quick-action"
-            >
-              Ver reportes
-            </Link>
-          </div>
-
-          <div className="mt-5 space-y-3">
-            {!mayViewAudit ? (
-              <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 text-sm text-slate-400">
-                Tu rol no tiene acceso a la auditoría.
-              </div>
-            ) : recentActivity.length > 0 ? (
-              recentActivity.map((log) => (
-                <div
-                  key={log.id}
-                  className="flex flex-col gap-2 rounded-2xl border border-white/5 bg-white/[0.02] p-4 sm:flex-row sm:items-center sm:justify-between"
-                >
-                  <div>
-                    <p className="font-bold text-white">
-                      {formatAuditActionLabel(log.action)}
-                    </p>
-                    <p className="mt-1 text-sm text-slate-400">
-                      {getAuditDetail(log)}
-                    </p>
-                  </div>
-                  <span className="text-xs font-semibold text-slate-500">
-                    {formatDate(log.created_at)}
-                  </span>
-                </div>
-              ))
-            ) : (
-              <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 text-sm text-slate-400">
-                Todavía no hay actividad auditada para mostrar.
-              </div>
-            )}
-          </div>
-        </MotionCard>
-      ) : null}
     </AppShell>
   );
 }

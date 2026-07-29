@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation';
 import { AppShell } from '@/components/layout/AppShell';
 import { createClient } from '@/lib/supabase/server';
 import { getUserProfile } from '@/lib/auth/getUserProfile';
-import { formatAuditActionLabel } from '@/lib/audit/actionLabels';
+import { formatAuditActionLabel, formatResourceTypeLabel } from '@/lib/audit/actionLabels';
 import { normalizeIndustryType, industryLabels } from '@/lib/industries/documentTypes';
 import { getCaseStatusLabel, isCaseActive } from '@/lib/industries/caseConfig';
 import { getIndustryTerms, type IndustryTerms } from '@/lib/industries/uiLabels';
@@ -315,7 +315,7 @@ function getResourceLabel(
 
   if (log.resource_type === 'organization') return 'Organización';
 
-  return log.resource_type ?? 'Recurso Sin clasificar';
+  return formatResourceTypeLabel(log.resource_type, terms);
 }
 
 function getAuditDetail(log: AuditLogRecordForReport) {
@@ -972,9 +972,6 @@ if (
                         {formatAuditActionLabel(log.action)}
                       </span>
 
-                      <p className="mt-2 text-xs text-slate-500">
-                        Acción técnica: {log.action}
-                      </p>
                     </td>
 
                     <td className="px-4 py-4">
@@ -992,9 +989,6 @@ if (
                         {getResourceLabel(log, documentsById, casesById, terms)}
                       </p>
 
-                      <p className="mt-1 text-xs text-slate-500">
-                        {log.resource_type ?? 'sin_tipo'}
-                      </p>
                     </td>
 
                     <td className="px-4 py-4 text-slate-300 break-words whitespace-normal max-w-[200px] sm:max-w-[300px]">

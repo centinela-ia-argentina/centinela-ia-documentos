@@ -1,3 +1,5 @@
+import type { IndustryTerms } from '@/lib/industries/uiLabels';
+
 const auditActionLabels: Record<string, string> = {
   organization_created: 'Organización creada',
   organization_industry_updated: 'Rubro de organización actualizado',
@@ -48,4 +50,21 @@ export function formatAuditActionLabel(action?: string | null): string {
     .filter(Boolean)
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(' ');
+}
+
+export function formatResourceTypeLabel(resourceType?: string | null, terms?: IndustryTerms): string {
+  if (!resourceType) return 'Recurso sin clasificar';
+  const norm = resourceType.toLowerCase();
+  switch (norm) {
+    case 'organization': return 'Organización';
+    case 'case': return terms ? terms.expedienteSingular : 'Expediente';
+    case 'document': return 'Documento';
+    case 'user': return 'Usuario';
+    case 'invitation':
+    case 'user_invitation': return 'Invitación';
+    case 'ai':
+    case 'ai_output': return 'Motor IA';
+    default:
+      return norm.charAt(0).toUpperCase() + norm.slice(1);
+  }
 }
