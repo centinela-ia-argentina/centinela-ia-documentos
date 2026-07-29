@@ -1,5 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 
+import { LedgerAppendRpc } from './rpc.types';
+
 export type ActorType = 'human' | 'agent' | 'system';
 
 export interface LedgerEntryPayload {
@@ -34,7 +36,8 @@ export async function appendLedgerEntry(
     throw new Error('Payload cannot contain floating point numbers');
   }
 
-  const { data, error } = await supabase.rpc('ledger_append', {
+  // Se elimina el dia que el archivo de tipos generado incluya la funcion.
+  const { data, error } = await (supabase.rpc as unknown as LedgerAppendRpc)('ledger_append', {
     p_org_id: params.org_id,
     p_actor_type: params.actor_type,
     p_actor_id: params.actor_id,

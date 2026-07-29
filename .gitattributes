@@ -1,0 +1,3 @@
+src/modules/seguridad/**/*.ts text eol=lf
+src/modules/seguridad/**/*.json text eol=lf
+supabase/migrations/*.sql text eol=lf
