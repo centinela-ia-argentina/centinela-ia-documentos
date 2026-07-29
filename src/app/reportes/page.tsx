@@ -1,11 +1,11 @@
-import Link from 'next/link';
+﻿import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { AppShell } from '@/components/layout/AppShell';
 import { createClient } from '@/lib/supabase/server';
 import { getUserProfile } from '@/lib/auth/getUserProfile';
 import { formatAuditActionLabel, formatResourceTypeLabel } from '@/lib/audit/actionLabels';
 import { normalizeIndustryType, industryLabels } from '@/lib/industries/documentTypes';
-import { getCaseStatusLabel, isCaseActive, caseStatusesByIndustry } from '@/lib/industries/caseConfig';
+import { getCaseStatusLabel, isCaseActive, caseStatusesByIndustry, TERMINAL_CASE_STATUSES } from '@/lib/industries/caseConfig';
 import { getIndustryTerms, type IndustryTerms } from '@/lib/industries/uiLabels';
 import { getDocumentExpiryStatus } from '@/lib/documents/expiry';
 import { MotionCard } from '@/components/ui/MotionCard';
@@ -98,12 +98,12 @@ function sensitivityLabel(value?: string | null) {
     low: 'Bajo',
     medium: 'Medio',
     high: 'Alto',
-    critical: 'Crítico',
+    critical: 'CrÃ­tico',
     bajo: 'Bajo',
     medio: 'Medio',
     alto: 'Alto',
-    critico: 'Crítico',
-    crítico: 'Crítico',
+    critico: 'CrÃ­tico',
+    crÃ­tico: 'CrÃ­tico',
   };
 
   return labels[String(value ?? '').toLowerCase()] ?? value ?? 'No definida';
@@ -112,7 +112,7 @@ function sensitivityLabel(value?: string | null) {
 function sensitivityRank(value?: string | null) {
   const normalized = String(value ?? '').toLowerCase();
 
-  if (normalized === 'critical' || normalized === 'critico' || normalized === 'crítico') {
+  if (normalized === 'critical' || normalized === 'critico' || normalized === 'crÃ­tico') {
     return 4;
   }
 
@@ -240,7 +240,7 @@ function metadataText(
 
   if (typeof value === 'string') return value;
   if (typeof value === 'number') return String(value);
-  if (typeof value === 'boolean') return value ? 'Sí' : 'No';
+  if (typeof value === 'boolean') return value ? 'SÃ­' : 'No';
 
   return null;
 }
@@ -263,7 +263,7 @@ function getActorRole(
   log: AuditLogRecordForReport,
   profilesById: Map<string, ProfileRecordForReport>
 ) {
-  if (!log.user_id) return 'Automático';
+  if (!log.user_id) return 'AutomÃ¡tico';
 
   const profile = profilesById.get(log.user_id);
 
@@ -296,7 +296,7 @@ function getResourceLabel(
     log.action.includes('invitation') ||
     log.action.includes('invitacion')
   ) {
-    return metadataEmail ?? 'Invitación de usuario';
+    return metadataEmail ?? 'InvitaciÃ³n de usuario';
   }
 
   if (log.resource_type === 'document' && log.resource_id) {
@@ -313,7 +313,7 @@ function getResourceLabel(
     );
   }
 
-  if (log.resource_type === 'organization') return 'Organización';
+  if (log.resource_type === 'organization') return 'OrganizaciÃ³n';
 
   return formatResourceTypeLabel(log.resource_type, terms);
 }
@@ -341,9 +341,9 @@ function getAuditDetail(log: AuditLogRecordForReport) {
     if (log.action === 'organization_industry_updated') {
       const fromLabel = statusFrom ? (industryLabels[normalizeIndustryType(statusFrom)] || statusFrom) : '-';
       const toLabel = statusTo ? (industryLabels[normalizeIndustryType(statusTo)] || statusTo) : '-';
-      details.push(`Rubro: ${fromLabel} → ${toLabel}`);
+      details.push(`Rubro: ${fromLabel} â†’ ${toLabel}`);
     } else {
-      details.push(`Estado: ${statusFrom ?? '-'} → ${statusTo ?? '-'}`);
+      details.push(`Estado: ${statusFrom ?? '-'} â†’ ${statusTo ?? '-'}`);
     }
   }
   if (documentType) details.push(`Tipo: ${documentType}`);
@@ -357,7 +357,7 @@ function getAuditDetail(log: AuditLogRecordForReport) {
 
   if (details.length === 0) return 'Sin detalle adicional registrado.';
 
-  return details.slice(0, 3).join(' · ');
+  return details.slice(0, 3).join(' Â· ');
 }
 
 function isDocumentAudit(log: AuditLogRecordForReport) {
@@ -483,6 +483,7 @@ if (
 
   const totalCases = cases.length;
   const activeCases = cases.filter((item) => isCaseActive(item.status)).length;
+  const terminalCases = cases.filter((item) => TERMINAL_CASE_STATUSES.includes(item.status || 'new')).length;
 
   const totalDocuments = documents.length;
 
@@ -546,7 +547,7 @@ if (
     },
     {
       key: 'critical',
-      label: 'Crítico',
+      label: 'CrÃ­tico',
       value: documents.filter((item) => sensitivityRank(item.sensitivity_level) === 4)
         .length,
       className: 'bg-rose-500',
@@ -562,7 +563,7 @@ if (
     {
       label: `${terms.expedientePlural} ${isFem ? 'activas' : 'activos'}`,
       value: activeCases,
-      helper: 'En proceso o preparación',
+      helper: 'En proceso o preparaciÃ³n',
     },
     {
       label: 'Documentos cargados',
@@ -580,7 +581,7 @@ if (
     { label: 'General', value: 'general', href: '/reportes' },
     { label: terms.expedientePlural, value: 'gestion', href: '/reportes?vista=gestion' },
     { label: 'Documentos e IA', value: 'documentos', href: '/reportes?vista=documentos' },
-    { label: 'Auditoría', value: 'auditoria', href: '/reportes?vista=auditoria' },
+    { label: 'AuditorÃ­a', value: 'auditoria', href: '/reportes?vista=auditoria' },
   ];
 
   const auditFilters: Array<{
@@ -690,7 +691,7 @@ if (
               Estado de {isFem ? 'las ' : 'los '} {terms.expedientePlural.toLowerCase()}
             </h3>
             <p className="mt-2 text-sm text-slate-300">
-              Distribución actual por etapa de gestión.
+              DistribuciÃ³n actual por etapa de gestiÃ³n.
             </p>
 
             <div className="mt-6 mb-6 grid gap-4 sm:grid-cols-3">
@@ -703,8 +704,8 @@ if (
                 <p className="mt-2 text-3xl font-bold text-emerald-400">{activeCases}</p>
               </div>
               <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-5">
-                <p className="text-sm font-semibold text-slate-400">{isFem ? 'Archivadas / Inactivas' : 'Archivados / Inactivos'}</p>
-                <p className="mt-2 text-3xl font-bold text-slate-400">{totalCases - activeCases}</p>
+                <p className="text-sm font-semibold text-slate-400">{getCaseStatusLabel('archived', industry)}</p>
+                <p className="mt-2 text-3xl font-bold text-slate-400">{terminalCases}</p>
               </div>
             </div>
 
@@ -718,7 +719,7 @@ if (
                       <div className="mb-2 flex justify-between text-sm">
                         <span className="font-semibold text-slate-300">{s.label}</span>
                         <span className="font-bold text-white">
-                          {count} · {percentage}%
+                          {count} Â· {percentage}%
                         </span>
                       </div>
                       <div className="h-3 overflow-hidden rounded-full bg-slate-800">
@@ -730,6 +731,36 @@ if (
                     </div>
                   );
                 })}
+                {(() => {
+                  const officialStatuses = new Set(caseStatuses.map(s => s.value));
+                  let otherCount = 0;
+                  casesByStatus.forEach((count, status) => {
+                    if (!officialStatuses.has(status)) {
+                      otherCount += count;
+                    }
+                  });
+
+                  if (otherCount > 0) {
+                    const percentage = getPercentage(otherCount, totalCases);
+                    return (
+                      <div key="otros" className="rounded-2xl bg-white/[0.04] p-4">
+                        <div className="mb-2 flex justify-between text-sm">
+                          <span className="font-semibold text-slate-300">Otros estados histÃ³ricos</span>
+                          <span className="font-bold text-white">
+                            {otherCount} Â· {percentage}%
+                          </span>
+                        </div>
+                        <div className="h-3 overflow-hidden rounded-full bg-slate-800">
+                          <div
+                            className="h-full rounded-full bg-slate-500"
+                            style={{ width: `${percentage}%` }}
+                          />
+                        </div>
+                      </div>
+                    );
+                  }
+                  return null;
+                })()}
               </div>
             ) : (
               <div className="mt-6 rounded-2xl border border-white/10 bg-white/[0.02] p-6 text-center text-sm text-slate-500">
@@ -750,11 +781,11 @@ if (
                 </p>
 
                 <h3 className="mt-2 text-2xl font-bold text-white">
-                  Estado del análisis documental
+                  Estado del anÃ¡lisis documental
                 </h3>
 
                 <p className="mt-2 text-sm text-slate-300">
-                  Medición de documentos analizados y pendientes.
+                  MediciÃ³n de documentos analizados y pendientes.
                 </p>
               </div>
 
@@ -806,7 +837,7 @@ if (
                 Cobertura de documentos procesados por IA.
               </p>
               <p className="mt-1 text-sm text-slate-400">
-                Muestra la relación entre los documentos totales del sistema y aquellos que ya cuentan con un análisis estructural completo.
+                Muestra la relaciÃ³n entre los documentos totales del sistema y aquellos que ya cuentan con un anÃ¡lisis estructural completo.
               </p>
             </div>
           </MotionCard>
@@ -821,11 +852,11 @@ if (
           </p>
 
           <h3 className="mt-2 text-2xl font-bold text-white">
-            Distribución documental
+            DistribuciÃ³n documental
           </h3>
 
           <p className="mt-2 text-sm text-slate-300">
-            Clasificación de documentos según sensibilidad asignada.
+            ClasificaciÃ³n de documentos segÃºn sensibilidad asignada.
           </p>
 
           <div className="mt-6 grid gap-5 xl:grid-cols-4">
@@ -837,7 +868,7 @@ if (
                   <div className="mb-3 flex justify-between text-sm">
                     <span className="font-semibold text-slate-300">{item.label}</span>
                     <span className="font-bold text-white">
-                      {item.value} · {percentage}%
+                      {item.value} Â· {percentage}%
                     </span>
                   </div>
 
@@ -854,10 +885,10 @@ if (
 
           <div className="mt-6 rounded-2xl border border-white/10 bg-white/[0.02] p-4">
             <p className="font-bold text-slate-300">
-              Distribución actual según sensibilidad asignada.
+              DistribuciÃ³n actual segÃºn sensibilidad asignada.
             </p>
             <p className="mt-1 text-sm text-slate-400">
-              Muestra la proporción de documentos categorizados por su nivel de riesgo y exposición de datos.
+              Muestra la proporciÃ³n de documentos categorizados por su nivel de riesgo y exposiciÃ³n de datos.
             </p>
           </div>
         </MotionCard>
@@ -885,7 +916,7 @@ if (
               <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-5">
                 <p className="text-sm font-semibold text-slate-400">Por vencer</p>
                 <p className="mt-2 text-3xl font-bold text-amber-400">{porVencer}</p>
-                <p className="mt-3 text-xs text-slate-500">Próximos 30 días</p>
+                <p className="mt-3 text-xs text-slate-500">PrÃ³ximos 30 dÃ­as</p>
               </div>
               <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-5">
                 <p className="text-sm font-semibold text-slate-400">Vigentes</p>
@@ -913,7 +944,7 @@ if (
               </p>
 
               <h3 className="mt-2 text-2xl font-bold text-white">
-                Centro de auditoría operativa
+                Centro de auditorÃ­a operativa
               </h3>
 
               <p className="mt-2 text-sm text-slate-300">
@@ -984,7 +1015,7 @@ if (
                     : 'border border-white/10 bg-white/[0.04] text-slate-200 hover:bg-white/[0.08]'
                 }`}
               >
-                {filter.label} · {filter.count}
+                {filter.label} Â· {filter.count}
               </Link>
             ))}
           </div>
@@ -1047,7 +1078,7 @@ if (
 
             {filteredAuditLogs.length === 0 ? (
               <div className="p-6 text-sm text-slate-500">
-                No hay eventos para este filtro de auditoría.
+                No hay eventos para este filtro de auditorÃ­a.
               </div>
             ) : null}
           </div>
