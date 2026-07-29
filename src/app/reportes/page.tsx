@@ -430,64 +430,54 @@ if (
   let auditLogs: AuditLogRecordForReport[] = [];
   let profiles: ProfileRecordForReport[] = [];
 
-  const promises: Promise<void>[] = [];
-
   if (activeView === 'general') {
-    promises.push(
+    const [casesResult, documentsResult, aiOutputsResult] = await Promise.all([
       supabase
         .from('cases')
         .select('id, status')
         .eq('organization_id', profile.organization_id)
-        .order('created_at', { ascending: false })
-        .then((res) => { cases = (res.data ?? []) as CaseRecord[]; })
-    );
-    promises.push(
+        .order('created_at', { ascending: false }),
       supabase
         .from('documents')
         .select('id')
         .eq('organization_id', profile.organization_id)
-        .order('created_at', { ascending: false })
-        .then((res) => { documents = (res.data ?? []) as DocumentRecordForReport[]; })
-    );
-    promises.push(
+        .order('created_at', { ascending: false }),
       supabase
         .from('ai_outputs')
         .select('document_id')
         .eq('organization_id', profile.organization_id)
         .eq('output_type', 'document_analysis')
         .order('created_at', { ascending: false })
-        .then((res) => { aiOutputs = (res.data ?? []) as AiOutputRecordForReport[]; })
-    );
-    await Promise.all(promises);
+    ]);
+
+    cases = (casesResult.data ?? []) as CaseRecord[];
+    documents = (documentsResult.data ?? []) as DocumentRecordForReport[];
+    aiOutputs = (aiOutputsResult.data ?? []) as AiOutputRecordForReport[];
   } else if (activeView === 'gestion') {
-    promises.push(
-      supabase
-        .from('cases')
-        .select('id, status')
-        .eq('organization_id', profile.organization_id)
-        .order('created_at', { ascending: false })
-        .then((res) => { cases = (res.data ?? []) as CaseRecord[]; })
-    );
-    await Promise.all(promises);
+    const casesResult = await supabase
+      .from('cases')
+      .select('id, status')
+      .eq('organization_id', profile.organization_id)
+      .order('created_at', { ascending: false });
+
+    cases = (casesResult.data ?? []) as CaseRecord[];
   } else if (activeView === 'documentos') {
-    promises.push(
+    const [documentsResult, aiOutputsResult] = await Promise.all([
       supabase
         .from('documents')
         .select('id, sensitivity_level, expires_at')
         .eq('organization_id', profile.organization_id)
-        .order('created_at', { ascending: false })
-        .then((res) => { documents = (res.data ?? []) as DocumentRecordForReport[]; })
-    );
-    promises.push(
+        .order('created_at', { ascending: false }),
       supabase
         .from('ai_outputs')
         .select('document_id')
         .eq('organization_id', profile.organization_id)
         .eq('output_type', 'document_analysis')
         .order('created_at', { ascending: false })
-        .then((res) => { aiOutputs = (res.data ?? []) as AiOutputRecordForReport[]; })
-    );
-    await Promise.all(promises);
+    ]);
+
+    documents = (documentsResult.data ?? []) as DocumentRecordForReport[];
+    aiOutputs = (aiOutputsResult.data ?? []) as AiOutputRecordForReport[];
   } else if (activeView === 'auditoria') {
     const res = await supabase
       .from('audit_logs')
