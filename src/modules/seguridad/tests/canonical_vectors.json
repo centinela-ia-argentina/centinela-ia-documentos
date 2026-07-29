@@ -1,0 +1,42 @@
+[
+  {
+    "name": "objeto_vacio",
+    "input": {},
+    "expected": "{}"
+  },
+  {
+    "name": "claves_desordenadas_mixtas",
+    "input": {"b": 1, "a": 2, "A": 3, "a1": 4},
+    "expected": "{\"A\":3,\"a\":2,\"a1\":4,\"b\":1}"
+  },
+  {
+    "name": "acentos_y_escape",
+    "input": "cadena con \"comillas\", \\barra, \nsalto, \ttab y é con acento",
+    "expected": "\"cadena con \\\"comillas\\\", \\\\barra, \\nsalto, \\ttab y é con acento\""
+  },
+  {
+    "name": "arreglos_anidados",
+    "input": [[3, 2, 1], ["z", "x", "y"], []],
+    "expected": "[[3,2,1],[\"z\",\"x\",\"y\"],[]]"
+  },
+  {
+    "name": "negativos_cero",
+    "input": {"cero": 0, "negativo": -42, "max_safe": 9007199254740991, "min_safe": -9007199254740991},
+    "expected": "{\"cero\":0,\"max_safe\":9007199254740991,\"min_safe\":-9007199254740991,\"negativo\":-42}"
+  },
+  {
+    "name": "booleanos_nulo",
+    "input": {"nulo": null, "v_true": true, "v_false": false},
+    "expected": "{\"nulo\":null,\"v_false\":false,\"v_true\":true}"
+  },
+  {
+    "name": "estructuras_mixtas",
+    "input": {"data": {"x": [true, null, 0], "a": {"z": -1, "y": 1}}},
+    "expected": "{\"data\":{\"a\":{\"y\":1,\"z\":-1},\"x\":[true,null,0]}}"
+  },
+  {
+    "name": "control_y_unicode",
+    "input": "control: \u0001 \u001f \b \f, unicode: ñ € Ω",
+    "expected": "\"control: \\u0001 \\u001f \\b \\f, unicode: ñ € Ω\""
+  }
+]
