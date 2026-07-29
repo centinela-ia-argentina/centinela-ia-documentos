@@ -563,7 +563,7 @@ if (
     {
       label: `${terms.expedientePlural} ${isFem ? 'activas' : 'activos'}`,
       value: activeCases,
-      helper: 'En proceso o preparaciÃ³n',
+      helper: 'En proceso o preparación',
     },
     {
       label: 'Documentos cargados',
@@ -812,7 +812,16 @@ if (
               </div>
             </div>
 
-            <div className="mt-6 grid gap-4 sm:grid-cols-2">
+            <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+              <div className="rounded-2xl bg-white/[0.04] p-4">
+                <p className="text-xs font-bold uppercase tracking-wide text-slate-500">
+                  Documentos totales
+                </p>
+                <p className="mt-2 text-2xl font-bold text-white">
+                  {totalDocuments}
+                </p>
+              </div>
+
               <div className="rounded-2xl bg-white/[0.04] p-4">
                 <p className="text-xs font-bold uppercase tracking-wide text-slate-500">
                   Analizados
@@ -828,6 +837,15 @@ if (
                 </p>
                 <p className="mt-2 text-2xl font-bold text-white">
                   {pendingDocuments}
+                </p>
+              </div>
+
+              <div className="rounded-2xl bg-white/[0.04] p-4">
+                <p className="text-xs font-bold uppercase tracking-wide text-slate-500">
+                  Cobertura IA
+                </p>
+                <p className="mt-2 text-2xl font-bold text-white">
+                  {coverage}%
                 </p>
               </div>
             </div>
