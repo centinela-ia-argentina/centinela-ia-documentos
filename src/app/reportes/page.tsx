@@ -1,4 +1,4 @@
-﻿import Link from 'next/link';
+import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { AppShell } from '@/components/layout/AppShell';
 import { createClient } from '@/lib/supabase/server';
@@ -98,12 +98,12 @@ function sensitivityLabel(value?: string | null) {
     low: 'Bajo',
     medium: 'Medio',
     high: 'Alto',
-    critical: 'CrÃ­tico',
+    critical: 'Crítico',
     bajo: 'Bajo',
     medio: 'Medio',
     alto: 'Alto',
-    critico: 'CrÃ­tico',
-    crÃ­tico: 'CrÃ­tico',
+    critico: 'Crítico',
+    'crítico': 'Crítico',
   };
 
   return labels[String(value ?? '').toLowerCase()] ?? value ?? 'No definida';
@@ -112,7 +112,7 @@ function sensitivityLabel(value?: string | null) {
 function sensitivityRank(value?: string | null) {
   const normalized = String(value ?? '').toLowerCase();
 
-  if (normalized === 'critical' || normalized === 'critico' || normalized === 'crÃ­tico') {
+  if (normalized === 'critical' || normalized === 'critico' || normalized === 'crítico') {
     return 4;
   }
 
@@ -240,7 +240,7 @@ function metadataText(
 
   if (typeof value === 'string') return value;
   if (typeof value === 'number') return String(value);
-  if (typeof value === 'boolean') return value ? 'SÃ­' : 'No';
+  if (typeof value === 'boolean') return value ? 'Sí' : 'No';
 
   return null;
 }
@@ -263,7 +263,7 @@ function getActorRole(
   log: AuditLogRecordForReport,
   profilesById: Map<string, ProfileRecordForReport>
 ) {
-  if (!log.user_id) return 'AutomÃ¡tico';
+  if (!log.user_id) return 'Automático';
 
   const profile = profilesById.get(log.user_id);
 
@@ -296,7 +296,7 @@ function getResourceLabel(
     log.action.includes('invitation') ||
     log.action.includes('invitacion')
   ) {
-    return metadataEmail ?? 'InvitaciÃ³n de usuario';
+    return metadataEmail ?? 'Invitación de usuario';
   }
 
   if (log.resource_type === 'document' && log.resource_id) {
@@ -313,7 +313,7 @@ function getResourceLabel(
     );
   }
 
-  if (log.resource_type === 'organization') return 'OrganizaciÃ³n';
+  if (log.resource_type === 'organization') return 'Organización';
 
   return formatResourceTypeLabel(log.resource_type, terms);
 }
@@ -341,9 +341,9 @@ function getAuditDetail(log: AuditLogRecordForReport) {
     if (log.action === 'organization_industry_updated') {
       const fromLabel = statusFrom ? (industryLabels[normalizeIndustryType(statusFrom)] || statusFrom) : '-';
       const toLabel = statusTo ? (industryLabels[normalizeIndustryType(statusTo)] || statusTo) : '-';
-      details.push(`Rubro: ${fromLabel} â†’ ${toLabel}`);
+      details.push(`Rubro: ${fromLabel} → ${toLabel}`);
     } else {
-      details.push(`Estado: ${statusFrom ?? '-'} â†’ ${statusTo ?? '-'}`);
+      details.push(`Estado: ${statusFrom ?? '-'} → ${statusTo ?? '-'}`);
     }
   }
   if (documentType) details.push(`Tipo: ${documentType}`);
@@ -357,7 +357,7 @@ function getAuditDetail(log: AuditLogRecordForReport) {
 
   if (details.length === 0) return 'Sin detalle adicional registrado.';
 
-  return details.slice(0, 3).join(' Â· ');
+  return details.slice(0, 3).join(' · ');
 }
 
 function isDocumentAudit(log: AuditLogRecordForReport) {
@@ -483,7 +483,7 @@ if (
 
   const totalCases = cases.length;
   const activeCases = cases.filter((item) => isCaseActive(item.status)).length;
-  const terminalCases = cases.filter((item) => TERMINAL_CASE_STATUSES.includes(item.status || 'new')).length;
+  const terminalCases = cases.filter((item) => TERMINAL_CASE_STATUSES.includes(item.status ?? '')).length;
 
   const totalDocuments = documents.length;
 
@@ -547,7 +547,7 @@ if (
     },
     {
       key: 'critical',
-      label: 'CrÃ­tico',
+      label: 'Crítico',
       value: documents.filter((item) => sensitivityRank(item.sensitivity_level) === 4)
         .length,
       className: 'bg-rose-500',
@@ -581,7 +581,7 @@ if (
     { label: 'General', value: 'general', href: '/reportes' },
     { label: terms.expedientePlural, value: 'gestion', href: '/reportes?vista=gestion' },
     { label: 'Documentos e IA', value: 'documentos', href: '/reportes?vista=documentos' },
-    { label: 'AuditorÃ­a', value: 'auditoria', href: '/reportes?vista=auditoria' },
+    { label: 'Auditoría', value: 'auditoria', href: '/reportes?vista=auditoria' },
   ];
 
   const auditFilters: Array<{
@@ -691,7 +691,7 @@ if (
               Estado de {isFem ? 'las ' : 'los '} {terms.expedientePlural.toLowerCase()}
             </h3>
             <p className="mt-2 text-sm text-slate-300">
-              DistribuciÃ³n actual por etapa de gestiÃ³n.
+              Distribución actual por etapa de gestión.
             </p>
 
             <div className="mt-6 mb-6 grid gap-4 sm:grid-cols-3">
@@ -719,7 +719,7 @@ if (
                       <div className="mb-2 flex justify-between text-sm">
                         <span className="font-semibold text-slate-300">{s.label}</span>
                         <span className="font-bold text-white">
-                          {count} Â· {percentage}%
+                          {count} · {percentage}%
                         </span>
                       </div>
                       <div className="h-3 overflow-hidden rounded-full bg-slate-800">
@@ -745,9 +745,9 @@ if (
                     return (
                       <div key="otros" className="rounded-2xl bg-white/[0.04] p-4">
                         <div className="mb-2 flex justify-between text-sm">
-                          <span className="font-semibold text-slate-300">Otros estados histÃ³ricos</span>
+                          <span className="font-semibold text-slate-300">Otros estados históricos</span>
                           <span className="font-bold text-white">
-                            {otherCount} Â· {percentage}%
+                            {otherCount} · {percentage}%
                           </span>
                         </div>
                         <div className="h-3 overflow-hidden rounded-full bg-slate-800">
@@ -781,11 +781,11 @@ if (
                 </p>
 
                 <h3 className="mt-2 text-2xl font-bold text-white">
-                  Estado del anÃ¡lisis documental
+                  Estado del análisis documental
                 </h3>
 
                 <p className="mt-2 text-sm text-slate-300">
-                  MediciÃ³n de documentos analizados y pendientes.
+                  Medición de documentos analizados y pendientes.
                 </p>
               </div>
 
@@ -837,7 +837,7 @@ if (
                 Cobertura de documentos procesados por IA.
               </p>
               <p className="mt-1 text-sm text-slate-400">
-                Muestra la relaciÃ³n entre los documentos totales del sistema y aquellos que ya cuentan con un anÃ¡lisis estructural completo.
+                Muestra la relación entre los documentos totales del sistema y aquellos que ya cuentan con un análisis estructural completo.
               </p>
             </div>
           </MotionCard>
@@ -852,11 +852,11 @@ if (
           </p>
 
           <h3 className="mt-2 text-2xl font-bold text-white">
-            DistribuciÃ³n documental
+            Distribución documental
           </h3>
 
           <p className="mt-2 text-sm text-slate-300">
-            ClasificaciÃ³n de documentos segÃºn sensibilidad asignada.
+            Clasificación de documentos según sensibilidad asignada.
           </p>
 
           <div className="mt-6 grid gap-5 xl:grid-cols-4">
@@ -868,7 +868,7 @@ if (
                   <div className="mb-3 flex justify-between text-sm">
                     <span className="font-semibold text-slate-300">{item.label}</span>
                     <span className="font-bold text-white">
-                      {item.value} Â· {percentage}%
+                      {item.value} · {percentage}%
                     </span>
                   </div>
 
@@ -885,10 +885,10 @@ if (
 
           <div className="mt-6 rounded-2xl border border-white/10 bg-white/[0.02] p-4">
             <p className="font-bold text-slate-300">
-              DistribuciÃ³n actual segÃºn sensibilidad asignada.
+              Distribución actual según sensibilidad asignada.
             </p>
             <p className="mt-1 text-sm text-slate-400">
-              Muestra la proporciÃ³n de documentos categorizados por su nivel de riesgo y exposiciÃ³n de datos.
+              Muestra la proporción de documentos categorizados por su nivel de riesgo y exposición de datos.
             </p>
           </div>
         </MotionCard>
@@ -916,7 +916,7 @@ if (
               <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-5">
                 <p className="text-sm font-semibold text-slate-400">Por vencer</p>
                 <p className="mt-2 text-3xl font-bold text-amber-400">{porVencer}</p>
-                <p className="mt-3 text-xs text-slate-500">PrÃ³ximos 30 dÃ­as</p>
+                <p className="mt-3 text-xs text-slate-500">Próximos 30 días</p>
               </div>
               <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-5">
                 <p className="text-sm font-semibold text-slate-400">Vigentes</p>
@@ -944,7 +944,7 @@ if (
               </p>
 
               <h3 className="mt-2 text-2xl font-bold text-white">
-                Centro de auditorÃ­a operativa
+                Centro de auditoría operativa
               </h3>
 
               <p className="mt-2 text-sm text-slate-300">
@@ -1015,7 +1015,7 @@ if (
                     : 'border border-white/10 bg-white/[0.04] text-slate-200 hover:bg-white/[0.08]'
                 }`}
               >
-                {filter.label} Â· {filter.count}
+                {filter.label} · {filter.count}
               </Link>
             ))}
           </div>
@@ -1078,7 +1078,7 @@ if (
 
             {filteredAuditLogs.length === 0 ? (
               <div className="p-6 text-sm text-slate-500">
-                No hay eventos para este filtro de auditorÃ­a.
+                No hay eventos para este filtro de auditoría.
               </div>
             ) : null}
           </div>
