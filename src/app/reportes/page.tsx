@@ -424,54 +424,87 @@ if (
   const terms = getIndustryTerms(industry);
   const isFem = terms.expedientePlural.toLowerCase() === 'operaciones';
 
-  const [
-    casesResult,
-    documentsResult,
-    aiOutputsResult,
-    auditLogsResult,
-    profilesResult,
-  ] = await Promise.all([
-    supabase
-      .from('cases')
-      .select('id, title, client_name, case_type, status, created_at, metadata')
-      .eq('organization_id', profile.organization_id)
-      .order('created_at', { ascending: false }),
+  let cases: CaseRecord[] = [];
+  let documents: DocumentRecordForReport[] = [];
+  let aiOutputs: AiOutputRecordForReport[] = [];
+  let auditLogs: AuditLogRecordForReport[] = [];
+  let profiles: ProfileRecordForReport[] = [];
 
-    supabase
-      .from('documents')
-      .select(
-        'id, file_name, document_type, sensitivity_level, file_size, file_mime_type, created_at, expires_at'
-      )
-      .eq('organization_id', profile.organization_id)
-      .order('created_at', { ascending: false }),
+  const promises: Promise<void>[] = [];
 
-    supabase
-      .from('ai_outputs')
-      .select('id, document_id, output_type, model_name, result_json, created_at')
-      .eq('organization_id', profile.organization_id)
-      .eq('output_type', 'document_analysis')
-      .order('created_at', { ascending: false }),
+  if (activeView === 'general') {
+    promises.push(
+      supabase
+        .from('cases')
+        .select('id, status')
+        .eq('organization_id', profile.organization_id)
+        .order('created_at', { ascending: false })
+        .then((res) => { cases = (res.data ?? []) as CaseRecord[]; })
+    );
+    promises.push(
+      supabase
+        .from('documents')
+        .select('id')
+        .eq('organization_id', profile.organization_id)
+        .order('created_at', { ascending: false })
+        .then((res) => { documents = (res.data ?? []) as DocumentRecordForReport[]; })
+    );
+    promises.push(
+      supabase
+        .from('ai_outputs')
+        .select('id, document_id, output_type')
+        .eq('organization_id', profile.organization_id)
+        .eq('output_type', 'document_analysis')
+        .order('created_at', { ascending: false })
+        .then((res) => { aiOutputs = (res.data ?? []) as AiOutputRecordForReport[]; })
+    );
+  } else if (activeView === 'gestion') {
+    promises.push(
+      supabase
+        .from('cases')
+        .select('id, status')
+        .eq('organization_id', profile.organization_id)
+        .order('created_at', { ascending: false })
+        .then((res) => { cases = (res.data ?? []) as CaseRecord[]; })
+    );
+  } else if (activeView === 'documentos') {
+    promises.push(
+      supabase
+        .from('documents')
+        .select('id, sensitivity_level, expires_at')
+        .eq('organization_id', profile.organization_id)
+        .order('created_at', { ascending: false })
+        .then((res) => { documents = (res.data ?? []) as DocumentRecordForReport[]; })
+    );
+    promises.push(
+      supabase
+        .from('ai_outputs')
+        .select('id, document_id, output_type')
+        .eq('organization_id', profile.organization_id)
+        .eq('output_type', 'document_analysis')
+        .order('created_at', { ascending: false })
+        .then((res) => { aiOutputs = (res.data ?? []) as AiOutputRecordForReport[]; })
+    );
+  } else if (activeView === 'auditoria') {
+    promises.push(
+      supabase
+        .from('audit_logs')
+        .select('id, organization_id, user_id, action, resource_type, resource_id, metadata, created_at')
+        .eq('organization_id', profile.organization_id)
+        .order('created_at', { ascending: false })
+        .limit(80)
+        .then((res) => { auditLogs = (res.data ?? []) as AuditLogRecordForReport[]; })
+    );
+    promises.push(
+      supabase
+        .from('profiles')
+        .select('id, full_name, email, role')
+        .eq('organization_id', profile.organization_id)
+        .then((res) => { profiles = (res.data ?? []) as ProfileRecordForReport[]; })
+    );
+  }
 
-    supabase
-      .from('audit_logs')
-      .select(
-        'id, organization_id, user_id, action, resource_type, resource_id, metadata, created_at'
-      )
-      .eq('organization_id', profile.organization_id)
-      .order('created_at', { ascending: false })
-      .limit(80),
-
-    supabase
-      .from('profiles')
-      .select('id, full_name, email, role')
-      .eq('organization_id', profile.organization_id),
-  ]);
-
-  const cases = (casesResult.data ?? []) as CaseRecord[];
-  const documents = (documentsResult.data ?? []) as DocumentRecordForReport[];
-  const aiOutputs = (aiOutputsResult.data ?? []) as AiOutputRecordForReport[];
-  const auditLogs = (auditLogsResult.data ?? []) as AuditLogRecordForReport[];
-  const profiles = (profilesResult.data ?? []) as ProfileRecordForReport[];
+  await Promise.all(promises);
 
   const documentsById = new Map(documents.map((document) => [document.id, document]));
   const casesById = new Map(cases.map((caseItem) => [caseItem.id, caseItem]));
