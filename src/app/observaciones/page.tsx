@@ -199,7 +199,7 @@ export default async function ObservacionesPage() {
               )) : (
                 <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-4 text-sm text-emerald-200/70">Sin documentos sensibles.</div>
               )}
-              {sensiblesAll.length > 8 && <Link href="/reportes" className="block text-sm font-bold text-cyan-400 hover:text-cyan-300">Ver reporte de sensibilidad</Link>}
+              {sensiblesAll.length > 8 && <Link href="/reportes?vista=documentos" className="block text-sm font-bold text-cyan-400 hover:text-cyan-300">Ver reporte de sensibilidad</Link>}
             </div>
           </MotionCard>
 
@@ -228,7 +228,7 @@ export default async function ObservacionesPage() {
               }) : (
                 <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-4 text-sm text-emerald-200/70">Sin vencimientos próximos.</div>
               )}
-              {vencimientosAll.length > 8 && <Link href="/reportes" className="block text-sm font-bold text-cyan-400 hover:text-cyan-300">Ver reporte de vencimientos</Link>}
+              {vencimientosAll.length > 8 && <Link href="/reportes?vista=documentos" className="block text-sm font-bold text-cyan-400 hover:text-cyan-300">Ver reporte de vencimientos</Link>}
             </div>
           </MotionCard>
 
