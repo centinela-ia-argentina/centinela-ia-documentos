@@ -5,12 +5,12 @@ import { createClient } from '@/lib/supabase/server';
 import { getUserProfile } from '@/lib/auth/getUserProfile';
 import { formatAuditActionLabel, formatResourceTypeLabel } from '@/lib/audit/actionLabels';
 import { normalizeIndustryType, industryLabels } from '@/lib/industries/documentTypes';
-import { getCaseStatusLabel, isCaseActive } from '@/lib/industries/caseConfig';
+import { getCaseStatusLabel, isCaseActive, caseStatusesByIndustry, TERMINAL_CASE_STATUSES } from '@/lib/industries/caseConfig';
 import { getIndustryTerms, type IndustryTerms } from '@/lib/industries/uiLabels';
 import { getDocumentExpiryStatus } from '@/lib/documents/expiry';
 import { MotionCard } from '@/components/ui/MotionCard';
 
-type ReportView = 'general' | 'auditoria';
+type ReportView = 'general' | 'gestion' | 'documentos' | 'auditoria';
 
 type AuditFilter = 'todos' | 'documentos' | 'ia' | 'expedientes' | 'invitaciones';
 
@@ -103,7 +103,7 @@ function sensitivityLabel(value?: string | null) {
     medio: 'Medio',
     alto: 'Alto',
     critico: 'Crítico',
-    crítico: 'Crítico',
+    'crítico': 'Crítico',
   };
 
   return labels[String(value ?? '').toLowerCase()] ?? value ?? 'No definida';
@@ -209,7 +209,7 @@ function getAnalysisCountByDocument(aiOutputs: AiOutputRecordForReport[]) {
 
 
 function isValidView(value?: string): value is ReportView {
-  return value === 'general' || value === 'auditoria';
+  return value === 'general' || value === 'gestion' || value === 'documentos' || value === 'auditoria';
 }
 
 function isValidAuditFilter(value?: string): value is AuditFilter {
@@ -483,6 +483,7 @@ if (
 
   const totalCases = cases.length;
   const activeCases = cases.filter((item) => isCaseActive(item.status)).length;
+  const terminalCases = cases.filter((item) => TERMINAL_CASE_STATUSES.includes(item.status ?? '')).length;
 
   const totalDocuments = documents.length;
 
@@ -560,24 +561,26 @@ if (
       helper: `${activeCases} ${isFem ? 'activas' : 'activos'}`,
     },
     {
-      label: 'Análisis IA',
-      value: aiOutputs.length,
-      helper: 'Análisis registrados',
+      label: `${terms.expedientePlural} ${isFem ? 'activas' : 'activos'}`,
+      value: activeCases,
+      helper: 'En proceso o preparación',
+    },
+    {
+      label: 'Documentos cargados',
+      value: totalDocuments,
+      helper: 'En todo el sistema',
     },
     {
       label: 'Cobertura IA',
       value: `${coverage}%`,
-      helper: `${analyzedDocuments}/${totalDocuments} documentos`,
-    },
-    {
-      label: 'Pendientes de revisión',
-      value: pendingDocuments,
-      helper: 'Requieren análisis IA',
+      helper: `${analyzedDocuments}/${totalDocuments} analizados`,
     },
   ];
 
   const views: Array<{ label: string; value: ReportView; href: string }> = [
     { label: 'General', value: 'general', href: '/reportes' },
+    { label: terms.expedientePlural, value: 'gestion', href: '/reportes?vista=gestion' },
+    { label: 'Documentos e IA', value: 'documentos', href: '/reportes?vista=documentos' },
     { label: 'Auditoría', value: 'auditoria', href: '/reportes?vista=auditoria' },
   ];
 
@@ -619,6 +622,13 @@ if (
     },
   ];
 
+  const caseStatuses = caseStatusesByIndustry[industry] || caseStatusesByIndustry.general;
+  const casesByStatus = new Map<string, number>();
+  cases.forEach((c) => {
+    const s = c.status || 'new';
+    casesByStatus.set(s, (casesByStatus.get(s) || 0) + 1);
+  });
+
   return (
     <AppShell>
       <div className="mb-8 flex flex-col justify-between gap-4 xl:flex-row xl:items-end">
@@ -653,23 +663,115 @@ if (
         ))}
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {metrics.map((metric, index) => (
-          <MotionCard
-            key={metric.label}
-            index={index}
-            className="p-5"
-          >
-            <p className="text-sm font-semibold text-slate-400">{metric.label}</p>
-
-            <p className="mt-2 text-3xl font-bold text-white">{metric.value}</p>
-
-            <p className="mt-3 text-xs text-slate-500">{metric.helper}</p>
-          </MotionCard>
-        ))}
-      </div>
-
       {activeView === 'general' ? (
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          {metrics.map((metric, index) => (
+            <MotionCard
+              key={metric.label}
+              index={index}
+              className="p-5"
+            >
+              <p className="text-sm font-semibold text-slate-400">{metric.label}</p>
+
+              <p className="mt-2 text-3xl font-bold text-white">{metric.value}</p>
+
+              <p className="mt-3 text-xs text-slate-500">{metric.helper}</p>
+            </MotionCard>
+          ))}
+        </div>
+      ) : null}
+
+      {activeView === 'gestion' ? (
+        <div className="mt-8">
+          <MotionCard index={5} className="p-6">
+            <p className="text-sm font-semibold uppercase tracking-[0.2em] text-cyan-400">
+              Estado actual
+            </p>
+            <h3 className="mt-2 text-2xl font-bold text-white">
+              Estado de {isFem ? 'las ' : 'los '} {terms.expedientePlural.toLowerCase()}
+            </h3>
+            <p className="mt-2 text-sm text-slate-300">
+              Distribución actual por etapa de gestión.
+            </p>
+
+            <div className="mt-6 mb-6 grid gap-4 sm:grid-cols-3">
+              <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-5">
+                <p className="text-sm font-semibold text-slate-400">Total</p>
+                <p className="mt-2 text-3xl font-bold text-white">{totalCases}</p>
+              </div>
+              <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-5">
+                <p className="text-sm font-semibold text-slate-400">{isFem ? 'Activas' : 'Activos'}</p>
+                <p className="mt-2 text-3xl font-bold text-emerald-400">{activeCases}</p>
+              </div>
+              <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-5">
+                <p className="text-sm font-semibold text-slate-400">{getCaseStatusLabel('archived', industry)}</p>
+                <p className="mt-2 text-3xl font-bold text-slate-400">{terminalCases}</p>
+              </div>
+            </div>
+
+            {totalCases > 0 ? (
+              <div className="mt-6 space-y-4">
+                {caseStatuses.map((s) => {
+                  const count = casesByStatus.get(s.value) || 0;
+                  const percentage = getPercentage(count, totalCases);
+                  return (
+                    <div key={s.value} className="rounded-2xl bg-white/[0.04] p-4">
+                      <div className="mb-2 flex justify-between text-sm">
+                        <span className="font-semibold text-slate-300">{s.label}</span>
+                        <span className="font-bold text-white">
+                          {count} · {percentage}%
+                        </span>
+                      </div>
+                      <div className="h-3 overflow-hidden rounded-full bg-slate-800">
+                        <div
+                          className="h-full rounded-full bg-cyan-500"
+                          style={{ width: `${percentage}%` }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+                {(() => {
+                  const officialStatuses = new Set(caseStatuses.map(s => s.value));
+                  let otherCount = 0;
+                  casesByStatus.forEach((count, status) => {
+                    if (!officialStatuses.has(status)) {
+                      otherCount += count;
+                    }
+                  });
+
+                  if (otherCount > 0) {
+                    const percentage = getPercentage(otherCount, totalCases);
+                    return (
+                      <div key="otros" className="rounded-2xl bg-white/[0.04] p-4">
+                        <div className="mb-2 flex justify-between text-sm">
+                          <span className="font-semibold text-slate-300">Otros estados históricos</span>
+                          <span className="font-bold text-white">
+                            {otherCount} · {percentage}%
+                          </span>
+                        </div>
+                        <div className="h-3 overflow-hidden rounded-full bg-slate-800">
+                          <div
+                            className="h-full rounded-full bg-slate-500"
+                            style={{ width: `${percentage}%` }}
+                          />
+                        </div>
+                      </div>
+                    );
+                  }
+                  return null;
+                })()}
+              </div>
+            ) : (
+              <div className="mt-6 rounded-2xl border border-white/10 bg-white/[0.02] p-6 text-center text-sm text-slate-500">
+                No hay {terms.expedientePlural.toLowerCase()} registrados en el sistema.
+              </div>
+            )}
+          </MotionCard>
+        </div>
+      ) : null}
+
+      {activeView === 'documentos' ? (
         <div className="mt-8">
           <MotionCard index={7} className="p-6">
             <div className="flex items-start justify-between gap-4">
@@ -710,7 +812,16 @@ if (
               </div>
             </div>
 
-            <div className="mt-6 grid gap-4 sm:grid-cols-2">
+            <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+              <div className="rounded-2xl bg-white/[0.04] p-4">
+                <p className="text-xs font-bold uppercase tracking-wide text-slate-500">
+                  Documentos totales
+                </p>
+                <p className="mt-2 text-2xl font-bold text-white">
+                  {totalDocuments}
+                </p>
+              </div>
+
               <div className="rounded-2xl bg-white/[0.04] p-4">
                 <p className="text-xs font-bold uppercase tracking-wide text-slate-500">
                   Analizados
@@ -728,41 +839,30 @@ if (
                   {pendingDocuments}
                 </p>
               </div>
+
+              <div className="rounded-2xl bg-white/[0.04] p-4">
+                <p className="text-xs font-bold uppercase tracking-wide text-slate-500">
+                  Cobertura IA
+                </p>
+                <p className="mt-2 text-2xl font-bold text-white">
+                  {coverage}%
+                </p>
+              </div>
             </div>
 
-            {pendingDocuments > 0 ? (
-              <div className="mt-6 flex flex-col justify-between gap-4 rounded-2xl border border-amber-900/30 bg-amber-950/20 p-4 sm:flex-row sm:items-center">
-                <div>
-                  <p className="font-bold text-amber-200">
-                    Hay documentos pendientes de análisis.
-                  </p>
-                  <p className="mt-1 text-sm text-amber-300/80">
-                    Conviene completar la cobertura IA para mantener el control documental.
-                  </p>
-                </div>
-
-                <Link
-                  href="/documentos?ia=pendientes"
-                  className="rounded-xl bg-amber-600 px-4 py-3 text-center text-sm font-bold text-white hover:bg-amber-500"
-                >
-                  Revisar pendientes
-                </Link>
-              </div>
-            ) : (
-              <div className="mt-6 rounded-2xl border border-emerald-900/30 bg-emerald-950/20 p-4">
-                <p className="font-bold text-emerald-200">
-                  Cobertura IA completa.
-                </p>
-                <p className="mt-1 text-sm text-emerald-300/80">
-                  Todos los documentos cargados tienen al menos un análisis IA registrado.
-                </p>
-              </div>
-            )}
+            <div className="mt-6 rounded-2xl border border-white/10 bg-white/[0.02] p-4">
+              <p className="font-bold text-slate-300">
+                Cobertura de documentos procesados por IA.
+              </p>
+              <p className="mt-1 text-sm text-slate-400">
+                Muestra la relación entre los documentos totales del sistema y aquellos que ya cuentan con un análisis estructural completo.
+              </p>
+            </div>
           </MotionCard>
         </div>
       ) : null}
 
-      {activeView === 'general' ? (
+      {activeView === 'documentos' ? (
         <>
           <MotionCard index={9} className="mt-8 p-6">
             <p className="text-sm font-semibold uppercase tracking-[0.2em] text-cyan-400">
@@ -801,23 +901,14 @@ if (
             })}
           </div>
 
-          {(sensitivityStats[2].value + sensitivityStats[3].value) > 0 ? (
-            <div className="mt-6 rounded-2xl border border-amber-900/30 bg-amber-950/20 p-4">
-              <p className="font-bold text-amber-200">
-                Hay documentos de sensibilidad alta o crítica.
-              </p>
-
-              <p className="mt-1 text-sm text-amber-300/80">
-                Conviene revisarlos periódicamente y mantener controlados los accesos.
-              </p>
-            </div>
-          ) : (
-            <div className="mt-6 rounded-2xl border border-emerald-900/30 bg-emerald-950/20 p-4">
-              <p className="font-bold text-emerald-200">
-                No hay documentos marcados como alta sensibilidad.
-              </p>
-            </div>
-          )}
+          <div className="mt-6 rounded-2xl border border-white/10 bg-white/[0.02] p-4">
+            <p className="font-bold text-slate-300">
+              Distribución actual según sensibilidad asignada.
+            </p>
+            <p className="mt-1 text-sm text-slate-400">
+              Muestra la proporción de documentos categorizados por su nivel de riesgo y exposición de datos.
+            </p>
+          </div>
         </MotionCard>
           <MotionCard index={10} className="p-6">
             <div className="mb-5 flex flex-col justify-between gap-4 xl:flex-row xl:items-start">
@@ -826,7 +917,7 @@ if (
                   Vencimientos
                 </p>
                 <h3 className="mt-2 text-2xl font-bold text-white">
-                  Control de vencimientos documentales
+                  Estado actual de las vigencias documentales
                 </h3>
                 <p className="mt-2 text-sm text-slate-300">
                   Seguimiento de documentos vigentes, por vencer y vencidos en entorno controlado.
