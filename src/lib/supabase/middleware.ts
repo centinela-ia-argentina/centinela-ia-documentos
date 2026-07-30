@@ -21,7 +21,14 @@ function isPrivatePath(pathname: string) {
     pathname.startsWith('/reportes') ||
     pathname.startsWith('/configuracion') ||
     pathname.startsWith('/plataforma') ||
-    pathname.startsWith('/onboarding')
+    pathname.startsWith('/onboarding') ||
+    pathname.startsWith('/agente') ||
+    pathname.startsWith('/calculadoras') ||
+    pathname.startsWith('/modelos') ||
+    pathname.startsWith('/agenda') ||
+    pathname.startsWith('/herramientas') ||
+    pathname.startsWith('/buscar') ||
+    pathname.startsWith('/observaciones')
   );
 }
 
@@ -43,7 +50,13 @@ function isClientRestrictedPath(pathname: string) {
   return (
     pathname.startsWith('/usuarios') ||
     pathname.startsWith('/reportes') ||
-    pathname.startsWith('/configuracion')
+    pathname.startsWith('/configuracion') ||
+    pathname.startsWith('/agente') ||
+    pathname.startsWith('/calculadoras') ||
+    pathname.startsWith('/modelos') ||
+    pathname.startsWith('/agenda') ||
+    pathname.startsWith('/herramientas') ||
+    pathname.startsWith('/buscar')
   );
 }
 
@@ -172,6 +185,12 @@ export async function updateSession(request: NextRequest) {
   }
 
   if (isPrivateRoute && profile && isOperatorActionPath(pathname)) {
+    if (profile.role !== 'admin' && profile.role !== 'employee') {
+      return redirectTo(request, '/acceso-denegado', cookiesToSet, 'rol');
+    }
+  }
+
+  if (isPrivateRoute && profile && pathname.startsWith('/agente')) {
     if (profile.role !== 'admin' && profile.role !== 'employee') {
       return redirectTo(request, '/acceso-denegado', cookiesToSet, 'rol');
     }

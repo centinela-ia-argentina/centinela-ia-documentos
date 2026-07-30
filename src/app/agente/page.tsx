@@ -4,7 +4,7 @@ import { AppShell } from '@/components/layout/AppShell';
 import { createClient } from '@/lib/supabase/server';
 import { getUserProfile } from '@/lib/auth/getUserProfile';
 import { normalizeIndustryType } from '@/lib/industries/documentTypes';
-import { canUseAi } from '@/lib/permissions/roles';
+import { canUseAi, isReadOnlyRole } from '@/lib/permissions/roles';
 import { AgenteGlobalChat } from './AgenteGlobalChat';
 
 type Alerta = {
@@ -57,6 +57,7 @@ export default async function AgentePage() {
   const { user, profile } = await getUserProfile();
   if (!user) redirect('/login');
   if (!profile) redirect('/onboarding');
+  if (isReadOnlyRole(profile.role as any)) redirect('/acceso-denegado?motivo=rol');
 
   const supabase = await createClient();
 

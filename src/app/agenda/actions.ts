@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { getUserProfile } from '@/lib/auth/getUserProfile';
+import { canUpdateCase } from '@/lib/permissions/roles';
 
 export type GuardarEventoResult =
   | { ok: true }
@@ -21,7 +22,22 @@ export async function guardarEventoManual(input: {
   const fecha = input.fecha?.trim();
   if (!titulo || !fecha) return { ok: false, motivo: 'error', mensaje: 'Faltan datos.' };
 
+  if (!canUpdateCase(profile.role as any)) return { ok: false, motivo: 'no_auth', mensaje: 'No tenés permisos para esta acción.' };
+
   const supabase = await createClient();
+
+  if (input.caseId) {
+    const { data: caseData } = await supabase
+      .from('cases')
+      .select('id')
+      .eq('id', input.caseId)
+      .eq('organization_id', profile.organization_id)
+      .maybeSingle();
+    
+    if (!caseData) {
+      return { ok: false, motivo: 'error', mensaje: 'Expediente no encontrado o sin acceso.' };
+    }
+  }
   const { error } = await supabase.from('agenda_plazos').insert({
     organization_id: profile.organization_id,
     titulo,
@@ -52,7 +68,22 @@ export async function guardarPlazoDetectado(input: {
   const fecha = input.fecha?.trim();
   if (!titulo || !fecha) return { ok: false, motivo: 'error', mensaje: 'Faltan datos.' };
 
+  if (!canUpdateCase(profile.role as any)) return { ok: false, motivo: 'no_auth', mensaje: 'No tenés permisos para esta acción.' };
+
   const supabase = await createClient();
+
+  if (input.caseId) {
+    const { data: caseData } = await supabase
+      .from('cases')
+      .select('id')
+      .eq('id', input.caseId)
+      .eq('organization_id', profile.organization_id)
+      .maybeSingle();
+    
+    if (!caseData) {
+      return { ok: false, motivo: 'error', mensaje: 'Expediente no encontrado o sin acceso.' };
+    }
+  }
   const { error } = await supabase.from('agenda_plazos').insert({
     organization_id: profile.organization_id,
     titulo,
@@ -87,7 +118,22 @@ export async function guardarTurno(input: {
 
   const categoria = input.tipo === 'firma' ? 'firma' : 'turno';
 
+  if (!canUpdateCase(profile.role as any)) return { ok: false, motivo: 'no_auth', mensaje: 'No tenés permisos para esta acción.' };
+
   const supabase = await createClient();
+
+  if (input.caseId) {
+    const { data: caseData } = await supabase
+      .from('cases')
+      .select('id')
+      .eq('id', input.caseId)
+      .eq('organization_id', profile.organization_id)
+      .maybeSingle();
+    
+    if (!caseData) {
+      return { ok: false, motivo: 'error', mensaje: 'Expediente no encontrado o sin acceso.' };
+    }
+  }
   const { error } = await supabase.from('agenda_plazos').insert({
     organization_id: profile.organization_id,
     titulo,

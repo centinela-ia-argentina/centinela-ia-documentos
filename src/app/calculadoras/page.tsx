@@ -18,13 +18,14 @@ export default async function CalculadorasPage() {
     .eq('id', profile.organization_id)
     .maybeSingle();
   const industry = normalizeIndustryType(org?.industry_type);
+  const puedeGuardar = profile.role === 'admin' || profile.role === 'employee';
 
   return (
     <AppShell>
       {industry === 'escribania' ? (
         <CalculadorasNotarialesClient />
       ) : (
-        <CalculadorasClient />
+        <CalculadorasClient puedeGuardar={puedeGuardar} />
       )}
     </AppShell>
   );

@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { getUserProfile } from '@/lib/auth/getUserProfile';
+import { canUpdateCase } from '@/lib/permissions/roles';
 
 export type GuardarPlazoResult =
   | { ok: true }
@@ -19,6 +20,8 @@ export async function guardarPlazoEnAgenda(input: {
   const titulo = input.titulo?.trim();
   const fecha = input.fecha?.trim();
   if (!titulo || !fecha) return { ok: false, motivo: 'error', mensaje: 'Faltan datos.' };
+
+  if (!canUpdateCase(profile.role as any)) return { ok: false, motivo: 'no_auth', mensaje: 'No tenés permisos para esta acción.' };
 
   const supabase = await createClient();
   const { error } = await supabase.from('agenda_plazos').insert({

@@ -87,7 +87,7 @@ function ResultBox({
   );
 }
 
-function PlazosCalc() {
+function PlazosCalc({ puedeGuardar = true }: { puedeGuardar?: boolean }) {
   const [fecha, setFecha] = useState('');
   const [dias, setDias] = useState('');
   const [tipo, setTipo] = useState<'habiles' | 'corridos'>('habiles');
@@ -161,29 +161,31 @@ function PlazosCalc() {
             {tipo === 'habiles' ? ' (sin fines de semana, feriados ni feria judicial).' : '.'}
           </p>
           
-          <div className="mt-4 border-t border-emerald-100 pt-4">
-            <input
-              type="text"
-              value={referencia}
-              onChange={(e) => setReferencia(e.target.value)}
-              placeholder="Referencia (ej. carátula o trámite)"
-              className={inputClass}
-            />
-            <MotionButton
-              type="button"
-              onClick={cargarAgenda}
-              disabled={guardando}
-              className="mt-3 inline-flex w-full items-center justify-center gap-1.5 rounded-xl bg-cyan-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-cyan-500 disabled:opacity-60"
-            >
-              {guardando ? <Loader2 className="h-4 w-4 animate-spin" /> : <CalendarPlus className="h-4 w-4" />}
-              Cargar a la agenda
-            </MotionButton>
-            {guardado && (
-              <p className={`mt-2 text-center text-[11px] font-medium ${guardado.startsWith('✓') ? 'text-emerald-700' : 'text-amber-700'}`}>
-                {guardado}
-              </p>
-            )}
-          </div>
+          {puedeGuardar && (
+            <div className="mt-4 border-t border-emerald-100 pt-4">
+              <input
+                type="text"
+                value={referencia}
+                onChange={(e) => setReferencia(e.target.value)}
+                placeholder="Referencia (ej. carátula o trámite)"
+                className={inputClass}
+              />
+              <MotionButton
+                type="button"
+                onClick={cargarAgenda}
+                disabled={guardando}
+                className="mt-3 inline-flex w-full items-center justify-center gap-1.5 rounded-xl bg-cyan-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-cyan-500 disabled:opacity-60"
+              >
+                {guardando ? <Loader2 className="h-4 w-4 animate-spin" /> : <CalendarPlus className="h-4 w-4" />}
+                Cargar a la agenda
+              </MotionButton>
+              {guardado && (
+                <p className={`mt-2 text-center text-[11px] font-medium ${guardado.startsWith('✓') ? 'text-emerald-700' : 'text-amber-700'}`}>
+                  {guardado}
+                </p>
+              )}
+            </div>
+          )}
         </div>
       )}
     </Card>
@@ -1076,7 +1078,7 @@ function MediacionTab() {
   )
 }
 
-export function CalculadorasClient() {
+export function CalculadorasClient({ puedeGuardar = true }: { puedeGuardar?: boolean }) {
   const [tab, setTab] = useState<Tab>('plazos');
   const tabs: Array<{ id: Tab; label: string; icon: LucideIcon }> = [
     { id: 'plazos', label: 'Plazos procesales', icon: CalendarClock },
@@ -1130,7 +1132,7 @@ export function CalculadorasClient() {
         })}
       </div>
 
-      {tab === 'plazos' && <PlazosCalc />}
+      {tab === 'plazos' && <PlazosCalc puedeGuardar={puedeGuardar} />}
       {tab === 'honorarios' && <HonorariosCalc />}
       {tab === 'tasa' && <TasaCalc />}
       {tab === 'laboral' && <LiquidacionLaboralCalc />}
