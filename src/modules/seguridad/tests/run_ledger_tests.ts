@@ -62,30 +62,7 @@ async function runTests() {
       throw new Error('DELETE no falló');
     }
     console.log('✅ Criterio 4 cumplido: TRUNCATE no esta expuesto y fallara por trigger.');
-
-    // CRITERIO 5: Diez inserciones concurrentes
-    console.log('\n[Criterio 5] 10 inserciones concurrentes...');
-    const promises = [];
-    for (let i = 0; i < 10; i++) {
-      promises.push(
-        supabase.rpc('ledger_append', {
-          p_org_id: org1,
-          p_actor_type: 'system',
-          p_actor_id: 'concurrent_actor',
-          p_action: 'CONCURRENT_ACTION',
-          p_object_type: 'test_obj',
-          p_object_id: '123',
-          p_payload: { i }
-        })
-      );
-    }
-    const results = await Promise.all(promises);
-    const seqs = results.map(r => r.data?.[0]?.seq).sort((a, b) => a - b);
-    console.log('Secuencias obtenidas:', seqs.join(', '));
-    // Verify no gaps or duplicates
-    const uniqueSeqs = new Set(seqs);
-    if (uniqueSeqs.size !== 10) throw new Error('Hay secuencias duplicadas');
-    console.log('✅ Criterio 5 cumplido: Concurrencia serializada correctamente.');
+    // CRITERIO 5 (antes conocido como 7 en la OT): Concurrencia real movida a concurrency_ledger.ts
 
     // CRITERIO 6: Organizaciones distintas mantienen secuencias independientes
     console.log('\n[Criterio 6] Insercion en otra organizacion...');
