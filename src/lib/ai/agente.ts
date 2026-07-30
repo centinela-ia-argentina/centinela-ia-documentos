@@ -39,6 +39,7 @@ export type AccionPropuesta = {
   diasHabiles?: number;        // solo calcular_plazo_procesal
   fechaNotificacion?: string;  // solo calcular_plazo_procesal (YYYY-MM-DD)
   kmDistancia?: number;        // solo calcular_plazo_procesal (opcional, art. 158)
+  jurisdiccion?: 'nacion' | 'corrientes' | 'pba'; // solo calcular_plazo_procesal
   monto?: number; // solo calcular_tasa_justicia
   alquilerMensual?: number | null; // solo calificar_inquilino
   moneda?: 'ARS' | 'USD'; // solo calificar_inquilino
@@ -89,9 +90,9 @@ function reglasAcciones(hoy: string, estadosValidos: string): string {
   14) "calcular_liquidacion": estimar el monto del reclamo por INCAPACIDAD (fórmulas Méndez o Vuoto). SIN "fecha". SOLO en rubro legal/laboral. Se calcula con TRES datos: ingreso mensual de la víctima, su edad al momento del hecho y el porcentaje de incapacidad. Tomalos del CONTEXTO, de los FRAGMENTOS o de lo que el usuario haya dicho en la conversación; si figuran la fecha de nacimiento y la fecha del hecho, calculá vos mismo la edad. REGLA CRÍTICA E INNEGOCIABLE: cuando tengas los tres datos, está PROHIBIDO contestar solo con texto tipo "se puede calcular" o "podemos calcular". SIEMPRE, además de tu respuesta, tenés que agregar en el array "acciones" un objeto EXACTAMENTE con esta forma, con los números como NÚMEROS (sin puntos de miles ni signo $):
 {"tipo":"calcular_liquidacion","titulo":"Calcular liquidación estimada por incapacidad","metodo":"mendez","ingresoMensual":600000,"edad":45,"incapacidad":20,"fechaHecho":"2023-07-15","motivo":"El actor reclama una incapacidad permanente"}
 (Ese ejemplo usa números de muestra: vos poné los reales del legajo.) Por defecto "metodo":"mendez"; usá "vuoto" solo si el usuario lo pide. NUNCA inventes los números: solo si de verdad falta alguno y no lo podés deducir, ahí no agregás la acción y se lo pedís al usuario en "respuesta". ATENCIÓN CRÍTICA: escribir en tu "respuesta" frases como "procedo a calcular" o "voy a calcular" NO calcula NADA y NO le muestra NADA al usuario. El cálculo OCURRE ÚNICAMENTE si agregás el objeto en el array "acciones". Si no agregás la acción, para el usuario no pasó nada. Entonces, cuando tengas los tres datos: agregá SIEMPRE la acción en "acciones", y en "respuesta" poné apenas una frase corta presentando la estimación. Si además detectás la fecha del hecho, siniestro, accidente o mora, incluí el campo opcional "fechaHecho" en formato AAAA-MM-DD para calcular los intereses. Si no la tenés, no la inventes ni incluyas el campo.
- 15) "calcular_plazo_procesal": calcular la FECHA DE VENCIMIENTO de un plazo procesal en días hábiles judiciales (traslado de demanda, contestación, apelación, recurso, etc.). SIN "fecha". SOLO en rubro legal. Se calcula con DOS datos obligatorios: la fecha de notificación / inicio del cómputo y la cantidad de días hábiles del plazo; y UN dato OPCIONAL: los kilómetros de distancia al juzgado (ampliación del art. 158 CPCCN). Tomalos del CONTEXTO, de los FRAGMENTOS o de la conversación. Cuando tengas la fecha de notificación y la cantidad de días hábiles, agregá en "acciones" un objeto EXACTAMENTE con esta forma, con la fecha en AAAA-MM-DD y los días como NÚMERO (sin texto):
-{"tipo":"calcular_plazo_procesal","titulo":"Calcular vencimiento del traslado de demanda","fechaNotificacion":"2026-08-03","diasHabiles":15,"kmDistancia":0,"motivo":"El traslado de la demanda es de 15 días hábiles (art. 338 CPCCN)"}
-Si no hay distancia relevante, poné "kmDistancia":0. NUNCA inventes la fecha ni los días: si falta alguno de los dos obligatorios, no agregues la acción y pedíselo al usuario en "respuesta". ATENCIÓN: escribir "voy a calcular el plazo" en "respuesta" NO calcula NADA; el cálculo ocurre ÚNICAMENTE si agregás el objeto en "acciones".
+ 15) "calcular_plazo_procesal": calcular la FECHA DE VENCIMIENTO de un plazo procesal en días hábiles judiciales (traslado de demanda, contestación, apelación, recurso, etc.). SIN "fecha". SOLO en rubro legal. Se calcula con TRES datos OBLIGATORIOS: fecha de notificación, cantidad de días hábiles, y JURISDICCIÓN (valores permitidos: "nacion", "corrientes", "pba"). Y un dato OPCIONAL: kilómetros de distancia. Tomalos del CONTEXTO, de los FRAGMENTOS o de la conversación. REGLA: tomar jurisdicción solo de metadata explícita del expediente o de una respuesta expresa del usuario; no inferir jurisdicción únicamente por nombre del juzgado, ciudad o contexto; no utilizar la jurisdicción de la organización como sustituto automático. Si falta, pedila al usuario en "respuesta" y NO generes la acción hasta tenerla. Cuando tengas todo, agregá en "acciones" un objeto EXACTAMENTE con esta forma:
+{"tipo":"calcular_plazo_procesal","titulo":"Calcular vencimiento del traslado de demanda","fechaNotificacion":"2026-08-03","diasHabiles":15,"jurisdiccion":"nacion","kmDistancia":0,"motivo":"El traslado de la demanda es de 15 días hábiles"}
+Si no hay distancia relevante, poné "kmDistancia":0. NUNCA inventes la fecha, días, ni jurisdicción. ATENCIÓN: escribir "voy a calcular el plazo" en "respuesta" NO calcula NADA; el cálculo ocurre ÚNICAMENTE si agregás el objeto en "acciones".
  16) "calcular_tasa_justicia": calcular la tasa de justicia del proceso. SIN "fecha". SOLO en rubro legal. Se calcula con UN dato obligatorio: monto (el monto del proceso o reclamo, número plano SIN $ ni puntos). Tomalo del CONTEXTO, de los FRAGMENTOS o de la conversación. REGLA CRÍTICA: agregá SIEMPRE la acción en "acciones". Ejemplo EXACTO de JSON que debe devolver:
 {"tipo":"calcular_tasa_justicia","titulo":"Tasa de justicia del proceso","monto":28000000,"motivo":"Detecté el monto del proceso"}
 El monto va como número entero plano, sin símbolo de peso ni separadores de miles. NUNCA inventes el monto.
@@ -166,13 +167,16 @@ function validarAcciones(input: unknown, estadosValidos: string[] = []): AccionP
       const fechaNotificacion = typeof o.fechaNotificacion === 'string' ? o.fechaNotificacion.trim() : '';
       const diasHabiles = Number(o.diasHabiles);
       const kmDistancia = Number(o.kmDistancia);
+      const jurisdiccion = typeof o.jurisdiccion === 'string' ? o.jurisdiccion.trim() : '';
       if (!/^\d{4}-\d{2}-\d{2}$/.test(fechaNotificacion)) continue;
       if (!Number.isFinite(diasHabiles) || diasHabiles <= 0) continue;
+      if (!jurisdiccion || !['nacion', 'corrientes', 'pba'].includes(jurisdiccion)) continue;
       out.push({
         tipo: 'calcular_plazo_procesal',
         titulo,
         fechaNotificacion,
         diasHabiles,
+        jurisdiccion: jurisdiccion as 'nacion' | 'corrientes' | 'pba',
         kmDistancia: Number.isFinite(kmDistancia) && kmDistancia > 0 ? kmDistancia : 0,
         motivo,
       });
@@ -301,7 +305,7 @@ function detectarFechaHecho(texto: string): string | null {
 // Red de seguridad: extrae fecha de notificación y días hábiles de un texto libre.
 function detectarDatosPlazo(
   texto: string
-): { fechaNotificacion: string; diasHabiles: number; kmDistancia: number; titulo: string } | null {
+): { fechaNotificacion: string; diasHabiles: number; kmDistancia: number; jurisdiccion: string; titulo: string } | null {
   const t = texto.toLowerCase();
   if (!/(plazo|traslado|vencimiento|apelaci[oó]n|contestar|contestaci[oó]n|d[ií]as h[aá]biles|caduc)/.test(t)) return null;
 
@@ -335,7 +339,14 @@ function detectarDatosPlazo(
     if (n > 0 && n <= 5000) km = n;
   }
 
-  return { fechaNotificacion: fecha, diasHabiles: dias, kmDistancia: km, titulo: 'Calcular vencimiento del plazo procesal' };
+  let jurisdiccion = '';
+  if (t.includes('nación') || t.includes('nacion') || t.includes('federal') || t.includes('nacion/federal')) jurisdiccion = 'nacion';
+  else if (t.includes('corrientes')) jurisdiccion = 'corrientes';
+  else if (t.includes('pba') || t.includes('buenos aires')) jurisdiccion = 'pba';
+
+  if (!jurisdiccion) return null; // Debe requerirse explícitamente
+
+  return { fechaNotificacion: fecha, diasHabiles: dias, kmDistancia: km, jurisdiccion, titulo: 'Calcular vencimiento del plazo procesal' };
 }
 
 function detectarMontoJuicio(texto: string): number | null {
@@ -415,6 +426,7 @@ export async function responderAgenteLegajo(input: {
                 fechaNotificacion: { type: 'STRING' },
                 diasHabiles: { type: 'NUMBER' },
                 kmDistancia: { type: 'NUMBER' },
+                jurisdiccion: { type: 'STRING' },
                 monto: { type: 'NUMBER' },
                 motivo: { type: 'STRING' },
               },
@@ -499,8 +511,9 @@ export async function responderAgenteLegajo(input: {
                 titulo: datosPlazo.titulo,
                 fechaNotificacion: datosPlazo.fechaNotificacion,
                 diasHabiles: datosPlazo.diasHabiles,
+                jurisdiccion: datosPlazo.jurisdiccion as 'nacion' | 'corrientes' | 'pba',
                 kmDistancia: datosPlazo.kmDistancia,
-                motivo: 'Detecté una fecha de notificación y un plazo en días hábiles en el legajo o la conversación.',
+                motivo: 'Detecté una fecha de notificación, plazo y jurisdicción en el legajo o la conversación.',
               });
             }
           }

@@ -522,7 +522,7 @@ export async function ejecutarAccionAgente(input: {
           tasa_descuento: calc.tasaDescuento,
           tope_honorarios_730: tope730,
       }
-      
+
       if (intereses) {
           resultJson.intereses = intereses.interes
           resultJson.intereses_dias = intereses.dias
@@ -553,13 +553,20 @@ export async function ejecutarAccionAgente(input: {
 
     case 'calcular_plazo_procesal': {
       if (!canUpdateCase(profile.role)) return { ok: false, mensaje: 'Sin permiso.' };
+
+      const jurisdiccionStr = typeof accion.jurisdiccion === 'string' ? accion.jurisdiccion.trim() : '';
+      if (!jurisdiccionStr || !['nacion', 'corrientes', 'pba'].includes(jurisdiccionStr)) {
+        return { ok: false, mensaje: 'La IA no indicó una jurisdicción válida (nacion, corrientes, pba). No se puede calcular el vencimiento.' };
+      }
+
       const r = calcularVencimientoProcesal({
         fechaNotificacion: String(accion.fechaNotificacion ?? ''),
         diasHabiles: Number(accion.diasHabiles),
+        jurisdiccion: jurisdiccionStr as any,
         kmDistancia: Number(accion.kmDistancia) || 0,
       });
       if (!r.ok) {
-        return { ok: false, mensaje: r.motivo || 'No pude calcular el vencimiento: revisá la fecha de notificación y los días hábiles.' };
+        return { ok: false, mensaje: r.motivo || 'No pude calcular el vencimiento: revisá la fecha de notificación, los días hábiles y la jurisdicción.' };
       }
       const { error } = await supabase.from('ai_outputs').insert({
         output_type: 'case_plazo',
@@ -570,6 +577,10 @@ export async function ejecutarAccionAgente(input: {
           dias_habiles: r.diasHabiles,
           dias_ampliacion: r.diasAmpliacion,
           dias_totales: r.diasTotales,
+          jurisdiccion: r.jurisdiccion,
+          calendario_anio: r.calendarioAnio,
+          fuente: r.fuente,
+          caracter_orientativo: true,
           km_distancia: Number(accion.kmDistancia) || 0,
           cuenta_desde: r.cuentaDesde,
           vencimiento: r.vencimiento,
@@ -588,7 +599,7 @@ export async function ejecutarAccionAgente(input: {
       await guardarPlazoDetectado({
         titulo: `Vencimiento — ${accion.titulo}`,
         fecha: r.vencimiento!,
-        detalle: `Plazo de ${r.diasTotales} días hábiles calculado por el Agente IA a partir de la notificación.`,
+        detalle: `Plazo de ${r.diasTotales} días hábiles calculado por el Agente IA a partir de la notificación (Jurisdicción: ${r.jurisdiccion}). Fuente: ${r.fuente}`,
         caseId,
       });
 

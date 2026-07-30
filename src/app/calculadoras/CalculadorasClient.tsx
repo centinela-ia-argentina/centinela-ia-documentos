@@ -6,8 +6,8 @@ import { CalendarClock, Coins, Scale, AlertTriangle, CalendarPlus, Check, Loader
 import { MotionCard } from '@/components/ui/MotionCard';
 import { MotionButton } from '@/components/ui/MotionButton';
 import { guardarPlazoEnAgenda } from './actions';
-import { UMA_VALOR, UMA_VIGENCIA, TASA_JUSTICIA_PORCENTAJE, UHOM_VALOR, JUS_BA_MEDIACION, JUS_CORRIENTES } from '@/lib/legal/config';
-import { parseISODate, sumarDiasCorridos, sumarDiasHabiles } from '@/lib/legal/plazos';
+import { UMA_VALOR, UMA_VIGENCIA, TASA_JUSTICIA_PORCENTAJE, UHOM_VALOR, JUS_BA_MEDIACION, JUS_CORRIENTES, LegalJurisdiction, LEGAL_CALENDARS, JURISDICTION_LABELS } from '@/lib/legal/config';
+import { parseISODate, sumarDiasCorridos, calcularVencimientoProcesal, esDiaHabilJudicial } from '@/lib/legal/plazos';
 
 type Tab = 'plazos' | 'honorarios' | 'tasa' | 'laboral' | 'intereses' | 'alimentos' | 'danos' | 'caducidad' | 'punitivos' | 'incapacidad' | 'distancia' | 'prorrateo' | 'mediacion';
 
@@ -88,10 +88,11 @@ function ResultBox({
 }
 
 function PlazosCalc({ puedeGuardar = true }: { puedeGuardar?: boolean }) {
+  const [jurisdiccion, setJurisdiccion] = useState<LegalJurisdiction | ''>('');
   const [fecha, setFecha] = useState('');
   const [dias, setDias] = useState('');
   const [tipo, setTipo] = useState<'habiles' | 'corridos'>('habiles');
-  const [resultado, setResultado] = useState<{ vencimiento: Date; texto: string } | null>(null);
+  const [resultado, setResultado] = useState<{ vencimiento: Date; texto: string; adv: string; fuente: string; calAnio: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [referencia, setReferencia] = useState('');
   const [guardando, setGuardando] = useState(false);
@@ -101,14 +102,51 @@ function PlazosCalc({ puedeGuardar = true }: { puedeGuardar?: boolean }) {
     setError(null);
     setResultado(null);
     setGuardado(null);
+    if (!jurisdiccion) return setError('Seleccioná una jurisdicción.');
+    const cal = LEGAL_CALENDARS[jurisdiccion as LegalJurisdiction];
+    if (cal.coverage !== 'verified') return setError('Calendario todavía no configurado para esta jurisdicción/año.');
+
     const inicio = parseISODate(fecha);
     const n = parseInt(dias, 10);
     if (!inicio) return setError('Ingresá una fecha de inicio válida.');
     if (!Number.isFinite(n) || n <= 0) return setError('Ingresá una cantidad de días mayor a cero.');
-    const vencimiento = tipo === 'habiles' ? sumarDiasHabiles(inicio, n) : sumarDiasCorridos(inicio, n);
+
+    if (tipo === 'corridos') {
+      const venc = sumarDiasCorridos(inicio, n);
+      setResultado({
+        vencimiento: venc,
+        texto: `${n} días corridos`,
+        adv: 'Estimación orientativa.',
+        fuente: 'Días corridos',
+        calAnio: venc.getFullYear()
+      });
+      return;
+    }
+
+    const res = calcularVencimientoProcesal({
+      fechaNotificacion: fecha,
+      diasHabiles: n,
+      jurisdiccion: jurisdiccion as LegalJurisdiction,
+      kmDistancia: 0,
+    });
+
+    if (!res.ok) {
+      if (res.motivo === 'jurisdiccion_requerida') return setError('Seleccioná una jurisdicción.');
+      if (res.motivo === 'calendario_no_disponible') return setError('Calendario todavía no configurado para esta jurisdicción/año.');
+      if (res.motivo === 'anio_no_cubierto') return setError('El año de la fecha o del vencimiento no está cubierto por el calendario.');
+      if (res.motivo === 'fecha_invalida') return setError('Ingresá una fecha válida.');
+      return setError('Error en el cálculo.');
+    }
+
+    const [y, m, d] = res.vencimiento.split('-');
+    const vencimientoObj = new Date(Number(y), Number(m) - 1, Number(d));
+
     setResultado({
-      vencimiento,
-      texto: `${n} día${n > 1 ? 's' : ''} ${tipo === 'habiles' ? 'hábiles judiciales' : 'corridos'}`,
+      vencimiento: vencimientoObj,
+      texto: `${n} día${n > 1 ? 's' : ''} hábiles judiciales`,
+      adv: res.advertencia,
+      fuente: res.fuente,
+      calAnio: res.calendarioAnio
     });
   };
 
@@ -119,7 +157,7 @@ function PlazosCalc({ puedeGuardar = true }: { puedeGuardar?: boolean }) {
     const res = await guardarPlazoEnAgenda({
       titulo: referencia.trim() || 'Vencimiento de plazo procesal',
       fecha: toISODate(resultado.vencimiento),
-      detalle: resultado.texto,
+      detalle: `${resultado.texto} (${JURISDICTION_LABELS[jurisdiccion as LegalJurisdiction]}) — Fuente: ${resultado.fuente}`,
     });
     setGuardando(false);
     setGuardado(
@@ -134,6 +172,30 @@ function PlazosCalc({ puedeGuardar = true }: { puedeGuardar?: boolean }) {
 
   return (
     <Card title="Plazos procesales" subtitle="Calculá la fecha de vencimiento desde una fecha de inicio.">
+      <div className="mb-4">
+        <Field label="Jurisdicción (obligatorio)">
+          <select
+            value={jurisdiccion}
+            onChange={(e) => setJurisdiccion(e.target.value as LegalJurisdiction | '')}
+            className={inputClass}
+          >
+            <option value="">-- Seleccionar jurisdicción --</option>
+            {Object.entries(JURISDICTION_LABELS).map(([k, v]) => (
+              <option key={k} value={k}>{v}</option>
+            ))}
+          </select>
+        </Field>
+        {jurisdiccion && (
+          <div className="mt-2 text-xs text-slate-400">
+            {LEGAL_CALENDARS[jurisdiccion as LegalJurisdiction].coverage === 'verified' ? (
+              <span className="text-emerald-400">✓ Calendario verificado para el año {LEGAL_CALENDARS[jurisdiccion as LegalJurisdiction].year} (actualizado el {LEGAL_CALENDARS[jurisdiccion as LegalJurisdiction].verifiedAt})</span>
+            ) : (
+              <span className="text-amber-400">⚠️ Calendario todavía no configurado para esta jurisdicción/año</span>
+            )}
+          </div>
+        )}
+      </div>
+
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label="Fecha de inicio (notificación)">
           <input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} className={inputClass} />
@@ -160,7 +222,12 @@ function PlazosCalc({ puedeGuardar = true }: { puedeGuardar?: boolean }) {
             Contados {resultado.texto}
             {tipo === 'habiles' ? ' (sin fines de semana, feriados ni feria judicial).' : '.'}
           </p>
-          
+          {tipo === 'habiles' && (
+            <div className="mt-2 text-[11px] text-amber-200">
+              ⚠️ {resultado.adv} | {JURISDICTION_LABELS[jurisdiccion as LegalJurisdiction]} ({resultado.calAnio}) — Fuente: {resultado.fuente}
+            </div>
+          )}
+
           {puedeGuardar && (
             <div className="mt-4 border-t border-emerald-100 pt-4">
               <input
@@ -968,7 +1035,7 @@ function MediacionTab() {
           <Field label="Valor UHOM ($)">
             <input className={inputClass} value={uhom} onChange={(e) => setUhom(e.target.value)} type="number" />
           </Field>
-          
+
           <div className="block">
             <span className="mb-1 block text-xs font-semibold text-slate-600">Tipo de asunto</span>
             <div className="mt-1 flex flex-wrap gap-2">
@@ -978,17 +1045,17 @@ function MediacionTab() {
               <RadioPill active={tipoNac === 'sin_valor'} onClick={() => setTipoNac('sin_valor')} label="Sin valor" />
             </div>
           </div>
-          
+
           {tipoNac === "patrimonial" && (
             <Field label="Monto del asunto ($)">
               <input className={inputClass} value={montoNac} onChange={(e) => setMontoNac(e.target.value)} />
             </Field>
           )}
-          
+
           <Field label="Cantidad de audiencias">
             <input className={inputClass} value={audNac} onChange={(e) => setAudNac(e.target.value)} type="number" />
           </Field>
-          
+
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
             <ResultBox label="Ítem de escala" value={rNac.item} />
             <ResultBox label="Honorario básico" value={`${rNac.basicoUHOM.toFixed(2)} UHOM`} subtitle={fmtARS(rNac.basicoPesos)} />
@@ -1014,7 +1081,7 @@ function MediacionTab() {
               <input className={inputClass} value={montoBA} onChange={(e) => setMontoBA(e.target.value)} />
             </Field>
           )}
-          
+
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
             <ResultBox label="Tramo (art. 31 Dec. 600/21)" value={rBA.tramo} />
             <ResultBox label="Anticipo (1 Jus)" value={fmtARS(rBA.anticipoPesos)} />
@@ -1022,7 +1089,7 @@ function MediacionTab() {
           <div className="mt-3">
             <ResultBox label="Honorario" value={`${rBA.honJus.toFixed(2)} Jus`} subtitle={fmtARS(rBA.honPesos)} highlight={true} />
           </div>
-          
+
           <p className="text-xs text-slate-500 mt-2">⚠️ En Buenos Aires las causas de familia (divorcio, alimentos, etc.) están excluidas de la mediación previa obligatoria.</p>
         </div>
       )}
@@ -1033,7 +1100,7 @@ function MediacionTab() {
           <Field label="Valor Jus Corrientes ($)">
             <input className={inputClass} value={jusC} onChange={(e) => setJusC(e.target.value)} type="number" />
           </Field>
-          
+
           <div className="block">
             <span className="mb-1 block text-xs font-semibold text-slate-600">Resultado de la mediación</span>
             <div className="mt-1 flex flex-wrap gap-2">
@@ -1041,7 +1108,7 @@ function MediacionTab() {
               <RadioPill active={resC === 'sin_acuerdo'} onClick={() => setResC('sin_acuerdo')} label="Sin acuerdo" />
             </div>
           </div>
-          
+
           <div className="block">
             <span className="mb-1 block text-xs font-semibold text-slate-600">Tipo de asunto</span>
             <div className="mt-1 flex flex-wrap gap-2">
@@ -1050,7 +1117,7 @@ function MediacionTab() {
               <RadioPill active={tipoC === 'sin_valor'} onClick={() => setTipoC('sin_valor')} label="Sin contenido patrimonial" />
             </div>
           </div>
-          
+
           {tipoC === "patrimonial" && (
             <Field label="Monto ($)">
               <input className={inputClass} value={montoC} onChange={(e) => setMontoC(e.target.value)} />
@@ -1061,7 +1128,7 @@ function MediacionTab() {
               <input className={inputClass} value={cuotaC} onChange={(e) => setCuotaC(e.target.value)} />
             </Field>
           )}
-          
+
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
             <ResultBox label="Cálculo" value={rC.detalle} />
             <ResultBox label="Honorario" value={`${rC.honJus.toFixed(2)} Jus`} subtitle={fmtARS(rC.honPesos)} highlight={true} />

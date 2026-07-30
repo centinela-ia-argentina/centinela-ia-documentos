@@ -7,7 +7,7 @@ import { ChevronLeft, ChevronRight, FileText, FolderKanban, CalendarClock, Calen
 import { MotionCard } from '@/components/ui/MotionCard';
 import { MotionButton } from '@/components/ui/MotionButton';
 import { guardarEventoManual, guardarTurno } from './actions';
-import { FERIADOS, FERIAS_JUDICIALES } from '@/lib/legal/config';
+import { LEGAL_CALENDARS } from '@/lib/legal/config';
 import type { IndustryType } from '@/lib/industries/documentTypes';
 import { getAgendaLabels, getIndustryTerms } from '@/lib/industries/uiLabels';
 
@@ -24,15 +24,23 @@ export type AgendaEvento = {
 const DIAS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
 const MESES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
 
-const feriadosSet = new Set(FERIADOS);
+const feriadosSet = new Set(
+  Object.values(LEGAL_CALENDARS)
+    .filter(c => c.coverage === 'verified')
+    .flatMap(c => c.holidays)
+);
 
 function iso(y: number, m: number, d: number): string {
   return `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
 }
 
 function feriaDe(fecha: string): string | null {
-  const f = FERIAS_JUDICIALES.find((x) => fecha >= x.desde && fecha <= x.hasta);
-  return f ? f.nombre : null;
+  for (const cal of Object.values(LEGAL_CALENDARS)) {
+    if (cal.coverage !== 'verified') continue;
+    const f = cal.judicialRecesses.find((x) => fecha >= x.desde && fecha <= x.hasta);
+    if (f) return f.nombre;
+  }
+  return null;
 }
 
 export function AgendaClient({ eventos, cases, industry, puedeGuardar = true }: { eventos: AgendaEvento[]; cases: { id: string; title: string }[]; industry: IndustryType; puedeGuardar?: boolean }) {
