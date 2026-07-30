@@ -568,6 +568,7 @@ export async function ejecutarAccionAgente(input: {
       if (!r.ok) {
         return { ok: false, mensaje: r.motivo || 'No pude calcular el vencimiento: revisá la fecha de notificación, los días hábiles y la jurisdicción.' };
       }
+      const { LEGAL_CALENDARS } = await import('@/lib/legal/config');
       const { error } = await supabase.from('ai_outputs').insert({
         output_type: 'case_plazo',
         content: `${accion.titulo} — vence ${r.vencimiento}`,
@@ -580,6 +581,7 @@ export async function ejecutarAccionAgente(input: {
           jurisdiccion: r.jurisdiccion,
           calendario_anio: r.calendarioAnio,
           fuente: r.fuente,
+          ultima_verificacion: LEGAL_CALENDARS[r.jurisdiccion].verifiedAt,
           caracter_orientativo: true,
           km_distancia: Number(accion.kmDistancia) || 0,
           cuenta_desde: r.cuentaDesde,
@@ -599,7 +601,7 @@ export async function ejecutarAccionAgente(input: {
       await guardarPlazoDetectado({
         titulo: `Vencimiento — ${accion.titulo}`,
         fecha: r.vencimiento!,
-        detalle: `Plazo de ${r.diasTotales} días hábiles calculado por el Agente IA a partir de la notificación (Jurisdicción: ${r.jurisdiccion}). Fuente: ${r.fuente}`,
+        detalle: `Plazo de ${r.diasTotales} días hábiles calculado por el Agente IA a partir de la notificación (Jurisdicción: ${r.jurisdiccion}). Fuente: ${r.fuente}. Carácter orientativo.`,
         caseId,
       });
 
