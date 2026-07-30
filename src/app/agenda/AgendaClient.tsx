@@ -35,7 +35,7 @@ function feriaDe(fecha: string): string | null {
   return f ? f.nombre : null;
 }
 
-export function AgendaClient({ eventos, cases, industry }: { eventos: AgendaEvento[]; cases: { id: string; title: string }[]; industry: IndustryType }) {
+export function AgendaClient({ eventos, cases, industry, puedeGuardar = true }: { eventos: AgendaEvento[]; cases: { id: string; title: string }[]; industry: IndustryType; puedeGuardar?: boolean }) {
   const agendaLabels = getAgendaLabels(industry);
   const terms = getIndustryTerms(industry);
   const router = useRouter();
@@ -115,14 +115,16 @@ export function AgendaClient({ eventos, cases, industry }: { eventos: AgendaEven
           <h1 className="mt-1 text-2xl font-bold text-white">Agenda</h1>
           <p className="mt-1 text-sm text-slate-400">{agendaLabels.subtitulo}</p>
         </div>
-        <MotionButton
-          type="button"
-          onClick={() => setShowForm(!showForm)}
-          className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-accent to-brandviolet px-4 py-2 text-sm font-semibold text-white shadow-sm transition disabled:opacity-50"
-        >
-          {showForm ? <X className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
-          Nuevo evento
-        </MotionButton>
+        {puedeGuardar && (
+          <MotionButton
+            type="button"
+            onClick={() => setShowForm(!showForm)}
+            className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-accent to-brandviolet px-4 py-2 text-sm font-semibold text-white shadow-sm transition disabled:opacity-50"
+          >
+            {showForm ? <X className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
+            Nuevo evento
+          </MotionButton>
+        )}
       </div>
 
       {showForm && (

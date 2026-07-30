@@ -92,9 +92,11 @@ export default async function AgendaPage() {
     });
   }
 
+  const puedeGuardar = profile.role === 'admin' || profile.role === 'employee';
+
   return (
     <AppShell>
-      <AgendaClient industry={industry} eventos={eventos} cases={cases.map((c) => ({ id: c.id, title: c.title || 'Expediente sin título' }))} />
+      <AgendaClient industry={industry} eventos={eventos} cases={cases.map((c) => ({ id: c.id, title: c.title || 'Expediente sin título' }))} puedeGuardar={puedeGuardar} />
     </AppShell>
   );
 }

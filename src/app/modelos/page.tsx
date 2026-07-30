@@ -15,6 +15,7 @@ export default async function ModelosPage({
   const { user, profile } = await getUserProfile();
   if (!user) redirect('/login');
   if (!profile) redirect('/onboarding');
+  if (profile.role === 'client') redirect('/acceso-denegado?motivo=rol');
 
   const supabase = await createClient();
   const { data: cases } = await supabase
