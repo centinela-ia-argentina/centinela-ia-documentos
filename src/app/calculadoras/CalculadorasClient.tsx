@@ -179,9 +179,9 @@ function PlazosCalc({ puedeGuardar = true }: { puedeGuardar?: boolean }) {
             onChange={(e) => setJurisdiccion(e.target.value as LegalJurisdiction | '')}
             className={inputClass}
           >
-            <option value="">-- Seleccionar jurisdicción --</option>
+            <option value="" className="bg-white text-slate-900">-- Seleccionar jurisdicción --</option>
             {Object.entries(JURISDICTION_LABELS).map(([k, v]) => (
-              <option key={k} value={k}>{v}</option>
+              <option key={k} value={k} className="bg-white text-slate-900">{v}</option>
             ))}
           </select>
         </Field>
@@ -1008,15 +1008,15 @@ function MediacionTab() {
   const [montoC, setMontoC] = useState("")
   const [cuotaC, setCuotaC] = useState("")
 
-  const rNac = calcMediacionNacion({
+  const rNac = Number.isFinite(parseMonto(montoNac)) && parseMonto(montoNac) > 0 ? calcMediacionNacion({
     tipo: tipoNac, monto: parseMonto(montoNac), audiencias: Number(audNac) || 1, valorUHOM: Number(uhom) || UHOM_VALOR,
-  })
-  const rBA = calcMediacionBA({
+  }) : null
+  const rBA = Number.isFinite(parseMonto(montoBA)) && parseMonto(montoBA) > 0 ? calcMediacionBA({
     monto: parseMonto(montoBA), indeterminado: indetBA, valorJus: Number(jusBA) || JUS_BA_MEDIACION,
-  })
-  const rC = calcMediacionCorrientes({
+  }) : (indetBA ? calcMediacionBA({ monto: 0, indeterminado: indetBA, valorJus: Number(jusBA) || JUS_BA_MEDIACION }) : null)
+  const rC = (Number.isFinite(parseMonto(montoC)) && parseMonto(montoC) > 0) || (tipoC === 'alimentaria' && Number.isFinite(parseMonto(cuotaC)) && parseMonto(cuotaC) > 0) || tipoC === 'sin_valor' ? calcMediacionCorrientes({
     resultado: resC, tipo: tipoC, monto: parseMonto(montoC), cuotaMensual: parseMonto(cuotaC), valorJus: Number(jusC) || JUS_CORRIENTES,
-  })
+  }) : null
 
   return (
     <Card title="Honorarios de mediación">
@@ -1056,13 +1056,19 @@ function MediacionTab() {
             <input className={inputClass} value={audNac} onChange={(e) => setAudNac(e.target.value)} type="number" />
           </Field>
 
-          <div className="mt-4 grid gap-3 sm:grid-cols-2">
-            <ResultBox label="Ítem de escala" value={rNac.item} />
-            <ResultBox label="Honorario básico" value={`${rNac.basicoUHOM.toFixed(2)} UHOM`} subtitle={fmtARS(rNac.basicoPesos)} />
-            <ResultBox label="Adicional por audiencias" value={`${rNac.adicUHOM.toFixed(2)} UHOM`} subtitle={fmtARS(rNac.adicPesos)} />
-            <ResultBox label="Honorario provisional (2 UHOM)" value={fmtARS(rNac.provisionalPesos)} />
-          </div>
-          <ResultBox label="TOTAL estimado" value={fmtARS(rNac.totalPesos)} highlight={true} />
+          {rNac ? (
+            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+              <ResultBox label="Ítem de escala" value={rNac.item} />
+              <ResultBox label="Honorario básico" value={`${rNac.basicoUHOM.toFixed(2)} UHOM`} subtitle={fmtARS(rNac.basicoPesos)} />
+              <ResultBox label="Adicional por audiencias" value={`${rNac.adicUHOM.toFixed(2)} UHOM`} subtitle={fmtARS(rNac.adicPesos)} />
+              <ResultBox label="Honorario provisional (2 UHOM)" value={fmtARS(rNac.provisionalPesos)} />
+              <div className="sm:col-span-2">
+                <ResultBox label="TOTAL estimado" value={fmtARS(rNac.totalPesos)} highlight={true} />
+              </div>
+            </div>
+          ) : (
+            <div className="mt-4 text-sm text-slate-400">Completá el monto para ver el cálculo.</div>
+          )}
         </div>
       )}
 
@@ -1082,13 +1088,19 @@ function MediacionTab() {
             </Field>
           )}
 
-          <div className="mt-4 grid gap-3 sm:grid-cols-2">
-            <ResultBox label="Tramo (art. 31 Dec. 600/21)" value={rBA.tramo} />
-            <ResultBox label="Anticipo (1 Jus)" value={fmtARS(rBA.anticipoPesos)} />
-          </div>
-          <div className="mt-3">
-            <ResultBox label="Honorario" value={`${rBA.honJus.toFixed(2)} Jus`} subtitle={fmtARS(rBA.honPesos)} highlight={true} />
-          </div>
+          {rBA ? (
+            <>
+              <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                <ResultBox label="Tramo (art. 31 Dec. 600/21)" value={rBA.tramo} />
+                <ResultBox label="Anticipo (1 Jus)" value={fmtARS(rBA.anticipoPesos)} />
+              </div>
+              <div className="mt-3">
+                <ResultBox label="Honorario" value={`${rBA.honJus.toFixed(2)} Jus`} subtitle={fmtARS(rBA.honPesos)} highlight={true} />
+              </div>
+            </>
+          ) : (
+            <div className="mt-4 text-sm text-slate-400">Completá el monto para ver el cálculo.</div>
+          )}
 
           <p className="text-xs text-slate-500 mt-2">⚠️ En Buenos Aires las causas de familia (divorcio, alimentos, etc.) están excluidas de la mediación previa obligatoria.</p>
         </div>
@@ -1129,11 +1141,15 @@ function MediacionTab() {
             </Field>
           )}
 
-          <div className="mt-4 grid gap-3 sm:grid-cols-2">
-            <ResultBox label="Cálculo" value={rC.detalle} />
-            <ResultBox label="Honorario" value={`${rC.honJus.toFixed(2)} Jus`} subtitle={fmtARS(rC.honPesos)} highlight={true} />
-            {rC.aplicaMinimo && <ResultBox label="Nota" value="Se aplicó el honorario mínimo de 1 Jus" />}
-          </div>
+          {rC ? (
+            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+              <ResultBox label="Cálculo" value={rC.detalle} />
+              <ResultBox label="Honorario" value={`${rC.honJus.toFixed(2)} Jus`} subtitle={fmtARS(rC.honPesos)} highlight={true} />
+              {rC.aplicaMinimo && <ResultBox label="Nota" value="Se aplicó el honorario mínimo de 1 Jus" />}
+            </div>
+          ) : (
+            <div className="mt-4 text-sm text-slate-400">Completá los montos para ver el cálculo.</div>
+          )}
         </div>
       )}
 

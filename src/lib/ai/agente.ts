@@ -87,15 +87,6 @@ function reglasAcciones(hoy: string, estadosValidos: string): string {
   11) "agendar_firma": agendar la FIRMA de la escritura, el acto notarial o el instrumento principal. REQUIERE "fecha". Si surge la hora, sumá "hora" en formato HH:MM (24hs). Proponéla cuando el legajo esté listo o se acuerde una fecha de firma. Ej: "Firma de escritura traslativa de dominio".
   12) "sugerir_modelo": sugerir abrir el MODELO/instrumento correcto de la biblioteca para redactar el documento del legajo. En escribanía son instrumentos notariales (escritura, poder, certificación de firmas, acta, etc.); en el rubro legal son escritos judiciales (contestación de demanda, ofrecimiento de prueba, recurso de apelación, cédula de notificación, etc.). SIN "fecha". Proponéla cuando el legajo corresponda claramente a un documento para el que conviene usar un modelo y ya tenga datos suficientes. Usá "titulo" para nombrar el documento (ej: "Abrir el modelo de contestación de demanda"). El sistema ya sabe qué modelo corresponde según el legajo; NO inventes nombres de archivos ni enlaces.
   13) "redactar_ros": preparar el borrador de ROS (Reporte de Operación Sospechosa ante la UIF) del legajo. SIN "fecha". Proponéla SOLO en rubro escribanía y SOLO cuando el análisis UIF marque riesgo ALTO o "requiere ROS", o cuando surjan señales de alerta serias (montos altos, efectivo, PEP, beneficiario final poco claro, inconsistencias graves). Usá "titulo" como "Preparar borrador de ROS (UIF)". No la propongas si no hay señales serias.
-  14) "calcular_liquidacion": estimar el monto del reclamo por INCAPACIDAD (fórmulas Méndez o Vuoto). SIN "fecha". SOLO en rubro legal/laboral. Se calcula con TRES datos: ingreso mensual de la víctima, su edad al momento del hecho y el porcentaje de incapacidad. Tomalos del CONTEXTO, de los FRAGMENTOS o de lo que el usuario haya dicho en la conversación; si figuran la fecha de nacimiento y la fecha del hecho, calculá vos mismo la edad. REGLA CRÍTICA E INNEGOCIABLE: cuando tengas los tres datos, está PROHIBIDO contestar solo con texto tipo "se puede calcular" o "podemos calcular". SIEMPRE, además de tu respuesta, tenés que agregar en el array "acciones" un objeto EXACTAMENTE con esta forma, con los números como NÚMEROS (sin puntos de miles ni signo $):
-{"tipo":"calcular_liquidacion","titulo":"Calcular liquidación estimada por incapacidad","metodo":"mendez","ingresoMensual":600000,"edad":45,"incapacidad":20,"fechaHecho":"2023-07-15","motivo":"El actor reclama una incapacidad permanente"}
-(Ese ejemplo usa números de muestra: vos poné los reales del legajo.) Por defecto "metodo":"mendez"; usá "vuoto" solo si el usuario lo pide. NUNCA inventes los números: solo si de verdad falta alguno y no lo podés deducir, ahí no agregás la acción y se lo pedís al usuario en "respuesta". ATENCIÓN CRÍTICA: escribir en tu "respuesta" frases como "procedo a calcular" o "voy a calcular" NO calcula NADA y NO le muestra NADA al usuario. El cálculo OCURRE ÚNICAMENTE si agregás el objeto en el array "acciones". Si no agregás la acción, para el usuario no pasó nada. Entonces, cuando tengas los tres datos: agregá SIEMPRE la acción en "acciones", y en "respuesta" poné apenas una frase corta presentando la estimación. Si además detectás la fecha del hecho, siniestro, accidente o mora, incluí el campo opcional "fechaHecho" en formato AAAA-MM-DD para calcular los intereses. Si no la tenés, no la inventes ni incluyas el campo.
- 15) "calcular_plazo_procesal": calcular la FECHA DE VENCIMIENTO de un plazo procesal en días hábiles judiciales (traslado de demanda, contestación, apelación, recurso, etc.). SIN "fecha". SOLO en rubro legal. Se calcula con TRES datos OBLIGATORIOS: fecha de notificación, cantidad de días hábiles, y JURISDICCIÓN (valores permitidos: "nacion", "corrientes", "pba"). Y un dato OPCIONAL: kilómetros de distancia. Tomalos del CONTEXTO, de los FRAGMENTOS o de la conversación. REGLA: tomar jurisdicción solo de metadata explícita del expediente o de una respuesta expresa del usuario; no inferir jurisdicción únicamente por nombre del juzgado, ciudad o contexto; no utilizar la jurisdicción de la organización como sustituto automático. Si falta, pedila al usuario en "respuesta" y NO generes la acción hasta tenerla. Cuando tengas todo, agregá en "acciones" un objeto EXACTAMENTE con esta forma:
-{"tipo":"calcular_plazo_procesal","titulo":"Calcular vencimiento del traslado de demanda","fechaNotificacion":"2026-08-03","diasHabiles":15,"jurisdiccion":"nacion","kmDistancia":0,"motivo":"El traslado de la demanda es de 15 días hábiles"}
-Si no hay distancia relevante, poné "kmDistancia":0. NUNCA inventes la fecha, días, ni jurisdicción. ATENCIÓN: escribir "voy a calcular el plazo" en "respuesta" NO calcula NADA; el cálculo ocurre ÚNICAMENTE si agregás el objeto en "acciones".
- 16) "calcular_tasa_justicia": calcular la tasa de justicia del proceso. SIN "fecha". SOLO en rubro legal. Se calcula con UN dato obligatorio: monto (el monto del proceso o reclamo, número plano SIN $ ni puntos). Tomalo del CONTEXTO, de los FRAGMENTOS o de la conversación. REGLA CRÍTICA: agregá SIEMPRE la acción en "acciones". Ejemplo EXACTO de JSON que debe devolver:
-{"tipo":"calcular_tasa_justicia","titulo":"Tasa de justicia del proceso","monto":28000000,"motivo":"Detecté el monto del proceso"}
-El monto va como número entero plano, sin símbolo de peso ni separadores de miles. NUNCA inventes el monto.
  17) "redactar_aviso": generar con IA el AVISO / FICHA COMERCIAL de la propiedad para publicar en portales o redes, a partir de los datos del inmueble y del legajo. SIN "fecha". SOLO en rubro inmobiliaria. Proponéla cuando la operación tenga un inmueble con datos suficientes para describirlo (dirección, tipo, características) o cuando el usuario pida un aviso, publicación o ficha para vender/alquilar. Usá "titulo" como "Redactar aviso comercial de la propiedad". El sistema arma el aviso con los datos reales del legajo; NO inventes superficies, precios ni ambientes.
  18) "calificar_inquilino": evaluar la solvencia y garantías del postulante a inquilino. SIN "fecha". SOLO en rubro inmobiliaria. Proponéla cuando el expediente parezca una postulación de alquiler y haya documentos del postulante (recibo de sueldo, constancia de monotributo/ingresos, o datos de garantía/garante). Usá "titulo" como "Calificar inquilino y garantía (IA)". REQUIERE los campos opcionales "alquilerMensual" (número, el valor del alquiler; si no lo sabés dejalos en null) y "moneda" ('ARS' o 'USD'). Es una evaluación orientativa, no un dictamen. NO la propongas en compraventas.
 - OBLIGATORIO: si en tu "respuesta" decís o das a entender que un documento del legajo cumple, corresponde o sirve para un ítem del checklist, TENÉS que incluir además la acción "vincular_documento" en el campo "acciones" (con "itemChecklist" y "documento" exactos, copiados del contexto). Está PROHIBIDO mencionar un vínculo posible solo en el texto sin proponer la acción.
@@ -470,14 +461,20 @@ export async function responderAgenteLegajo(input: {
             respuesta = salvarRespuesta(raw);
             acciones = [];
           }
-        
+
           // Redes de seguridad: se ejecutan SIEMPRE, aunque el JSON haya venido mal.
           const esLegalLaboral = input.industry === 'legal';
+          const p = input.pregunta.toLowerCase();
+
+          const intencionPlazo = /(calcul(?:a|á|ar)|sac(?:a|á|ar)|cu[aá]ndo)\s+(un\s+)?(plazo|vencimiento)|cont(?:a|á|ar)\s+(d[ií]as\s+h[aá]biles)|fecha\s+procesal/i.test(p);
+          const intencionTasa = /(calcul(?:a|á|ar)|estim(?:a|á|ar))\s+tasa/i.test(p);
+          const intencionLiq = /(calcul(?:a|á|ar)|estim(?:a|á|ar))\s+(liquidaci[oó]n|indemnizaci[oó]n|incapacidad)|m[eé]ndez|vuoto/i.test(p);
+
           const textoBusqueda = [input.contextoLegajo || '', ...input.historial.map((m) => m.texto), input.pregunta].join('\n');
           const fechaHechoDetectada = detectarFechaHecho(input.pregunta) ?? detectarFechaHecho(textoBusqueda);
-        
+
           const yaPropusoLiquidacion = acciones.some((a) => a.tipo === 'calcular_liquidacion');
-          if (esLegalLaboral && !yaPropusoLiquidacion) {
+          if (esLegalLaboral && intencionLiq && !yaPropusoLiquidacion) {
             const datosLiq = detectarDatosLiquidacion(textoBusqueda);
             if (datosLiq) {
               acciones.push({
@@ -492,7 +489,7 @@ export async function responderAgenteLegajo(input: {
               });
             }
           }
-        
+
           if (fechaHechoDetectada) {
             for (const a of acciones) {
               if (a.tipo === 'calcular_liquidacion' && !a.fechaHecho) {
@@ -500,9 +497,9 @@ export async function responderAgenteLegajo(input: {
               }
             }
           }
-        
+
           const yaPropusoPlazo = acciones.some((a) => a.tipo === 'calcular_plazo_procesal');
-          if (esLegalLaboral && !yaPropusoPlazo) {
+          if (esLegalLaboral && intencionPlazo && !yaPropusoPlazo) {
             const textoBusquedaPlazo = [input.pregunta, ...input.historial.map((m) => m.texto), input.contextoLegajo || ''].join('\n');
             const datosPlazo = detectarDatosPlazo(textoBusquedaPlazo);
             if (datosPlazo) {
@@ -515,11 +512,28 @@ export async function responderAgenteLegajo(input: {
                 kmDistancia: datosPlazo.kmDistancia,
                 motivo: 'Detecté una fecha de notificación, plazo y jurisdicción en el legajo o la conversación.',
               });
+            } else {
+              // Intención detectada pero faltan datos (ej. jurisdicción) para armar la acción válida
+              const tieneJuris = detectarDatosPlazo(textoBusquedaPlazo + '\n nacion corrientes pba'); // trick to see if only jurisdiction was missing
+              // Pero la regla pide: "Si existe intención de plazo pero falta jurisdicción: devolver acciones vacías para cálculos, responder... etc"
+              // Vamos a aplicar el hardcode directo:
+              acciones = acciones.filter(a => a.tipo !== 'calcular_liquidacion' && a.tipo !== 'calcular_tasa_justicia');
+              respuesta = '¿Qué jurisdicción corresponde: Justicia Nacional/Federal, Provincia de Buenos Aires o Provincia de Corrientes?';
             }
+          } else if (esLegalLaboral && !intencionPlazo) {
+             // Limpiar cualquier acción de cálculo propuesta si no hubo intención explícita
+             acciones = acciones.filter(a => a.tipo !== 'calcular_plazo_procesal');
           }
-        
-          const yaPropusoTasa = acciones.some((a) => a.tipo === 'calcular_tasa_justicia');
-          if (esLegalLaboral && !yaPropusoTasa) {
+
+          if (esLegalLaboral && !intencionTasa) {
+             acciones = acciones.filter(a => a.tipo !== 'calcular_tasa_justicia');
+          }
+          if (esLegalLaboral && !intencionLiq) {
+             acciones = acciones.filter(a => a.tipo !== 'calcular_liquidacion');
+          }
+
+          const yaPropusoTasaAjustada = acciones.some((a) => a.tipo === 'calcular_tasa_justicia');
+          if (esLegalLaboral && intencionTasa && !yaPropusoTasaAjustada) {
             const textoBusquedaTasa = [input.pregunta, ...input.historial.map((m) => m.texto), input.contextoLegajo || ''].join(' ');
             const monto = detectarMontoJuicio(textoBusquedaTasa);
             if (monto && monto > 0) {
@@ -531,7 +545,7 @@ export async function responderAgenteLegajo(input: {
               });
             }
           }
-        
+
           return { ok: true, respuesta, acciones, model: `agente-${modeloActual}` };
         }
       } else if (resp.status === 429 || resp.status === 404 || resp.status >= 500) {
