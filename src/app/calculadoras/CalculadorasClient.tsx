@@ -102,9 +102,6 @@ function PlazosCalc({ puedeGuardar = true }: { puedeGuardar?: boolean }) {
     setError(null);
     setResultado(null);
     setGuardado(null);
-    if (!jurisdiccion) return setError('Seleccioná una jurisdicción.');
-    const cal = LEGAL_CALENDARS[jurisdiccion as LegalJurisdiction];
-    if (cal.coverage !== 'verified') return setError('Calendario todavía no configurado para esta jurisdicción/año.');
 
     const inicio = parseISODate(fecha);
     const n = parseInt(dias, 10);
@@ -122,6 +119,10 @@ function PlazosCalc({ puedeGuardar = true }: { puedeGuardar?: boolean }) {
       });
       return;
     }
+
+    if (!jurisdiccion) return setError('Seleccioná una jurisdicción.');
+    const cal = LEGAL_CALENDARS[jurisdiccion as LegalJurisdiction];
+    if (cal.coverage !== 'verified') return setError('Calendario todavía no configurado para esta jurisdicción/año.');
 
     const res = calcularVencimientoProcesal({
       fechaNotificacion: fecha,
@@ -206,8 +207,8 @@ function PlazosCalc({ puedeGuardar = true }: { puedeGuardar?: boolean }) {
       </div>
 
       <div className="mt-4 flex gap-2">
-        <RadioPill active={tipo === 'habiles'} onClick={() => setTipo('habiles')} label="Días hábiles" />
-        <RadioPill active={tipo === 'corridos'} onClick={() => setTipo('corridos')} label="Días corridos" />
+        <RadioPill active={tipo === 'habiles'} onClick={() => { setTipo('habiles'); setResultado(null); setError(null); setGuardado(null); }} label="Días hábiles" />
+        <RadioPill active={tipo === 'corridos'} onClick={() => { setTipo('corridos'); setResultado(null); setError(null); setGuardado(null); }} label="Días corridos" />
       </div>
 
       <MotionButton type="button" onClick={calcular} className={btnClass}>Calcular vencimiento</MotionButton>

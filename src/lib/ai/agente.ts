@@ -335,8 +335,6 @@ function detectarDatosPlazo(
   else if (t.includes('corrientes')) jurisdiccion = 'corrientes';
   else if (t.includes('pba') || t.includes('buenos aires')) jurisdiccion = 'pba';
 
-  if (!jurisdiccion) return null; // Debe requerirse explícitamente
-
   return { fechaNotificacion: fecha, diasHabiles: dias, kmDistancia: km, jurisdiccion, titulo: 'Calcular vencimiento del plazo procesal' };
 }
 
@@ -466,83 +464,91 @@ export async function responderAgenteLegajo(input: {
           const esLegalLaboral = input.industry === 'legal';
           const p = input.pregunta.toLowerCase();
 
+          const esIntencionAgenda = /(agendar|cargar en agenda|registrar.*vencimiento|recordar.*fecha)/i.test(p);
           const intencionPlazo = /(calcul(?:a|á|ar)|sac(?:a|á|ar)|cu[aá]ndo)\s+(un\s+)?(plazo|vencimiento)|cont(?:a|á|ar)\s+(d[ií]as\s+h[aá]biles)|fecha\s+procesal/i.test(p);
           const intencionTasa = /(calcul(?:a|á|ar)|estim(?:a|á|ar))\s+tasa/i.test(p);
           const intencionLiq = /(calcul(?:a|á|ar)|estim(?:a|á|ar))\s+(liquidaci[oó]n|indemnizaci[oó]n|incapacidad)|m[eé]ndez|vuoto/i.test(p);
 
-          const textoBusqueda = [input.contextoLegajo || '', ...input.historial.map((m) => m.texto), input.pregunta].join('\n');
-          const fechaHechoDetectada = detectarFechaHecho(input.pregunta) ?? detectarFechaHecho(textoBusqueda);
-
-          const yaPropusoLiquidacion = acciones.some((a) => a.tipo === 'calcular_liquidacion');
-          if (esLegalLaboral && intencionLiq && !yaPropusoLiquidacion) {
-            const datosLiq = detectarDatosLiquidacion(textoBusqueda);
-            if (datosLiq) {
-              acciones.push({
-                tipo: 'calcular_liquidacion',
-                titulo: 'Calcular liquidación estimada por incapacidad',
-                metodo: datosLiq.metodo,
-                ingresoMensual: datosLiq.ingresoMensual,
-                edad: datosLiq.edad,
-                incapacidad: datosLiq.incapacidad,
-                fechaHecho: fechaHechoDetectada ?? undefined,
-                motivo: 'Detecté los datos necesarios (ingreso, edad e incapacidad) en el legajo o la conversación.',
-              });
+          let esContinuacionPlazo = false;
+          let jurisCont = '';
+          if (input.historial.length >= 2) {
+            const lastAgent = input.historial[input.historial.length - 1];
+            const lastUser = input.historial[input.historial.length - 2];
+            if (
+              lastAgent.rol === 'model' &&
+              lastAgent.texto.includes('¿Qué jurisdicción corresponde: Justicia Nacional/Federal, Provincia de Buenos Aires o Provincia de Corrientes?') &&
+              lastUser.rol === 'user' &&
+              /(calcul(?:a|á|ar)|sac(?:a|á|ar)|cu[aá]ndo)\s+(un\s+)?(plazo|vencimiento)|cont(?:a|á|ar)\s+(d[ií]as\s+h[aá]biles)|fecha\s+procesal/i.test(lastUser.texto)
+            ) {
+              if (p.includes('nación') || p.includes('nacion') || p.includes('federal')) jurisCont = 'nacion';
+              else if (p.includes('corrientes')) jurisCont = 'corrientes';
+              else if (p.includes('pba') || p.includes('buenos aires') || p.includes('provincia')) jurisCont = 'pba';
+              
+              if (jurisCont) esContinuacionPlazo = true;
             }
           }
 
-          if (fechaHechoDetectada) {
-            for (const a of acciones) {
-              if (a.tipo === 'calcular_liquidacion' && !a.fechaHecho) {
-                a.fechaHecho = fechaHechoDetectada;
+          // Filtro estricto
+          if (!esIntencionAgenda) acciones = acciones.filter(a => a.tipo !== 'agendar_plazo');
+          if (!intencionPlazo && !esContinuacionPlazo) acciones = acciones.filter(a => a.tipo !== 'calcular_plazo_procesal');
+          if (!intencionTasa) acciones = acciones.filter(a => a.tipo !== 'calcular_tasa_justicia');
+          if (!intencionLiq) acciones = acciones.filter(a => a.tipo !== 'calcular_liquidacion');
+
+          const allText = [input.contextoLegajo || '', ...input.historial.map((m) => m.texto), input.pregunta].join('\n');
+
+          if (esLegalLaboral) {
+            if (intencionTasa) {
+              acciones = acciones.filter(a => a.tipo === 'calcular_tasa_justicia');
+              const monto = detectarMontoJuicio(allText);
+              if (monto && monto > 0 && !acciones.some(a => a.tipo === 'calcular_tasa_justicia')) {
+                acciones.push({
+                  tipo: 'calcular_tasa_justicia',
+                  titulo: 'Tasa de justicia del proceso',
+                  monto,
+                  motivo: 'Detecté el monto del proceso en el expediente o la conversación.'
+                });
               }
-            }
-          }
-
-          const yaPropusoPlazo = acciones.some((a) => a.tipo === 'calcular_plazo_procesal');
-          if (esLegalLaboral && intencionPlazo && !yaPropusoPlazo) {
-            const textoBusquedaPlazo = [input.pregunta, ...input.historial.map((m) => m.texto), input.contextoLegajo || ''].join('\n');
-            const datosPlazo = detectarDatosPlazo(textoBusquedaPlazo);
-            if (datosPlazo) {
-              acciones.push({
-                tipo: 'calcular_plazo_procesal',
-                titulo: datosPlazo.titulo,
-                fechaNotificacion: datosPlazo.fechaNotificacion,
-                diasHabiles: datosPlazo.diasHabiles,
-                jurisdiccion: datosPlazo.jurisdiccion as 'nacion' | 'corrientes' | 'pba',
-                kmDistancia: datosPlazo.kmDistancia,
-                motivo: 'Detecté una fecha de notificación, plazo y jurisdicción en el legajo o la conversación.',
-              });
-            } else {
-              // Intención detectada pero faltan datos (ej. jurisdicción) para armar la acción válida
-              const tieneJuris = detectarDatosPlazo(textoBusquedaPlazo + '\n nacion corrientes pba'); // trick to see if only jurisdiction was missing
-              // Pero la regla pide: "Si existe intención de plazo pero falta jurisdicción: devolver acciones vacías para cálculos, responder... etc"
-              // Vamos a aplicar el hardcode directo:
-              acciones = acciones.filter(a => a.tipo !== 'calcular_liquidacion' && a.tipo !== 'calcular_tasa_justicia');
-              respuesta = '¿Qué jurisdicción corresponde: Justicia Nacional/Federal, Provincia de Buenos Aires o Provincia de Corrientes?';
-            }
-          } else if (esLegalLaboral && !intencionPlazo) {
-             // Limpiar cualquier acción de cálculo propuesta si no hubo intención explícita
-             acciones = acciones.filter(a => a.tipo !== 'calcular_plazo_procesal');
-          }
-
-          if (esLegalLaboral && !intencionTasa) {
-             acciones = acciones.filter(a => a.tipo !== 'calcular_tasa_justicia');
-          }
-          if (esLegalLaboral && !intencionLiq) {
-             acciones = acciones.filter(a => a.tipo !== 'calcular_liquidacion');
-          }
-
-          const yaPropusoTasaAjustada = acciones.some((a) => a.tipo === 'calcular_tasa_justicia');
-          if (esLegalLaboral && intencionTasa && !yaPropusoTasaAjustada) {
-            const textoBusquedaTasa = [input.pregunta, ...input.historial.map((m) => m.texto), input.contextoLegajo || ''].join(' ');
-            const monto = detectarMontoJuicio(textoBusquedaTasa);
-            if (monto && monto > 0) {
-              acciones.push({
-                tipo: 'calcular_tasa_justicia',
-                titulo: 'Tasa de justicia del proceso',
-                monto,
-                motivo: 'Detecté el monto del proceso en el expediente o la conversación.',
-              });
+            } else if (intencionLiq) {
+              acciones = acciones.filter(a => a.tipo === 'calcular_liquidacion');
+              const datosLiq = detectarDatosLiquidacion(allText);
+              if (datosLiq && !acciones.some(a => a.tipo === 'calcular_liquidacion')) {
+                const fechaHecho = detectarFechaHecho(allText);
+                acciones.push({
+                  tipo: 'calcular_liquidacion',
+                  titulo: 'Calcular liquidación estimada por incapacidad',
+                  metodo: datosLiq.metodo,
+                  ingresoMensual: datosLiq.ingresoMensual,
+                  edad: datosLiq.edad,
+                  incapacidad: datosLiq.incapacidad,
+                  fechaHecho: fechaHecho ?? undefined,
+                  motivo: 'Detecté los datos necesarios en la conversación.'
+                });
+              }
+            } else if (intencionPlazo || esContinuacionPlazo) {
+              acciones = acciones.filter(a => a.tipo === 'calcular_plazo_procesal' || a.tipo === 'agendar_plazo');
+              
+              const historyUserText = input.historial.filter(h => h.rol === 'user').map(h => h.texto).join('\n');
+              const textForPlazo = esContinuacionPlazo ? historyUserText + '\n' + input.pregunta : input.pregunta;
+              const datos = detectarDatosPlazo(textForPlazo + (jurisCont ? ` ${jurisCont}` : ''));
+              
+              if (datos) {
+                if (datos.jurisdiccion) {
+                  if (!acciones.some(a => a.tipo === 'calcular_plazo_procesal')) {
+                    acciones.push({
+                      tipo: 'calcular_plazo_procesal',
+                      titulo: datos.titulo,
+                      fechaNotificacion: datos.fechaNotificacion,
+                      diasHabiles: datos.diasHabiles,
+                      jurisdiccion: datos.jurisdiccion as 'nacion' | 'corrientes' | 'pba',
+                      kmDistancia: datos.kmDistancia,
+                      motivo: 'Detecté datos de plazo en la conversación.'
+                    });
+                  }
+                } else {
+                  acciones = [];
+                  respuesta = '¿Qué jurisdicción corresponde: Justicia Nacional/Federal, Provincia de Buenos Aires o Provincia de Corrientes?';
+                }
+              }
             }
           }
 
