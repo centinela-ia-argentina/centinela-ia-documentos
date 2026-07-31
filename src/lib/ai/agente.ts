@@ -348,6 +348,15 @@ function detectarMontoJuicio(texto: string): number | null {
   return Math.max(...candidatos);
 }
 
+function normalizarParaIntencion(texto: string): string {
+  return texto
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 export async function responderAgenteLegajo(input: {
   industry: IndustryType;
   contextoLegajo: string;
@@ -462,27 +471,30 @@ export async function responderAgenteLegajo(input: {
 
           // Redes de seguridad: se ejecutan SIEMPRE, aunque el JSON haya venido mal.
           const esLegalLaboral = input.industry === 'legal';
-          const p = input.pregunta.toLowerCase();
+          const p = input.pregunta;
+          const pNorm = normalizarParaIntencion(p);
 
-          const esIntencionAgenda = /(agendar|cargar en agenda|registrar.*vencimiento|recordar.*fecha)/i.test(p);
-          const intencionPlazo = /(calcul(?:a|á|ar)|sac(?:a|á|ar)|cu[aá]ndo)\s+(un\s+)?(plazo|vencimiento)|cont(?:a|á|ar)\s+(d[ií]as\s+h[aá]biles)|fecha\s+procesal/i.test(p);
-          const intencionTasa = /(calcul(?:a|á|ar)|estim(?:a|á|ar))\s+tasa/i.test(p);
-          const intencionLiq = /(calcul(?:a|á|ar)|estim(?:a|á|ar))\s+(liquidaci[oó]n|indemnizaci[oó]n|incapacidad)|m[eé]ndez|vuoto/i.test(p);
+          const esIntencionAgenda = /(agenda|agendame|agendar|carga|registra|registralo|recordame)\b.*?(vencimiento|agenda|fecha)/i.test(pNorm);
+          const intencionPlazo = /(calcula|calculame|calcular|saca|cuando|conta|determina)\b.*?(plazo|vencimiento|dias habiles|fecha procesal)/i.test(pNorm);
+          const intencionTasa = /(calcula|calculame|calcular|estima)\b.*?(tasa)/i.test(pNorm);
+          const intencionLiq = /(calcula|calculame|calcular|estima)\b.*?(liquidacion|indemnizacion|incapacidad)|mendez|vuoto/i.test(pNorm);
 
           let esContinuacionPlazo = false;
           let jurisCont = '';
           if (input.historial.length >= 2) {
             const lastAgent = input.historial[input.historial.length - 1];
             const lastUser = input.historial[input.historial.length - 2];
+            const lastAgentNorm = normalizarParaIntencion(lastAgent.texto);
+            const lastUserNorm = normalizarParaIntencion(lastUser.texto);
             if (
               lastAgent.rol === 'model' &&
-              lastAgent.texto.includes('¿Qué jurisdicción corresponde: Justicia Nacional/Federal, Provincia de Buenos Aires o Provincia de Corrientes?') &&
+              lastAgentNorm.includes('que jurisdiccion corresponde: justicia nacional/federal, provincia de buenos aires o provincia de corrientes') &&
               lastUser.rol === 'user' &&
-              /(calcul(?:a|á|ar)|sac(?:a|á|ar)|cu[aá]ndo)\s+(un\s+)?(plazo|vencimiento)|cont(?:a|á|ar)\s+(d[ií]as\s+h[aá]biles)|fecha\s+procesal/i.test(lastUser.texto)
+              /(calcula|calculame|calcular|saca|cuando|conta|determina)\b.*?(plazo|vencimiento|dias habiles|fecha procesal)/i.test(lastUserNorm)
             ) {
-              if (p.includes('nación') || p.includes('nacion') || p.includes('federal')) jurisCont = 'nacion';
-              else if (p.includes('corrientes')) jurisCont = 'corrientes';
-              else if (p.includes('pba') || p.includes('buenos aires') || p.includes('provincia')) jurisCont = 'pba';
+              if (pNorm.includes('nacion') || pNorm.includes('federal')) jurisCont = 'nacion';
+              else if (pNorm.includes('corrientes')) jurisCont = 'corrientes';
+              else if (pNorm.includes('pba') || pNorm.includes('buenos aires') || pNorm.includes('provincia')) jurisCont = 'pba';
               
               if (jurisCont) esContinuacionPlazo = true;
             }
@@ -550,6 +562,10 @@ export async function responderAgenteLegajo(input: {
                 }
               }
             }
+          }
+
+          if (acciones.length > 0) {
+            respuesta = respuesta.replace(/\b(calcul[eé]|se\s+calcul[oó]|agend[eé]|se\s+agend[oó]|ya\s+est[aá]\s+cargado)\b/gi, 'preparé la propuesta para que la apruebes');
           }
 
           return { ok: true, respuesta, acciones, model: `agente-${modeloActual}` };
