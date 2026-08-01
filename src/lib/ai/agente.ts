@@ -39,6 +39,7 @@ export type AccionPropuesta = {
   diasHabiles?: number;        // solo calcular_plazo_procesal
   fechaNotificacion?: string;  // solo calcular_plazo_procesal (YYYY-MM-DD)
   kmDistancia?: number;        // solo calcular_plazo_procesal (opcional, art. 158)
+  jurisdiccion?: 'nacion' | 'corrientes' | 'pba'; // solo calcular_plazo_procesal
   monto?: number; // solo calcular_tasa_justicia
   alquilerMensual?: number | null; // solo calificar_inquilino
   moneda?: 'ARS' | 'USD'; // solo calificar_inquilino
@@ -86,15 +87,6 @@ function reglasAcciones(hoy: string, estadosValidos: string): string {
   11) "agendar_firma": agendar la FIRMA de la escritura, el acto notarial o el instrumento principal. REQUIERE "fecha". Si surge la hora, sumá "hora" en formato HH:MM (24hs). Proponéla cuando el legajo esté listo o se acuerde una fecha de firma. Ej: "Firma de escritura traslativa de dominio".
   12) "sugerir_modelo": sugerir abrir el MODELO/instrumento correcto de la biblioteca para redactar el documento del legajo. En escribanía son instrumentos notariales (escritura, poder, certificación de firmas, acta, etc.); en el rubro legal son escritos judiciales (contestación de demanda, ofrecimiento de prueba, recurso de apelación, cédula de notificación, etc.). SIN "fecha". Proponéla cuando el legajo corresponda claramente a un documento para el que conviene usar un modelo y ya tenga datos suficientes. Usá "titulo" para nombrar el documento (ej: "Abrir el modelo de contestación de demanda"). El sistema ya sabe qué modelo corresponde según el legajo; NO inventes nombres de archivos ni enlaces.
   13) "redactar_ros": preparar el borrador de ROS (Reporte de Operación Sospechosa ante la UIF) del legajo. SIN "fecha". Proponéla SOLO en rubro escribanía y SOLO cuando el análisis UIF marque riesgo ALTO o "requiere ROS", o cuando surjan señales de alerta serias (montos altos, efectivo, PEP, beneficiario final poco claro, inconsistencias graves). Usá "titulo" como "Preparar borrador de ROS (UIF)". No la propongas si no hay señales serias.
-  14) "calcular_liquidacion": estimar el monto del reclamo por INCAPACIDAD (fórmulas Méndez o Vuoto). SIN "fecha". SOLO en rubro legal/laboral. Se calcula con TRES datos: ingreso mensual de la víctima, su edad al momento del hecho y el porcentaje de incapacidad. Tomalos del CONTEXTO, de los FRAGMENTOS o de lo que el usuario haya dicho en la conversación; si figuran la fecha de nacimiento y la fecha del hecho, calculá vos mismo la edad. REGLA CRÍTICA E INNEGOCIABLE: cuando tengas los tres datos, está PROHIBIDO contestar solo con texto tipo "se puede calcular" o "podemos calcular". SIEMPRE, además de tu respuesta, tenés que agregar en el array "acciones" un objeto EXACTAMENTE con esta forma, con los números como NÚMEROS (sin puntos de miles ni signo $):
-{"tipo":"calcular_liquidacion","titulo":"Calcular liquidación estimada por incapacidad","metodo":"mendez","ingresoMensual":600000,"edad":45,"incapacidad":20,"fechaHecho":"2023-07-15","motivo":"El actor reclama una incapacidad permanente"}
-(Ese ejemplo usa números de muestra: vos poné los reales del legajo.) Por defecto "metodo":"mendez"; usá "vuoto" solo si el usuario lo pide. NUNCA inventes los números: solo si de verdad falta alguno y no lo podés deducir, ahí no agregás la acción y se lo pedís al usuario en "respuesta". ATENCIÓN CRÍTICA: escribir en tu "respuesta" frases como "procedo a calcular" o "voy a calcular" NO calcula NADA y NO le muestra NADA al usuario. El cálculo OCURRE ÚNICAMENTE si agregás el objeto en el array "acciones". Si no agregás la acción, para el usuario no pasó nada. Entonces, cuando tengas los tres datos: agregá SIEMPRE la acción en "acciones", y en "respuesta" poné apenas una frase corta presentando la estimación. Si además detectás la fecha del hecho, siniestro, accidente o mora, incluí el campo opcional "fechaHecho" en formato AAAA-MM-DD para calcular los intereses. Si no la tenés, no la inventes ni incluyas el campo.
- 15) "calcular_plazo_procesal": calcular la FECHA DE VENCIMIENTO de un plazo procesal en días hábiles judiciales (traslado de demanda, contestación, apelación, recurso, etc.). SIN "fecha". SOLO en rubro legal. Se calcula con DOS datos obligatorios: la fecha de notificación / inicio del cómputo y la cantidad de días hábiles del plazo; y UN dato OPCIONAL: los kilómetros de distancia al juzgado (ampliación del art. 158 CPCCN). Tomalos del CONTEXTO, de los FRAGMENTOS o de la conversación. Cuando tengas la fecha de notificación y la cantidad de días hábiles, agregá en "acciones" un objeto EXACTAMENTE con esta forma, con la fecha en AAAA-MM-DD y los días como NÚMERO (sin texto):
-{"tipo":"calcular_plazo_procesal","titulo":"Calcular vencimiento del traslado de demanda","fechaNotificacion":"2026-08-03","diasHabiles":15,"kmDistancia":0,"motivo":"El traslado de la demanda es de 15 días hábiles (art. 338 CPCCN)"}
-Si no hay distancia relevante, poné "kmDistancia":0. NUNCA inventes la fecha ni los días: si falta alguno de los dos obligatorios, no agregues la acción y pedíselo al usuario en "respuesta". ATENCIÓN: escribir "voy a calcular el plazo" en "respuesta" NO calcula NADA; el cálculo ocurre ÚNICAMENTE si agregás el objeto en "acciones".
- 16) "calcular_tasa_justicia": calcular la tasa de justicia del proceso. SIN "fecha". SOLO en rubro legal. Se calcula con UN dato obligatorio: monto (el monto del proceso o reclamo, número plano SIN $ ni puntos). Tomalo del CONTEXTO, de los FRAGMENTOS o de la conversación. REGLA CRÍTICA: agregá SIEMPRE la acción en "acciones". Ejemplo EXACTO de JSON que debe devolver:
-{"tipo":"calcular_tasa_justicia","titulo":"Tasa de justicia del proceso","monto":28000000,"motivo":"Detecté el monto del proceso"}
-El monto va como número entero plano, sin símbolo de peso ni separadores de miles. NUNCA inventes el monto.
  17) "redactar_aviso": generar con IA el AVISO / FICHA COMERCIAL de la propiedad para publicar en portales o redes, a partir de los datos del inmueble y del legajo. SIN "fecha". SOLO en rubro inmobiliaria. Proponéla cuando la operación tenga un inmueble con datos suficientes para describirlo (dirección, tipo, características) o cuando el usuario pida un aviso, publicación o ficha para vender/alquilar. Usá "titulo" como "Redactar aviso comercial de la propiedad". El sistema arma el aviso con los datos reales del legajo; NO inventes superficies, precios ni ambientes.
  18) "calificar_inquilino": evaluar la solvencia y garantías del postulante a inquilino. SIN "fecha". SOLO en rubro inmobiliaria. Proponéla cuando el expediente parezca una postulación de alquiler y haya documentos del postulante (recibo de sueldo, constancia de monotributo/ingresos, o datos de garantía/garante). Usá "titulo" como "Calificar inquilino y garantía (IA)". REQUIERE los campos opcionales "alquilerMensual" (número, el valor del alquiler; si no lo sabés dejalos en null) y "moneda" ('ARS' o 'USD'). Es una evaluación orientativa, no un dictamen. NO la propongas en compraventas.
 - OBLIGATORIO: si en tu "respuesta" decís o das a entender que un documento del legajo cumple, corresponde o sirve para un ítem del checklist, TENÉS que incluir además la acción "vincular_documento" en el campo "acciones" (con "itemChecklist" y "documento" exactos, copiados del contexto). Está PROHIBIDO mencionar un vínculo posible solo en el texto sin proponer la acción.
@@ -166,13 +158,16 @@ function validarAcciones(input: unknown, estadosValidos: string[] = []): AccionP
       const fechaNotificacion = typeof o.fechaNotificacion === 'string' ? o.fechaNotificacion.trim() : '';
       const diasHabiles = Number(o.diasHabiles);
       const kmDistancia = Number(o.kmDistancia);
+      const jurisdiccion = typeof o.jurisdiccion === 'string' ? o.jurisdiccion.trim() : '';
       if (!/^\d{4}-\d{2}-\d{2}$/.test(fechaNotificacion)) continue;
       if (!Number.isFinite(diasHabiles) || diasHabiles <= 0) continue;
+      if (!jurisdiccion || !['nacion', 'corrientes', 'pba'].includes(jurisdiccion)) continue;
       out.push({
         tipo: 'calcular_plazo_procesal',
         titulo,
         fechaNotificacion,
         diasHabiles,
+        jurisdiccion: jurisdiccion as 'nacion' | 'corrientes' | 'pba',
         kmDistancia: Number.isFinite(kmDistancia) && kmDistancia > 0 ? kmDistancia : 0,
         motivo,
       });
@@ -232,6 +227,84 @@ function numeroCercaDe(texto: string, etiquetas: string[], min: number, max: num
 	return null
 }
 
+function normalizarParaIntencion(texto: string): string {
+  return texto
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function validarFechaReal(d: number, m: number, y: number): string | null {
+  if (y < 1900 || y > 2100 || m < 1 || m > 12 || d < 1 || d > 31) return null;
+  const daysInMonth = new Date(y, m, 0).getDate();
+  if (d > daysInMonth) return null;
+  return `${y}-${m.toString().padStart(2, '0')}-${d.toString().padStart(2, '0')}`;
+}
+
+const MESES_MAP: Record<string, string> = {
+  enero: '01', febrero: '02', marzo: '03', abril: '04', mayo: '05', junio: '06',
+  julio: '07', agosto: '08', septiembre: '09', setiembre: '09', octubre: '10',
+  noviembre: '11', diciembre: '12',
+};
+
+function extraerFechaGenerica(texto: string): string | null {
+  const t = normalizarParaIntencion(texto);
+  const reNum = /(\d{4})-(\d{2})-(\d{2})|(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})/;
+  const mNum = t.match(reNum);
+  if (mNum) {
+    if (mNum[1]) return validarFechaReal(Number(mNum[3]), Number(mNum[2]), Number(mNum[1]));
+    return validarFechaReal(Number(mNum[4]), Number(mNum[5]), Number(mNum[6]));
+  }
+  const reTxt = /(\d{1,2})\s+(?:de\s+)?([a-z]+)\s+(?:de\s+)?(\d{4})/;
+  const mTxt = t.match(reTxt);
+  if (mTxt) {
+    const mo = MESES_MAP[mTxt[2]];
+    if (mo) return validarFechaReal(Number(mTxt[1]), Number(mo), Number(mTxt[3]));
+  }
+  return null;
+}
+
+const NUMEROS_LITERALES: Record<string, number> = {
+  un: 1, uno: 1, una: 1, dos: 2, tres: 3, cuatro: 4, cinco: 5, seis: 6, siete: 7, ocho: 8, nueve: 9, diez: 10,
+  once: 11, doce: 12, trece: 13, catorce: 14, quince: 15, veinte: 20, treinta: 30
+};
+
+function extraerDiasPlazo(texto: string): number | null {
+  const t = normalizarParaIntencion(texto);
+  const mDiasHab = t.match(/(?:(\d{1,3})|([a-z]+))\s*dias\s+habiles/);
+  const mDias = mDiasHab ?? t.match(/(?:(\d{1,3})|([a-z]+))\s*dias/);
+  if (mDias) {
+    if (mDias[1]) {
+      const n = Number(mDias[1]);
+      if (n >= 1 && n <= 365) return n;
+    } else if (mDias[2]) {
+      const n = NUMEROS_LITERALES[mDias[2]];
+      if (n) return n;
+    }
+  }
+  return null;
+}
+
+function extraerKmDistancia(texto: string): number {
+  const t = normalizarParaIntencion(texto);
+  const mKm = t.match(/(\d{2,4})\s*km/);
+  if (mKm) {
+    const n = Number(mKm[1]);
+    if (n > 0 && n <= 5000) return n;
+  }
+  return 0;
+}
+
+function detectarJurisdiccion(texto: string): 'nacion' | 'corrientes' | 'pba' | null {
+  const t = normalizarParaIntencion(texto);
+  if (t.includes('nacion') || t.includes('federal')) return 'nacion';
+  if (t.includes('corrientes')) return 'corrientes';
+  if (t.includes('pba') || t.includes('buenos aires') || t.includes('provincia')) return 'pba';
+  return null;
+}
+
 function detectarDatosLiquidacion(
 	texto: string
 ): { ingresoMensual: number; edad: number; incapacidad: number; metodo: 'mendez' | 'vuoto' } | null {
@@ -258,84 +331,32 @@ function detectarDatosLiquidacion(
 }
 
 function detectarFechaHecho(texto: string): string | null {
-	const meses: Record<string, string> = {
-		enero: '01', febrero: '02', marzo: '03', abril: '04', mayo: '05', junio: '06',
-		julio: '07', agosto: '08', septiembre: '09', setiembre: '09', octubre: '10',
-		noviembre: '11', diciembre: '12',
-	}
 	const hoy = new Date().toISOString().slice(0, 10)
 	const candidatos: string[] = []
-	// La fecha del hecho es la que viene JUSTO DESPUÉS de una expresión de ocurrencia.
-	// Así no la confundimos con la fecha de la demanda, de nacimiento, de notificación, etc.
 	const gatillo =
 		'(?:ocurri[óo]|ocurrid[oa]|acaeci[óo]|acaecid[oa]|sucedi[óo]|acontecid[oa]|se\\s+produjo|tuvo\\s+lugar|hecho|siniestro|accidente|mora)\\s+(?:el\\s+|del\\s+|d[ií]a\\s+)?'
-	// Formato DD/MM/AAAA o AAAA-MM-DD
-	const reNum = new RegExp(gatillo + '(\\d{1,2}\\/\\d{1,2}\\/\\d{4}|\\d{4}-\\d{2}-\\d{2})', 'gi')
+	const reNum = new RegExp(gatillo + '(\\d{1,2})\\/(\\d{1,2})\\/(\\d{4})', 'gi')
 	let m: RegExpExecArray | null
 	while ((m = reNum.exec(texto))) {
-		const f = m[1]
-		let iso = ''
-		if (f.includes('/')) {
-			const [d, mo, y] = f.split('/')
-			iso = `${y}-${mo.padStart(2, '0')}-${d.padStart(2, '0')}`
-		} else {
-			iso = f
-		}
-		if (iso <= hoy) candidatos.push(iso)
+		const iso = validarFechaReal(Number(m[1]), Number(m[2]), Number(m[3]))
+		if (iso && iso <= hoy) candidatos.push(iso)
 	}
-	// Formato "DD de mes de AAAA"
+	const reIso = new RegExp(gatillo + '(\\d{4})-(\\d{2})-(\\d{2})', 'gi')
+	while ((m = reIso.exec(texto))) {
+		const iso = validarFechaReal(Number(m[3]), Number(m[2]), Number(m[1]))
+		if (iso && iso <= hoy) candidatos.push(iso)
+	}
 	const reTxt = new RegExp(gatillo + '(\\d{1,2})\\s+de\\s+([a-záéíóú]+)\\s+de\\s+(\\d{4})', 'gi')
 	while ((m = reTxt.exec(texto))) {
-		const mo = meses[m[2].toLowerCase()]
+		const mo = MESES_MAP[normalizarParaIntencion(m[2])]
 		if (mo) {
-			const iso = `${m[3]}-${mo}-${m[1].padStart(2, '0')}`
-			if (iso <= hoy) candidatos.push(iso)
+			const iso = validarFechaReal(Number(m[1]), Number(mo), Number(m[3]))
+			if (iso && iso <= hoy) candidatos.push(iso)
 		}
 	}
 	if (candidatos.length === 0) return null
-	// El hecho generador suele ser anterior a las demás fechas del expediente.
 	candidatos.sort()
 	return candidatos[0]
-}
-
-// Red de seguridad: extrae fecha de notificación y días hábiles de un texto libre.
-function detectarDatosPlazo(
-  texto: string
-): { fechaNotificacion: string; diasHabiles: number; kmDistancia: number; titulo: string } | null {
-  const t = texto.toLowerCase();
-  if (!/(plazo|traslado|vencimiento|apelaci[oó]n|contestar|contestaci[oó]n|d[ií]as h[aá]biles|caduc)/.test(t)) return null;
-
-  let dias: number | null = null;
-  const mDiasHab = t.match(/(\d{1,3})\s*d[ií]as\s+h[aá]biles/);
-  const mDias = mDiasHab ?? t.match(/(\d{1,3})\s*d[ií]as/);
-  if (mDias) {
-    const n = Number(mDias[1]);
-    if (n >= 1 && n <= 365) dias = n;
-  }
-
-  let fecha: string | null = null;
-  const mIso = t.match(/(\d{4})-(\d{2})-(\d{2})/);
-  if (mIso) {
-    fecha = `${mIso[1]}-${mIso[2]}-${mIso[3]}`;
-  } else {
-    const mDmy = t.match(/(\d{1,2})[/-](\d{1,2})[/-](\d{4})/);
-    if (mDmy) {
-      const dd = mDmy[1].padStart(2, '0');
-      const mm = mDmy[2].padStart(2, '0');
-      fecha = `${mDmy[3]}-${mm}-${dd}`;
-    }
-  }
-
-  if (!dias || !fecha) return null;
-
-  let km = 0;
-  const mKm = t.match(/(\d{2,4})\s*km/);
-  if (mKm) {
-    const n = Number(mKm[1]);
-    if (n > 0 && n <= 5000) km = n;
-  }
-
-  return { fechaNotificacion: fecha, diasHabiles: dias, kmDistancia: km, titulo: 'Calcular vencimiento del plazo procesal' };
 }
 
 function detectarMontoJuicio(texto: string): number | null {
@@ -415,6 +436,7 @@ export async function responderAgenteLegajo(input: {
                 fechaNotificacion: { type: 'STRING' },
                 diasHabiles: { type: 'NUMBER' },
                 kmDistancia: { type: 'NUMBER' },
+                jurisdiccion: { type: 'STRING' },
                 monto: { type: 'NUMBER' },
                 motivo: { type: 'STRING' },
               },
@@ -458,67 +480,153 @@ export async function responderAgenteLegajo(input: {
             respuesta = salvarRespuesta(raw);
             acciones = [];
           }
-        
+
           // Redes de seguridad: se ejecutan SIEMPRE, aunque el JSON haya venido mal.
           const esLegalLaboral = input.industry === 'legal';
-          const textoBusqueda = [input.contextoLegajo || '', ...input.historial.map((m) => m.texto), input.pregunta].join('\n');
-          const fechaHechoDetectada = detectarFechaHecho(input.pregunta) ?? detectarFechaHecho(textoBusqueda);
-        
-          const yaPropusoLiquidacion = acciones.some((a) => a.tipo === 'calcular_liquidacion');
-          if (esLegalLaboral && !yaPropusoLiquidacion) {
-            const datosLiq = detectarDatosLiquidacion(textoBusqueda);
-            if (datosLiq) {
-              acciones.push({
-                tipo: 'calcular_liquidacion',
-                titulo: 'Calcular liquidación estimada por incapacidad',
-                metodo: datosLiq.metodo,
-                ingresoMensual: datosLiq.ingresoMensual,
-                edad: datosLiq.edad,
-                incapacidad: datosLiq.incapacidad,
-                fechaHecho: fechaHechoDetectada ?? undefined,
-                motivo: 'Detecté los datos necesarios (ingreso, edad e incapacidad) en el legajo o la conversación.',
-              });
-            }
-          }
-        
-          if (fechaHechoDetectada) {
-            for (const a of acciones) {
-              if (a.tipo === 'calcular_liquidacion' && !a.fechaHecho) {
-                a.fechaHecho = fechaHechoDetectada;
+          const p = input.pregunta;
+          const pNorm = normalizarParaIntencion(p);
+
+          const esIntencionAgenda = /(agenda|agendame|agendar|carga|registra|registralo|recordame)\b.*?(vencimiento|agenda|fecha)/i.test(pNorm);
+          const intencionPlazo = /(calcula|calculame|calcular|saca|cuando|conta|determina)\b.*?(plazo|vencimiento|dias habiles|fecha procesal)/i.test(pNorm);
+          const intencionTasa = /(calcula|calculame|calcular|estima)\b.*?(tasa)/i.test(pNorm);
+          const intencionLiq = /(calcula|calculame|calcular|estima)\b.*?(liquidacion|indemnizacion|incapacidad)|mendez|vuoto/i.test(pNorm);
+
+          let esContinuacionPlazo = false;
+          let jurisCont = '';
+          if (input.historial.length >= 2) {
+            const lastAgent = input.historial[input.historial.length - 1];
+            const lastUser = input.historial[input.historial.length - 2];
+            const lastAgentNorm = normalizarParaIntencion(lastAgent.texto);
+            const lastUserNorm = normalizarParaIntencion(lastUser.texto);
+            if (
+              lastAgent.rol === 'model' &&
+              lastAgentNorm.includes('que jurisdiccion corresponde: justicia nacional/federal, provincia de buenos aires o provincia de corrientes') &&
+              lastUser.rol === 'user' &&
+              /(calcula|calculame|calcular|saca|cuando|conta|determina)\b.*?(plazo|vencimiento|dias habiles|fecha procesal)/i.test(lastUserNorm)
+            ) {
+              const j = detectarJurisdiccion(pNorm);
+              if (j) {
+                jurisCont = j;
+                esContinuacionPlazo = true;
               }
             }
           }
-        
-          const yaPropusoPlazo = acciones.some((a) => a.tipo === 'calcular_plazo_procesal');
-          if (esLegalLaboral && !yaPropusoPlazo) {
-            const textoBusquedaPlazo = [input.pregunta, ...input.historial.map((m) => m.texto), input.contextoLegajo || ''].join('\n');
-            const datosPlazo = detectarDatosPlazo(textoBusquedaPlazo);
-            if (datosPlazo) {
-              acciones.push({
-                tipo: 'calcular_plazo_procesal',
-                titulo: datosPlazo.titulo,
-                fechaNotificacion: datosPlazo.fechaNotificacion,
-                diasHabiles: datosPlazo.diasHabiles,
-                kmDistancia: datosPlazo.kmDistancia,
-                motivo: 'Detecté una fecha de notificación y un plazo en días hábiles en el legajo o la conversación.',
-              });
+
+          // Filtro estricto
+          if (!esIntencionAgenda) acciones = acciones.filter(a => a.tipo !== 'agendar_plazo');
+          if (!intencionPlazo && !esContinuacionPlazo) acciones = acciones.filter(a => a.tipo !== 'calcular_plazo_procesal');
+          if (!intencionTasa) acciones = acciones.filter(a => a.tipo !== 'calcular_tasa_justicia');
+          if (!intencionLiq) acciones = acciones.filter(a => a.tipo !== 'calcular_liquidacion');
+
+          const allText = [input.contextoLegajo || '', ...input.historial.map((m) => m.texto), input.pregunta].join('\n');
+
+          if (esLegalLaboral) {
+            if (intencionTasa) {
+              acciones = acciones.filter(a => a.tipo === 'calcular_tasa_justicia');
+              const monto = detectarMontoJuicio(allText);
+              if (monto && monto > 0 && !acciones.some(a => a.tipo === 'calcular_tasa_justicia')) {
+                acciones.push({
+                  tipo: 'calcular_tasa_justicia',
+                  titulo: 'Tasa de justicia del proceso',
+                  monto,
+                  motivo: 'Detecté el monto del proceso en el expediente o la conversación.'
+                });
+              }
+            } else if (intencionLiq) {
+              acciones = acciones.filter(a => a.tipo === 'calcular_liquidacion');
+              const datosLiq = detectarDatosLiquidacion(allText);
+              if (datosLiq && !acciones.some(a => a.tipo === 'calcular_liquidacion')) {
+                const fechaHecho = detectarFechaHecho(allText);
+                acciones.push({
+                  tipo: 'calcular_liquidacion',
+                  titulo: 'Calcular liquidación estimada por incapacidad',
+                  metodo: datosLiq.metodo,
+                  ingresoMensual: datosLiq.ingresoMensual,
+                  edad: datosLiq.edad,
+                  incapacidad: datosLiq.incapacidad,
+                  fechaHecho: fechaHecho ?? undefined,
+                  motivo: 'Detecté los datos necesarios en la conversación.'
+                });
+              }
+            } else if (intencionPlazo || esContinuacionPlazo) {
+              acciones = acciones.filter(a => a.tipo === 'calcular_plazo_procesal');
+
+              let textoDatos = input.pregunta;
+              if (esContinuacionPlazo) {
+                textoDatos = input.historial[input.historial.length - 2].texto + ' ' + input.pregunta;
+              }
+
+              let jurisdiccion = detectarJurisdiccion(input.pregunta);
+              if (!jurisdiccion && esContinuacionPlazo) {
+                jurisdiccion = jurisCont as any;
+              }
+
+              if (!jurisdiccion) {
+                acciones = [];
+                respuesta = '¿Qué jurisdicción corresponde: Justicia Nacional/Federal, Provincia de Buenos Aires o Provincia de Corrientes?';
+              } else {
+                const fecha = extraerFechaGenerica(textoDatos);
+                const dias = extraerDiasPlazo(textoDatos);
+                const km = extraerKmDistancia(textoDatos);
+
+                if (!fecha && !dias) {
+                  acciones = [];
+                  respuesta = '¿Desde qué fecha y por cuántos días hábiles querés calcular el plazo?';
+                } else if (!fecha) {
+                  acciones = [];
+                  respuesta = '¿Desde qué fecha querés calcular el plazo?';
+                } else if (!dias) {
+                  acciones = [];
+                  respuesta = '¿Por cuántos días hábiles querés calcular el plazo?';
+                } else {
+                  if (!acciones.some(a => a.tipo === 'calcular_plazo_procesal')) {
+                    acciones.push({
+                      tipo: 'calcular_plazo_procesal',
+                      titulo: 'Calcular vencimiento del plazo procesal',
+                      fechaNotificacion: fecha,
+                      diasHabiles: dias,
+                      jurisdiccion: jurisdiccion,
+                      kmDistancia: km,
+                      motivo: 'Detecté datos de plazo en la conversación.'
+                    });
+                  } else {
+                    const act = acciones.find(a => a.tipo === 'calcular_plazo_procesal')!;
+                    act.fechaNotificacion = fecha;
+                    act.diasHabiles = dias;
+                    act.jurisdiccion = jurisdiccion;
+                    act.kmDistancia = km;
+                  }
+                }
+              }
+            } else if (esIntencionAgenda) {
+              acciones = acciones.filter(a => a.tipo === 'agendar_plazo');
+              const fecha = extraerFechaGenerica(input.pregunta);
+              if (fecha) {
+                if (!acciones.some(a => a.tipo === 'agendar_plazo')) {
+                  acciones.push({
+                    tipo: 'agendar_plazo',
+                    titulo: 'Agendar vencimiento',
+                    fecha,
+                    motivo: 'Detecté solicitud de agendar plazo.'
+                  });
+                } else {
+                  const act = acciones.find(a => a.tipo === 'agendar_plazo')!;
+                  act.fecha = fecha;
+                }
+              }
             }
           }
-        
-          const yaPropusoTasa = acciones.some((a) => a.tipo === 'calcular_tasa_justicia');
-          if (esLegalLaboral && !yaPropusoTasa) {
-            const textoBusquedaTasa = [input.pregunta, ...input.historial.map((m) => m.texto), input.contextoLegajo || ''].join(' ');
-            const monto = detectarMontoJuicio(textoBusquedaTasa);
-            if (monto && monto > 0) {
-              acciones.push({
-                tipo: 'calcular_tasa_justicia',
-                titulo: 'Tasa de justicia del proceso',
-                monto,
-                motivo: 'Detecté el monto del proceso en el expediente o la conversación.',
-              });
-            }
+
+          if (acciones.some(a => a.tipo === 'calcular_plazo_procesal')) {
+              respuesta = 'Preparé la propuesta de cálculo del plazo para que la apruebes.';
+          } else if (acciones.some(a => a.tipo === 'calcular_tasa_justicia')) {
+              respuesta = 'Preparé la propuesta de cálculo de la tasa de justicia para que la apruebes.';
+          } else if (acciones.some(a => a.tipo === 'calcular_liquidacion')) {
+              respuesta = 'Preparé la propuesta de liquidación para que la apruebes.';
+          } else if (acciones.some(a => a.tipo === 'agendar_plazo')) {
+              respuesta = 'Preparé la propuesta para agendar el vencimiento. Revisala antes de aprobar.';
           }
-        
+
           return { ok: true, respuesta, acciones, model: `agente-${modeloActual}` };
         }
       } else if (resp.status === 429 || resp.status === 404 || resp.status >= 500) {

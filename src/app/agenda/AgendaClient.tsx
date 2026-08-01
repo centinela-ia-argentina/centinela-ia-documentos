@@ -7,7 +7,7 @@ import { ChevronLeft, ChevronRight, FileText, FolderKanban, CalendarClock, Calen
 import { MotionCard } from '@/components/ui/MotionCard';
 import { MotionButton } from '@/components/ui/MotionButton';
 import { guardarEventoManual, guardarTurno } from './actions';
-import { FERIADOS, FERIAS_JUDICIALES } from '@/lib/legal/config';
+import { FERIADOS_NACIONALES_2026 } from '@/lib/legal/config';
 import type { IndustryType } from '@/lib/industries/documentTypes';
 import { getAgendaLabels, getIndustryTerms } from '@/lib/industries/uiLabels';
 
@@ -24,15 +24,10 @@ export type AgendaEvento = {
 const DIAS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
 const MESES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
 
-const feriadosSet = new Set(FERIADOS);
+const feriadosSet = new Set(FERIADOS_NACIONALES_2026);
 
 function iso(y: number, m: number, d: number): string {
   return `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-}
-
-function feriaDe(fecha: string): string | null {
-  const f = FERIAS_JUDICIALES.find((x) => fecha >= x.desde && fecha <= x.hasta);
-  return f ? f.nombre : null;
 }
 
 export function AgendaClient({ eventos, cases, industry, puedeGuardar = true }: { eventos: AgendaEvento[]; cases: { id: string; title: string }[]; industry: IndustryType; puedeGuardar?: boolean }) {
@@ -199,7 +194,6 @@ export function AgendaClient({ eventos, cases, industry, puedeGuardar = true }: 
 
       <div className="flex flex-wrap items-center gap-4 text-xs text-slate-600">
         <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-amber-400" /> Feriado</span>
-        <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-slate-400" /> {agendaLabels.feriaLabel}</span>
         <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-sky-500" /> Vencimiento documento</span>
         <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-violet-500" /> Fecha de {terms.expedienteSingular.toLowerCase()}</span>
         <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-violet-500" /> {agendaLabels.plazoLabel}</span>
@@ -228,16 +222,14 @@ export function AgendaClient({ eventos, cases, industry, puedeGuardar = true }: 
               if (dia === null) return <div key={`e-${idx}`} className="min-h-[76px] rounded-xl" />;
               const fechaIso = iso(year, month, dia);
               const esFeriado = feriadosSet.has(fechaIso);
-              const feria = feriaDe(fechaIso);
               const evs = eventosPorDia.get(fechaIso) ?? [];
               const esHoy = fechaIso === hoyIso;
-              const bg = esFeriado ? 'bg-amber-500/10 border-amber-500/20' : feria ? 'bg-white/[0.04] border-white/10' : 'bg-transparent border-white/5';
+              const bg = esFeriado ? 'bg-amber-500/10 border-amber-500/20' : 'bg-transparent border-white/5';
 
               return (
                 <div key={fechaIso} className={`min-h-[76px] rounded-xl border p-1.5 text-left ${bg}`}>
                   <span className={`text-xs font-semibold ${esHoy ? 'flex h-5 w-5 items-center justify-center rounded-full bg-cyan-500 text-white shadow-sm shadow-cyan-500/50' : 'text-slate-400'}`}>{dia}</span>
                   {esFeriado && <p className="mt-0.5 truncate text-[10px] font-medium text-amber-400">Feriado</p>}
-                  {!esFeriado && feria && <p className="mt-0.5 truncate text-[10px] font-medium text-slate-500">Feria</p>}
                   <div className="mt-0.5 space-y-0.5">
                     {evs.slice(0, 3).map((ev) => {
                       const bgColor = ev.tipo === 'documento' ? 'bg-sky-500/80 text-white'
