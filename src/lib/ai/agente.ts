@@ -227,6 +227,84 @@ function numeroCercaDe(texto: string, etiquetas: string[], min: number, max: num
 	return null
 }
 
+function normalizarParaIntencion(texto: string): string {
+  return texto
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function validarFechaReal(d: number, m: number, y: number): string | null {
+  if (y < 1900 || y > 2100 || m < 1 || m > 12 || d < 1 || d > 31) return null;
+  const daysInMonth = new Date(y, m, 0).getDate();
+  if (d > daysInMonth) return null;
+  return `${y}-${m.toString().padStart(2, '0')}-${d.toString().padStart(2, '0')}`;
+}
+
+const MESES_MAP: Record<string, string> = {
+  enero: '01', febrero: '02', marzo: '03', abril: '04', mayo: '05', junio: '06',
+  julio: '07', agosto: '08', septiembre: '09', setiembre: '09', octubre: '10',
+  noviembre: '11', diciembre: '12',
+};
+
+function extraerFechaGenerica(texto: string): string | null {
+  const t = normalizarParaIntencion(texto);
+  const reNum = /(\d{4})-(\d{2})-(\d{2})|(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})/;
+  const mNum = t.match(reNum);
+  if (mNum) {
+    if (mNum[1]) return validarFechaReal(Number(mNum[3]), Number(mNum[2]), Number(mNum[1]));
+    return validarFechaReal(Number(mNum[4]), Number(mNum[5]), Number(mNum[6]));
+  }
+  const reTxt = /(\d{1,2})\s+(?:de\s+)?([a-z]+)\s+(?:de\s+)?(\d{4})/;
+  const mTxt = t.match(reTxt);
+  if (mTxt) {
+    const mo = MESES_MAP[mTxt[2]];
+    if (mo) return validarFechaReal(Number(mTxt[1]), Number(mo), Number(mTxt[3]));
+  }
+  return null;
+}
+
+const NUMEROS_LITERALES: Record<string, number> = {
+  un: 1, uno: 1, una: 1, dos: 2, tres: 3, cuatro: 4, cinco: 5, seis: 6, siete: 7, ocho: 8, nueve: 9, diez: 10,
+  once: 11, doce: 12, trece: 13, catorce: 14, quince: 15, veinte: 20, treinta: 30
+};
+
+function extraerDiasPlazo(texto: string): number | null {
+  const t = normalizarParaIntencion(texto);
+  const mDiasHab = t.match(/(?:(\d{1,3})|([a-z]+))\s*dias\s+habiles/);
+  const mDias = mDiasHab ?? t.match(/(?:(\d{1,3})|([a-z]+))\s*dias/);
+  if (mDias) {
+    if (mDias[1]) {
+      const n = Number(mDias[1]);
+      if (n >= 1 && n <= 365) return n;
+    } else if (mDias[2]) {
+      const n = NUMEROS_LITERALES[mDias[2]];
+      if (n) return n;
+    }
+  }
+  return null;
+}
+
+function extraerKmDistancia(texto: string): number {
+  const t = normalizarParaIntencion(texto);
+  const mKm = t.match(/(\d{2,4})\s*km/);
+  if (mKm) {
+    const n = Number(mKm[1]);
+    if (n > 0 && n <= 5000) return n;
+  }
+  return 0;
+}
+
+function detectarJurisdiccion(texto: string): 'nacion' | 'corrientes' | 'pba' | null {
+  const t = normalizarParaIntencion(texto);
+  if (t.includes('nacion') || t.includes('federal')) return 'nacion';
+  if (t.includes('corrientes')) return 'corrientes';
+  if (t.includes('pba') || t.includes('buenos aires') || t.includes('provincia')) return 'pba';
+  return null;
+}
+
 function detectarDatosLiquidacion(
 	texto: string
 ): { ingresoMensual: number; edad: number; incapacidad: number; metodo: 'mendez' | 'vuoto' } | null {
@@ -253,89 +331,32 @@ function detectarDatosLiquidacion(
 }
 
 function detectarFechaHecho(texto: string): string | null {
-	const meses: Record<string, string> = {
-		enero: '01', febrero: '02', marzo: '03', abril: '04', mayo: '05', junio: '06',
-		julio: '07', agosto: '08', septiembre: '09', setiembre: '09', octubre: '10',
-		noviembre: '11', diciembre: '12',
-	}
 	const hoy = new Date().toISOString().slice(0, 10)
 	const candidatos: string[] = []
-	// La fecha del hecho es la que viene JUSTO DESPUÉS de una expresión de ocurrencia.
-	// Así no la confundimos con la fecha de la demanda, de nacimiento, de notificación, etc.
 	const gatillo =
 		'(?:ocurri[óo]|ocurrid[oa]|acaeci[óo]|acaecid[oa]|sucedi[óo]|acontecid[oa]|se\\s+produjo|tuvo\\s+lugar|hecho|siniestro|accidente|mora)\\s+(?:el\\s+|del\\s+|d[ií]a\\s+)?'
-	// Formato DD/MM/AAAA o AAAA-MM-DD
-	const reNum = new RegExp(gatillo + '(\\d{1,2}\\/\\d{1,2}\\/\\d{4}|\\d{4}-\\d{2}-\\d{2})', 'gi')
+	const reNum = new RegExp(gatillo + '(\\d{1,2})\\/(\\d{1,2})\\/(\\d{4})', 'gi')
 	let m: RegExpExecArray | null
 	while ((m = reNum.exec(texto))) {
-		const f = m[1]
-		let iso = ''
-		if (f.includes('/')) {
-			const [d, mo, y] = f.split('/')
-			iso = `${y}-${mo.padStart(2, '0')}-${d.padStart(2, '0')}`
-		} else {
-			iso = f
-		}
-		if (iso <= hoy) candidatos.push(iso)
+		const iso = validarFechaReal(Number(m[1]), Number(m[2]), Number(m[3]))
+		if (iso && iso <= hoy) candidatos.push(iso)
 	}
-	// Formato "DD de mes de AAAA"
+	const reIso = new RegExp(gatillo + '(\\d{4})-(\\d{2})-(\\d{2})', 'gi')
+	while ((m = reIso.exec(texto))) {
+		const iso = validarFechaReal(Number(m[3]), Number(m[2]), Number(m[1]))
+		if (iso && iso <= hoy) candidatos.push(iso)
+	}
 	const reTxt = new RegExp(gatillo + '(\\d{1,2})\\s+de\\s+([a-záéíóú]+)\\s+de\\s+(\\d{4})', 'gi')
 	while ((m = reTxt.exec(texto))) {
-		const mo = meses[m[2].toLowerCase()]
+		const mo = MESES_MAP[normalizarParaIntencion(m[2])]
 		if (mo) {
-			const iso = `${m[3]}-${mo}-${m[1].padStart(2, '0')}`
-			if (iso <= hoy) candidatos.push(iso)
+			const iso = validarFechaReal(Number(m[1]), Number(mo), Number(m[3]))
+			if (iso && iso <= hoy) candidatos.push(iso)
 		}
 	}
 	if (candidatos.length === 0) return null
-	// El hecho generador suele ser anterior a las demás fechas del expediente.
 	candidatos.sort()
 	return candidatos[0]
-}
-
-// Red de seguridad: extrae fecha de notificación y días hábiles de un texto libre.
-function detectarDatosPlazo(
-  texto: string
-): { fechaNotificacion: string; diasHabiles: number; kmDistancia: number; jurisdiccion: string; titulo: string } | null {
-  const t = texto.toLowerCase();
-  if (!/(plazo|traslado|vencimiento|apelaci[oó]n|contestar|contestaci[oó]n|d[ií]as h[aá]biles|caduc)/.test(t)) return null;
-
-  let dias: number | null = null;
-  const mDiasHab = t.match(/(\d{1,3})\s*d[ií]as\s+h[aá]biles/);
-  const mDias = mDiasHab ?? t.match(/(\d{1,3})\s*d[ií]as/);
-  if (mDias) {
-    const n = Number(mDias[1]);
-    if (n >= 1 && n <= 365) dias = n;
-  }
-
-  let fecha: string | null = null;
-  const mIso = t.match(/(\d{4})-(\d{2})-(\d{2})/);
-  if (mIso) {
-    fecha = `${mIso[1]}-${mIso[2]}-${mIso[3]}`;
-  } else {
-    const mDmy = t.match(/(\d{1,2})[/-](\d{1,2})[/-](\d{4})/);
-    if (mDmy) {
-      const dd = mDmy[1].padStart(2, '0');
-      const mm = mDmy[2].padStart(2, '0');
-      fecha = `${mDmy[3]}-${mm}-${dd}`;
-    }
-  }
-
-  if (!dias || !fecha) return null;
-
-  let km = 0;
-  const mKm = t.match(/(\d{2,4})\s*km/);
-  if (mKm) {
-    const n = Number(mKm[1]);
-    if (n > 0 && n <= 5000) km = n;
-  }
-
-  let jurisdiccion = '';
-  if (t.includes('nación') || t.includes('nacion') || t.includes('federal') || t.includes('nacion/federal')) jurisdiccion = 'nacion';
-  else if (t.includes('corrientes')) jurisdiccion = 'corrientes';
-  else if (t.includes('pba') || t.includes('buenos aires')) jurisdiccion = 'pba';
-
-  return { fechaNotificacion: fecha, diasHabiles: dias, kmDistancia: km, jurisdiccion, titulo: 'Calcular vencimiento del plazo procesal' };
 }
 
 function detectarMontoJuicio(texto: string): number | null {
@@ -346,15 +367,6 @@ function detectarMontoJuicio(texto: string): number | null {
     .filter((n) => Number.isFinite(n) && n >= 10000);
   if (candidatos.length === 0) return null;
   return Math.max(...candidatos);
-}
-
-function normalizarParaIntencion(texto: string): string {
-  return texto
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase()
-    .replace(/\s+/g, ' ')
-    .trim();
 }
 
 export async function responderAgenteLegajo(input: {
@@ -492,11 +504,11 @@ export async function responderAgenteLegajo(input: {
               lastUser.rol === 'user' &&
               /(calcula|calculame|calcular|saca|cuando|conta|determina)\b.*?(plazo|vencimiento|dias habiles|fecha procesal)/i.test(lastUserNorm)
             ) {
-              if (pNorm.includes('nacion') || pNorm.includes('federal')) jurisCont = 'nacion';
-              else if (pNorm.includes('corrientes')) jurisCont = 'corrientes';
-              else if (pNorm.includes('pba') || pNorm.includes('buenos aires') || pNorm.includes('provincia')) jurisCont = 'pba';
-              
-              if (jurisCont) esContinuacionPlazo = true;
+              const j = detectarJurisdiccion(pNorm);
+              if (j) {
+                jurisCont = j;
+                esContinuacionPlazo = true;
+              }
             }
           }
 
@@ -537,35 +549,82 @@ export async function responderAgenteLegajo(input: {
                 });
               }
             } else if (intencionPlazo || esContinuacionPlazo) {
-              acciones = acciones.filter(a => a.tipo === 'calcular_plazo_procesal' || a.tipo === 'agendar_plazo');
+              acciones = acciones.filter(a => a.tipo === 'calcular_plazo_procesal');
               
-              const historyUserText = input.historial.filter(h => h.rol === 'user').map(h => h.texto).join('\n');
-              const textForPlazo = esContinuacionPlazo ? historyUserText + '\n' + input.pregunta : input.pregunta;
-              const datos = detectarDatosPlazo(textForPlazo + (jurisCont ? ` ${jurisCont}` : ''));
+              let textoDatos = input.pregunta;
+              if (esContinuacionPlazo) {
+                textoDatos = input.historial[input.historial.length - 2].texto + ' ' + input.pregunta;
+              }
               
-              if (datos) {
-                if (datos.jurisdiccion) {
+              let jurisdiccion = detectarJurisdiccion(input.pregunta);
+              if (!jurisdiccion && esContinuacionPlazo) {
+                jurisdiccion = jurisCont as any;
+              }
+
+              if (!jurisdiccion) {
+                acciones = [];
+                respuesta = '¿Qué jurisdicción corresponde: Justicia Nacional/Federal, Provincia de Buenos Aires o Provincia de Corrientes?';
+              } else {
+                const fecha = extraerFechaGenerica(textoDatos);
+                const dias = extraerDiasPlazo(textoDatos);
+                const km = extraerKmDistancia(textoDatos);
+
+                if (!fecha && !dias) {
+                  acciones = [];
+                  respuesta = '¿Desde qué fecha y por cuántos días hábiles querés calcular el plazo?';
+                } else if (!fecha) {
+                  acciones = [];
+                  respuesta = '¿Desde qué fecha querés calcular el plazo?';
+                } else if (!dias) {
+                  acciones = [];
+                  respuesta = '¿Por cuántos días hábiles querés calcular el plazo?';
+                } else {
                   if (!acciones.some(a => a.tipo === 'calcular_plazo_procesal')) {
                     acciones.push({
                       tipo: 'calcular_plazo_procesal',
-                      titulo: datos.titulo,
-                      fechaNotificacion: datos.fechaNotificacion,
-                      diasHabiles: datos.diasHabiles,
-                      jurisdiccion: datos.jurisdiccion as 'nacion' | 'corrientes' | 'pba',
-                      kmDistancia: datos.kmDistancia,
+                      titulo: 'Calcular vencimiento del plazo procesal',
+                      fechaNotificacion: fecha,
+                      diasHabiles: dias,
+                      jurisdiccion: jurisdiccion,
+                      kmDistancia: km,
                       motivo: 'Detecté datos de plazo en la conversación.'
                     });
+                  } else {
+                    const act = acciones.find(a => a.tipo === 'calcular_plazo_procesal')!;
+                    act.fechaNotificacion = fecha;
+                    act.diasHabiles = dias;
+                    act.jurisdiccion = jurisdiccion;
+                    act.kmDistancia = km;
                   }
+                }
+              }
+            } else if (esIntencionAgenda) {
+              acciones = acciones.filter(a => a.tipo === 'agendar_plazo');
+              const fecha = extraerFechaGenerica(input.pregunta);
+              if (fecha) {
+                if (!acciones.some(a => a.tipo === 'agendar_plazo')) {
+                  acciones.push({
+                    tipo: 'agendar_plazo',
+                    titulo: 'Agendar vencimiento',
+                    fecha,
+                    motivo: 'Detecté solicitud de agendar plazo.'
+                  });
                 } else {
-                  acciones = [];
-                  respuesta = '¿Qué jurisdicción corresponde: Justicia Nacional/Federal, Provincia de Buenos Aires o Provincia de Corrientes?';
+                  const act = acciones.find(a => a.tipo === 'agendar_plazo')!;
+                  act.fecha = fecha;
                 }
               }
             }
           }
 
-          if (acciones.length > 0) {
-            respuesta = respuesta.replace(/\b(calcul[eé]|se\s+calcul[oó]|agend[eé]|se\s+agend[oó]|ya\s+est[aá]\s+cargado)\b/gi, 'preparé la propuesta para que la apruebes');
+          if (acciones.some(a => a.tipo === 'calcular_plazo_procesal')) {
+              respuesta = 'Preparé la propuesta de cálculo del plazo para que la apruebes.';
+          } else if (acciones.some(a => a.tipo === 'calcular_tasa_justicia')) {
+              respuesta = 'Preparé la propuesta de cálculo de la tasa de justicia para que la apruebes.';
+          } else if (acciones.some(a => a.tipo === 'calcular_liquidacion')) {
+              respuesta = 'Preparé la propuesta de liquidación para que la apruebes.';
+          } else if (acciones.some(a => a.tipo === 'agendar_plazo')) {
+              respuesta = 'Preparé la propuesta para agendar el vencimiento. Revisala antes de aprobar.';
           }
 
           return { ok: true, respuesta, acciones, model: `agente-${modeloActual}` };
