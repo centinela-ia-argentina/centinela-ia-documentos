@@ -496,7 +496,6 @@ export async function responderAgenteLegajo(input: {
           const intencionLiq = /(calcula|calculame|calcular|estima)\b.*?(liquidacion|indemnizacion|incapacidad)|mendez|vuoto/i.test(pNorm);
 
           let esContinuacionPlazo = false;
-          let esContinuacionTasa = false;
           let jurisCont = '';
           if (input.historial.length >= 2) {
             const lastAgent = input.historial[input.historial.length - 1];
@@ -513,110 +512,152 @@ export async function responderAgenteLegajo(input: {
                 if (/(calcula|calculame|calcular|saca|cuando|conta|determina)\b.*?(plazo|vencimiento|dias habiles|fecha procesal)/i.test(lastUserNorm)) {
                   jurisCont = j;
                   esContinuacionPlazo = true;
-                } else if (/(calcula|calculame|calcular|estima)\b.*?(tasa)/i.test(lastUserNorm)) {
-                  jurisCont = j;
-                  esContinuacionTasa = true;
                 }
               }
             }
           }
 
+          // === ESTADO PENDIENTE TASA DE JUSTICIA (DETERMINÍSTICO) ===
+          type PendingJusticeFeeState = {
+            intent: 'justice_fee';
+            jurisdiction?: 'nacion' | 'pba' | 'corrientes';
+            caseType?: string;
+            amount?: number;
+            currency?: 'ARS' | 'USD';
+            confirmedGeneral?: boolean;
+          };
+          let pendingFeeState: PendingJusticeFeeState | null = null;
+          let isFeeFlow = false;
+
+          const esConfirmacionAislada = /^(si|sí|confirmo|correcto|de acuerdo|adelante|ok)(\s.*)?$/i.test(pNorm);
+
+          let lastFeeIntentIdx = -1;
+          for (let i = input.historial.length - 1; i >= 0; i--) {
+            if (input.historial[i].rol === 'user' && /(calcula|calculame|calcular|estima)\b.*?(tasa)/i.test(normalizarParaIntencion(input.historial[i].texto))) {
+              lastFeeIntentIdx = i;
+              break;
+            }
+          }
+          if (intencionTasa) {
+            lastFeeIntentIdx = input.historial.length; // La pregunta actual cuenta
+          }
+
+          if (lastFeeIntentIdx !== -1) {
+             let interrupcion = false;
+             for (let i = lastFeeIntentIdx + 1; i < input.historial.length; i++) {
+                const msgNorm = normalizarParaIntencion(input.historial[i].texto);
+                if (input.historial[i].rol === 'user' && /(calcula|calculame|calcular|estima)\b.*?(plazo|vencimiento|dias habiles|fecha procesal|liquidacion|indemnizacion|incapacidad)|mendez|vuoto/i.test(msgNorm)) {
+                   interrupcion = true;
+                   break;
+                }
+             }
+             if (lastFeeIntentIdx !== input.historial.length && /(calcula|calculame|calcular|estima)\b.*?(plazo|vencimiento|dias habiles|fecha procesal|liquidacion|indemnizacion|incapacidad)|mendez|vuoto/i.test(pNorm)) {
+                interrupcion = true;
+             }
+             
+             if (!interrupcion) {
+               isFeeFlow = true;
+               pendingFeeState = { intent: 'justice_fee' };
+               const userMsgs = [];
+               for (let i = lastFeeIntentIdx; i < input.historial.length; i++) {
+                  if (input.historial[i].rol === 'user') userMsgs.push(input.historial[i].texto);
+               }
+               userMsgs.push(input.pregunta);
+               
+               const combinedUserText = userMsgs.join(' ');
+               
+               // Jurisdicción
+               pendingFeeState.jurisdiction = detectarJurisdiccion(combinedUserText) as any;
+               
+               // Tipo de proceso
+               const tLocal = normalizarParaIntencion(combinedUserText);
+               if (/(sucesion|sucesorio|declaratoria de herederos)/i.test(tLocal)) pendingFeeState.caseType = 'succession';
+               else if (/(laboral|trabajo|despido|art|empleador|trabajador)/i.test(tLocal)) pendingFeeState.caseType = 'employment';
+               else if (/(familia|divorcio|alimento|regimen|visita)/i.test(tLocal)) pendingFeeState.caseType = 'family';
+               else if (/(indeterminado|sin monto|sin contenido)/i.test(tLocal)) pendingFeeState.caseType = 'indeterminate';
+               else if (/(concurso|quiebra)/i.test(tLocal)) pendingFeeState.caseType = 'insolvency';
+               else if (/(mensura|deslinde)/i.test(tLocal)) pendingFeeState.caseType = 'survey_boundary';
+               else if (/(terceria)/i.test(tLocal)) pendingFeeState.caseType = 'third_party_claim';
+               else if (/(amparo)/i.test(tLocal)) pendingFeeState.caseType = 'amparo';
+               else if (/(beneficio de litigar sin gastos|blsg)/i.test(tLocal)) pendingFeeState.caseType = 'legal_aid';
+               else if (/(civil|comercial|general|ordinario|ejecutivo|danos|pecuniario)/i.test(tLocal)) pendingFeeState.caseType = 'general_pecuniary';
+               
+               // Monto y Moneda
+               pendingFeeState.amount = detectarMontoJuicio(combinedUserText) ?? undefined;
+               if (/(usd|u\$s|dolar|dólar)/i.test(tLocal)) {
+                 pendingFeeState.currency = 'USD';
+               } else if (pendingFeeState.amount && pendingFeeState.amount > 0) {
+                 pendingFeeState.currency = 'ARS';
+               }
+               
+               // Confirmación
+               if (/(si|sí|confirmo|correcto|ausencia|no hay regimen|no identifico|acepto|de acuerdo|adelante|ok)/i.test(pNorm)) {
+                 pendingFeeState.confirmedGeneral = true;
+               }
+             }
+          }
+
           // Filtro estricto
           if (!esIntencionAgenda) acciones = acciones.filter(a => a.tipo !== 'agendar_plazo');
           if (!intencionPlazo && !esContinuacionPlazo) acciones = acciones.filter(a => a.tipo !== 'calcular_plazo_procesal');
-          if (!intencionTasa && !esContinuacionTasa) acciones = acciones.filter(a => a.tipo !== 'calcular_tasa_justicia');
           if (!intencionLiq) acciones = acciones.filter(a => a.tipo !== 'calcular_liquidacion');
+          // Limpiamos siempre calcular_tasa_justicia previa (la generaremos determinísticamente)
+          acciones = acciones.filter(a => a.tipo !== 'calcular_tasa_justicia');
 
           const allText = [input.contextoLegajo || '', ...input.historial.map((m) => m.texto), input.pregunta].join('\n');
 
-          const detectarTipoProcesoTasa = (txt: string) => {
-            const t = normalizarParaIntencion(txt);
-            if (/(sucesion|sucesorio|declaratoria de herederos)/i.test(t)) return 'succession';
-            if (/(laboral|trabajo|despido|art|empleador|trabajador)/i.test(t)) return 'employment';
-            if (/(familia|divorcio|alimento|regimen|visita)/i.test(t)) return 'family';
-            if (/(indeterminado|sin monto|sin contenido)/i.test(t)) return 'indeterminate';
-            if (/(concurso|quiebra)/i.test(t)) return 'insolvency';
-            if (/(mensura|deslinde)/i.test(t)) return 'survey_boundary';
-            if (/(terceria)/i.test(t)) return 'third_party_claim';
-            if (/(amparo)/i.test(t)) return 'amparo';
-            if (/(beneficio de litigar sin gastos|blsg)/i.test(t)) return 'legal_aid';
-            if (/(civil|comercial|general|ordinario|ejecutivo|danos|pecuniario)/i.test(t)) return 'general_pecuniary';
-            return undefined;
-          };
-          
-          const detectarConfirmacion = (txt: string) => {
-             const t = normalizarParaIntencion(txt);
-             return /(si|confirmo|correcto|ausencia|no hay regimen|no identifico|acepto)/i.test(t);
-          };
-
           if (esLegalLaboral) {
-            if (intencionTasa || esContinuacionTasa) {
-              acciones = acciones.filter(a => a.tipo === 'calcular_tasa_justicia');
-              const textoDatosMonto = esContinuacionTasa ? input.historial[input.historial.length - 2].texto : allText;
-              const monto = detectarMontoJuicio(textoDatosMonto);
-              let jurisdiccion = detectarJurisdiccion(input.pregunta) || (acciones.length > 0 ? acciones[0].jurisdiccion : undefined);
-              if (!jurisdiccion && esContinuacionTasa) {
-                jurisdiccion = jurisCont as any;
-              }
-              
-              const tipoProceso = detectarTipoProcesoTasa(allText);
-              const confirmado = detectarConfirmacion(input.pregunta);
-              
-              if (!jurisdiccion) {
-                acciones = [];
+            if (esConfirmacionAislada && !isFeeFlow) {
+              return {
+                ok: true,
+                respuesta: 'No tengo una propuesta de tasa pendiente para confirmar. Indicame qué cálculo querés realizar.',
+                acciones: [],
+                model: `agente-${modeloActual}`
+              };
+            }
+
+            if (isFeeFlow && pendingFeeState) {
+              acciones = [];
+              if (!pendingFeeState.jurisdiction) {
                 respuesta = '¿Qué jurisdicción corresponde: Justicia Nacional/Federal, Provincia de Buenos Aires o Provincia de Corrientes?';
-              } else if (jurisdiccion === 'pba') {
-                acciones = [];
+              } else if (pendingFeeState.jurisdiction === 'pba') {
                 respuesta = 'El cálculo de tasa de justicia para Provincia de Buenos Aires todavía no tiene cobertura verificada en Centinela IA. No generé una propuesta.';
-              } else if (jurisdiccion === 'corrientes') {
-                acciones = [];
+              } else if (pendingFeeState.jurisdiction === 'corrientes') {
                 respuesta = 'El cálculo de tasa de justicia para Provincia de Corrientes todavía no tiene cobertura verificada en Centinela IA. No generé una propuesta.';
-              } else if (!tipoProceso) {
-                acciones = [];
-                respuesta = '¿Qué tipo de proceso es (civil/comercial con monto, sucesión, laboral, familia, u otro)?';
-              } else if (tipoProceso === 'succession') {
-                acciones = [];
+              } else if (!pendingFeeState.caseType) {
+                respuesta = '¿Qué tipo de proceso es: civil/comercial con monto determinado, sucesión, laboral, familia, monto indeterminado, concurso u otro?';
+              } else if (pendingFeeState.caseType === 'succession') {
                 respuesta = 'La Ley 23.898 contempla una tasa reducida y reglas específicas sobre la base sucesoria. Esta cobertura todavía no está implementada. No generé un cálculo.';
-              } else if (tipoProceso === 'employment') {
-                acciones = [];
+              } else if (pendingFeeState.caseType === 'employment') {
                 respuesta = 'Los trabajadores y causahabientes pueden estar exentos según el artículo 13 de la Ley 23.898, dependiendo del carácter de la parte y del origen del proceso. Requiere revisión profesional. No generé un cálculo.';
-              } else if (tipoProceso === 'family') {
-                acciones = [];
+              } else if (pendingFeeState.caseType === 'family') {
                 respuesta = 'Determinadas actuaciones de familia están exentas y otras pueden tener contenido patrimonial. Requiere revisión profesional. No generé un cálculo.';
-              } else if (tipoProceso === 'indeterminate') {
-                acciones = [];
+              } else if (pendingFeeState.caseType === 'indeterminate') {
                 respuesta = 'Los procesos de monto indeterminado o sin contenido pecuniario aplican reglas y montos fijos específicos. Esta cobertura todavía no está implementada.';
-              } else if (tipoProceso === 'insolvency') {
-                acciones = [];
+              } else if (pendingFeeState.caseType === 'insolvency') {
                 respuesta = 'Los procesos concursales tienen una tasa especial. Esta cobertura todavía no está implementada.';
-              } else if (['survey_boundary', 'third_party_claim', 'amparo', 'legal_aid', 'other'].includes(tipoProceso)) {
-                acciones = [];
+              } else if (['survey_boundary', 'third_party_claim', 'amparo', 'legal_aid', 'other'].includes(pendingFeeState.caseType)) {
                 respuesta = 'La Ley 23.898 contempla una solución especial o exención. Esta cobertura todavía no está implementada.';
-              } else if (!monto || monto <= 0) {
-                acciones = [];
+              } else if (pendingFeeState.currency === 'USD') {
+                respuesta = 'Para moneda extranjera, por favor proporcioná la base imponible convertida a pesos (ARS). Sujeto a revisión profesional. No generé un cálculo.';
+              } else if (!pendingFeeState.amount || pendingFeeState.amount <= 0) {
                 respuesta = '¿De qué monto es el proceso para calcular la tasa de justicia?';
-              } else if (!confirmado) {
-                acciones = [];
-                respuesta = 'Por favor, confirmá explícitamente que se trata de una pretensión pecuniaria general y que no identificás un régimen especial o exención antes de calcular.';
-              } else if (monto && monto > 0 && confirmado && !acciones.some(a => a.tipo === 'calcular_tasa_justicia')) {
+              } else if (!pendingFeeState.confirmedGeneral) {
+                respuesta = 'Antes de preparar el cálculo, confirmá que se trata de una pretensión pecuniaria general y que no identificás un régimen especial ni una exención.';
+              } else {
                 acciones.push({
                   tipo: 'calcular_tasa_justicia',
                   titulo: 'Tasa de justicia del proceso',
-                  monto,
+                  monto: pendingFeeState.amount,
                   jurisdiccion: 'nacion',
-                  tipo_proceso: tipoProceso,
-                  confirmacion: confirmado,
+                  tipo_proceso: 'general_pecuniary',
+                  confirmacion: true,
                   motivo: 'Detecté los datos confirmados para el cálculo orientativo.'
                 });
-              } else if (monto && monto > 0 && confirmado) {
-                 const act = acciones.find(a => a.tipo === 'calcular_tasa_justicia');
-                 if (act) {
-                   act.monto = monto;
-                   act.jurisdiccion = 'nacion';
-                   act.tipo_proceso = tipoProceso;
-                   act.confirmacion = confirmado;
-                 }
+                respuesta = 'Preparé la propuesta de cálculo de la tasa de justicia nacional para que la revises antes de aprobar.';
               }
+              
+              return { ok: true, respuesta, acciones, model: `agente-${modeloActual}` };
             } else if (intencionLiq) {
               acciones = acciones.filter(a => a.tipo === 'calcular_liquidacion');
               const datosLiq = detectarDatosLiquidacion(allText);

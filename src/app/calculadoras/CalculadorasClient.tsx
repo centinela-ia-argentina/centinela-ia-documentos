@@ -430,9 +430,15 @@ function TasaCalc() {
             <select
               value={jurisdiccion}
               onChange={(e) => {
-                setJurisdiccion(e.target.value as LegalJurisdiction | '');
+                const j = e.target.value as LegalJurisdiction | '';
+                setJurisdiccion(j);
                 setTasaRes(null);
                 setError(null);
+                if (j === 'pba' || j === 'corrientes') {
+                  setTipoProceso('');
+                  setMontoTasa('');
+                  setConfirmacion(false);
+                }
               }}
               className={inputClass}
             >
@@ -453,71 +459,74 @@ function TasaCalc() {
             </div>
           )}
         </div>
-        <Field label="Tipo de proceso">
-          <select
-            value={tipoProceso}
-            onChange={(e) => {
-              setTipoProceso(e.target.value as NationalJusticeFeeCaseType | '');
-              setTasaRes(null);
-              setError(null);
-              setConfirmacion(false);
-            }}
-            className={inputClass}
-            disabled={jurisdiccion === 'pba' || jurisdiccion === 'corrientes'}
-          >
-            <option value="" className="bg-white text-slate-900">-- Seleccionar tipo --</option>
-            <option value="general_pecuniary" className="bg-white text-slate-900">Civil/comercial con monto determinado</option>
-            <option value="succession" className="bg-white text-slate-900">Sucesión</option>
-            <option value="employment" className="bg-white text-slate-900">Laboral</option>
-            <option value="family" className="bg-white text-slate-900">Familia</option>
-            <option value="indeterminate" className="bg-white text-slate-900">Monto indeterminado</option>
-            <option value="insolvency" className="bg-white text-slate-900">Concurso o quiebra</option>
-            <option value="survey_boundary" className="bg-white text-slate-900">Mensura o deslinde</option>
-            <option value="third_party_claim" className="bg-white text-slate-900">Tercería</option>
-            <option value="amparo" className="bg-white text-slate-900">Amparo</option>
-            <option value="legal_aid" className="bg-white text-slate-900">Beneficio de litigar sin gastos</option>
-            <option value="other" className="bg-white text-slate-900">Otro</option>
-          </select>
-        </Field>
-        {tipoProceso === 'succession' && (
-          <div className="mt-2 text-xs text-amber-400">
-            La Ley 23.898 contempla una tasa reducida y reglas específicas sobre la base sucesoria. Esta cobertura todavía no está implementada.
-          </div>
-        )}
-        {tipoProceso === 'employment' && (
-          <div className="mt-2 text-xs text-amber-400">
-            Los trabajadores y causahabientes pueden estar exentos según el artículo 13 de la Ley 23.898, dependiendo del carácter de la parte y del origen del proceso. Requiere revisión profesional.
-          </div>
-        )}
-        {tipoProceso === 'family' && (
-          <div className="mt-2 text-xs text-amber-400">
-            Determinadas actuaciones de familia están exentas y otras pueden tener contenido patrimonial. Requiere revisión profesional.
-          </div>
-        )}
-        {tipoProceso === 'indeterminate' && (
-          <div className="mt-2 text-xs text-amber-400">
-            Los procesos de monto indeterminado o sin contenido pecuniario aplican reglas y montos fijos específicos. Esta cobertura todavía no está implementada.
-          </div>
-        )}
-        {tipoProceso === 'insolvency' && (
-          <div className="mt-2 text-xs text-amber-400">
-            Los procesos concursales tienen una tasa especial. Esta cobertura todavía no está implementada.
-          </div>
-        )}
-        {['survey_boundary', 'third_party_claim', 'amparo', 'legal_aid', 'other'].includes(tipoProceso) && (
-          <div className="mt-2 text-xs text-amber-400">
-            La Ley 23.898 contempla una solución especial o exención. Esta cobertura todavía no está implementada.
-          </div>
-        )}
-        {tipoProceso === 'general_pecuniary' && (
+        {jurisdiccion !== 'pba' && jurisdiccion !== 'corrientes' && (
           <>
-            <Field label="Monto del proceso ($)">
-              <input type="text" inputMode="decimal" value={montoTasa} onChange={(e) => setMontoTasa(e.target.value)} placeholder="Ej: 1.000.000" className={inputClass} disabled={jurisdiccion === 'pba' || jurisdiccion === 'corrientes'} />
+            <Field label="Tipo de proceso">
+              <select
+                value={tipoProceso}
+                onChange={(e) => {
+                  setTipoProceso(e.target.value as NationalJusticeFeeCaseType | '');
+                  setTasaRes(null);
+                  setError(null);
+                  setConfirmacion(false);
+                }}
+                className={inputClass}
+              >
+                <option value="" className="bg-white text-slate-900">-- Seleccionar tipo --</option>
+                <option value="general_pecuniary" className="bg-white text-slate-900">Civil/comercial con monto determinado</option>
+                <option value="succession" className="bg-white text-slate-900">Sucesión</option>
+                <option value="employment" className="bg-white text-slate-900">Laboral</option>
+                <option value="family" className="bg-white text-slate-900">Familia</option>
+                <option value="indeterminate" className="bg-white text-slate-900">Monto indeterminado</option>
+                <option value="insolvency" className="bg-white text-slate-900">Concurso o quiebra</option>
+                <option value="survey_boundary" className="bg-white text-slate-900">Mensura o deslinde</option>
+                <option value="third_party_claim" className="bg-white text-slate-900">Tercería</option>
+                <option value="amparo" className="bg-white text-slate-900">Amparo</option>
+                <option value="legal_aid" className="bg-white text-slate-900">Beneficio de litigar sin gastos</option>
+                <option value="other" className="bg-white text-slate-900">Otro</option>
+              </select>
             </Field>
-            <label className="mt-2 flex items-start gap-2 text-sm text-slate-300">
-              <input type="checkbox" checked={confirmacion} onChange={(e) => { setConfirmacion(e.target.checked); setTasaRes(null); setError(null); }} className="mt-1" />
-              Confirmo que se trata de una pretensión pecuniaria general y que no identifico un régimen especial o exención.
-            </label>
+            {tipoProceso === 'succession' && (
+              <div className="mt-2 text-xs text-amber-400">
+                La Ley 23.898 contempla una tasa reducida y reglas específicas sobre la base sucesoria. Esta cobertura todavía no está implementada.
+              </div>
+            )}
+            {tipoProceso === 'employment' && (
+              <div className="mt-2 text-xs text-amber-400">
+                Los trabajadores y causahabientes pueden estar exentos según el artículo 13 de la Ley 23.898, dependiendo del carácter de la parte y del origen del proceso. Requiere revisión profesional.
+              </div>
+            )}
+            {tipoProceso === 'family' && (
+              <div className="mt-2 text-xs text-amber-400">
+                Determinadas actuaciones de familia están exentas y otras pueden tener contenido patrimonial. Requiere revisión profesional.
+              </div>
+            )}
+            {tipoProceso === 'indeterminate' && (
+              <div className="mt-2 text-xs text-amber-400">
+                Los procesos de monto indeterminado o sin contenido pecuniario aplican reglas y montos fijos específicos. Esta cobertura todavía no está implementada.
+              </div>
+            )}
+            {tipoProceso === 'insolvency' && (
+              <div className="mt-2 text-xs text-amber-400">
+                Los procesos concursales tienen una tasa especial. Esta cobertura todavía no está implementada.
+              </div>
+            )}
+            {['survey_boundary', 'third_party_claim', 'amparo', 'legal_aid', 'other'].includes(tipoProceso) && (
+              <div className="mt-2 text-xs text-amber-400">
+                La Ley 23.898 contempla una solución especial o exención. Esta cobertura todavía no está implementada.
+              </div>
+            )}
+            {tipoProceso === 'general_pecuniary' && (
+              <>
+                <Field label="Monto del proceso ($)">
+                  <input type="text" inputMode="decimal" value={montoTasa} onChange={(e) => setMontoTasa(e.target.value)} placeholder="Ej: 1.000.000" className={inputClass} />
+                </Field>
+                <label className="mt-2 flex items-start gap-2 text-sm text-slate-300">
+                  <input type="checkbox" checked={confirmacion} onChange={(e) => { setConfirmacion(e.target.checked); setTasaRes(null); setError(null); }} className="mt-1" />
+                  Confirmo que se trata de una pretensión pecuniaria general y que no identifico un régimen especial o exención.
+                </label>
+              </>
+            )}
           </>
         )}
         {jurisdiccion !== 'pba' && jurisdiccion !== 'corrientes' && tipoProceso === 'general_pecuniary' && (

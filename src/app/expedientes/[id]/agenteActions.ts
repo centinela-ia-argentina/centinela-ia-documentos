@@ -608,8 +608,17 @@ export async function ejecutarAccionAgente(input: {
       const jurisdiccionStr = typeof accion.jurisdiccion === 'string' ? accion.jurisdiccion.trim() : '';
       const tipoProcesoStr = typeof accion.tipo_proceso === 'string' ? accion.tipo_proceso.trim() as any : undefined;
       const confirmacionBool = Boolean(accion.confirmacion);
+      const montoVal = Number(accion.monto);
+
+      // 9. VALIDACIÓN SERVER-SIDE
+      if (jurisdiccionStr !== 'nacion') return { ok: false, mensaje: 'Sólo se admite jurisdicción nacion.' };
+      if (tipoProcesoStr !== 'general_pecuniary') return { ok: false, mensaje: 'Sólo se admite proceso pecuniario general.' };
+      if (!confirmacionBool) return { ok: false, mensaje: 'Se requiere confirmación explícita.' };
+      if (!Number.isFinite(montoVal) || montoVal <= 0) return { ok: false, mensaje: 'El monto debe ser numérico y mayor a cero.' };
+      if (accion.moneda === 'USD') return { ok: false, mensaje: 'La moneda debe ser ARS. Para moneda extranjera indique la base imponible en pesos.' };
+
       const r = calcularTasaJusticia({ 
-        monto: accion.monto as number, 
+        monto: montoVal, 
         jurisdiccion: jurisdiccionStr,
         tipo_proceso: tipoProcesoStr,
         confirmacion: confirmacionBool
