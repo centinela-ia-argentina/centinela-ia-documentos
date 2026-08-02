@@ -173,11 +173,13 @@ function validarAcciones(input: unknown, estadosValidos: string[] = []): AccionP
       });
     } else if (tipo === 'calcular_tasa_justicia') {
       const monto = Number(o.monto);
+      const jurisdiccion = typeof o.jurisdiccion === 'string' ? o.jurisdiccion.trim() : '';
       if (!Number.isFinite(monto) || monto <= 0) continue;
       out.push({
         tipo: 'calcular_tasa_justicia',
         titulo,
         monto,
+        jurisdiccion: ['nacion', 'corrientes', 'pba'].includes(jurisdiccion) ? (jurisdiccion as any) : undefined,
         motivo,
       });
     } else {
@@ -524,13 +526,31 @@ export async function responderAgenteLegajo(input: {
             if (intencionTasa) {
               acciones = acciones.filter(a => a.tipo === 'calcular_tasa_justicia');
               const monto = detectarMontoJuicio(allText);
-              if (monto && monto > 0 && !acciones.some(a => a.tipo === 'calcular_tasa_justicia')) {
+              let jurisdiccion = detectarJurisdiccion(input.pregunta) || (acciones.length > 0 ? acciones[0].jurisdiccion : undefined);
+              
+              if (!jurisdiccion) {
+                acciones = [];
+                respuesta = '¿Qué jurisdicción corresponde: Justicia Nacional/Federal, Provincia de Buenos Aires o Provincia de Corrientes?';
+              } else if (jurisdiccion === 'pba') {
+                acciones = [];
+                respuesta = 'El cálculo de tasa de justicia para Provincia de Buenos Aires todavía no tiene cobertura verificada en Centinela IA. No generé una propuesta.';
+              } else if (jurisdiccion === 'corrientes') {
+                acciones = [];
+                respuesta = 'El cálculo de tasa de justicia para Provincia de Corrientes todavía no tiene cobertura verificada en Centinela IA. No generé una propuesta.';
+              } else if (monto && monto > 0 && !acciones.some(a => a.tipo === 'calcular_tasa_justicia')) {
                 acciones.push({
                   tipo: 'calcular_tasa_justicia',
                   titulo: 'Tasa de justicia del proceso',
                   monto,
+                  jurisdiccion: 'nacion',
                   motivo: 'Detecté el monto del proceso en el expediente o la conversación.'
                 });
+              } else if (monto && monto > 0) {
+                 const act = acciones.find(a => a.tipo === 'calcular_tasa_justicia');
+                 if (act) {
+                   act.monto = monto;
+                   act.jurisdiccion = 'nacion';
+                 }
               }
             } else if (intencionLiq) {
               acciones = acciones.filter(a => a.tipo === 'calcular_liquidacion');

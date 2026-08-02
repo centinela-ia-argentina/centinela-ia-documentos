@@ -79,3 +79,124 @@ export const JUS_CORRIENTES = 58519.61;
 // Jurisprudencia STJ Corrientes para daños. Valor vigente a la fecha indicada.
 export const TASA_ACTIVA_BNA_TNA = 25.57 // % TNA vencida
 export const TASA_ACTIVA_BNA_VIGENCIA = 'julio 2026'
+
+export interface LegalParameterConfig {
+  identificador: string;
+  concepto: string;
+  jurisdiccion: string;
+  valor: number;
+  unidad: string;
+  vigencia_desde: string;
+  fuente: string;
+  url: string;
+  verification_status: 'verificada' | 'no_verificada' | 'pendiente';
+  aplicabilidad_juridica: string;
+  caracter_orientativo: boolean;
+}
+
+export const LEGAL_PARAMETERS: Record<string, LegalParameterConfig> = {
+  tasa_justicia_nacion: {
+    identificador: 'tasa_justicia_nacion',
+    concepto: 'Tasa de Justicia',
+    jurisdiccion: 'nacion',
+    valor: 3,
+    unidad: '%',
+    vigencia_desde: '-',
+    fuente: 'Ley 23.898',
+    url: '',
+    verification_status: 'verificada',
+    aplicabilidad_juridica: 'Nación/Federal',
+    caracter_orientativo: true,
+  },
+  tasa_justicia_pba: {
+    identificador: 'tasa_justicia_pba',
+    concepto: 'Tasa de Justicia PBA',
+    jurisdiccion: 'pba',
+    valor: 0,
+    unidad: '%',
+    vigencia_desde: '-',
+    fuente: '',
+    url: '',
+    verification_status: 'no_verificada',
+    aplicabilidad_juridica: 'PBA',
+    caracter_orientativo: true,
+  },
+  tasa_justicia_corrientes: {
+    identificador: 'tasa_justicia_corrientes',
+    concepto: 'Tasa de Justicia Corrientes',
+    jurisdiccion: 'corrientes',
+    valor: 0,
+    unidad: '%',
+    vigencia_desde: '-',
+    fuente: '',
+    url: '',
+    verification_status: 'no_verificada',
+    aplicabilidad_juridica: 'Corrientes',
+    caracter_orientativo: true,
+  },
+  tasa_activa_bna: {
+    identificador: 'tasa_activa_bna',
+    concepto: 'Tasa Activa Cartera General Diversas',
+    jurisdiccion: 'nacion',
+    valor: 26.62,
+    unidad: '% TNA vencida',
+    vigencia_desde: '30/07/2026',
+    fuente: 'Banco de la Nación Argentina',
+    url: 'https://bna.com.ar/Home/InformacionAlUsuarioFinanciero',
+    verification_status: 'verificada',
+    aplicabilidad_juridica: 'no definida',
+    caracter_orientativo: true,
+  },
+  uma: {
+    identificador: 'uma',
+    concepto: 'Unidad de Medida Arancelaria',
+    jurisdiccion: 'nacion',
+    valor: UMA_VALOR,
+    unidad: 'ARS',
+    vigencia_desde: UMA_VIGENCIA,
+    fuente: 'CSJN',
+    url: '',
+    verification_status: 'pendiente',
+    aplicabilidad_juridica: 'Honorarios',
+    caracter_orientativo: true,
+  },
+  uhom: {
+    identificador: 'uhom',
+    concepto: 'Unidad de Honorarios de Mediación',
+    jurisdiccion: 'nacion',
+    valor: UHOM_VALOR,
+    unidad: 'ARS',
+    vigencia_desde: '1/5/2026',
+    fuente: 'CPACF',
+    url: '',
+    verification_status: 'pendiente',
+    aplicabilidad_juridica: 'Mediación',
+    caracter_orientativo: true,
+  },
+  jus_pba: {
+    identificador: 'jus_pba',
+    concepto: 'Jus Arancelario',
+    jurisdiccion: 'pba',
+    valor: JUS_BA_MEDIACION,
+    unidad: 'ARS',
+    vigencia_desde: '1/4/2026',
+    fuente: 'SCBA',
+    url: '',
+    verification_status: 'pendiente',
+    aplicabilidad_juridica: 'Mediación/Honorarios PBA',
+    caracter_orientativo: true,
+  },
+  jus_corrientes: {
+    identificador: 'jus_corrientes',
+    concepto: 'Jus Arancelario',
+    jurisdiccion: 'corrientes',
+    valor: JUS_CORRIENTES,
+    unidad: 'ARS',
+    vigencia_desde: '1/5/2026',
+    fuente: 'STJ Corrientes',
+    url: '',
+    verification_status: 'pendiente',
+    aplicabilidad_juridica: 'Mediación/Honorarios Corrientes',
+    caracter_orientativo: true,
+  }
+};
