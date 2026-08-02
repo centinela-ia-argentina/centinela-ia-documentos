@@ -529,7 +529,9 @@ export async function responderAgenteLegajo(input: {
           let pendingFeeState: PendingJusticeFeeState | null = null;
           let isFeeFlow = false;
 
-          const esConfirmacionAislada = /^(si|sí|confirmo|correcto|de acuerdo|adelante|ok)(\s.*)?$/i.test(pNorm);
+          const normalizarConfirmacion = (txt: string) => txt.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^\w\s]/g, '').replace(/\s+/g, ' ').trim();
+          const esConfirmacionAislada = /^(si|si confirmo|confirmo|correcto|de acuerdo|adelante|ok)$/i.test(normalizarConfirmacion(input.pregunta)) || 
+                                      /^(si confirmo que es una pretension pecuniaria general|confirmo que no identifico un regimen especial ni una exencion)/i.test(normalizarConfirmacion(input.pregunta));
 
           let lastFeeIntentIdx = -1;
           for (let i = input.historial.length - 1; i >= 0; i--) {
@@ -566,28 +568,31 @@ export async function responderAgenteLegajo(input: {
                
                const combinedUserText = userMsgs.join(' ');
                
-               // Jurisdicción
+               // Jurisdicción, Monto y Moneda evaluados globalmente en la intención
                pendingFeeState.jurisdiction = detectarJurisdiccion(combinedUserText) as any;
-               
-               // Tipo de proceso
-               const tLocal = normalizarParaIntencion(combinedUserText);
-               if (/(sucesion|sucesorio|declaratoria de herederos)/i.test(tLocal)) pendingFeeState.caseType = 'succession';
-               else if (/(laboral|trabajo|despido|art|empleador|trabajador)/i.test(tLocal)) pendingFeeState.caseType = 'employment';
-               else if (/(familia|divorcio|alimento|regimen|visita)/i.test(tLocal)) pendingFeeState.caseType = 'family';
-               else if (/(indeterminado|sin monto|sin contenido)/i.test(tLocal)) pendingFeeState.caseType = 'indeterminate';
-               else if (/(concurso|quiebra)/i.test(tLocal)) pendingFeeState.caseType = 'insolvency';
-               else if (/(mensura|deslinde)/i.test(tLocal)) pendingFeeState.caseType = 'survey_boundary';
-               else if (/(terceria)/i.test(tLocal)) pendingFeeState.caseType = 'third_party_claim';
-               else if (/(amparo)/i.test(tLocal)) pendingFeeState.caseType = 'amparo';
-               else if (/(beneficio de litigar sin gastos|blsg)/i.test(tLocal)) pendingFeeState.caseType = 'legal_aid';
-               else if (/(civil|comercial|general|ordinario|ejecutivo|danos|pecuniario)/i.test(tLocal)) pendingFeeState.caseType = 'general_pecuniary';
-               
-               // Monto y Moneda
                pendingFeeState.amount = detectarMontoJuicio(combinedUserText) ?? undefined;
-               if (/(usd|u\$s|dolar|dólar)/i.test(tLocal)) {
+               
+               const tLocalGlobal = normalizarParaIntencion(combinedUserText);
+               if (/(usd|u\$s|dolar|dólar)/i.test(tLocalGlobal)) {
                  pendingFeeState.currency = 'USD';
                } else if (pendingFeeState.amount && pendingFeeState.amount > 0) {
                  pendingFeeState.currency = 'ARS';
+               }
+               
+               // 4. REGLA DE caseType: evaluar de forma secuencial y retener el primer tipo explícito encontrado.
+               // Ignorar la confirmación para evitar que "régimen" active family
+               for (const msg of userMsgs) {
+                 const tClean = normalizarParaIntencion(msg).replace(/regimen especial/g, '');
+                 if (/(sucesion|sucesorio|declaratoria de herederos)/i.test(tClean)) { pendingFeeState.caseType = 'succession'; break; }
+                 if (/(laboral|trabajo|despido|art|empleador|trabajador)/i.test(tClean)) { pendingFeeState.caseType = 'employment'; break; }
+                 if (/(familia|divorcio|alimento|regimen|visita)/i.test(tClean)) { pendingFeeState.caseType = 'family'; break; }
+                 if (/(indeterminado|sin monto|sin contenido)/i.test(tClean)) { pendingFeeState.caseType = 'indeterminate'; break; }
+                 if (/(concurso|quiebra)/i.test(tClean)) { pendingFeeState.caseType = 'insolvency'; break; }
+                 if (/(mensura|deslinde)/i.test(tClean)) { pendingFeeState.caseType = 'survey_boundary'; break; }
+                 if (/(terceria)/i.test(tClean)) { pendingFeeState.caseType = 'third_party_claim'; break; }
+                 if (/(amparo)/i.test(tClean)) { pendingFeeState.caseType = 'amparo'; break; }
+                 if (/(beneficio de litigar sin gastos|blsg)/i.test(tClean)) { pendingFeeState.caseType = 'legal_aid'; break; }
+                 if (/(civil|comercial|general|ordinario|ejecutivo|danos|pecuniario)/i.test(tClean)) { pendingFeeState.caseType = 'general_pecuniary'; break; }
                }
                
                // Confirmación
@@ -595,6 +600,16 @@ export async function responderAgenteLegajo(input: {
                  pendingFeeState.confirmedGeneral = true;
                }
              }
+          }
+
+          // Guard de confirmación aislada GLOBAL (antes de modelo general)
+          if (esConfirmacionAislada && !isFeeFlow) {
+              return {
+                ok: true,
+                respuesta: 'No tengo una propuesta de tasa pendiente para confirmar. Indicame qué cálculo querés realizar.',
+                acciones: [],
+                model: `agente-${modeloActual}`
+              };
           }
 
           // Filtro estricto
@@ -607,15 +622,6 @@ export async function responderAgenteLegajo(input: {
           const allText = [input.contextoLegajo || '', ...input.historial.map((m) => m.texto), input.pregunta].join('\n');
 
           if (esLegalLaboral) {
-            if (esConfirmacionAislada && !isFeeFlow) {
-              return {
-                ok: true,
-                respuesta: 'No tengo una propuesta de tasa pendiente para confirmar. Indicame qué cálculo querés realizar.',
-                acciones: [],
-                model: `agente-${modeloActual}`
-              };
-            }
-
             if (isFeeFlow && pendingFeeState) {
               acciones = [];
               if (!pendingFeeState.jurisdiction) {
