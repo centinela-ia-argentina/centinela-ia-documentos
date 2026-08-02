@@ -505,11 +505,6 @@ export async function ejecutarAccionAgente(input: {
             "No pude calcular la liquidación: faltan o son inválidos el ingreso, la edad o el % de incapacidad.",
         }
       const tope730 = calc.capital * 0.25
-      let intereses: ReturnType<typeof calcularInteresesMoratorios> | null = null
-      if (accion.fechaHecho) {
-        const ri = calcularInteresesMoratorios({ capital: calc.capital, fechaDesde: accion.fechaHecho })
-        if (ri.ok) intereses = ri
-      }
 
       const resultJson: any = {
           metodo,
@@ -521,14 +516,16 @@ export async function ejecutarAccionAgente(input: {
           anios_computables: calc.aniosComputables,
           tasa_descuento: calc.tasaDescuento,
           tope_honorarios_730: tope730,
-      }
-
-      if (intereses) {
-          resultJson.intereses = intereses.interes
-          resultJson.intereses_dias = intereses.dias
-          resultJson.intereses_tasa_anual = intereses.tasaAnual
-          resultJson.intereses_desde = intereses.fechaDesde
-          resultJson.total_con_intereses = intereses.total
+          parametros_capital: {
+            metodo,
+            ingresoMensual: Number(accion.ingresoMensual),
+            edad: Number(accion.edad),
+            incapacidad: Number(accion.incapacidad)
+          },
+          intereses_estado: 'no_calculados',
+          intereses_motivo: 'Intereses no calculados: requieren definir jurisdicción, criterio aplicable y tasas por período.',
+          fecha_calculo: new Date().toISOString(),
+          caracter_orientativo: true,
       }
 
       const { error } = await supabase.from("ai_outputs").insert({
@@ -545,10 +542,7 @@ export async function ejecutarAccionAgente(input: {
         return { ok: false, mensaje: "No se pudo guardar la liquidación." }
       }
       revalidatePath(`/expedientes/${caseId}`)
-      if (intereses) {
-        return { ok: true, mensaje: `Liquidación calculada: capital $${calc.capital} + intereses $${intereses.interes} = total $${intereses.total}.` }
-      }
-      return { ok: true, mensaje: "Liquidación estimada calculada." }
+      return { ok: true, mensaje: "Liquidación estimada calculada (capital). Intereses no calculados." }
     }
 
     case 'calcular_plazo_procesal': {
@@ -611,12 +605,26 @@ export async function ejecutarAccionAgente(input: {
 
     case 'calcular_tasa_justicia': {
       if (!canUpdateCase(profile.role)) return { ok: false, mensaje: 'Sin permiso.' };
-      const r = calcularTasaJusticia({ monto: accion.monto as number });
+      const jurisdiccionStr = typeof accion.jurisdiccion === 'string' ? accion.jurisdiccion.trim() : '';
+      const r = calcularTasaJusticia({ monto: accion.monto as number, jurisdiccion: jurisdiccionStr });
       if (!r.ok) return { ok: false, mensaje: r.motivo ?? 'No se pudo calcular la tasa de justicia.' };
       const { error } = await supabase.from('ai_outputs').insert({
         output_type: 'case_tasa_justicia',
         content: `${accion.titulo} — tasa $${r.tasa}`,
-        result_json: { titulo: accion.titulo, base: r.base, porcentaje: r.porcentaje, tasa: r.tasa },
+        result_json: { 
+          titulo: accion.titulo, 
+          base: r.base, 
+          porcentaje: r.porcentaje, 
+          tasa: r.tasa,
+          jurisdiccion: r.jurisdiccion,
+          fuente_nombre: r.fuente_nombre,
+          fuente_url: r.fuente_url,
+          norma: r.norma,
+          vigencia: r.vigencia,
+          fecha_calculo: r.fecha_calculo,
+          verification_status: r.verification_status,
+          caracter_orientativo: r.caracter_orientativo,
+        },
         model_name: 'calculadora-tasa-justicia',
         case_id: caseId,
         organization_id: profile.organization_id,

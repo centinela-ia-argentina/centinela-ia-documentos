@@ -1,25 +1,59 @@
-import { TASA_JUSTICIA_PORCENTAJE } from './config';
+import { LEGAL_PARAMETERS } from './config';
 
 export type ResultadoTasaJusticia =
-  | { ok: true; base: number; porcentaje: number; tasa: number }
+  | { 
+      ok: true; 
+      base: number; 
+      porcentaje: number; 
+      tasa: number;
+      jurisdiccion: string;
+      fuente_nombre: string;
+      fuente_url: string;
+      norma: string;
+      vigencia: string;
+      fecha_calculo: string;
+      verification_status: string;
+      caracter_orientativo: boolean;
+    }
   | { ok: false; motivo: string };
 
 /**
- * Tasa de justicia (Ley 23.898) — general: % del monto del proceso.
- * Usa el porcentaje de config.ts (3%) salvo que se pase uno explícito.
+ * Tasa de justicia — Validación por jurisdicción.
  */
 export function calcularTasaJusticia(input: {
   monto: number;
-  porcentaje?: number;
+  jurisdiccion?: string;
 }): ResultadoTasaJusticia {
   const base = Number(input.monto);
   if (!Number.isFinite(base) || base <= 0) {
     return { ok: false, motivo: 'El monto del proceso debe ser un número mayor a cero.' };
   }
-  const porcentaje =
-    Number.isFinite(input.porcentaje) && (input.porcentaje as number) > 0
-      ? (input.porcentaje as number)
-      : TASA_JUSTICIA_PORCENTAJE;
+  if (!input.jurisdiccion) {
+    return { ok: false, motivo: 'jurisdiccion_requerida' };
+  }
+  if (input.jurisdiccion === 'pba' || input.jurisdiccion === 'corrientes') {
+    return { ok: false, motivo: 'jurisdiccion_no_verificada' };
+  }
+  if (input.jurisdiccion !== 'nacion') {
+    return { ok: false, motivo: 'Jurisdicción no válida o desconocida.' };
+  }
+
+  const param = LEGAL_PARAMETERS['tasa_justicia_nacion'];
+  const porcentaje = param.valor;
   const tasa = Math.round(base * (porcentaje / 100));
-  return { ok: true, base, porcentaje, tasa };
+
+  return { 
+    ok: true, 
+    base, 
+    porcentaje, 
+    tasa,
+    jurisdiccion: param.jurisdiccion,
+    fuente_nombre: param.fuente,
+    fuente_url: param.url,
+    norma: param.concepto,
+    vigencia: param.vigencia_desde,
+    fecha_calculo: new Date().toISOString(),
+    verification_status: param.verification_status,
+    caracter_orientativo: param.caracter_orientativo,
+  };
 }

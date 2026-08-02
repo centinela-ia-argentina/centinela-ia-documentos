@@ -384,6 +384,7 @@ function HonorariosCalc() {
 }
 
 function TasaCalc() {
+  const [jurisdiccion, setJurisdiccion] = useState<LegalJurisdiction | ''>('');
   const [montoTasa, setMontoTasa] = useState('');
   const [tasaRes, setTasaRes] = useState<number | null>(null);
   const [capital, setCapital] = useState('');
@@ -395,6 +396,9 @@ function TasaCalc() {
   const calcularTasa = () => {
     setError(null);
     setTasaRes(null);
+    if (!jurisdiccion) return setError('Seleccioná una jurisdicción.');
+    if (jurisdiccion === 'pba' || jurisdiccion === 'corrientes') return;
+    
     const m = parseMonto(montoTasa);
     if (!Number.isFinite(m) || m <= 0) return setError('Ingresá un monto válido para la tasa de justicia.');
     setTasaRes(m * (TASA_JUSTICIA_PORCENTAJE / 100));
@@ -414,12 +418,42 @@ function TasaCalc() {
 
   return (
     <div className="space-y-6">
-      <Card title="Tasa de justicia" subtitle={`Ley 23.898 — ${TASA_JUSTICIA_PORCENTAJE}% del monto del proceso (Nación).`}>
+      <Card title="Tasa de justicia" subtitle="Porcentaje sobre el monto del proceso.">
+        <div className="mb-4">
+          <Field label="Jurisdicción (obligatorio)">
+            <select
+              value={jurisdiccion}
+              onChange={(e) => {
+                setJurisdiccion(e.target.value as LegalJurisdiction | '');
+                setTasaRes(null);
+                setError(null);
+              }}
+              className={inputClass}
+            >
+              <option value="" className="bg-white text-slate-900">-- Seleccionar jurisdicción --</option>
+              {Object.entries(JURISDICTION_LABELS).map(([k, v]) => (
+                <option key={k} value={k} className="bg-white text-slate-900">{v}</option>
+              ))}
+            </select>
+          </Field>
+          {(jurisdiccion === 'pba' || jurisdiccion === 'corrientes') && (
+            <div className="mt-2 text-xs text-amber-400">
+              ⚠️ El cálculo de tasa de justicia para {JURISDICTION_LABELS[jurisdiccion]} todavía no tiene cobertura verificada en Centinela IA.
+            </div>
+          )}
+          {jurisdiccion === 'nacion' && (
+            <div className="mt-2 text-xs text-emerald-400">
+              ✓ Cobertura verificada (Ley 23.898 — {TASA_JUSTICIA_PORCENTAJE}%). Orientativo.
+            </div>
+          )}
+        </div>
         <Field label="Monto del proceso ($)">
-          <input type="text" inputMode="decimal" value={montoTasa} onChange={(e) => setMontoTasa(e.target.value)} placeholder="Ej: 1.000.000" className={inputClass} />
+          <input type="text" inputMode="decimal" value={montoTasa} onChange={(e) => setMontoTasa(e.target.value)} placeholder="Ej: 1.000.000" className={inputClass} disabled={jurisdiccion === 'pba' || jurisdiccion === 'corrientes'} />
         </Field>
-        <MotionButton type="button" onClick={calcularTasa} className={btnClass}>Calcular tasa</MotionButton>
-        {tasaRes !== null && (
+        {jurisdiccion !== 'pba' && jurisdiccion !== 'corrientes' && (
+          <MotionButton type="button" onClick={calcularTasa} className={btnClass}>Calcular tasa</MotionButton>
+        )}
+        {tasaRes !== null && jurisdiccion === 'nacion' && (
           <div className="mt-4">
             <ResultBox label={`Tasa de justicia (${TASA_JUSTICIA_PORCENTAJE}%)`} value={currency(tasaRes)} highlight />
           </div>
@@ -830,6 +864,9 @@ function IncapacidadCalc() {
 			{res && (
 				<div className="mt-4 space-y-2">
 					<ResultBox label="Capital indemnizatorio" value={currency(res.capital)} highlight />
+					<div className="text-[11px] text-amber-200 mt-1 mb-2">
+						⚠️ Este cálculo muestra únicamente el capital estimado. No incluye intereses históricos. Para calcular intereses es necesario definir jurisdicción, criterio aplicable y tasas correspondientes a cada período.
+					</div>
 					<ResultBox label="Renta anual base (a)" value={currency(res.a)} />
 					<ResultBox label="Años computados (n)" value={`${res.n} años · tasa ${(res.i * 100).toFixed(0)}%`} subtitle="Orientativo. La CSJN (‘Aróstegui’, 2008) exige valoración integral: la fórmula es un piso de referencia, el daño moral se fija aparte." />
 				</div>
