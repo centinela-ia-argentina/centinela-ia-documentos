@@ -41,6 +41,8 @@ export type AccionPropuesta = {
   kmDistancia?: number;        // solo calcular_plazo_procesal (opcional, art. 158)
   jurisdiccion?: 'nacion' | 'corrientes' | 'pba'; // solo calcular_plazo_procesal
   monto?: number; // solo calcular_tasa_justicia
+  tipo_proceso?: string; // solo calcular_tasa_justicia
+  confirmacion?: boolean; // solo calcular_tasa_justicia
   alquilerMensual?: number | null; // solo calificar_inquilino
   moneda?: 'ARS' | 'USD'; // solo calificar_inquilino
   motivo: string;
@@ -527,6 +529,26 @@ export async function responderAgenteLegajo(input: {
 
           const allText = [input.contextoLegajo || '', ...input.historial.map((m) => m.texto), input.pregunta].join('\n');
 
+          const detectarTipoProcesoTasa = (txt: string) => {
+            const t = normalizarParaIntencion(txt);
+            if (/(sucesion|sucesorio|declaratoria de herederos)/i.test(t)) return 'succession';
+            if (/(laboral|trabajo|despido|art|empleador|trabajador)/i.test(t)) return 'employment';
+            if (/(familia|divorcio|alimento|regimen|visita)/i.test(t)) return 'family';
+            if (/(indeterminado|sin monto|sin contenido)/i.test(t)) return 'indeterminate';
+            if (/(concurso|quiebra)/i.test(t)) return 'insolvency';
+            if (/(mensura|deslinde)/i.test(t)) return 'survey_boundary';
+            if (/(terceria)/i.test(t)) return 'third_party_claim';
+            if (/(amparo)/i.test(t)) return 'amparo';
+            if (/(beneficio de litigar sin gastos|blsg)/i.test(t)) return 'legal_aid';
+            if (/(civil|comercial|general|ordinario|ejecutivo|danos|pecuniario)/i.test(t)) return 'general_pecuniary';
+            return undefined;
+          };
+          
+          const detectarConfirmacion = (txt: string) => {
+             const t = normalizarParaIntencion(txt);
+             return /(si|confirmo|correcto|ausencia|no hay regimen|no identifico|acepto)/i.test(t);
+          };
+
           if (esLegalLaboral) {
             if (intencionTasa || esContinuacionTasa) {
               acciones = acciones.filter(a => a.tipo === 'calcular_tasa_justicia');
@@ -537,6 +559,9 @@ export async function responderAgenteLegajo(input: {
                 jurisdiccion = jurisCont as any;
               }
               
+              const tipoProceso = detectarTipoProcesoTasa(allText);
+              const confirmado = detectarConfirmacion(input.pregunta);
+              
               if (!jurisdiccion) {
                 acciones = [];
                 respuesta = '¿Qué jurisdicción corresponde: Justicia Nacional/Federal, Provincia de Buenos Aires o Provincia de Corrientes?';
@@ -546,22 +571,50 @@ export async function responderAgenteLegajo(input: {
               } else if (jurisdiccion === 'corrientes') {
                 acciones = [];
                 respuesta = 'El cálculo de tasa de justicia para Provincia de Corrientes todavía no tiene cobertura verificada en Centinela IA. No generé una propuesta.';
+              } else if (!tipoProceso) {
+                acciones = [];
+                respuesta = '¿Qué tipo de proceso es (civil/comercial con monto, sucesión, laboral, familia, u otro)?';
+              } else if (tipoProceso === 'succession') {
+                acciones = [];
+                respuesta = 'La Ley 23.898 contempla una tasa reducida y reglas específicas sobre la base sucesoria. Esta cobertura todavía no está implementada. No generé un cálculo.';
+              } else if (tipoProceso === 'employment') {
+                acciones = [];
+                respuesta = 'Los trabajadores y causahabientes pueden estar exentos según el artículo 13 de la Ley 23.898, dependiendo del carácter de la parte y del origen del proceso. Requiere revisión profesional. No generé un cálculo.';
+              } else if (tipoProceso === 'family') {
+                acciones = [];
+                respuesta = 'Determinadas actuaciones de familia están exentas y otras pueden tener contenido patrimonial. Requiere revisión profesional. No generé un cálculo.';
+              } else if (tipoProceso === 'indeterminate') {
+                acciones = [];
+                respuesta = 'Los procesos de monto indeterminado o sin contenido pecuniario aplican reglas y montos fijos específicos. Esta cobertura todavía no está implementada.';
+              } else if (tipoProceso === 'insolvency') {
+                acciones = [];
+                respuesta = 'Los procesos concursales tienen una tasa especial. Esta cobertura todavía no está implementada.';
+              } else if (['survey_boundary', 'third_party_claim', 'amparo', 'legal_aid', 'other'].includes(tipoProceso)) {
+                acciones = [];
+                respuesta = 'La Ley 23.898 contempla una solución especial o exención. Esta cobertura todavía no está implementada.';
               } else if (!monto || monto <= 0) {
                 acciones = [];
                 respuesta = '¿De qué monto es el proceso para calcular la tasa de justicia?';
-              } else if (monto && monto > 0 && !acciones.some(a => a.tipo === 'calcular_tasa_justicia')) {
+              } else if (!confirmado) {
+                acciones = [];
+                respuesta = 'Por favor, confirmá explícitamente que se trata de una pretensión pecuniaria general y que no identificás un régimen especial o exención antes de calcular.';
+              } else if (monto && monto > 0 && confirmado && !acciones.some(a => a.tipo === 'calcular_tasa_justicia')) {
                 acciones.push({
                   tipo: 'calcular_tasa_justicia',
                   titulo: 'Tasa de justicia del proceso',
                   monto,
                   jurisdiccion: 'nacion',
-                  motivo: 'Detecté el monto del proceso en el expediente o la conversación.'
+                  tipo_proceso: tipoProceso,
+                  confirmacion: confirmado,
+                  motivo: 'Detecté los datos confirmados para el cálculo orientativo.'
                 });
-              } else if (monto && monto > 0) {
+              } else if (monto && monto > 0 && confirmado) {
                  const act = acciones.find(a => a.tipo === 'calcular_tasa_justicia');
                  if (act) {
                    act.monto = monto;
                    act.jurisdiccion = 'nacion';
+                   act.tipo_proceso = tipoProceso;
+                   act.confirmacion = confirmado;
                  }
               }
             } else if (intencionLiq) {

@@ -606,7 +606,14 @@ export async function ejecutarAccionAgente(input: {
     case 'calcular_tasa_justicia': {
       if (!canUpdateCase(profile.role)) return { ok: false, mensaje: 'Sin permiso.' };
       const jurisdiccionStr = typeof accion.jurisdiccion === 'string' ? accion.jurisdiccion.trim() : '';
-      const r = calcularTasaJusticia({ monto: accion.monto as number, jurisdiccion: jurisdiccionStr });
+      const tipoProcesoStr = typeof accion.tipo_proceso === 'string' ? accion.tipo_proceso.trim() as any : undefined;
+      const confirmacionBool = Boolean(accion.confirmacion);
+      const r = calcularTasaJusticia({ 
+        monto: accion.monto as number, 
+        jurisdiccion: jurisdiccionStr,
+        tipo_proceso: tipoProcesoStr,
+        confirmacion: confirmacionBool
+      });
       if (!r.ok) return { ok: false, mensaje: r.motivo ?? 'No se pudo calcular la tasa de justicia.' };
       const { error } = await supabase.from('ai_outputs').insert({
         output_type: 'case_tasa_justicia',
@@ -624,6 +631,9 @@ export async function ejecutarAccionAgente(input: {
           fecha_calculo: r.fecha_calculo,
           verification_status: r.verification_status,
           caracter_orientativo: r.caracter_orientativo,
+          tipo_proceso: r.tipo_proceso,
+          confirmacion_sin_regimen_especial: r.confirmacion_sin_regimen_especial,
+          advertencia_revision_profesional: r.advertencia_revision_profesional,
         },
         model_name: 'calculadora-tasa-justicia',
         case_id: caseId,
