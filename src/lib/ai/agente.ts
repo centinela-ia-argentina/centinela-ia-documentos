@@ -41,6 +41,8 @@ export type AccionPropuesta = {
   kmDistancia?: number;        // solo calcular_plazo_procesal (opcional, art. 158)
   jurisdiccion?: 'nacion' | 'corrientes' | 'pba'; // solo calcular_plazo_procesal
   monto?: number; // solo calcular_tasa_justicia
+  tipo_proceso?: string; // solo calcular_tasa_justicia
+  confirmacion?: boolean; // solo calcular_tasa_justicia
   alquilerMensual?: number | null; // solo calificar_inquilino
   moneda?: 'ARS' | 'USD'; // solo calificar_inquilino
   motivo: string;
@@ -451,6 +453,208 @@ export async function responderAgenteLegajo(input: {
     },
   });
 
+  const esLegalLaboral = input.industry === 'legal';
+  const p = input.pregunta;
+  const pNorm = normalizarParaIntencion(p);
+
+  // === RUTAS DETERMINÍSTICAS PRE-MODELO ===
+  if (esLegalLaboral) {
+    const normalizarConfirmacion = (txt: string) => txt.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^\w\s]/g, '').replace(/\s+/g, ' ').trim();
+    const esConfirmacionAislada = /^(si|si confirmo|confirmo|correcto|de acuerdo|adelante|ok)$/i.test(normalizarConfirmacion(input.pregunta)) || 
+                                /^(si confirmo que es una pretension pecuniaria general|confirmo que no identifico un regimen especial ni una exencion)/i.test(normalizarConfirmacion(input.pregunta));
+
+    const intencionTasa = /(calcula|calculame|calcular|estima)\b.*?(tasa)/i.test(pNorm);
+    let lastFeeIntentIdx = -1;
+    for (let i = input.historial.length - 1; i >= 0; i--) {
+      if (input.historial[i].rol === 'user' && /(calcula|calculame|calcular|estima)\b.*?(tasa)/i.test(normalizarParaIntencion(input.historial[i].texto))) {
+        lastFeeIntentIdx = i;
+        break;
+      }
+    }
+    if (intencionTasa) {
+      lastFeeIntentIdx = input.historial.length;
+    }
+
+    let isFeeFlow = false;
+    let pendingFeeState: any = null;
+
+    if (lastFeeIntentIdx !== -1) {
+       let interrupcion = false;
+       for (let i = lastFeeIntentIdx + 1; i < input.historial.length; i++) {
+          const msgNorm = normalizarParaIntencion(input.historial[i].texto);
+          if (input.historial[i].rol === 'user' && /(calcula|calculame|calcular|estima)\b.*?(plazo|vencimiento|dias habiles|fecha procesal|liquidacion|indemnizacion|incapacidad)|mendez|vuoto/i.test(msgNorm)) {
+             interrupcion = true;
+             break;
+          }
+       }
+       if (lastFeeIntentIdx !== input.historial.length && /(calcula|calculame|calcular|estima)\b.*?(plazo|vencimiento|dias habiles|fecha procesal|liquidacion|indemnizacion|incapacidad)|mendez|vuoto/i.test(pNorm)) {
+          interrupcion = true;
+       }
+       
+       if (!interrupcion) {
+         isFeeFlow = true;
+         pendingFeeState = { intent: 'justice_fee' };
+         const userMsgs = [];
+         for (let i = lastFeeIntentIdx; i < input.historial.length; i++) {
+            if (input.historial[i].rol === 'user') userMsgs.push(input.historial[i].texto);
+         }
+         userMsgs.push(input.pregunta);
+         
+         const combinedUserText = userMsgs.join(' ');
+         
+         pendingFeeState.jurisdiction = detectarJurisdiccion(combinedUserText);
+         pendingFeeState.amount = detectarMontoJuicio(combinedUserText) ?? undefined;
+         
+         const tLocalGlobal = normalizarParaIntencion(combinedUserText);
+         if (/(usd|u\$s|dolar|dólar)/i.test(tLocalGlobal)) {
+           pendingFeeState.currency = 'USD';
+         } else if (pendingFeeState.amount && pendingFeeState.amount > 0) {
+           pendingFeeState.currency = 'ARS';
+         }
+         
+         for (const msg of userMsgs) {
+           const tClean = normalizarParaIntencion(msg).replace(/regimen especial/g, '');
+           if (/(sucesion|sucesorio|declaratoria de herederos)/i.test(tClean)) { pendingFeeState.caseType = 'succession'; break; }
+           if (/(laboral|trabajo|despido|art|empleador|trabajador)/i.test(tClean)) { pendingFeeState.caseType = 'employment'; break; }
+           if (/(familia|divorcio|alimento|regimen|visita)/i.test(tClean)) { pendingFeeState.caseType = 'family'; break; }
+           if (/(indeterminado|sin monto|sin contenido)/i.test(tClean)) { pendingFeeState.caseType = 'indeterminate'; break; }
+           if (/(concurso|quiebra)/i.test(tClean)) { pendingFeeState.caseType = 'insolvency'; break; }
+           if (/(mensura|deslinde)/i.test(tClean)) { pendingFeeState.caseType = 'survey_boundary'; break; }
+           if (/(terceria)/i.test(tClean)) { pendingFeeState.caseType = 'third_party_claim'; break; }
+           if (/(amparo)/i.test(tClean)) { pendingFeeState.caseType = 'amparo'; break; }
+           if (/(beneficio de litigar sin gastos|blsg)/i.test(tClean)) { pendingFeeState.caseType = 'legal_aid'; break; }
+           if (/(civil|comercial|general|ordinario|ejecutivo|danos|pecuniario)/i.test(tClean)) { pendingFeeState.caseType = 'general_pecuniary'; break; }
+         }
+         
+         if (/(si|sí|confirmo|correcto|ausencia|no hay regimen|no identifico|acepto|de acuerdo|adelante|ok)/i.test(pNorm)) {
+           pendingFeeState.confirmedGeneral = true;
+         }
+       }
+    }
+
+    if (esConfirmacionAislada && !isFeeFlow) {
+        return {
+          ok: true,
+          respuesta: 'No tengo una propuesta de tasa pendiente para confirmar. Indicame qué cálculo querés realizar.',
+          acciones: [],
+          model: `agente-${modeloActual}`
+        };
+    }
+
+    if (isFeeFlow && pendingFeeState) {
+        let respuesta = '';
+        let acciones: AccionPropuesta[] = [];
+        if (!pendingFeeState.jurisdiction) {
+          respuesta = '¿Qué jurisdicción corresponde: Justicia Nacional/Federal, Provincia de Buenos Aires o Provincia de Corrientes?';
+        } else if (pendingFeeState.jurisdiction === 'pba') {
+          respuesta = 'El cálculo de tasa de justicia para Provincia de Buenos Aires todavía no tiene cobertura verificada en Centinela IA. No generé una propuesta.';
+        } else if (pendingFeeState.jurisdiction === 'corrientes') {
+          respuesta = 'El cálculo de tasa de justicia para Provincia de Corrientes todavía no tiene cobertura verificada en Centinela IA. No generé una propuesta.';
+        } else if (!pendingFeeState.caseType) {
+          respuesta = '¿Qué tipo de proceso es: civil/comercial con monto determinado, sucesión, laboral, familia, monto indeterminado, concurso u otro?';
+        } else if (pendingFeeState.caseType === 'succession') {
+          respuesta = 'La Ley 23.898 contempla una tasa reducida y reglas específicas sobre la base sucesoria. Esta cobertura todavía no está implementada. No generé un cálculo.';
+        } else if (pendingFeeState.caseType === 'employment') {
+          respuesta = 'Los trabajadores y causahabientes pueden estar exentos según el artículo 13 de la Ley 23.898, dependiendo del carácter de la parte y del origen del proceso. Requiere revisión profesional. No generé un cálculo.';
+        } else if (pendingFeeState.caseType === 'family') {
+          respuesta = 'Determinadas actuaciones de familia están exentas y otras pueden tener contenido patrimonial. Requiere revisión profesional. No generé un cálculo.';
+        } else if (pendingFeeState.caseType === 'indeterminate') {
+          respuesta = 'Los procesos de monto indeterminado o sin contenido pecuniario aplican reglas y montos fijos específicos. Esta cobertura todavía no está implementada.';
+        } else if (pendingFeeState.caseType === 'insolvency') {
+          respuesta = 'Los procesos concursales tienen una tasa especial. Esta cobertura todavía no está implementada.';
+        } else if (['survey_boundary', 'third_party_claim', 'amparo', 'legal_aid', 'other'].includes(pendingFeeState.caseType)) {
+          respuesta = 'La Ley 23.898 contempla una solución especial o exención. Esta cobertura todavía no está implementada.';
+        } else if (pendingFeeState.currency === 'USD') {
+          respuesta = 'Para moneda extranjera, por favor proporcioná la base imponible convertida a pesos (ARS). Sujeto a revisión profesional. No generé un cálculo.';
+        } else if (!pendingFeeState.amount || pendingFeeState.amount <= 0) {
+          respuesta = '¿De qué monto es el proceso para calcular la tasa de justicia?';
+        } else if (!pendingFeeState.confirmedGeneral) {
+          respuesta = 'Antes de preparar el cálculo, confirmá que se trata de una pretensión pecuniaria general y que no identificás un régimen especial ni una exención.';
+        } else {
+          const montoFormat = new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(pendingFeeState.amount);
+          const tasaFormat = new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(pendingFeeState.amount * 0.03);
+          
+          acciones.push({
+            tipo: 'calcular_tasa_justicia',
+            titulo: 'Tasa de justicia nacional (3%)',
+            monto: pendingFeeState.amount,
+            jurisdiccion: 'nacion',
+            tipo_proceso: 'general_pecuniary',
+            confirmacion: true,
+            motivo: `Base imponible: ${montoFormat}\nAlícuota: 3%\nResultado propuesto: ${tasaFormat}\nNormativa: Ley 23.898, art. 2\nCarácter orientativo. Sujeto a revisión profesional.`
+          });
+          respuesta = 'Preparé la propuesta de cálculo de la tasa de justicia nacional para que la revises antes de aprobar.';
+        }
+        
+        return { ok: true, respuesta, acciones, model: `agente-${modeloActual}` };
+    }
+
+    const intencionPlazo = /(calcula|calculame|calcular|saca|cuando|conta|determina)\b.*?(plazo|vencimiento|dias habiles|fecha procesal)/i.test(pNorm);
+    let esContinuacionPlazo = false;
+    let jurisCont = '';
+    if (input.historial.length >= 2) {
+      const lastAgent = input.historial[input.historial.length - 1];
+      const lastUser = input.historial[input.historial.length - 2];
+      const lastAgentNorm = normalizarParaIntencion(lastAgent.texto);
+      const lastUserNorm = normalizarParaIntencion(lastUser.texto);
+      if (
+        lastAgent.rol === 'model' &&
+        lastAgentNorm.includes('que jurisdiccion corresponde: justicia nacional/federal, provincia de buenos aires o provincia de corrientes') &&
+        lastUser.rol === 'user'
+      ) {
+        const j = detectarJurisdiccion(pNorm);
+        if (j) {
+          if (/(calcula|calculame|calcular|saca|cuando|conta|determina)\b.*?(plazo|vencimiento|dias habiles|fecha procesal)/i.test(lastUserNorm)) {
+            jurisCont = j;
+            esContinuacionPlazo = true;
+          }
+        }
+      }
+    }
+
+    if (intencionPlazo || esContinuacionPlazo) {
+        let respuesta = '';
+        let acciones: AccionPropuesta[] = [];
+        let textoDatos = input.pregunta;
+        if (esContinuacionPlazo) {
+          textoDatos = input.historial[input.historial.length - 2].texto + ' ' + input.pregunta;
+        }
+
+        let jurisdiccion = detectarJurisdiccion(input.pregunta);
+        if (!jurisdiccion && esContinuacionPlazo) {
+          jurisdiccion = jurisCont as any;
+        }
+
+        if (!jurisdiccion) {
+          respuesta = '¿Qué jurisdicción corresponde: Justicia Nacional/Federal, Provincia de Buenos Aires o Provincia de Corrientes?';
+        } else {
+          const fecha = extraerFechaGenerica(textoDatos);
+          const dias = extraerDiasPlazo(textoDatos);
+          const km = extraerKmDistancia(textoDatos);
+
+          if (!fecha && !dias) {
+            respuesta = '¿Desde qué fecha y por cuántos días hábiles querés calcular el plazo?';
+          } else if (!fecha) {
+            respuesta = '¿Desde qué fecha querés calcular el plazo?';
+          } else if (!dias) {
+            respuesta = '¿Por cuántos días hábiles querés calcular el plazo?';
+          } else {
+            acciones.push({
+              tipo: 'calcular_plazo_procesal',
+              titulo: 'Calcular vencimiento del plazo procesal',
+              fechaNotificacion: fecha,
+              diasHabiles: dias,
+              jurisdiccion: jurisdiccion,
+              kmDistancia: km,
+              motivo: 'Detecté datos de plazo en la conversación.'
+            });
+            respuesta = 'Preparé la propuesta de cálculo del plazo para que la apruebes.';
+          }
+        }
+        return { ok: true, respuesta, acciones, model: `agente-${modeloActual}` };
+    }
+  }
+
   // Reintenta ante errores transitorios de Gemini (sobrecarga 429 / 5xx).
   for (let intento = 0; intento < 3; intento++) {
     try {
@@ -483,89 +687,21 @@ export async function responderAgenteLegajo(input: {
             acciones = [];
           }
 
-          // Redes de seguridad: se ejecutan SIEMPRE, aunque el JSON haya venido mal.
-          const esLegalLaboral = input.industry === 'legal';
-          const p = input.pregunta;
-          const pNorm = normalizarParaIntencion(p);
-
-          const esIntencionAgenda = /(agenda|agendame|agendar|carga|registra|registralo|recordame)\b.*?(vencimiento|agenda|fecha)/i.test(pNorm);
-          const intencionPlazo = /(calcula|calculame|calcular|saca|cuando|conta|determina)\b.*?(plazo|vencimiento|dias habiles|fecha procesal)/i.test(pNorm);
-          const intencionTasa = /(calcula|calculame|calcular|estima)\b.*?(tasa)/i.test(pNorm);
-          const intencionLiq = /(calcula|calculame|calcular|estima)\b.*?(liquidacion|indemnizacion|incapacidad)|mendez|vuoto/i.test(pNorm);
-
-          let esContinuacionPlazo = false;
-          let esContinuacionTasa = false;
-          let jurisCont = '';
-          if (input.historial.length >= 2) {
-            const lastAgent = input.historial[input.historial.length - 1];
-            const lastUser = input.historial[input.historial.length - 2];
-            const lastAgentNorm = normalizarParaIntencion(lastAgent.texto);
-            const lastUserNorm = normalizarParaIntencion(lastUser.texto);
-            if (
-              lastAgent.rol === 'model' &&
-              lastAgentNorm.includes('que jurisdiccion corresponde: justicia nacional/federal, provincia de buenos aires o provincia de corrientes') &&
-              lastUser.rol === 'user'
-            ) {
-              const j = detectarJurisdiccion(pNorm);
-              if (j) {
-                if (/(calcula|calculame|calcular|saca|cuando|conta|determina)\b.*?(plazo|vencimiento|dias habiles|fecha procesal)/i.test(lastUserNorm)) {
-                  jurisCont = j;
-                  esContinuacionPlazo = true;
-                } else if (/(calcula|calculame|calcular|estima)\b.*?(tasa)/i.test(lastUserNorm)) {
-                  jurisCont = j;
-                  esContinuacionTasa = true;
-                }
-              }
-            }
+          // Filtro estricto post-modelo (para evitar alucinaciones)
+          if (!/(agenda|agendame|agendar|carga|registra|registralo|recordame)\b.*?(vencimiento|agenda|fecha)/i.test(normalizarParaIntencion(input.pregunta))) {
+             acciones = acciones.filter(a => a.tipo !== 'agendar_plazo');
           }
-
-          // Filtro estricto
-          if (!esIntencionAgenda) acciones = acciones.filter(a => a.tipo !== 'agendar_plazo');
-          if (!intencionPlazo && !esContinuacionPlazo) acciones = acciones.filter(a => a.tipo !== 'calcular_plazo_procesal');
-          if (!intencionTasa && !esContinuacionTasa) acciones = acciones.filter(a => a.tipo !== 'calcular_tasa_justicia');
-          if (!intencionLiq) acciones = acciones.filter(a => a.tipo !== 'calcular_liquidacion');
+          if (!/(calcula|calculame|calcular|estima)\b.*?(liquidacion|indemnizacion|incapacidad)|mendez|vuoto/i.test(normalizarParaIntencion(input.pregunta))) {
+             acciones = acciones.filter(a => a.tipo !== 'calcular_liquidacion');
+          }
+          // Plazo y Tasa son 100% determinísticos pre-modelo, el LLM no debe generarlos.
+          acciones = acciones.filter(a => a.tipo !== 'calcular_plazo_procesal' && a.tipo !== 'calcular_tasa_justicia');
 
           const allText = [input.contextoLegajo || '', ...input.historial.map((m) => m.texto), input.pregunta].join('\n');
+          const pNorm = normalizarParaIntencion(input.pregunta);
 
-          if (esLegalLaboral) {
-            if (intencionTasa || esContinuacionTasa) {
-              acciones = acciones.filter(a => a.tipo === 'calcular_tasa_justicia');
-              const textoDatosMonto = esContinuacionTasa ? input.historial[input.historial.length - 2].texto : allText;
-              const monto = detectarMontoJuicio(textoDatosMonto);
-              let jurisdiccion = detectarJurisdiccion(input.pregunta) || (acciones.length > 0 ? acciones[0].jurisdiccion : undefined);
-              if (!jurisdiccion && esContinuacionTasa) {
-                jurisdiccion = jurisCont as any;
-              }
-              
-              if (!jurisdiccion) {
-                acciones = [];
-                respuesta = '¿Qué jurisdicción corresponde: Justicia Nacional/Federal, Provincia de Buenos Aires o Provincia de Corrientes?';
-              } else if (jurisdiccion === 'pba') {
-                acciones = [];
-                respuesta = 'El cálculo de tasa de justicia para Provincia de Buenos Aires todavía no tiene cobertura verificada en Centinela IA. No generé una propuesta.';
-              } else if (jurisdiccion === 'corrientes') {
-                acciones = [];
-                respuesta = 'El cálculo de tasa de justicia para Provincia de Corrientes todavía no tiene cobertura verificada en Centinela IA. No generé una propuesta.';
-              } else if (!monto || monto <= 0) {
-                acciones = [];
-                respuesta = '¿De qué monto es el proceso para calcular la tasa de justicia?';
-              } else if (monto && monto > 0 && !acciones.some(a => a.tipo === 'calcular_tasa_justicia')) {
-                acciones.push({
-                  tipo: 'calcular_tasa_justicia',
-                  titulo: 'Tasa de justicia del proceso',
-                  monto,
-                  jurisdiccion: 'nacion',
-                  motivo: 'Detecté el monto del proceso en el expediente o la conversación.'
-                });
-              } else if (monto && monto > 0) {
-                 const act = acciones.find(a => a.tipo === 'calcular_tasa_justicia');
-                 if (act) {
-                   act.monto = monto;
-                   act.jurisdiccion = 'nacion';
-                 }
-              }
-            } else if (intencionLiq) {
-              acciones = acciones.filter(a => a.tipo === 'calcular_liquidacion');
+          if (input.industry === 'legal') {
+            if (/(calcula|calculame|calcular|estima)\b.*?(liquidacion|indemnizacion|incapacidad)|mendez|vuoto/i.test(pNorm)) {
               const datosLiq = detectarDatosLiquidacion(allText);
               if (datosLiq && !acciones.some(a => a.tipo === 'calcular_liquidacion')) {
                 const fechaHecho = detectarFechaHecho(allText);
@@ -580,58 +716,7 @@ export async function responderAgenteLegajo(input: {
                   motivo: 'Detecté los datos necesarios en la conversación.'
                 });
               }
-            } else if (intencionPlazo || esContinuacionPlazo) {
-              acciones = acciones.filter(a => a.tipo === 'calcular_plazo_procesal');
-
-              let textoDatos = input.pregunta;
-              if (esContinuacionPlazo) {
-                textoDatos = input.historial[input.historial.length - 2].texto + ' ' + input.pregunta;
-              }
-
-              let jurisdiccion = detectarJurisdiccion(input.pregunta);
-              if (!jurisdiccion && esContinuacionPlazo) {
-                jurisdiccion = jurisCont as any;
-              }
-
-              if (!jurisdiccion) {
-                acciones = [];
-                respuesta = '¿Qué jurisdicción corresponde: Justicia Nacional/Federal, Provincia de Buenos Aires o Provincia de Corrientes?';
-              } else {
-                const fecha = extraerFechaGenerica(textoDatos);
-                const dias = extraerDiasPlazo(textoDatos);
-                const km = extraerKmDistancia(textoDatos);
-
-                if (!fecha && !dias) {
-                  acciones = [];
-                  respuesta = '¿Desde qué fecha y por cuántos días hábiles querés calcular el plazo?';
-                } else if (!fecha) {
-                  acciones = [];
-                  respuesta = '¿Desde qué fecha querés calcular el plazo?';
-                } else if (!dias) {
-                  acciones = [];
-                  respuesta = '¿Por cuántos días hábiles querés calcular el plazo?';
-                } else {
-                  if (!acciones.some(a => a.tipo === 'calcular_plazo_procesal')) {
-                    acciones.push({
-                      tipo: 'calcular_plazo_procesal',
-                      titulo: 'Calcular vencimiento del plazo procesal',
-                      fechaNotificacion: fecha,
-                      diasHabiles: dias,
-                      jurisdiccion: jurisdiccion,
-                      kmDistancia: km,
-                      motivo: 'Detecté datos de plazo en la conversación.'
-                    });
-                  } else {
-                    const act = acciones.find(a => a.tipo === 'calcular_plazo_procesal')!;
-                    act.fechaNotificacion = fecha;
-                    act.diasHabiles = dias;
-                    act.jurisdiccion = jurisdiccion;
-                    act.kmDistancia = km;
-                  }
-                }
-              }
-            } else if (esIntencionAgenda) {
-              acciones = acciones.filter(a => a.tipo === 'agendar_plazo');
+            } else if (/(agenda|agendame|agendar|carga|registra|registralo|recordame)\b.*?(vencimiento|agenda|fecha)/i.test(pNorm)) {
               const fecha = extraerFechaGenerica(input.pregunta);
               if (fecha) {
                 if (!acciones.some(a => a.tipo === 'agendar_plazo')) {
@@ -649,11 +734,7 @@ export async function responderAgenteLegajo(input: {
             }
           }
 
-          if (acciones.some(a => a.tipo === 'calcular_plazo_procesal')) {
-              respuesta = 'Preparé la propuesta de cálculo del plazo para que la apruebes.';
-          } else if (acciones.some(a => a.tipo === 'calcular_tasa_justicia')) {
-              respuesta = 'Preparé la propuesta de cálculo de la tasa de justicia nacional para que la revises antes de aprobar.';
-          } else if (acciones.some(a => a.tipo === 'calcular_liquidacion')) {
+          if (acciones.some(a => a.tipo === 'calcular_liquidacion')) {
               respuesta = 'Preparé la propuesta de liquidación estimada (solo capital, sin intereses históricos) para que la apruebes.';
           } else if (acciones.some(a => a.tipo === 'agendar_plazo')) {
               respuesta = 'Preparé la propuesta para agendar el vencimiento. Revisala antes de aprobar.';
@@ -662,6 +743,7 @@ export async function responderAgenteLegajo(input: {
           return { ok: true, respuesta, acciones, model: `agente-${modeloActual}` };
         }
       } else if (resp.status === 429 || resp.status === 404 || resp.status >= 500) {
+
         console.error('Agente Gemini transitorio:', modeloActual, resp.status);
         // Si el modelo principal falla (404) o se queda sin cupo (429), probamos otro modelo.
         if (intento >= 1 && modeloActual !== 'gemini-2.0-flash') {
