@@ -864,6 +864,9 @@ function IncapacidadCalc() {
 			{res && (
 				<div className="mt-4 space-y-2">
 					<ResultBox label="Capital indemnizatorio" value={currency(res.capital)} highlight />
+					<div className="text-[11px] text-amber-200 mt-1 mb-2">
+						⚠️ Este cálculo muestra únicamente el capital estimado. No incluye intereses históricos. Para calcular intereses es necesario definir jurisdicción, criterio aplicable y tasas correspondientes a cada período.
+					</div>
 					<ResultBox label="Renta anual base (a)" value={currency(res.a)} />
 					<ResultBox label="Años computados (n)" value={`${res.n} años · tasa ${(res.i * 100).toFixed(0)}%`} subtitle="Orientativo. La CSJN (‘Aróstegui’, 2008) exige valoración integral: la fórmula es un piso de referencia, el daño moral se fija aparte." />
 				</div>
