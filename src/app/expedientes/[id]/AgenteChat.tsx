@@ -415,7 +415,7 @@ export function AgenteChat({ caseId, caseTitle, industry, puedeUsarIA, historial
                                 <span className="text-sm font-semibold text-slate-100">{accion.titulo}</span>
                               </div>
                               {accion.motivo && (
-                                <p className="mt-1 text-xs leading-relaxed text-slate-400">{accion.motivo}</p>
+                                <p className="mt-1 whitespace-pre-line text-xs leading-relaxed text-slate-400">{accion.motivo}</p>
                               )}
 
                               {hecho ? (
