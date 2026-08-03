@@ -496,15 +496,15 @@ export async function responderAgenteLegajo(input: {
       };
     }
 
-    const intencionTasaJusticia = /(calcula|calculame|calcular|estima|cuanto pago)\b.*?(tasa de justicia|tasa judicial|tasa del proceso)/i.test(pNorm);
+    const mencionaTasaJusticia = /(tasa de justicia|tasa judicial|tasa del proceso)/i.test(pNorm);
     let lastFeeIntentIdx = -1;
     for (let i = input.historial.length - 1; i >= 0; i--) {
-      if (input.historial[i].rol === 'user' && /(calcula|calculame|calcular|estima|cuanto pago)\b.*?(tasa de justicia|tasa judicial|tasa del proceso)/i.test(normalizarParaIntencion(input.historial[i].texto))) {
+      if (input.historial[i].rol === 'user' && /(tasa de justicia|tasa judicial|tasa del proceso)/i.test(normalizarParaIntencion(input.historial[i].texto))) {
         lastFeeIntentIdx = i;
         break;
       }
     }
-    if (intencionTasaJusticia) {
+    if (mencionaTasaJusticia) {
       lastFeeIntentIdx = input.historial.length;
     }
 
@@ -620,6 +620,15 @@ export async function responderAgenteLegajo(input: {
         }
         
         return { ok: true, respuesta, acciones, model: `agente-${modeloActual}` };
+    }
+
+    if (mencionaTasaJusticia && !isFeeFlow) {
+        return {
+          ok: true,
+          respuesta: 'Identifiqué una consulta sobre tasa de justicia, pero faltan datos o la intención fue interrumpida. Por favor, indicá la jurisdicción, el monto y confirmá que es un proceso ordinario para poder calcularla.',
+          acciones: [],
+          model: `agente-${modeloActual}`
+        };
     }
 
     const intencionPlazo = /(calcula|calculame|calcular|saca|cuando|conta|determina)\b.*?(plazo|vencimiento|dias habiles|fecha procesal)/i.test(pNorm);
