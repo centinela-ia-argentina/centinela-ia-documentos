@@ -10,7 +10,7 @@ import { generarResumenExpediente, cotejarExpediente, redactarEscrituraExpedient
 import { getAllowedCaseStatuses, getCaseStatusLabel, getCaseFields } from '@/lib/industries/caseConfig';
 import { responderAgenteLegajo, type MensajeChat, type AccionPropuesta } from '@/lib/ai/agente';
 import { generarEmbedding } from '@/lib/ai/embeddings';
-import { calcularIncapacidad, calcularInteresesMoratorios } from "@/lib/legal/liquidacion";
+import { calcularIncapacidad } from "@/lib/legal/liquidacion";
 import { calcularVencimientoProcesal } from '@/lib/legal/plazos';
 import { calcularTasaJusticia } from '@/lib/legal/tasaJusticia';
 

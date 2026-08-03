@@ -486,15 +486,25 @@ export async function responderAgenteLegajo(input: {
     const esConfirmacionAislada = /^(si|si confirmo|confirmo|correcto|de acuerdo|adelante|ok)$/i.test(normalizarConfirmacion(input.pregunta)) || 
                                 /^(si confirmo que es una pretension pecuniaria general|confirmo que no identifico un regimen especial ni una exencion)/i.test(normalizarConfirmacion(input.pregunta));
 
-    const intencionTasa = /(calcula|calculame|calcular|estima)\b.*?(tasa)/i.test(pNorm);
+    const intencionIntereses = /(interes|intereses|moratorio|tasa activa|tasa pasiva|bna|banco nacion|actualizacion de capital)/i.test(pNorm);
+    if (intencionIntereses) {
+      return {
+        ok: true,
+        respuesta: 'No puedo calcular intereses históricos automáticamente porque requieren jurisdicción, fuero, criterio aplicable y una serie de tasas verificada para cada período. No generé un cálculo.',
+        acciones: [],
+        model: `agente-${modeloActual}`
+      };
+    }
+
+    const mencionaTasaJusticia = /(tasa de justicia|tasa judicial|tasa del proceso)/i.test(pNorm);
     let lastFeeIntentIdx = -1;
     for (let i = input.historial.length - 1; i >= 0; i--) {
-      if (input.historial[i].rol === 'user' && /(calcula|calculame|calcular|estima)\b.*?(tasa)/i.test(normalizarParaIntencion(input.historial[i].texto))) {
+      if (input.historial[i].rol === 'user' && /(tasa de justicia|tasa judicial|tasa del proceso)/i.test(normalizarParaIntencion(input.historial[i].texto))) {
         lastFeeIntentIdx = i;
         break;
       }
     }
-    if (intencionTasa) {
+    if (mencionaTasaJusticia) {
       lastFeeIntentIdx = input.historial.length;
     }
 
@@ -610,6 +620,15 @@ export async function responderAgenteLegajo(input: {
         }
         
         return { ok: true, respuesta, acciones, model: `agente-${modeloActual}` };
+    }
+
+    if (mencionaTasaJusticia && !isFeeFlow) {
+        return {
+          ok: true,
+          respuesta: 'Identifiqué una consulta sobre tasa de justicia, pero faltan datos o la intención fue interrumpida. Por favor, indicá la jurisdicción, el monto y confirmá que es un proceso ordinario para poder calcularla.',
+          acciones: [],
+          model: `agente-${modeloActual}`
+        };
     }
 
     const intencionPlazo = /(calcula|calculame|calcular|saca|cuando|conta|determina)\b.*?(plazo|vencimiento|dias habiles|fecha procesal)/i.test(pNorm);
