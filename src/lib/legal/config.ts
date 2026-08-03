@@ -75,10 +75,7 @@ export const JUS_BA_MEDIACION = 49750;
 // Corrientes: Jus provincial (STJ). $58.519,61 desde 1/5/2026.
 export const JUS_CORRIENTES = 58519.61;
 
-// Tasa activa cartera general del Banco de la Nación Argentina (uso judicial).
-// Jurisprudencia STJ Corrientes para daños. Valor vigente a la fecha indicada.
-export const TASA_ACTIVA_BNA_TNA = 25.57 // % TNA vencida
-export const TASA_ACTIVA_BNA_VIGENCIA = 'julio 2026'
+
 
 export interface LegalParameterConfig {
   identificador: string;
@@ -136,7 +133,7 @@ export const LEGAL_PARAMETERS: Record<string, LegalParameterConfig> = {
   },
   tasa_activa_bna: {
     identificador: 'tasa_activa_bna',
-    concepto: 'Tasa Activa Cartera General Diversas',
+    concepto: 'Tasa Activa Cartera General Diversas. Referencia vigente. No aplicada automáticamente. No constituye una serie histórica.',
     jurisdiccion: 'nacion',
     valor: 26.62,
     unidad: '% TNA vencida',

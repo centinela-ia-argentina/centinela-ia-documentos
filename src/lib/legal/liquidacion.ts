@@ -1,5 +1,5 @@
 // src/lib/legal/liquidacion.ts
-import { TASA_ACTIVA_BNA_TNA } from './config'
+
 // Motor de liquidación para el fuero civil/laboral.
 // Espeja EXACTAMENTE la matemática de las calculadoras (CalculadorasClient.tsx),
 // pero sin React, para poder reusarlo desde el Agente IA (servidor) y la UI.
@@ -65,57 +65,6 @@ export function calcularIncapacidad(input: IncapacidadInput): IncapacidadResult 
 	}
 }
 
-export interface InteresInput {
-	capital: number
-	tasaAnual: number // % anual
-	dias: number
-}
-
-export interface InteresResult {
-	ok: boolean
-	motivo?: string
-	dias: number
-	interes: number
-	total: number
-}
-
-// Interés simple (igual criterio que la calculadora de intereses judiciales).
-export function calcularInteresSimple(input: InteresInput): InteresResult {
-	const c = Number(input.capital)
-	const t = Number(input.tasaAnual)
-	const d = Math.trunc(Number(input.dias))
-	if (!Number.isFinite(c) || c <= 0)
-		return { ok: false, motivo: "capital_invalido", dias: 0, interes: 0, total: 0 }
-	if (!Number.isFinite(t) || t <= 0)
-		return { ok: false, motivo: "tasa_invalida", dias: 0, interes: 0, total: 0 }
-	if (!Number.isFinite(d) || d <= 0)
-		return { ok: false, motivo: "dias_invalidos", dias: 0, interes: 0, total: 0 }
-	const interes = c * (t / 100) * (d / 365)
-	return { ok: true, dias: d, interes, total: c + interes }
-}
-
-// Días entre dos fechas ISO (yyyy-mm-dd), mismo criterio que la calculadora.
-export function diasEntre(desdeISO: string, hastaISO: string): number {
-	const d1 = new Date(desdeISO)
-	const d2 = new Date(hastaISO)
-	if (isNaN(d1.getTime()) || isNaN(d2.getTime()) || d2 <= d1) return 0
-	return Math.round((d2.getTime() - d1.getTime()) / 86400000)
-}
-
-// Tope del art. 730 CCyCN: las costas a cargo del condenado no pueden exceder
-// el 25% del monto de la sentencia (capital + intereses).
-export const TOPE_730_PORCENTAJE = 25
-
-export function aplicarTope730(montoSentencia: number, costasTotales?: number) {
-	const monto = Number(montoSentencia)
-	if (!Number.isFinite(monto) || monto <= 0) {
-		return { ok: false as const, motivo: "monto_invalido", tope: 0, excede: false }
-	}
-	const tope = monto * (TOPE_730_PORCENTAJE / 100)
-	const excede = typeof costasTotales === "number" && costasTotales > tope
-	return { ok: true as const, tope, excede, porcentaje: TOPE_730_PORCENTAJE }
-}
-
 export interface InteresesMoratoriosResult {
 	ok: boolean
 	motivo?: string
@@ -127,33 +76,26 @@ export interface InteresesMoratoriosResult {
 	total: number
 }
 
-// Intereses moratorios desde la fecha del hecho/mora hasta hoy (o una fecha dada).
-// Usa la tasa activa del Banco Nación por defecto (config), criterio interés simple.
+// Motor de intereses históricos temporalmente bloqueado (J-LEGAL-1B.3).
+// No se puede aplicar una tasa plana (ej. 25.57%) de manera retroactiva.
+// Requiere la implementación de series históricas oficiales segmentadas por tramo.
 export function calcularInteresesMoratorios(args: {
 	capital: number
 	fechaDesde: string // ISO yyyy-mm-dd (fecha del hecho / mora)
 	fechaHasta?: string // ISO; por defecto hoy
-	tasaAnual?: number // % anual; por defecto TASA_ACTIVA_BNA_TNA
+	tasaAnual?: number // % anual
 }): InteresesMoratoriosResult {
 	const capital = Number(args.capital)
-	const tasaAnual = Number(args.tasaAnual ?? TASA_ACTIVA_BNA_TNA)
 	const fechaHasta = args.fechaHasta ?? new Date().toISOString().slice(0, 10)
 	const fechaDesde = args.fechaDesde
-	const base = {
-		dias: 0,
-		tasaAnual,
-		fechaDesde: fechaDesde ?? '',
-		fechaHasta,
-		interes: 0,
-		total: Number.isFinite(capital) ? capital : 0,
+	return { 
+		ok: false, 
+		motivo: 'Motor bloqueado: requiere serie histórica oficial. No se puede calcular retroactivamente con tasa fija.',
+		dias: 0, 
+		tasaAnual: 0, 
+		fechaDesde: fechaDesde ?? '', 
+		fechaHasta, 
+		interes: 0, 
+		total: Number.isFinite(capital) ? capital : 0
 	}
-	if (!Number.isFinite(capital) || capital <= 0)
-		return { ...base, ok: false, motivo: 'El capital debe ser un número mayor a cero.' }
-	const dias = diasEntre(fechaDesde, fechaHasta)
-	if (dias <= 0)
-		return { ...base, ok: false, motivo: 'La fecha del hecho debe ser anterior a la fecha de cálculo.' }
-	const r = calcularInteresSimple({ capital, tasaAnual, dias })
-	if (!r.ok)
-		return { ...base, ok: false, motivo: r.motivo ?? 'No se pudieron calcular los intereses.' }
-	return { ok: true, dias: r.dias, tasaAnual, fechaDesde, fechaHasta, interes: r.interes, total: r.total }
 }

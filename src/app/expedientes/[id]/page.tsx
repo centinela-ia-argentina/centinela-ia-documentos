@@ -361,6 +361,8 @@ export default async function CaseDetailPage({ params, searchParams }: CaseDetai
     intereses_tasa_anual?: number;
     intereses_desde?: string;
     total_con_intereses?: number;
+    intereses_estado?: string;
+    intereses_motivo?: string;
   } | null;
 
   const { data: plazoData } = await supabase
@@ -661,6 +663,17 @@ export default async function CaseDetailPage({ params, searchParams }: CaseDetai
                             </p>
                           </div>
                         </>
+                      )}
+                      {!liquidacion.total_con_intereses && liquidacion.intereses_estado === 'no_calculados' && (
+                        <div className="rounded-xl bg-slate-800/60 p-4 sm:col-span-2 ring-1 ring-amber-500/30">
+                          <p className="text-xs uppercase tracking-wide text-amber-400">Intereses no calculados</p>
+                          <p className="text-lg font-semibold text-slate-100 mt-1">
+                            {new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(liquidacion.capital)} <span className="text-sm font-normal text-slate-400">(Solo capital base)</span>
+                          </p>
+                          <p className="mt-2 text-xs text-slate-400">
+                            {liquidacion.intereses_motivo || 'Los intereses requieren definir jurisdicción, fuero, tipo de tasa y fechas exactas. No se sumaron intereses automáticos al capital.'}
+                          </p>
+                        </div>
                       )}
                     </div>
                     <p className="mt-4 text-xs text-slate-500">
