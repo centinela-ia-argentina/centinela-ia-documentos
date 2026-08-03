@@ -378,8 +378,9 @@ export async function responderAgenteLegajo(input: {
   contextoLegajo: string;
   historial: MensajeChat[];
   pregunta: string;
+  documentEvidenceState?: 'no_analyzed_documents' | 'analyzed_without_usable_context' | 'usable_context';
 }): Promise<
-  | { ok: false; motivo: 'sin_api_key' | 'error' }
+  | { ok: false; motivo: 'sin_api_key' | 'error' | 'invalid_request' | 'rate_limit' | 'invalid_response' }
   | { ok: true; respuesta: string; acciones: AccionPropuesta[]; model: string }
 > {
   const apiKey = process.env.GEMINI_API_KEY;
@@ -392,6 +393,9 @@ export async function responderAgenteLegajo(input: {
   const estadosTexto = estados.map((e) => `"${e.value}" (${e.label})`).join(', ');
   const estadosValores = estados.map((e) => e.value);
 
+  const pNorm = normalizarParaIntencion(input.pregunta);
+  const intencionRiesgo = /(inconsistencia|riesgo|peligro)\b.*?(procesal|documento|legajo)/i.test(pNorm);
+
   const systemInstruction = [
     getAgentPersona(input.industry),
     '',
@@ -399,9 +403,11 @@ export async function responderAgenteLegajo(input: {
     '',
     reglasAcciones(hoy, estadosTexto),
     '',
+    intencionRiesgo ? 'REGLAS PARA ANÁLISIS DE RIESGO:\n- Esta es una consulta exclusivamente informativa y de lectura. Analizá la evidencia documental disponible. No generes acciones ni tarjetas. No propongas mutaciones. Devuelve siempre acciones como un arreglo vacío.\n- Diferenciá hechos, posibles riesgos y datos faltantes.\n- Identificá el documento o fragmento que sustenta cada observación.\n- No declares ausencia total de riesgos como certeza profesional.\n- Si detectás una inconsistencia o riesgo, iniciá tu respuesta con una frase como: "Detecté las siguientes inconsistencias o puntos que requieren revisión..."\n- Si no detectás inconsistencias, respondé: "No detecté inconsistencias con la evidencia documental disponible. Esta revisión es orientativa y no reemplaza el control profesional integral."\n- Si faltan datos, respondé: "No hay evidencia suficiente para concluir sobre los siguientes puntos..."' : '',
+    '',
     'CONTEXTO DEL LEGAJO:',
     input.contextoLegajo || '(sin información cargada)',
-  ].join('\n');
+  ].filter(Boolean).join('\n');
 
   const contents = [
     ...input.historial.map((m) => ({ role: m.rol, parts: [{ text: m.texto }] })),
@@ -454,10 +460,27 @@ export async function responderAgenteLegajo(input: {
   });
 
   const esLegalLaboral = input.industry === 'legal';
-  const p = input.pregunta;
-  const pNorm = normalizarParaIntencion(p);
 
   // === RUTAS DETERMINÍSTICAS PRE-MODELO ===
+  
+  if (intencionRiesgo) {
+    if (!input.documentEvidenceState || input.documentEvidenceState === 'no_analyzed_documents') {
+      return {
+        ok: true,
+        respuesta: 'No hay documentos analizados suficientes para evaluar inconsistencias o riesgos. Analizá al menos un documento del expediente y volvé a intentarlo.',
+        acciones: [],
+        model: `agente-${modeloActual}`
+      };
+    }
+    if (input.documentEvidenceState === 'analyzed_without_usable_context') {
+      return {
+        ok: true,
+        respuesta: 'Hay documentos procesados, pero no encontré contenido suficiente para evaluar inconsistencias o riesgos. Revisá el estado del análisis documental e intentá nuevamente.',
+        acciones: [],
+        model: `agente-${modeloActual}`
+      };
+    }
+  }
   if (esLegalLaboral) {
     const normalizarConfirmacion = (txt: string) => txt.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^\w\s]/g, '').replace(/\s+/g, ' ').trim();
     const esConfirmacionAislada = /^(si|si confirmo|confirmo|correcto|de acuerdo|adelante|ok)$/i.test(normalizarConfirmacion(input.pregunta)) || 
@@ -687,6 +710,10 @@ export async function responderAgenteLegajo(input: {
             acciones = [];
           }
 
+          if (!respuesta) {
+             return { ok: false, motivo: 'invalid_response' };
+          }
+
           // Filtro estricto post-modelo (para evitar alucinaciones)
           if (!/(agenda|agendame|agendar|carga|registra|registralo|recordame)\b.*?(vencimiento|agenda|fecha)/i.test(normalizarParaIntencion(input.pregunta))) {
              acciones = acciones.filter(a => a.tipo !== 'agendar_plazo');
@@ -740,6 +767,10 @@ export async function responderAgenteLegajo(input: {
               respuesta = 'Preparé la propuesta para agendar el vencimiento. Revisala antes de aprobar.';
           }
 
+          if (intencionRiesgo) {
+              acciones = [];
+          }
+
           return { ok: true, respuesta, acciones, model: `agente-${modeloActual}` };
         }
       } else if (resp.status === 429 || resp.status === 404 || resp.status >= 500) {
@@ -759,6 +790,7 @@ export async function responderAgenteLegajo(input: {
         continue;
       } else {
         console.error('Agente Gemini error:', resp.status, await resp.text());
+        if (resp.status === 400) return { ok: false, motivo: 'invalid_request' };
         return { ok: false, motivo: 'error' };
       }
     } catch (e) {
@@ -767,5 +799,5 @@ export async function responderAgenteLegajo(input: {
     await new Promise((r) => setTimeout(r, Math.min(8000, 700 * 2 ** intento) + Math.random() * 400));
   }
 
-  return { ok: false, motivo: 'error' };
+  return { ok: false, motivo: 'rate_limit' };
 }

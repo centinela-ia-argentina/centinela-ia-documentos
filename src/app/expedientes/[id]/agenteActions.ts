@@ -366,18 +366,35 @@ export async function preguntarAgente(input: {
 
   const contextoLegajo = partes.join('\n');
 
+  let documentEvidenceState: 'no_analyzed_documents' | 'analyzed_without_usable_context' | 'usable_context' = 'no_analyzed_documents';
+  if (analisisPorDoc.size > 0 || uifData?.result_json || cotejoData?.result_json || resumenJson?.resumen_general || contextoLegajo.includes('FRAGMENTOS TEXTUALES RELEVANTES')) {
+    if (contextoLegajo.length > 50) {
+      documentEvidenceState = 'usable_context';
+    } else {
+      documentEvidenceState = 'analyzed_without_usable_context';
+    }
+  }
+
   const historial = Array.isArray(input.historial)
     ? input.historial
         .filter((m) => m && (m.rol === 'user' || m.rol === 'model') && typeof m.texto === 'string')
         .slice(-12)
     : [];
 
-  const res = await responderAgenteLegajo({ industry, contextoLegajo, historial, pregunta });
+  const res = await responderAgenteLegajo({ 
+    industry, 
+    contextoLegajo, 
+    historial, 
+    pregunta,
+    documentEvidenceState
+  });
+  
   if (!res.ok) {
-    const motivo =
-      res.motivo === 'sin_api_key'
-        ? 'La IA no está configurada (falta la API key).'
-        : 'No pude generar una respuesta. Probá de nuevo.';
+    let motivo = 'No pude generar una respuesta. Probá de nuevo.';
+    if (res.motivo === 'sin_api_key') motivo = 'La IA no está configurada (falta la API key).';
+    else if (res.motivo === 'invalid_request') motivo = 'No pude completar el análisis de inconsistencias con la información disponible. No generé conclusiones ni acciones.';
+    else if (res.motivo === 'rate_limit') motivo = 'El servicio de análisis está temporalmente ocupado. No se generaron conclusiones ni acciones. Intentá nuevamente en unos minutos.';
+    else if (res.motivo === 'invalid_response') motivo = 'No pude validar el resultado del análisis. No generé conclusiones ni acciones.';
     return { ok: false, motivo };
   }
   // Guardar la conversación en la memoria del legajo.
