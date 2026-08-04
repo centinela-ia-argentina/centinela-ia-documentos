@@ -68,6 +68,7 @@ const GLOBAL_AGENT_CASE_CONTEXT_LIMIT = 40;
   ]);
 
   const cases = casesResult.data ?? [];
+  const countIsUnknown = casesResult.count === null;
   const totalActiveCases = casesResult.count ?? cases.length;
   const includedCaseCount = cases.length;
   const isCaseContextPartial = totalActiveCases > includedCaseCount;
@@ -93,11 +94,16 @@ const GLOBAL_AGENT_CASE_CONTEXT_LIMIT = 40;
       'Podés complementar con orientación general del sistema, pero sin intentar recopilar datos de ejecución.'
   );
 
-  if (isCaseContextPartial) {
+  if (countIsUnknown && includedCaseCount === GLOBAL_AGENT_CASE_CONTEXT_LIMIT) {
     partes.push(
-      `La organización tiene ${totalActiveCases} expedientes activos. En esta conversación disponés únicamente de los ${GLOBAL_AGENT_CASE_CONTEXT_LIMIT} expedientes más recientes incluidos en el contexto. No afirmes haber revisado la totalidad. Si el usuario pregunta por un expediente no incluido, indicá que use Buscar o que abra el expediente específico.\n` +
+      `Contexto limitado a un máximo de ${GLOBAL_AGENT_CASE_CONTEXT_LIMIT} expedientes activos creados más recientemente. No concluyas que un expediente no existe si no figura acá; puede estar fuera del contexto parcial. Indicá al usuario que use Buscar o abra el expediente específico.\n` +
+      `Si el usuario hace peticiones exhaustivas (ej. "todos mis casos", "panorama completo"), TENÉS ESTRICTAMENTE PROHIBIDO presentar este análisis parcial como total.`
+    );
+  } else if (isCaseContextPartial) {
+    partes.push(
+      `La organización tiene ${totalActiveCases} expedientes activos. En esta conversación disponés únicamente de los ${GLOBAL_AGENT_CASE_CONTEXT_LIMIT} expedientes creados más recientemente. No concluyas que un expediente no existe si no figura acá; puede estar fuera del contexto parcial. Indicá al usuario que use Buscar o abra el expediente específico.\n` +
       `Si el usuario hace peticiones exhaustivas (ej. "todos mis casos", "panorama completo", "resumen de todos"), TENÉS ESTRICTAMENTE PROHIBIDO presentar un análisis parcial como total. DEBÉS INCLUIR EXACTAMENTE ESTA ADVERTENCIA:\n` +
-      `“Esta vista del Agente General incluye los ${GLOBAL_AGENT_CASE_CONTEXT_LIMIT} expedientes más recientes de ${totalActiveCases} activos. No puedo afirmar que el análisis cubra la totalidad. Para localizar un expediente fuera de este contexto, usá Buscar o abrí el expediente específico.”`
+      `“Esta vista del Agente General incluye los ${GLOBAL_AGENT_CASE_CONTEXT_LIMIT} expedientes creados más recientemente de ${totalActiveCases} activos. No puedo afirmar que el análisis cubra la totalidad. Para localizar un expediente fuera de este contexto, usá Buscar o abrí el expediente específico.”`
     );
   } else {
     partes.push(`Disponés de detalles de los ${totalActiveCases} expedientes activos de esta organización.`);
