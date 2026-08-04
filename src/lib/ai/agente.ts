@@ -321,10 +321,6 @@ function extraerPorcentajeIncapacidad(texto: string, etiquetas: string[]): numbe
 			return procesarPorcentaje(m[1])
 		}
 	}
-	const mSolo = texto.match(/(-?\d+[.,]?\\d*)\s*%/);
-	if (mSolo) {
-		return procesarPorcentaje(mSolo[1])
-	}
 	return 'missing'
 }
 
@@ -352,10 +348,6 @@ function extraerMontoIngreso(texto: string, etiquetas: string[]): number | 'miss
 			return procesarMonto(m[1])
 		}
 	}
-	const mSolo = texto.match(/\$\s*(\d+[\\d.,]*)/);
-	if (mSolo) {
-		return procesarMonto(mSolo[1])
-	}
 	return 'missing'
 }
 
@@ -379,10 +371,6 @@ function extraerEdad(texto: string, etiquetas: string[]): number | 'missing' | '
 	if (mAños) {
 		return procesarEdad(mAños[1])
 	}
-	const mSolo = texto.match(/^\s*(\d{2})\s*$/)
-	if (mSolo) {
-		return procesarEdad(mSolo[1])
-	}
 	return 'missing'
 }
 
@@ -402,23 +390,45 @@ function detectarDatosLiquidacion(
 
 	for (const t of mensajes) {
 		const tLow = t.toLowerCase();
-		if (ingresoMensual === 'missing') {
-			ingresoMensual = extraerMontoIngreso(tLow, ['ingreso mensual', 'ingreso', 'sueldo', 'salario', 'remuneraci[oó]n', 'haber']);
+
+		let expectedField = '';
+		if (metodo !== 'ninguno' && metodo !== 'ambos' && ingresoMensual !== 'missing' && ingresoMensual !== 'invalid' && edad !== 'missing' && edad !== 'invalid') {
+			expectedField = 'incapacidad';
+		} else if (metodo !== 'ninguno' && metodo !== 'ambos' && ingresoMensual !== 'missing' && ingresoMensual !== 'invalid') {
+			expectedField = 'edad';
+		} else if (metodo !== 'ninguno' && metodo !== 'ambos') {
+			expectedField = 'ingresoMensual';
+		} else {
+			expectedField = 'metodo';
 		}
-		if (incapacidad === 'missing') {
-			incapacidad = extraerPorcentajeIncapacidad(tLow, ['incapacidad']);
-		}
-		if (edad === 'missing') {
-			edad = extraerEdad(tLow, ['edad']);
-		}
-		if (metodo === 'ninguno') {
-			const hasVuoto = /vuoto/.test(tLow);
-			const hasMendez = /m[eé]ndez/.test(tLow);
-			const hasLasHeras = /las heras/.test(tLow);
-			if (hasLasHeras) metodo = 'las_heras';
-			else if (hasVuoto && hasMendez) metodo = 'ambos';
-			else if (hasVuoto) metodo = 'vuoto';
-			else if (hasMendez) metodo = 'mendez';
+
+		const vIngreso = extraerMontoIngreso(tLow, ['ingreso mensual', 'ingreso', 'sueldo', 'salario', 'remuneraci[oó]n', 'haber']);
+		const vIncapacidad = extraerPorcentajeIncapacidad(tLow, ['incapacidad']);
+		const vEdad = extraerEdad(tLow, ['edad']);
+
+		let vMetodo = 'ninguno';
+		const hasVuoto = /vuoto/.test(tLow);
+		const hasMendez = /m[eé]ndez/.test(tLow);
+		const hasLasHeras = /las heras/.test(tLow);
+		if (hasLasHeras) vMetodo = 'las_heras';
+		else if (hasVuoto && hasMendez) vMetodo = 'ambos';
+		else if (hasVuoto) vMetodo = 'vuoto';
+		else if (hasMendez) vMetodo = 'mendez';
+
+		if (vMetodo !== 'ninguno') metodo = vMetodo;
+		if (vIngreso !== 'missing') ingresoMensual = vIngreso;
+		if (vIncapacidad !== 'missing') incapacidad = vIncapacidad;
+		if (vEdad !== 'missing') edad = vEdad;
+
+		if (expectedField === 'incapacidad' && (incapacidad === 'missing' || incapacidad === 'invalid')) {
+			const mSolo = tLow.match(/(-?\d+[.,]?\d*)\s*%/);
+			if (mSolo) incapacidad = procesarPorcentaje(mSolo[1]);
+		} else if (expectedField === 'edad' && (edad === 'missing' || edad === 'invalid')) {
+			const mSolo = tLow.match(/^\s*(\d{2})\s*$/);
+			if (mSolo) edad = procesarEdad(mSolo[1]);
+		} else if (expectedField === 'ingresoMensual' && (ingresoMensual === 'missing' || ingresoMensual === 'invalid')) {
+			const mSolo = tLow.match(/\$\s*(\d+[\d.,]*)/);
+			if (mSolo) ingresoMensual = procesarMonto(mSolo[1]);
 		}
 	}
 	return { ingresoMensual, edad, incapacidad, metodo };
@@ -666,7 +676,7 @@ export async function responderAgenteLegajo(input: {
              };
          }
          
-         const datosLiq = detectarDatosLiquidacion(reversedUserMsgs);
+         const datosLiq = detectarDatosLiquidacion(userMsgs);
          if (datosLiq.incapacidad === 'invalid') {
            return {
              ok: true,
