@@ -313,42 +313,71 @@ function detectarJurisdiccion(texto: string): 'nacion' | 'corrientes' | 'pba' | 
   return null;
 }
 
-function detectarDatosLiquidacion(
-	texto: string
-): { ingresoMensual: number | 'invalid'; edad: number | 'invalid'; incapacidad: number | 'invalid'; metodo: 'mendez' | 'vuoto' | 'ninguno' | 'ambos' | 'las_heras' } | null {
-	const t = texto.toLowerCase()
-	if (!/(liquidaci[oó]n|incapacidad|reclam|indemnizaci[oó]n)/.test(t)) return null
-	const ingresoMensual = numeroCercaDe(
-		t,
-		['ingreso mensual', 'ingreso', 'sueldo', 'salario', 'remuneraci[oó]n', 'haber'],
-		1000,
-		999999999,
-		true
-	)
-	const incapacidad = numeroCercaDe(t, ['incapacidad'], 1, 100, true)
-	let edad = numeroCercaDe(t, ['edad'], 16, 99, true)
-	if (!edad || edad === 'invalid') {
-		const m = t.match(/(\d{2})\s*años/)
+function extraerPorcentajeIncapacidad(texto: string, etiquetas: string[]): number | 'missing' | 'invalid' {
+	for (const etiqueta of etiquetas) {
+		const re = new RegExp(etiqueta + '\\D{0,25}?(-?\\d+[.,]?\\d*)', 'i')
+		const m = texto.match(re)
 		if (m) {
-			const n = Number(m[1])
-			if (n >= 16 && n <= 99) edad = n;
-			else edad = 'invalid';
+			let numStr = m[1].trim()
+			const sepMatch = numStr.match(/[.,]/)
+			if (sepMatch) {
+				const parts = numStr.split(/[.,]/)
+				if (parts[1].length > 2) return 'invalid'
+			}
+			numStr = numStr.replace(',', '.')
+			const n = Number(numStr)
+			if (Number.isFinite(n)) {
+				if (n > 0 && n <= 100) return n
+				return 'invalid'
+			}
+			return 'invalid'
 		}
 	}
-	let metodo = 'ninguno';
-	const hasVuoto = /vuoto/.test(t);
-	const hasMendez = /m[eé]ndez/.test(t);
-	const hasLasHeras = /las heras/.test(t);
-	if (hasLasHeras) metodo = 'las_heras';
-	else if (hasVuoto && hasMendez) metodo = 'ambos';
-	else if (hasVuoto) metodo = 'vuoto';
-	else if (hasMendez) metodo = 'mendez';
-	return { 
-		ingresoMensual: ingresoMensual ?? 'invalid', 
-		edad: edad ?? 'invalid', 
-		incapacidad: incapacidad ?? 'invalid', 
-		metodo: metodo as any 
+	return 'missing'
+}
+
+function extraerMontoIngreso(texto: string, etiquetas: string[]): number | 'missing' | 'invalid' {
+	for (const etiqueta of etiquetas) {
+		const re = new RegExp(etiqueta + '\\D{0,25}?(\\$?\\s*\\d+[\\d.,]*)', 'i')
+		const m = texto.match(re)
+		if (m) {
+			let numStr = m[1].replace(/\$/g, '').trim()
+			numStr = numStr.replace(/\./g, '').replace(',', '.')
+			const n = Number(numStr)
+			if (Number.isFinite(n) && n > 0) return n
+			return 'invalid'
+		}
 	}
+	return 'missing'
+}
+
+function extraerEdad(texto: string, etiquetas: string[]): number | 'missing' | 'invalid' {
+	for (const etiqueta of etiquetas) {
+		const re = new RegExp(etiqueta + '\\D{0,25}?(\\d+)', 'i')
+		const m = texto.match(re)
+		if (m) {
+			const n = Number(m[1])
+			if (Number.isFinite(n) && n >= 16 && n <= 99) return n
+			return 'invalid'
+		}
+	}
+	const m = texto.match(/(\d{2})\s*años/)
+	if (m) {
+		const n = Number(m[1])
+		if (n >= 16 && n <= 99) return n
+		return 'invalid'
+	}
+	return 'missing'
+}
+
+function detectarDatosLiquidacion(
+	texto: string
+): { ingresoMensual: number | 'missing' | 'invalid'; edad: number | 'missing' | 'invalid'; incapacidad: number | 'missing' | 'invalid'; } {
+	const t = texto.toLowerCase()
+	const ingresoMensual = extraerMontoIngreso(t, ['ingreso mensual', 'ingreso', 'sueldo', 'salario', 'remuneraci[oó]n', 'haber'])
+	const incapacidad = extraerPorcentajeIncapacidad(t, ['incapacidad'])
+	const edad = extraerEdad(t, ['edad'])
+	return { ingresoMensual, edad, incapacidad }
 }
 
 function detectarFechaHecho(texto: string): string | null {
@@ -531,9 +560,44 @@ export async function responderAgenteLegajo(input: {
       };
     }
 
-    const intencionLiquidacion = /(calcula|calculame|calcular|estima)\b.*?(liquidacion|indemnizacion|incapacidad)|mendez|vuoto/i.test(pNorm);
-    if (intencionLiquidacion) {
-      if (/(las heras)/i.test(pNorm)) {
+    let lastLiqIntentIdx = -1;
+    for (let i = input.historial.length - 1; i >= 0; i--) {
+      if (input.historial[i].rol === 'user' && /(calcula|calculame|calcular|estima)\b.*?(liquidacion|indemnizacion|incapacidad)|mendez|vuoto/i.test(normalizarParaIntencion(input.historial[i].texto))) {
+        lastLiqIntentIdx = i;
+        break;
+      }
+    }
+    if (/(calcula|calculame|calcular|estima)\b.*?(liquidacion|indemnizacion|incapacidad)|mendez|vuoto/i.test(pNorm)) {
+      lastLiqIntentIdx = input.historial.length;
+    }
+
+    let isLiqFlow = false;
+    let combinedLiqText = '';
+    if (lastLiqIntentIdx !== -1) {
+       let interrupcion = false;
+       for (let i = lastLiqIntentIdx + 1; i < input.historial.length; i++) {
+          const msgNorm = normalizarParaIntencion(input.historial[i].texto);
+          if (input.historial[i].rol === 'user' && /(tasa de justicia|tasa judicial|plazo|vencimiento|dias habiles|fecha procesal)/i.test(msgNorm)) {
+             interrupcion = true; break;
+          }
+       }
+       if (lastLiqIntentIdx !== input.historial.length && /(tasa de justicia|tasa judicial|plazo|vencimiento|dias habiles|fecha procesal)/i.test(pNorm)) {
+          interrupcion = true;
+       }
+       
+       if (!interrupcion) {
+         isLiqFlow = true;
+         const userMsgs = [];
+         for (let i = lastLiqIntentIdx; i < input.historial.length; i++) {
+            if (input.historial[i].rol === 'user') userMsgs.push(input.historial[i].texto);
+         }
+         userMsgs.push(input.pregunta);
+         combinedLiqText = [input.contextoLegajo || '', ...userMsgs].join('\n');
+       }
+    }
+
+    if (isLiqFlow) {
+      if (/(las heras)/i.test(combinedLiqText)) {
           return {
             ok: true,
             respuesta: 'El método Las Heras no está implementado ni validado en Centinela IA. No generé un cálculo. Actualmente solo están disponibles Vuoto y Méndez como estimaciones orientativas.',
@@ -541,8 +605,8 @@ export async function responderAgenteLegajo(input: {
             model: `agente-${modeloActual}`
           };
       }
-      const hasVuoto = /vuoto/i.test(pNorm);
-      const hasMendez = /m[eé]ndez/i.test(pNorm);
+      const hasVuoto = /vuoto/i.test(combinedLiqText);
+      const hasMendez = /m[eé]ndez/i.test(combinedLiqText);
       if (hasVuoto && hasMendez) {
           return {
             ok: true,
@@ -558,42 +622,74 @@ export async function responderAgenteLegajo(input: {
             model: `agente-${modeloActual}`
           };
       }
-      const allText = [input.contextoLegajo || '', ...input.historial.map((m) => m.texto), input.pregunta].join('\n');
-      const datosLiq = detectarDatosLiquidacion(allText);
-      if (datosLiq) {
-        if (datosLiq.incapacidad === 'invalid' || (typeof datosLiq.incapacidad === 'number' && (datosLiq.incapacidad <= 0 || datosLiq.incapacidad > 100))) {
+      
+      const datosLiq = detectarDatosLiquidacion(combinedLiqText);
+      if (datosLiq.incapacidad === 'invalid') {
+        return {
+          ok: true,
+          respuesta: 'El porcentaje de incapacidad debe estar entre 0 y 100. No generé un cálculo.',
+          acciones: [],
+          model: `agente-${modeloActual}`
+        };
+      }
+      if (datosLiq.ingresoMensual === 'invalid') {
+        return {
+          ok: true,
+          respuesta: 'El ingreso mensual ingresado no es válido. No generé un cálculo.',
+          acciones: [],
+          model: `agente-${modeloActual}`
+        };
+      }
+      if (datosLiq.edad === 'invalid') {
+        return {
+          ok: true,
+          respuesta: 'La edad ingresada no es válida. No generé un cálculo.',
+          acciones: [],
+          model: `agente-${modeloActual}`
+        };
+      }
+      if (datosLiq.ingresoMensual === 'missing') {
           return {
             ok: true,
-            respuesta: 'El porcentaje de incapacidad debe estar entre 0 y 100. No generé un cálculo.',
+            respuesta: '¿Cuál es el ingreso mensual para realizar el cálculo?',
             acciones: [],
             model: `agente-${modeloActual}`
           };
-        }
-        if (datosLiq.ingresoMensual === 'invalid' || datosLiq.ingresoMensual <= 0 || datosLiq.edad === 'invalid' || datosLiq.edad <= 0) {
-          // If valid parameters were not fully matched (for instance if a non-numeric string triggered this) 
-          // we can just let Gemini handle it by falling through.
-          // Wait, the prompt says: "N. Incapacidad no numérica: pedir dato válido o bloquear." (we did that with 'invalid' above).
-          // For other missing variables, we can just let Gemini ask!
-        } else {
-          const fechaHecho = detectarFechaHecho(allText);
-          const metodoOk = hasVuoto ? 'vuoto' : 'mendez';
+      }
+      if (datosLiq.edad === 'missing') {
           return {
             ok: true,
-            respuesta: 'Preparé la propuesta de liquidación estimada (solo capital, sin intereses históricos) para que la apruebes.',
-            acciones: [{
-              tipo: 'calcular_liquidacion',
-              titulo: 'Calcular liquidación estimada (solo capital)',
-              metodo: metodoOk,
-              ingresoMensual: datosLiq.ingresoMensual as number,
-              edad: datosLiq.edad as number,
-              incapacidad: datosLiq.incapacidad as number,
-              fechaHecho: fechaHecho ?? undefined,
-              motivo: 'Detecté los datos necesarios en la conversación.'
-            }],
+            respuesta: '¿Cuál es la edad del trabajador al momento del hecho?',
+            acciones: [],
             model: `agente-${modeloActual}`
           };
-        }
       }
+      if (datosLiq.incapacidad === 'missing') {
+          return {
+            ok: true,
+            respuesta: '¿Cuál es el porcentaje de incapacidad para realizar el cálculo?',
+            acciones: [],
+            model: `agente-${modeloActual}`
+          };
+      }
+
+      const fechaHecho = detectarFechaHecho(combinedLiqText);
+      const metodoOk = hasVuoto ? 'vuoto' : 'mendez';
+      return {
+        ok: true,
+        respuesta: 'Preparé la propuesta de liquidación estimada (solo capital, sin intereses históricos) para que la apruebes.',
+        acciones: [{
+          tipo: 'calcular_liquidacion',
+          titulo: 'Calcular liquidación estimada (solo capital)',
+          metodo: metodoOk,
+          ingresoMensual: datosLiq.ingresoMensual as number,
+          edad: datosLiq.edad as number,
+          incapacidad: datosLiq.incapacidad as number,
+          fechaHecho: fechaHecho ?? undefined,
+          motivo: 'Detecté los datos necesarios en la conversación.'
+        }],
+        model: `agente-${modeloActual}`
+      };
     }
 
     const mencionaTasaJusticia = /(tasa de justicia|tasa judicial|tasa del proceso)/i.test(pNorm);
