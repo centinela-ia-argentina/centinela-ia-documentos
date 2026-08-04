@@ -637,9 +637,9 @@ export default async function CaseDetailPage({ params, searchParams }: CaseDetai
                         <p className="text-lg font-semibold text-slate-100">{liquidacion.anios_computables}</p>
                       </div>
                       <div className="rounded-xl bg-slate-800/60 p-4">
-                        <p className="text-xs uppercase tracking-wide text-slate-400">Tope honorarios (art. 730)</p>
-                        <p className="text-lg font-semibold text-slate-100">
-                          {new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(liquidacion.tope_honorarios_730)}
+                        <p className="text-xs uppercase tracking-wide text-slate-400">Art. 730 y Honorarios</p>
+                        <p className="text-sm font-semibold text-slate-400 mt-2">
+                          El límite de responsabilidad (art. 730 CCyCN) y los honorarios no están calculados automáticamente.
                         </p>
                       </div>
                       <div className="rounded-xl bg-slate-800/60 p-4 sm:col-span-2 ring-1 ring-amber-500/30">

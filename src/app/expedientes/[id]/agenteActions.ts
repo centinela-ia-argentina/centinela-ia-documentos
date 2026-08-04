@@ -521,8 +521,6 @@ export async function ejecutarAccionAgente(input: {
           mensaje:
             "No pude calcular la liquidación: faltan o son inválidos el ingreso, la edad o el % de incapacidad.",
         }
-      const tope730 = calc.capital * 0.25
-
       const resultJson: any = {
           metodo,
           ingreso_mensual: Number(accion.ingresoMensual),
@@ -532,7 +530,6 @@ export async function ejecutarAccionAgente(input: {
           ingreso_anual_ajustado: calc.ingresoAnualAjustado,
           anios_computables: calc.aniosComputables,
           tasa_descuento: calc.tasaDescuento,
-          tope_honorarios_730: tope730,
           parametros_capital: {
             metodo,
             ingresoMensual: Number(accion.ingresoMensual),
