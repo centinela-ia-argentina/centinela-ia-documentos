@@ -219,13 +219,17 @@ function salvarRespuesta(raw: string): string {
 }
 
 // Red de seguridad: extrae ingreso mensual, edad e incapacidad de un texto libre (legajo o conversación).
-function numeroCercaDe(texto: string, etiquetas: string[], min: number, max: number): number | null {
+function numeroCercaDe(texto: string, etiquetas: string[], min: number, max: number, strictValidation?: boolean): number | null | 'invalid' {
 	for (const etiqueta of etiquetas) {
-		const re = new RegExp(etiqueta + '\\D{0,25}?(\\d[\\d.]*)', 'i')
+		const re = new RegExp(etiqueta + '\\D{0,25}?(\\d+[.,]?\\d*)', 'i')
 		const m = texto.match(re)
 		if (m) {
-			const n = Number(m[1].replace(/\./g, ''))
-			if (Number.isFinite(n) && n >= min && n <= max) return n
+			const numStr = m[1].replace(',', '.')
+			const n = Number(numStr)
+			if (Number.isFinite(n)) {
+				if (n >= min && n <= max) return n;
+				if (strictValidation) return 'invalid';
+			}
 		}
 	}
 	return null
@@ -311,25 +315,26 @@ function detectarJurisdiccion(texto: string): 'nacion' | 'corrientes' | 'pba' | 
 
 function detectarDatosLiquidacion(
 	texto: string
-): { ingresoMensual: number; edad: number; incapacidad: number; metodo: 'mendez' | 'vuoto' | 'ninguno' | 'ambos' | 'las_heras' } | null {
+): { ingresoMensual: number | 'invalid'; edad: number | 'invalid'; incapacidad: number | 'invalid'; metodo: 'mendez' | 'vuoto' | 'ninguno' | 'ambos' | 'las_heras' } | null {
 	const t = texto.toLowerCase()
-	if (!/(liquidaci[oó]n|incapacidad|reclam)/.test(t)) return null
+	if (!/(liquidaci[oó]n|incapacidad|reclam|indemnizaci[oó]n)/.test(t)) return null
 	const ingresoMensual = numeroCercaDe(
 		t,
 		['ingreso mensual', 'ingreso', 'sueldo', 'salario', 'remuneraci[oó]n', 'haber'],
 		1000,
-		999999999
+		999999999,
+		true
 	)
-	const incapacidad = numeroCercaDe(t, ['incapacidad'], 1, 100)
-	let edad = numeroCercaDe(t, ['edad'], 16, 99)
-	if (!edad) {
+	const incapacidad = numeroCercaDe(t, ['incapacidad'], 1, 100, true)
+	let edad = numeroCercaDe(t, ['edad'], 16, 99, true)
+	if (!edad || edad === 'invalid') {
 		const m = t.match(/(\d{2})\s*años/)
 		if (m) {
 			const n = Number(m[1])
-			if (n >= 16 && n <= 99) edad = n
+			if (n >= 16 && n <= 99) edad = n;
+			else edad = 'invalid';
 		}
 	}
-	if (!ingresoMensual || !incapacidad || !edad) return null
 	let metodo = 'ninguno';
 	const hasVuoto = /vuoto/.test(t);
 	const hasMendez = /m[eé]ndez/.test(t);
@@ -338,7 +343,12 @@ function detectarDatosLiquidacion(
 	else if (hasVuoto && hasMendez) metodo = 'ambos';
 	else if (hasVuoto) metodo = 'vuoto';
 	else if (hasMendez) metodo = 'mendez';
-	return { ingresoMensual, edad, incapacidad, metodo: metodo as any }
+	return { 
+		ingresoMensual: ingresoMensual ?? 'invalid', 
+		edad: edad ?? 'invalid', 
+		incapacidad: incapacidad ?? 'invalid', 
+		metodo: metodo as any 
+	}
 }
 
 function detectarFechaHecho(texto: string): string | null {
@@ -519,6 +529,71 @@ export async function responderAgenteLegajo(input: {
         acciones: [],
         model: `agente-${modeloActual}`
       };
+    }
+
+    const intencionLiquidacion = /(calcula|calculame|calcular|estima)\b.*?(liquidacion|indemnizacion|incapacidad)|mendez|vuoto/i.test(pNorm);
+    if (intencionLiquidacion) {
+      if (/(las heras)/i.test(pNorm)) {
+          return {
+            ok: true,
+            respuesta: 'El método Las Heras no está implementado ni validado en Centinela IA. No generé un cálculo. Actualmente solo están disponibles Vuoto y Méndez como estimaciones orientativas.',
+            acciones: [],
+            model: `agente-${modeloActual}`
+          };
+      }
+      const hasVuoto = /vuoto/i.test(pNorm);
+      const hasMendez = /m[eé]ndez/i.test(pNorm);
+      if (hasVuoto && hasMendez) {
+          return {
+            ok: true,
+            respuesta: 'Indicame un único método para la estimación orientativa: Vuoto o Méndez.',
+            acciones: [],
+            model: `agente-${modeloActual}`
+          };
+      } else if (!hasVuoto && !hasMendez) {
+          return {
+            ok: true,
+            respuesta: '¿Qué método querés utilizar para la estimación orientativa: Vuoto o Méndez?',
+            acciones: [],
+            model: `agente-${modeloActual}`
+          };
+      }
+      const allText = [input.contextoLegajo || '', ...input.historial.map((m) => m.texto), input.pregunta].join('\n');
+      const datosLiq = detectarDatosLiquidacion(allText);
+      if (datosLiq) {
+        if (datosLiq.incapacidad === 'invalid' || (typeof datosLiq.incapacidad === 'number' && (datosLiq.incapacidad <= 0 || datosLiq.incapacidad > 100))) {
+          return {
+            ok: true,
+            respuesta: 'El porcentaje de incapacidad debe estar entre 0 y 100. No generé un cálculo.',
+            acciones: [],
+            model: `agente-${modeloActual}`
+          };
+        }
+        if (datosLiq.ingresoMensual === 'invalid' || datosLiq.ingresoMensual <= 0 || datosLiq.edad === 'invalid' || datosLiq.edad <= 0) {
+          // If valid parameters were not fully matched (for instance if a non-numeric string triggered this) 
+          // we can just let Gemini handle it by falling through.
+          // Wait, the prompt says: "N. Incapacidad no numérica: pedir dato válido o bloquear." (we did that with 'invalid' above).
+          // For other missing variables, we can just let Gemini ask!
+        } else {
+          const fechaHecho = detectarFechaHecho(allText);
+          const metodoOk = hasVuoto ? 'vuoto' : 'mendez';
+          return {
+            ok: true,
+            respuesta: 'Preparé la propuesta de liquidación estimada (solo capital, sin intereses históricos) para que la apruebes.',
+            acciones: [{
+              tipo: 'calcular_liquidacion',
+              titulo: 'Calcular liquidación estimada (solo capital)',
+              metodo: metodoOk,
+              ingresoMensual: datosLiq.ingresoMensual as number,
+              edad: datosLiq.edad as number,
+              incapacidad: datosLiq.incapacidad as number,
+              fechaHecho: fechaHecho ?? undefined,
+              motivo: 'Detecté los datos necesarios en la conversación.'
+            }],
+            model: `agente-${modeloActual}`
+          };
+        }
+      }
     }
 
     const mencionaTasaJusticia = /(tasa de justicia|tasa judicial|tasa del proceso)/i.test(pNorm);
@@ -762,9 +837,6 @@ export async function responderAgenteLegajo(input: {
           if (!/(agenda|agendame|agendar|carga|registra|registralo|recordame)\b.*?(vencimiento|agenda|fecha)/i.test(normalizarParaIntencion(input.pregunta))) {
              acciones = acciones.filter(a => a.tipo !== 'agendar_plazo');
           }
-          if (!/(calcula|calculame|calcular|estima)\b.*?(liquidacion|indemnizacion|incapacidad)|mendez|vuoto/i.test(normalizarParaIntencion(input.pregunta))) {
-             acciones = acciones.filter(a => a.tipo !== 'calcular_liquidacion');
-          }
           // Plazo y Tasa son 100% determinísticos pre-modelo, el LLM no debe generarlos.
           acciones = acciones.filter(a => a.tipo !== 'calcular_plazo_procesal' && a.tipo !== 'calcular_tasa_justicia');
 
@@ -772,28 +844,7 @@ export async function responderAgenteLegajo(input: {
           const pNorm = normalizarParaIntencion(input.pregunta);
 
           if (input.industry === 'legal') {
-            if (/(calcula|calculame|calcular|estima)\b.*?(liquidacion|indemnizacion|incapacidad)|mendez|vuoto/i.test(pNorm)) {
-              const datosLiq = detectarDatosLiquidacion(allText);
-              if (datosLiq && !acciones.some(a => a.tipo === 'calcular_liquidacion')) {
-                if (datosLiq.metodo === 'ninguno') {
-                   respuesta = '¿Qué método querés utilizar para la estimación orientativa: Vuoto o Méndez?';
-                } else if (datosLiq.metodo === 'ambos') {
-                   respuesta = 'Por favor seleccioná un único método para la estimación: Vuoto o Méndez.';
-                } else if (datosLiq.metodo !== 'las_heras') {
-                  const fechaHecho = detectarFechaHecho(allText);
-                  acciones.push({
-                    tipo: 'calcular_liquidacion',
-                    titulo: 'Calcular liquidación estimada (solo capital)',
-                    metodo: datosLiq.metodo as "vuoto" | "mendez",
-                    ingresoMensual: datosLiq.ingresoMensual,
-                    edad: datosLiq.edad,
-                    incapacidad: datosLiq.incapacidad,
-                    fechaHecho: fechaHecho ?? undefined,
-                    motivo: 'Detecté los datos necesarios en la conversación.'
-                  });
-                }
-              }
-            } else if (/(agenda|agendame|agendar|carga|registra|registralo|recordame)\b.*?(vencimiento|agenda|fecha)/i.test(pNorm)) {
+            if (/(agenda|agendame|agendar|carga|registra|registralo|recordame)\b.*?(vencimiento|agenda|fecha)/i.test(pNorm)) {
               const fecha = extraerFechaGenerica(input.pregunta);
               if (fecha) {
                 if (!acciones.some(a => a.tipo === 'agendar_plazo')) {
