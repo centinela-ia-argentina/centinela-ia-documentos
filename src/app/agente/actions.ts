@@ -44,13 +44,18 @@ export async function preguntarAgenteGlobal(input: {
     .maybeSingle();
   const industry = normalizeIndustryType(organization?.industry_type);
 
+const GLOBAL_AGENT_CASE_CONTEXT_LIMIT = 40;
+
   const [casesResult, docsResult, plazosResult] = await Promise.all([
     supabase
       .from('cases')
-      .select('id, title, client_name, case_type, status')
+      .select('id, title, client_name, case_type, status', { count: 'exact' })
       .eq('organization_id', profile.organization_id)
       .neq('status', 'archived')
-      .neq('status', 'Archivado'),
+      .neq('status', 'Archivado')
+      .order('created_at', { ascending: false })
+      .order('id', { ascending: false })
+      .limit(GLOBAL_AGENT_CASE_CONTEXT_LIMIT),
     supabase
       .from('documents')
       .select('file_name, expires_at, case_id')
@@ -63,6 +68,10 @@ export async function preguntarAgenteGlobal(input: {
   ]);
 
   const cases = casesResult.data ?? [];
+  const totalActiveCases = casesResult.count ?? cases.length;
+  const includedCaseCount = cases.length;
+  const isCaseContextPartial = totalActiveCases > includedCaseCount;
+
   const documents = docsResult.data ?? [];
   const plazos = plazosResult.data ?? [];
 
@@ -83,13 +92,21 @@ export async function preguntarAgenteGlobal(input: {
       '“Desde el Agente IA general no puedo modificar casos ni ejecutar acciones concretas. Abrí el expediente, legajo u operación correspondiente y utilizá su Agente IA.”\n' +
       'Podés complementar con orientación general del sistema, pero sin intentar recopilar datos de ejecución.'
   );
-  partes.push(`Total de legajos activos: ${cases.length}.`);
+
+  if (isCaseContextPartial) {
+    partes.push(
+      `La organización tiene ${totalActiveCases} expedientes activos. En esta conversación disponés únicamente de los ${GLOBAL_AGENT_CASE_CONTEXT_LIMIT} expedientes más recientes incluidos en el contexto. No afirmes haber revisado la totalidad. Si el usuario pregunta por un expediente no incluido, indicá que use Buscar o que abra el expediente específico.\n` +
+      `Si el usuario hace peticiones exhaustivas (ej. "todos mis casos", "panorama completo", "resumen de todos"), TENÉS ESTRICTAMENTE PROHIBIDO presentar un análisis parcial como total. DEBÉS INCLUIR EXACTAMENTE ESTA ADVERTENCIA:\n` +
+      `“Esta vista del Agente General incluye los ${GLOBAL_AGENT_CASE_CONTEXT_LIMIT} expedientes más recientes de ${totalActiveCases} activos. No puedo afirmar que el análisis cubra la totalidad. Para localizar un expediente fuera de este contexto, usá Buscar o abrí el expediente específico.”`
+    );
+  } else {
+    partes.push(`Disponés de detalles de los ${totalActiveCases} expedientes activos de esta organización.`);
+  }
 
   if (cases.length) {
-    partes.push('\nLEGAJOS ACTIVOS:');
+    partes.push('\nLEGAJOS INCLUIDOS EN CONTEXTO:');
     partes.push(
       cases
-        .slice(0, 40)
         .map(
           (c) =>
             `- ${c.title ?? 'Sin título'} | Cliente: ${c.client_name ?? '-'} | Tipo: ${c.case_type ?? '-'} | Estado: ${c.status ?? '-'}`
