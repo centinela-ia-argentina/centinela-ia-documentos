@@ -41,7 +41,7 @@ export function calcularIncapacidad(input: IncapacidadInput): IncapacidadResult 
 		return { ...base, ok: false, motivo: "ingreso_invalido" }
 	if (!Number.isFinite(ed) || ed <= 0)
 		return { ...base, ok: false, motivo: "edad_invalida" }
-	if (!Number.isFinite(inc) || inc <= 0)
+	if (!Number.isFinite(inc) || inc <= 0 || inc > 1)
 		return { ...base, ok: false, motivo: "incapacidad_invalida" }
 
 	const i = metodo === "mendez" ? 0.04 : 0.06

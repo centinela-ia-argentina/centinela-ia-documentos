@@ -311,7 +311,7 @@ function detectarJurisdiccion(texto: string): 'nacion' | 'corrientes' | 'pba' | 
 
 function detectarDatosLiquidacion(
 	texto: string
-): { ingresoMensual: number; edad: number; incapacidad: number; metodo: 'mendez' | 'vuoto' } | null {
+): { ingresoMensual: number; edad: number; incapacidad: number; metodo: 'mendez' | 'vuoto' | 'ninguno' | 'ambos' | 'las_heras' } | null {
 	const t = texto.toLowerCase()
 	if (!/(liquidaci[oó]n|incapacidad|reclam)/.test(t)) return null
 	const ingresoMensual = numeroCercaDe(
@@ -330,8 +330,15 @@ function detectarDatosLiquidacion(
 		}
 	}
 	if (!ingresoMensual || !incapacidad || !edad) return null
-	const metodo: 'mendez' | 'vuoto' = /vuoto/.test(t) ? 'vuoto' : 'mendez'
-	return { ingresoMensual, edad, incapacidad, metodo }
+	let metodo = 'ninguno';
+	const hasVuoto = /vuoto/.test(t);
+	const hasMendez = /m[eé]ndez/.test(t);
+	const hasLasHeras = /las heras/.test(t);
+	if (hasLasHeras) metodo = 'las_heras';
+	else if (hasVuoto && hasMendez) metodo = 'ambos';
+	else if (hasVuoto) metodo = 'vuoto';
+	else if (hasMendez) metodo = 'mendez';
+	return { ingresoMensual, edad, incapacidad, metodo: metodo as any }
 }
 
 function detectarFechaHecho(texto: string): string | null {
@@ -463,6 +470,24 @@ export async function responderAgenteLegajo(input: {
 
   // === RUTAS DETERMINÍSTICAS PRE-MODELO ===
   
+  if (/(730|honorarios|costas)/i.test(pNorm) && /(calcul|estim|tope|monto|cuanto|25%|aplica)/i.test(pNorm)) {
+      return {
+        ok: true,
+        respuesta: 'No calculo automáticamente el límite de responsabilidad por costas ni honorarios. El artículo 730 CCyCN requiere analizar la sentencia, las costas, las regulaciones y los profesionales comprendidos. No generé un cálculo.',
+        acciones: [],
+        model: `agente-${modeloActual}`
+      };
+  }
+
+  if (/(las heras)/i.test(pNorm)) {
+      return {
+        ok: true,
+        respuesta: 'El método Las Heras no está implementado ni validado en Centinela IA. No generé un cálculo. Actualmente solo están disponibles Vuoto y Méndez como estimaciones orientativas.',
+        acciones: [],
+        model: `agente-${modeloActual}`
+      };
+  }
+
   if (intencionRiesgo) {
     if (!input.documentEvidenceState || input.documentEvidenceState === 'no_analyzed_documents') {
       return {
@@ -750,17 +775,23 @@ export async function responderAgenteLegajo(input: {
             if (/(calcula|calculame|calcular|estima)\b.*?(liquidacion|indemnizacion|incapacidad)|mendez|vuoto/i.test(pNorm)) {
               const datosLiq = detectarDatosLiquidacion(allText);
               if (datosLiq && !acciones.some(a => a.tipo === 'calcular_liquidacion')) {
-                const fechaHecho = detectarFechaHecho(allText);
-                acciones.push({
-                  tipo: 'calcular_liquidacion',
-                  titulo: 'Calcular liquidación estimada (solo capital)',
-                  metodo: datosLiq.metodo,
-                  ingresoMensual: datosLiq.ingresoMensual,
-                  edad: datosLiq.edad,
-                  incapacidad: datosLiq.incapacidad,
-                  fechaHecho: fechaHecho ?? undefined,
-                  motivo: 'Detecté los datos necesarios en la conversación.'
-                });
+                if (datosLiq.metodo === 'ninguno') {
+                   respuesta = '¿Qué método querés utilizar para la estimación orientativa: Vuoto o Méndez?';
+                } else if (datosLiq.metodo === 'ambos') {
+                   respuesta = 'Por favor seleccioná un único método para la estimación: Vuoto o Méndez.';
+                } else if (datosLiq.metodo !== 'las_heras') {
+                  const fechaHecho = detectarFechaHecho(allText);
+                  acciones.push({
+                    tipo: 'calcular_liquidacion',
+                    titulo: 'Calcular liquidación estimada (solo capital)',
+                    metodo: datosLiq.metodo as "vuoto" | "mendez",
+                    ingresoMensual: datosLiq.ingresoMensual,
+                    edad: datosLiq.edad,
+                    incapacidad: datosLiq.incapacidad,
+                    fechaHecho: fechaHecho ?? undefined,
+                    motivo: 'Detecté los datos necesarios en la conversación.'
+                  });
+                }
               }
             } else if (/(agenda|agendame|agendar|carga|registra|registralo|recordame)\b.*?(vencimiento|agenda|fecha)/i.test(pNorm)) {
               const fecha = extraerFechaGenerica(input.pregunta);
