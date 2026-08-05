@@ -104,7 +104,12 @@ export function AgendaClient({ eventos, cases, industry, puedeGuardar = true }: 
 
   const eventosMes = eventos
     .filter((ev) => ev.fecha.startsWith(`${year}-${String(month + 1).padStart(2, '0')}`))
-    .sort((a, b) => a.fecha.localeCompare(b.fecha));
+    .sort((a, b) => {
+      if (a.fecha !== b.fecha) return a.fecha.localeCompare(b.fecha);
+      if (a.tipo !== b.tipo) return a.tipo.localeCompare(b.tipo);
+      if (a.titulo !== b.titulo) return a.titulo.localeCompare(b.titulo);
+      return a.id.localeCompare(b.id);
+    });
 
   return (
     <div className="space-y-6">

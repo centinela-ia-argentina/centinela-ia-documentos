@@ -62,9 +62,10 @@ async function deduplicateAndInsert(input: {
   if (!user || !profile) return { ok: false, motivo: 'no_auth' };
 
   const fechaNorm = normalizeDateLocal(input.fecha);
+  if (!fechaNorm) return { ok: false, motivo: 'error', mensaje: 'Fecha inválida' };
   const tituloInput = input.titulo?.trim();
-  if (!tituloInput || !fechaNorm) {
-    return { ok: false, motivo: 'error', mensaje: 'Faltan datos o fecha inválida.' };
+  if (!tituloInput) {
+    return { ok: false, motivo: 'error', mensaje: 'Faltan datos.' };
   }
 
   if (!canUpdateCase(profile.role as any)) {

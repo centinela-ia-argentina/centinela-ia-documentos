@@ -116,7 +116,7 @@ export default async function AgentePage() {
   for (const p of plazos) {
     if (!p.fecha) continue;
     const cid = (p as any).case_id ?? null;
-    const categoria = (p as any).categoria ?? 'plazo';
+    const categoria = (p as any).categoria ?? '__sin_categoria__';
     const tituloString = p.titulo ?? 'Plazo';
     const tituloNorm = tituloString.normalize('NFC').trim().toLowerCase().replace(/\s+/g, ' ');
     const fechaNorm = String(p.fecha).slice(0, 10);
@@ -138,7 +138,11 @@ export default async function AgentePage() {
     });
   }
 
-  alertas.sort((a, b) => a.dias - b.dias);
+  alertas.sort((a, b) => {
+    if (a.dias !== b.dias) return a.dias - b.dias;
+    if (a.tipo !== b.tipo) return a.tipo.localeCompare(b.tipo);
+    return a.titulo.localeCompare(b.titulo);
+  });
 
   return (
     <AppShell>

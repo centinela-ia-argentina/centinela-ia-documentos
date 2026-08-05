@@ -171,7 +171,7 @@ function PlazosCalc({ puedeGuardar = true }: { puedeGuardar?: boolean }) {
           ? 'Iniciá sesión para guardar.'
           : 'No se pudo guardar, intentá de nuevo.'
     );
-    if (res.ok) setReferencia('');
+    if (res.ok && !res.existing) setReferencia('');
   };
 
   return (
@@ -180,7 +180,7 @@ function PlazosCalc({ puedeGuardar = true }: { puedeGuardar?: boolean }) {
         <Field label="Jurisdicción (obligatorio)">
           <select
             value={jurisdiccion}
-            onChange={(e) => setJurisdiccion(e.target.value as LegalJurisdiction | '')}
+            onChange={(e) => { setJurisdiccion(e.target.value as LegalJurisdiction | ''); setGuardado(null); setResultado(null); }}
             className={inputClass}
           >
             <option value="" className="bg-white text-slate-900">-- Seleccionar jurisdicción --</option>
@@ -202,10 +202,10 @@ function PlazosCalc({ puedeGuardar = true }: { puedeGuardar?: boolean }) {
 
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label="Fecha de inicio (notificación)">
-          <input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} className={inputClass} />
+          <input type="date" value={fecha} onChange={(e) => { setFecha(e.target.value); setGuardado(null); setResultado(null); }} className={inputClass} />
         </Field>
         <Field label="Cantidad de días">
-          <input type="number" min={1} value={dias} onChange={(e) => setDias(e.target.value)} placeholder="Ej: 5" className={inputClass} />
+          <input type="number" min={1} value={dias} onChange={(e) => { setDias(e.target.value); setGuardado(null); setResultado(null); }} placeholder="Ej: 5" className={inputClass} />
         </Field>
       </div>
 
@@ -237,7 +237,7 @@ function PlazosCalc({ puedeGuardar = true }: { puedeGuardar?: boolean }) {
               <input
                 type="text"
                 value={referencia}
-                onChange={(e) => setReferencia(e.target.value)}
+                onChange={(e) => { setReferencia(e.target.value); setGuardado(null); }}
                 placeholder="Referencia (ej. carátula o trámite)"
                 className={inputClass}
               />

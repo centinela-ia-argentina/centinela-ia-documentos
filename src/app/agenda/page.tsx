@@ -75,7 +75,7 @@ export default async function AgendaPage() {
 
   for (const p of plazos) {
     if (!p.fecha) continue;
-    const categoria = (p as { categoria?: string }).categoria ?? 'plazo';
+    const categoria = (p as { categoria?: string }).categoria ?? '__sin_categoria__';
     const cid = (p as { case_id?: string | null }).case_id ?? null;
     const hora = (p as { hora?: string | null }).hora ?? null;
     const tipo =
