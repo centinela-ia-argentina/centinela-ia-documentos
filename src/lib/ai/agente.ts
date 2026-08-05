@@ -62,6 +62,7 @@ function getAgentPersona(industry: IndustryType): string {
 
 const REGLAS = `REGLAS INQUEBRANTABLES:
 - Basáte ÚNICAMENTE en el CONTEXTO DEL LEGAJO y en la conversación. NO inventes datos, montos, fechas, nombres ni artículos. (Calcular una liquidación con las fórmulas legales, a partir de datos reales del legajo o que te dio el usuario, NO es "inventar un monto": es una estimación válida que SÍ podés proponer.)
+- Si te consultan conceptualmente sobre "UMA", "UHOM" o "JUS", explicá qué son (unidades arancelarias) y de qué dependen (jurisdicción, fuero, fecha, organismo), pero TENÉS ESTRICTAMENTE PROHIBIDO informar su valor monetario actual, su cifra, su equivalencia o su vigencia exacta. (Ej: aclaralo así: "UMA rige en el ámbito nacional/federal, JUS puede variar por provincia, UHOM según el régimen aplicable. Verificá su valor en la fuente oficial").
 - Antes de decir que un dato no está, buscalo también por SINÓNIMOS, RÓTULOS y ABREVIATURAS en los fragmentos (ej: "matrícula" puede venir como "F.R.I."/"Folio Real"; "hipoteca"/"embargo" como "gravamen"; "superficie" como "sup."). Solo si realmente no aparece de ninguna forma, decilo con claridad ("No tengo ese dato cargado en el legajo").
 - Si el CONTEXTO incluye una sección "FRAGMENTOS TEXTUALES RELEVANTES", tratá esos fragmentos como la fuente MÁS confiable para responder detalles concretos (nombres, montos, matrículas, superficies, gravámenes, cláusulas): son extractos del texto real del documento. Cuando uses un dato que sale de un fragmento, aclará entre paréntesis el nombre del documento (ej: "según el Certificado de Dominio.pdf").
 - Sos orientativo: la IA propone, el humano dispone. Nunca presentes algo como certeza legal definitiva. ACLARACIÓN: proponer una ACCIÓN (como "calcular_liquidacion") NO viola esta regla: es ofrecerle al humano una ESTIMACIÓN para que la apruebe, no afirmar una certeza. Siempre que corresponda, proponé la acción igual.
@@ -563,6 +564,18 @@ export async function responderAgenteLegajo(input: {
 
   // === RUTAS DETERMINÍSTICAS PRE-MODELO ===
   
+  const matchUnidadLegal = /(\buma\b|u\.m\.a\.|unidad de medida arancelaria|\buhom\b|unidad de honorarios de mediaci[oó]n|\bjus\b|jus arancelario|jus pba|jus corrientes)/i.test(pNorm);
+  const matchIntencionMonetaria = /(valor|importe|monto|cu[aá]nto\s+vale|vigente|actual|hoy|calcul[aá]|multiplic[aá]|convert[ií]|equivalencia|\d+\s*(uma|u\.m\.a\.|uhom|jus)|honorarios\s+en\s+(uma|u\.m\.a\.|uhom|jus))/i.test(pNorm);
+
+  if (matchUnidadLegal && matchIntencionMonetaria) {
+      return {
+        ok: true,
+        respuesta: 'No informo ni calculo automáticamente valores monetarios de UMA, UHOM o JUS desde el Agente, porque dependen de la jurisdicción, la fecha de vigencia y una fuente oficial verificable. Consultá la sección Calculadoras, verificá el valor en la fuente oficial correspondiente y revisalo profesionalmente. No generé un cálculo.',
+        acciones: [],
+        model: `agente-${modeloActual}`
+      };
+  }
+
   if (/(730|honorarios|costas)/i.test(pNorm) && /(calcul|estim|tope|monto|cuanto|25%|aplica)/i.test(pNorm)) {
       return {
         ok: true,
