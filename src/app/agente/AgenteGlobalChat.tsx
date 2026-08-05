@@ -183,7 +183,7 @@ export function AgenteGlobalChat({ industry, puedeUsarIA }: Props) {
         <div className="flex flex-wrap items-center justify-center gap-2">
           <h2 className="text-lg font-bold text-white">Agente IA general</h2>
           <span className="inline-flex items-center gap-1 rounded-full bg-cyan-500/15 px-2.5 py-0.5 text-xs font-medium text-cyan-300 border border-cyan-500/20">
-            🌐 Contexto: toda la organización
+            🌐 Contexto: panorama del estudio
           </span>
           <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2 py-0.5 text-xs font-medium text-emerald-300">
             <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400" /> En línea
@@ -197,7 +197,7 @@ export function AgenteGlobalChat({ industry, puedeUsarIA }: Props) {
             ℹ️ Para trabajar sobre documentos o ejecutar acciones, abrí un expediente, legajo u operación y usá su Agente IA.
           </p>
           <p className="text-slate-500">
-            ⌛ Esta conversación es temporal y se reinicia al salir o recargar.
+            ⌛ Por privacidad, esta conversación no se guarda en Centinela IA y se reinicia al salir o recargar.
           </p>
         </div>
       </div>

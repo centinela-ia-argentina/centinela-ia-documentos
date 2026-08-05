@@ -197,7 +197,7 @@ export default async function ConfiguracionPage({ searchParams }: ConfiguracionP
               <select
                 name="industry_type"
                 defaultValue={['legal', 'escribania', 'inmobiliaria'].includes(currentIndustry) ? currentIndustry : 'legal'}
-                className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-white outline-none focus:border-accent focus:ring-1 focus:ring-accent"
+                className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 pr-10 text-white outline-none focus:border-accent focus:ring-1 focus:ring-accent"
               >
                 {(['legal', 'escribania', 'inmobiliaria'] as const).map((t) => (
                   <option key={t} value={t}>

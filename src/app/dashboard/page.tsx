@@ -62,7 +62,7 @@ function buildMetricCard(
       return {
         label: 'Documentos cargados',
         value: String(values.loadedDocuments),
-        helper: 'Bóveda privada',
+        helper: 'Documentos almacenados',
       };
 
     case 'documentos_sensibles':
@@ -254,7 +254,7 @@ export default async function DashboardPage() {
                 </h3>
 
                 <p className="mt-2 text-sm text-slate-400">
-                  Seguimiento de documentos procesados y pendientes.
+                  Documentos analizados por IA y pendientes de análisis.
                 </p>
               </div>
 
