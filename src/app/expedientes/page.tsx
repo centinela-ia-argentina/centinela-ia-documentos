@@ -103,6 +103,30 @@ export default async function CasesPage({
     queryBuilder = queryBuilder.range(start, end);
 
     const result = await queryBuilder;
+    
+    if (result.error && (result.error.code === 'PGRST103' || (result.error.message && result.error.message.toLowerCase().includes('range')))) {
+      // Out of range error (HTTP 416). Fetch exact count to find the last page.
+      let countQb = supabase.from('cases').select('id', { count: 'exact', head: true })
+        .eq('organization_id', profile.organization_id);
+      
+      if (estado === 'archivadas') countQb = countQb.in('status', ['archived', 'Archivado']);
+      else countQb = countQb.not('status', 'in', '("archived","Archivado")');
+      
+      if (safeQ) countQb = countQb.or(`title.ilike."%${safeQ}%",client_name.ilike."%${safeQ}%",case_type.ilike."%${safeQ}%"`);
+      
+      const countRes = await countQb;
+      const realCount = countRes.count ?? 0;
+      const correctTotalPages = Math.max(1, Math.ceil(realCount / CASES_PAGE_SIZE));
+      
+      const url = new URLSearchParams();
+      if (rawQ) url.set('q', rawQ);
+      if (estado) url.set('estado', estado);
+      url.set('page', correctTotalPages.toString());
+      
+      // La llamada a redirect aborta la ejecución normal (arroja NEXT_REDIRECT)
+      redirect(`/expedientes?${url.toString()}`);
+    }
+
     cases = result.data as unknown as CaseRecord[];
     count = result.count;
     error = result.error;
