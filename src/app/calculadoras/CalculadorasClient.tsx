@@ -361,11 +361,16 @@ function HonorariosCalc() {
         </div>
       </Field>
 
-      <p className="mt-4 text-xs text-slate-500">
-        UMA vigente: {currency(UMA_VALOR)} ({UMA_VIGENCIA}). La escala del art. 21 es acumulativa
-        (cada tramo de UMA se calcula con su alícuota). 2ª instancia = 30–35% de lo de 1ª si se
-        confirma; 30–40% si se revoca. Apoderado sin patrocinio = 140%; procurador = 40% (art. 20).
-      </p>
+      <div className="mt-4 p-3 bg-yellow-500/10 border border-yellow-500/20 rounded-md">
+        <p className="text-xs text-yellow-600/90 font-medium">
+          ⚠️ Valor de referencia precargado. Verificá su vigencia, jurisdicción y fuente oficial antes de utilizarlo.
+        </p>
+        <p className="text-xs text-slate-500 mt-2">
+          UMA de referencia: {currency(UMA_VALOR)} ({UMA_VIGENCIA}). La escala del art. 21 es acumulativa
+          (cada tramo de UMA se calcula con su alícuota). 2ª instancia = 30–35% de lo de 1ª si se
+          confirma; 30–40% si se revoca. Apoderado sin patrocinio = 140%; procurador = 40% (art. 20).
+        </p>
+      </div>
 
       <MotionButton onClick={calcular} className={btnClass}>Calcular honorarios</MotionButton>
 
@@ -1270,10 +1275,15 @@ function MediacionTab() {
         </div>
       )}
 
-      <p className="text-xs text-slate-400 mt-5">
-        Honorarios mínimos indicativos. Nación: Ley 26.589 (CABA/Justicia Nacional). Buenos Aires: Ley 13.951 + Dec. 600/21.
-        Corrientes: Ley 5931 + Acuerdo 14/22 del STJ (art. 18 RIM). Actualizá el valor de la unidad vigente del mes.
-      </p>
+      <div className="mt-5 p-3 bg-yellow-500/10 border border-yellow-500/20 rounded-md">
+        <p className="text-xs text-yellow-600/90 font-medium">
+          ⚠️ Valor de referencia precargado. Verificá su vigencia, jurisdicción y fuente oficial antes de utilizarlo. El valor puede editarse.
+        </p>
+        <p className="text-xs text-slate-400 mt-2">
+          Honorarios mínimos indicativos. Nación: Ley 26.589 (CABA/Justicia Nacional). Buenos Aires: Ley 13.951 + Dec. 600/21.
+          Corrientes: Ley 5931 + Acuerdo 14/22 del STJ (art. 18 RIM).
+        </p>
+      </div>
     </Card>
   )
 }
