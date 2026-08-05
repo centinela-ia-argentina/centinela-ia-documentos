@@ -26,9 +26,13 @@ function displayText(value?: string | null, fallback = 'Sin definir') {
 export default async function CasesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; estado?: string }>;
+  searchParams: Promise<{ q?: string; estado?: string; page?: string }>;
 }) {
-  const { q, estado } = await searchParams;
+  const params = await searchParams;
+  const rawQ = params.q;
+  const estado = params.estado;
+  const rawPage = params.page;
+  
   const { user, profile } = await getUserProfile();
 
   if (!user) redirect('/login');
@@ -36,19 +40,117 @@ export default async function CasesPage({
 
   const supabase = await createClient();
 
-  let queryBuilder = supabase
-    .from('cases')
-    .select('*')
-    .eq('organization_id', profile.organization_id)
-    .order('created_at', { ascending: false });
+  const CASES_PAGE_SIZE = 25;
 
-  if (estado === 'archivadas') {
-    queryBuilder = queryBuilder.in('status', ['archived', 'Archivado']);
-  } else {
-    queryBuilder = queryBuilder.not('status', 'in', '("archived","Archivado")');
+  let page = 1;
+  let pageError = false;
+  if (rawPage) {
+    const p = Number(rawPage);
+    if (Number.isSafeInteger(p) && p > 0) {
+      page = p;
+    } else {
+      pageError = true;
+    }
   }
 
-  const { data: cases } = await queryBuilder;
+  let safeQ = '';
+  let searchError = false;
+  
+  if (rawQ) {
+    const trimmedQ = rawQ.trim();
+    if (trimmedQ) {
+      if (trimmedQ.length > 100) {
+        searchError = true;
+      } else if (/[%_\\"()]/.test(trimmedQ)) {
+        searchError = true;
+      } else {
+        safeQ = trimmedQ;
+      }
+    }
+  }
+
+  let queryBuilder = supabase
+    .from('cases')
+    .select('id, title, client_name, case_type, status, metadata, created_at, updated_at', { count: 'exact' })
+    .eq('organization_id', profile.organization_id);
+
+  let cases: CaseRecord[] | null = null;
+  let count: number | null = null;
+  let error: any = null;
+
+  const start = (page - 1) * CASES_PAGE_SIZE;
+  const end = start + CASES_PAGE_SIZE - 1;
+
+  if (searchError) {
+    cases = [];
+    count = 0;
+  } else {
+    if (estado === 'archivadas') {
+      queryBuilder = queryBuilder.in('status', ['archived', 'Archivado']);
+    } else {
+      queryBuilder = queryBuilder.not('status', 'in', '("archived","Archivado")');
+    }
+
+    if (safeQ) {
+      queryBuilder = queryBuilder.or(`title.ilike."%${safeQ}%",client_name.ilike."%${safeQ}%",case_type.ilike."%${safeQ}%"`);
+    }
+
+    queryBuilder = queryBuilder
+      .order('updated_at', { ascending: false, nullsFirst: false })
+      .order('created_at', { ascending: false })
+      .order('id', { ascending: false });
+
+    queryBuilder = queryBuilder.range(start, end);
+
+    const result = await queryBuilder;
+    
+    if (result.error && (result.error.code === 'PGRST103' || (result.error.message && result.error.message.toLowerCase().includes('range')))) {
+      // Out of range error (HTTP 416). Fetch exact count to find the last page.
+      let countQb = supabase.from('cases').select('id', { count: 'exact', head: true })
+        .eq('organization_id', profile.organization_id);
+      
+      if (estado === 'archivadas') countQb = countQb.in('status', ['archived', 'Archivado']);
+      else countQb = countQb.not('status', 'in', '("archived","Archivado")');
+      
+      if (safeQ) countQb = countQb.or(`title.ilike."%${safeQ}%",client_name.ilike."%${safeQ}%",case_type.ilike."%${safeQ}%"`);
+      
+      const countRes = await countQb;
+      const realCount = countRes.count ?? 0;
+      const correctTotalPages = Math.max(1, Math.ceil(realCount / CASES_PAGE_SIZE));
+      
+      const url = new URLSearchParams();
+      if (rawQ) url.set('q', rawQ);
+      if (estado) url.set('estado', estado);
+      url.set('page', correctTotalPages.toString());
+      
+      // La llamada a redirect aborta la ejecución normal (arroja NEXT_REDIRECT)
+      redirect(`/expedientes?${url.toString()}`);
+    }
+
+    cases = result.data as unknown as CaseRecord[];
+    count = result.count;
+    error = result.error;
+  }
+
+  const isCountError = count === null && !searchError && !error;
+  const totalCount = count ?? 0;
+  const totalPages = Math.max(1, Math.ceil(totalCount / CASES_PAGE_SIZE));
+
+  if (!isCountError && page > totalPages && totalCount > 0) {
+    const url = new URLSearchParams();
+    if (rawQ) url.set('q', rawQ);
+    if (estado) url.set('estado', estado);
+    url.set('page', totalPages.toString());
+    redirect(`/expedientes?${url.toString()}`);
+  }
+
+  if (pageError && rawPage) {
+    const url = new URLSearchParams();
+    if (rawQ) url.set('q', rawQ);
+    if (estado) url.set('estado', estado);
+    url.set('page', '1');
+    redirect(`/expedientes?${url.toString()}`);
+  }
 
   const { data: organization } = await supabase
     .from('organizations')
@@ -59,14 +161,6 @@ export default async function CasesPage({
   const organizationIndustry = normalizeIndustryType(organization?.industry_type);
   const terms = getIndustryTerms(organizationIndustry);
   let records = (cases ?? []) as CaseRecord[];
-
-  const query = (q ?? '').trim().toLowerCase();
-  if (query) {
-    records = records.filter((item) =>
-      [item.title, item.client_name, item.case_type]
-        .some((field) => (field ?? '').toLowerCase().includes(query))
-    );
-  }
 
   let statusesByCase: Record<string, string[]> = {};
   if (records.length > 0) {
@@ -124,11 +218,12 @@ export default async function CasesPage({
         </div>
       </div>
 
-      <form method="get" className="mb-6 flex gap-2">
+      <form method="get" action="/expedientes" className="mb-6 flex gap-2">
+        {estado && <input type="hidden" name="estado" value={estado} />}
         <input
           type="search"
           name="q"
-          defaultValue={q ?? ''}
+          defaultValue={rawQ ?? ''}
           placeholder={`Buscar por ${terms.expedienteSingular.toLowerCase()}, cliente o tipo…`}
           className="w-full max-w-md rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-white placeholder:text-slate-500 outline-none focus:border-accent focus:ring-1 focus:ring-accent"
         />
@@ -210,11 +305,23 @@ export default async function CasesPage({
         })}
       </div>
 
-      {records.length === 0 ? (
+      {records.length === 0 || isCountError || searchError ? (
         <MotionCard index={0} className="mt-4 text-center py-12">
-          {query ? (
+          {error ? (
+            <p className="font-bold text-rose-400 text-lg">
+              Ocurrió un error al cargar los expedientes.
+            </p>
+          ) : isCountError ? (
+            <p className="font-bold text-rose-400 text-lg">
+              No se pudo obtener el total de expedientes. Volvé a intentarlo.
+            </p>
+          ) : searchError ? (
+            <p className="font-bold text-amber-400 text-lg">
+              Búsqueda inválida.
+            </p>
+          ) : rawQ ? (
             <p className="font-bold text-white text-lg">
-              {terms.vacioSinResultados} «{q}».
+              {terms.vacioSinResultados} «{rawQ}».
             </p>
           ) : (
             <p className="font-bold text-white text-lg">
@@ -223,10 +330,53 @@ export default async function CasesPage({
           )}
 
           <p className="mt-2 text-sm text-slate-400">
-            {terms.vacioAyuda}
+            {error || isCountError ? 'Intentá recargar la página en unos instantes.' 
+              : searchError ? 'Evitá caracteres especiales (%, _, comillas, paréntesis) y usá un máximo de 100 letras.'
+              : terms.vacioAyuda}
           </p>
         </MotionCard>
       ) : null}
+
+      {!isCountError && !searchError && totalCount > 0 && (
+        <div className="mt-8 flex flex-col items-center justify-between gap-4 border-t border-white/10 pt-6 sm:flex-row">
+          <p className="text-sm text-slate-400">
+            Mostrando {start + 1}–{Math.min(end + 1, totalCount)} de {totalCount} expedientes
+          </p>
+          <div className="flex items-center gap-2">
+            <Link
+              href={`/expedientes?${new URLSearchParams({
+                ...(rawQ ? { q: rawQ } : {}),
+                ...(estado ? { estado } : {}),
+                page: Math.max(1, page - 1).toString(),
+              }).toString()}`}
+              className={`rounded-xl px-4 py-2 text-sm font-semibold transition-colors ${
+                page <= 1
+                  ? 'pointer-events-none text-slate-600'
+                  : 'bg-white/5 text-slate-300 hover:bg-white/10'
+              }`}
+            >
+              Anterior
+            </Link>
+            <span className="px-4 text-sm font-semibold text-slate-400">
+              Página {page} de {totalPages}
+            </span>
+            <Link
+              href={`/expedientes?${new URLSearchParams({
+                ...(rawQ ? { q: rawQ } : {}),
+                ...(estado ? { estado } : {}),
+                page: Math.min(totalPages, page + 1).toString(),
+              }).toString()}`}
+              className={`rounded-xl px-4 py-2 text-sm font-semibold transition-colors ${
+                page >= totalPages
+                  ? 'pointer-events-none text-slate-600'
+                  : 'bg-white/5 text-slate-300 hover:bg-white/10'
+              }`}
+            >
+              Siguiente
+            </Link>
+          </div>
+        </div>
+      )}
     </AppShell>
   );
 }
