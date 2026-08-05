@@ -479,7 +479,7 @@ export async function ejecutarAccionAgente(input: {
         caseId,
       });
       return r.ok
-        ? { ok: true, mensaje: 'Plazo agendado en tu calendario.' }
+        ? { ok: true, mensaje: r.existing ? 'Ese plazo ya estaba agendado.' : 'Plazo agendado en tu calendario.' }
         : { ok: false, mensaje: 'No se pudo agendar el plazo.' };
     }
 
@@ -501,7 +501,7 @@ export async function ejecutarAccionAgente(input: {
         caseId,
       });
       return r.ok
-        ? { ok: true, mensaje: esFirma ? 'Firma agendada en tu calendario.' : 'Turno agendado en tu calendario.' }
+        ? { ok: true, mensaje: r.existing ? 'Ese evento ya estaba agendado.' : esFirma ? 'Firma agendada en tu calendario.' : 'Turno agendado en tu calendario.' }
         : { ok: false, mensaje: 'No se pudo agendar.' };
     }
 

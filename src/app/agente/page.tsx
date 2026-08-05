@@ -75,7 +75,7 @@ export default async function AgentePage() {
       .neq('status', 'Archivado'),
     supabase
       .from('agenda_plazos')
-      .select('titulo, fecha, case_id')
+      .select('titulo, fecha, case_id, categoria')
       .eq('organization_id', profile.organization_id),
     supabase
       .from('organizations')
@@ -111,15 +111,27 @@ export default async function AgentePage() {
     });
   }
 
+  const firmasVistas = new Set<string>();
+
   for (const p of plazos) {
     if (!p.fecha) continue;
-    const fecha = String(p.fecha).slice(0, 10);
+    const cid = (p as any).case_id ?? null;
+    const categoria = (p as any).categoria ?? 'plazo';
+    const tituloString = p.titulo ?? 'Plazo';
+    const tituloNorm = tituloString.normalize('NFC').trim().toLowerCase().replace(/\s+/g, ' ');
+    const fechaNorm = String(p.fecha).slice(0, 10);
+    const firma = `${cid || ''}|${fechaNorm}|${categoria}|${tituloNorm}`;
+
+    if (firmasVistas.has(firma)) continue;
+    firmasVistas.add(firma);
+
+    const fecha = fechaNorm;
     const dias = diasDesdeHoy(fecha);
     if (Number.isNaN(dias) || dias < -90 || dias > 30) continue;
     alertas.push({
       fecha,
       dias,
-      titulo: p.titulo ?? 'Plazo',
+      titulo: tituloString,
       contexto: p.case_id ? caseTitleById.get(p.case_id) ?? 'Agenda' : 'Agenda',
       tipo: p.case_id ? caseTitleById.get(p.case_id) ?? 'Agenda' : 'Agenda',
       href: p.case_id ? `/expedientes/${p.case_id}` : '/agenda',

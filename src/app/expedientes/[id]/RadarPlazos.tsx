@@ -59,7 +59,7 @@ export function RadarPlazos({
   titulo?: string;
   subtitulo?: string;
 }) {
-  const [estados, setEstados] = useState<Record<string, 'idle' | 'loading' | 'ok' | 'error'>>({});
+  const [estados, setEstados] = useState<Record<string, 'idle' | 'loading' | 'ok' | 'existing' | 'error'>>({});
 
   const plazos: PlazoRadar[] = items
     .filter((it) => it.origen !== 'documento')
@@ -76,7 +76,7 @@ export function RadarPlazos({
         detalle: `Plazo del expediente · ${p.item.etiquetaOrigen}`,
         caseId,
       });
-      setEstados((prev) => ({ ...prev, [key]: res?.ok ? 'ok' : 'error' }));
+      setEstados((prev) => ({ ...prev, [key]: res?.ok ? (res.existing ? 'existing' : 'ok') : 'error' }));
     } catch {
       setEstados((prev) => ({ ...prev, [key]: 'error' }));
     }
@@ -130,6 +130,10 @@ export function RadarPlazos({
               {estado === 'ok' ? (
                 <span className="flex shrink-0 items-center gap-1 text-xs font-medium text-emerald-600">
                   <Check className="h-4 w-4" /> En agenda
+                </span>
+              ) : estado === 'existing' ? (
+                <span className="flex shrink-0 items-center gap-1 text-xs font-medium text-slate-400">
+                  <Check className="h-4 w-4" /> Ya en agenda
                 </span>
               ) : (
                 <button

@@ -63,7 +63,7 @@ const GLOBAL_AGENT_CASE_CONTEXT_LIMIT = 40;
       .not('expires_at', 'is', null),
     supabase
       .from('agenda_plazos')
-      .select('titulo, fecha, detalle, case_id')
+      .select('titulo, fecha, detalle, case_id, categoria')
       .eq('organization_id', profile.organization_id),
   ]);
 
@@ -136,14 +136,25 @@ const GLOBAL_AGENT_CASE_CONTEXT_LIMIT = 40;
       `- ${f} (${n < 0 ? `vencido hace ${Math.abs(n)}d` : `en ${n}d`}) Vence documento "${d.file_name}" — ${ctx}`
     );
   }
+  const firmasVistas = new Set<string>();
+
   for (const p of plazos) {
     if (!p.fecha) continue;
+    const cid = (p as any).case_id ?? null;
+    const categoria = (p as any).categoria ?? 'plazo';
+    const tituloString = p.titulo ?? 'Plazo';
+    const tituloNorm = tituloString.normalize('NFC').trim().toLowerCase().replace(/\s+/g, ' ');
     const f = String(p.fecha).slice(0, 10);
+    const firma = `${cid || ''}|${f}|${categoria}|${tituloNorm}`;
+
+    if (firmasVistas.has(firma)) continue;
+    firmasVistas.add(firma);
+
     const n = diasDesdeHoy(f);
     if (Number.isNaN(n) || n < -90 || n > 30) continue;
     const ctx = p.case_id ? caseTitleById.get(p.case_id) ?? 'Agenda' : 'Agenda general';
     alertas.push(
-      `- ${f} (${n < 0 ? `vencido hace ${Math.abs(n)}d` : `en ${n}d`}) ${p.titulo ?? 'Plazo'} — ${ctx}`
+      `- ${f} (${n < 0 ? `vencido hace ${Math.abs(n)}d` : `en ${n}d`}) ${tituloString} — ${ctx}`
     );
   }
 

@@ -56,9 +56,13 @@ export function AgendaClient({ eventos, cases, industry, puedeGuardar = true }: 
       : await guardarTurno({ titulo: nuevoTitulo, fecha: nuevaFecha, hora: nuevaHora || undefined, tipo: nuevoTipo, detalle: nuevoDetalle, caseId: nuevoCaseId || undefined });
     setGuardando(false);
     if (res.ok) {
-      setNuevoTitulo(''); setNuevaFecha(''); setNuevoDetalle(''); setNuevoCaseId(''); setNuevaHora(''); setNuevoTipo('evento');
-      setShowForm(false);
-      router.refresh();
+      if (res.existing) {
+        setAviso('Ya en agenda.');
+      } else {
+        setNuevoTitulo(''); setNuevaFecha(''); setNuevoDetalle(''); setNuevoCaseId(''); setNuevaHora(''); setNuevoTipo('evento');
+        setShowForm(false);
+        router.refresh();
+      }
     } else {
       setAviso(res.motivo === 'no_auth' ? 'Iniciá sesión para guardar.' : (res.mensaje || 'No se pudo guardar.'));
     }

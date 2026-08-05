@@ -164,7 +164,9 @@ function PlazosCalc({ puedeGuardar = true }: { puedeGuardar?: boolean }) {
     setGuardando(false);
     setGuardado(
       res.ok
-        ? '✓ Cargado a la agenda'
+        ? res.existing
+          ? 'ℹ️ Ya en agenda'
+          : '✅ Cargado a la agenda'
         : res.motivo === 'no_auth'
           ? 'Iniciá sesión para guardar.'
           : 'No se pudo guardar, intentá de nuevo.'
