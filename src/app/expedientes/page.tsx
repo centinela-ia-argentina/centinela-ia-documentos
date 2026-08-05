@@ -26,9 +26,13 @@ function displayText(value?: string | null, fallback = 'Sin definir') {
 export default async function CasesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; estado?: string }>;
+  searchParams: Promise<{ q?: string; estado?: string; page?: string }>;
 }) {
-  const { q, estado } = await searchParams;
+  const params = await searchParams;
+  const rawQ = params.q;
+  const estado = params.estado;
+  const rawPage = params.page;
+  
   const { user, profile } = await getUserProfile();
 
   if (!user) redirect('/login');
@@ -36,11 +40,20 @@ export default async function CasesPage({
 
   const supabase = await createClient();
 
+  const CASES_PAGE_SIZE = 25;
+
+  let page = 1;
+  if (typeof rawPage === 'string' && /^\d+$/.test(rawPage)) {
+    const parsed = parseInt(rawPage, 10);
+    if (parsed > 0) page = parsed;
+  }
+
+  const safeQ = rawQ ? rawQ.replace(/[%,_\\()]/g, '').trim() : '';
+
   let queryBuilder = supabase
     .from('cases')
-    .select('*')
-    .eq('organization_id', profile.organization_id)
-    .order('created_at', { ascending: false });
+    .select('id, title, client_name, case_type, status, metadata, created_at, updated_at', { count: 'exact' })
+    .eq('organization_id', profile.organization_id);
 
   if (estado === 'archivadas') {
     queryBuilder = queryBuilder.in('status', ['archived', 'Archivado']);
@@ -48,7 +61,31 @@ export default async function CasesPage({
     queryBuilder = queryBuilder.not('status', 'in', '("archived","Archivado")');
   }
 
-  const { data: cases } = await queryBuilder;
+  if (safeQ) {
+    queryBuilder = queryBuilder.or(`title.ilike.%${safeQ}%,client_name.ilike.%${safeQ}%,case_type.ilike.%${safeQ}%`);
+  }
+
+  queryBuilder = queryBuilder
+    .order('updated_at', { ascending: false })
+    .order('created_at', { ascending: false })
+    .order('id', { ascending: false });
+
+  const start = (page - 1) * CASES_PAGE_SIZE;
+  const end = start + CASES_PAGE_SIZE - 1;
+
+  queryBuilder = queryBuilder.range(start, end);
+
+  const { data: cases, count, error } = await queryBuilder;
+  const totalCount = count ?? 0;
+  const totalPages = Math.max(1, Math.ceil(totalCount / CASES_PAGE_SIZE));
+
+  if (page > totalPages && totalCount > 0) {
+    const url = new URLSearchParams();
+    if (rawQ) url.set('q', rawQ);
+    if (estado) url.set('estado', estado);
+    url.set('page', totalPages.toString());
+    redirect(`/expedientes?${url.toString()}`);
+  }
 
   const { data: organization } = await supabase
     .from('organizations')
@@ -59,14 +96,6 @@ export default async function CasesPage({
   const organizationIndustry = normalizeIndustryType(organization?.industry_type);
   const terms = getIndustryTerms(organizationIndustry);
   let records = (cases ?? []) as CaseRecord[];
-
-  const query = (q ?? '').trim().toLowerCase();
-  if (query) {
-    records = records.filter((item) =>
-      [item.title, item.client_name, item.case_type]
-        .some((field) => (field ?? '').toLowerCase().includes(query))
-    );
-  }
 
   let statusesByCase: Record<string, string[]> = {};
   if (records.length > 0) {
@@ -124,11 +153,12 @@ export default async function CasesPage({
         </div>
       </div>
 
-      <form method="get" className="mb-6 flex gap-2">
+      <form method="get" action="/expedientes" className="mb-6 flex gap-2">
+        {estado && <input type="hidden" name="estado" value={estado} />}
         <input
           type="search"
           name="q"
-          defaultValue={q ?? ''}
+          defaultValue={rawQ ?? ''}
           placeholder={`Buscar por ${terms.expedienteSingular.toLowerCase()}, cliente o tipo…`}
           className="w-full max-w-md rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-white placeholder:text-slate-500 outline-none focus:border-accent focus:ring-1 focus:ring-accent"
         />
@@ -212,9 +242,13 @@ export default async function CasesPage({
 
       {records.length === 0 ? (
         <MotionCard index={0} className="mt-4 text-center py-12">
-          {query ? (
+          {error ? (
+            <p className="font-bold text-rose-400 text-lg">
+              Ocurrió un error al cargar los expedientes.
+            </p>
+          ) : rawQ ? (
             <p className="font-bold text-white text-lg">
-              {terms.vacioSinResultados} «{q}».
+              {terms.vacioSinResultados} «{rawQ}».
             </p>
           ) : (
             <p className="font-bold text-white text-lg">
@@ -223,10 +257,51 @@ export default async function CasesPage({
           )}
 
           <p className="mt-2 text-sm text-slate-400">
-            {terms.vacioAyuda}
+            {error ? 'Intentá recargar la página en unos instantes.' : terms.vacioAyuda}
           </p>
         </MotionCard>
       ) : null}
+
+      {totalCount > 0 && (
+        <div className="mt-8 flex flex-col items-center justify-between gap-4 border-t border-white/10 pt-6 sm:flex-row">
+          <p className="text-sm text-slate-400">
+            Mostrando {start + 1}–{Math.min(end + 1, totalCount)} de {totalCount} expedientes
+          </p>
+          <div className="flex items-center gap-2">
+            <Link
+              href={`/expedientes?${new URLSearchParams({
+                ...(rawQ ? { q: rawQ } : {}),
+                ...(estado ? { estado } : {}),
+                page: Math.max(1, page - 1).toString(),
+              }).toString()}`}
+              className={`rounded-xl px-4 py-2 text-sm font-semibold transition-colors ${
+                page <= 1
+                  ? 'pointer-events-none text-slate-600'
+                  : 'bg-white/5 text-slate-300 hover:bg-white/10'
+              }`}
+            >
+              Anterior
+            </Link>
+            <span className="px-4 text-sm font-semibold text-slate-400">
+              Página {page} de {totalPages}
+            </span>
+            <Link
+              href={`/expedientes?${new URLSearchParams({
+                ...(rawQ ? { q: rawQ } : {}),
+                ...(estado ? { estado } : {}),
+                page: Math.min(totalPages, page + 1).toString(),
+              }).toString()}`}
+              className={`rounded-xl px-4 py-2 text-sm font-semibold transition-colors ${
+                page >= totalPages
+                  ? 'pointer-events-none text-slate-600'
+                  : 'bg-white/5 text-slate-300 hover:bg-white/10'
+              }`}
+            >
+              Siguiente
+            </Link>
+          </div>
+        </div>
+      )}
     </AppShell>
   );
 }
