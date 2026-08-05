@@ -57,12 +57,15 @@ export default async function CasesPage({
   let searchError = false;
   
   if (rawQ) {
-    if (rawQ.length > 100) {
-      searchError = true;
-    } else if (/[%_\\"()]/.test(rawQ)) {
-      searchError = true;
-    } else {
-      safeQ = rawQ.trim();
+    const trimmedQ = rawQ.trim();
+    if (trimmedQ) {
+      if (trimmedQ.length > 100) {
+        searchError = true;
+      } else if (/[%_\\"()]/.test(trimmedQ)) {
+        searchError = true;
+      } else {
+        safeQ = trimmedQ;
+      }
     }
   }
 
@@ -71,40 +74,45 @@ export default async function CasesPage({
     .select('id, title, client_name, case_type, status, metadata, created_at, updated_at', { count: 'exact' })
     .eq('organization_id', profile.organization_id);
 
-  if (estado === 'archivadas') {
-    queryBuilder = queryBuilder.in('status', ['archived', 'Archivado']);
-  } else {
-    queryBuilder = queryBuilder.not('status', 'in', '("archived","Archivado")');
-  }
-
-  if (safeQ && !searchError) {
-    queryBuilder = queryBuilder.or(`title.ilike."%${safeQ}%",client_name.ilike."%${safeQ}%",case_type.ilike."%${safeQ}%"`);
-  } else if (searchError) {
-    // Si la búsqueda es inválida o riesgosa, evitamos que traiga toda la base pretendiendo un .or() ausente
-    // Filtramos para asegurar 0 resultados.
-    queryBuilder = queryBuilder.eq('id', '00000000-0000-0000-0000-000000000000');
-  }
-
-  queryBuilder = queryBuilder
-    .order('updated_at', { ascending: false, nullsFirst: false })
-    .order('created_at', { ascending: false })
-    .order('id', { ascending: false });
+  let cases: CaseRecord[] | null = null;
+  let count: number | null = null;
+  let error: any = null;
 
   const start = (page - 1) * CASES_PAGE_SIZE;
   const end = start + CASES_PAGE_SIZE - 1;
 
-  queryBuilder = queryBuilder.range(start, end);
+  if (searchError) {
+    cases = [];
+    count = 0;
+  } else {
+    if (estado === 'archivadas') {
+      queryBuilder = queryBuilder.in('status', ['archived', 'Archivado']);
+    } else {
+      queryBuilder = queryBuilder.not('status', 'in', '("archived","Archivado")');
+    }
 
-  const { data: cases, count, error } = await queryBuilder;
-  let totalCount = count;
-  if (totalCount === null && cases && cases.length > 0) {
-    totalCount = cases.length;
-  } else if (totalCount === null) {
-    totalCount = 0;
+    if (safeQ) {
+      queryBuilder = queryBuilder.or(`title.ilike."%${safeQ}%",client_name.ilike."%${safeQ}%",case_type.ilike."%${safeQ}%"`);
+    }
+
+    queryBuilder = queryBuilder
+      .order('updated_at', { ascending: false, nullsFirst: false })
+      .order('created_at', { ascending: false })
+      .order('id', { ascending: false });
+
+    queryBuilder = queryBuilder.range(start, end);
+
+    const result = await queryBuilder;
+    cases = result.data as unknown as CaseRecord[];
+    count = result.count;
+    error = result.error;
   }
+
+  const isCountError = count === null && !searchError && !error;
+  const totalCount = count ?? 0;
   const totalPages = Math.max(1, Math.ceil(totalCount / CASES_PAGE_SIZE));
 
-  if (page > totalPages && totalCount > 0) {
+  if (!isCountError && page > totalPages && totalCount > 0) {
     const url = new URLSearchParams();
     if (rawQ) url.set('q', rawQ);
     if (estado) url.set('estado', estado);
@@ -273,11 +281,15 @@ export default async function CasesPage({
         })}
       </div>
 
-      {records.length === 0 ? (
+      {records.length === 0 || isCountError || searchError ? (
         <MotionCard index={0} className="mt-4 text-center py-12">
           {error ? (
             <p className="font-bold text-rose-400 text-lg">
               Ocurrió un error al cargar los expedientes.
+            </p>
+          ) : isCountError ? (
+            <p className="font-bold text-rose-400 text-lg">
+              No se pudo obtener el total de expedientes. Volvé a intentarlo.
             </p>
           ) : searchError ? (
             <p className="font-bold text-amber-400 text-lg">
@@ -294,14 +306,14 @@ export default async function CasesPage({
           )}
 
           <p className="mt-2 text-sm text-slate-400">
-            {error ? 'Intentá recargar la página en unos instantes.' 
-              : searchError ? 'Evitá caracteres especiales (%, _, comillas, paréntesis) y un máximo de 100 letras.'
+            {error || isCountError ? 'Intentá recargar la página en unos instantes.' 
+              : searchError ? 'Evitá caracteres especiales (%, _, comillas, paréntesis) y usá un máximo de 100 letras.'
               : terms.vacioAyuda}
           </p>
         </MotionCard>
       ) : null}
 
-      {totalCount > 0 && (
+      {!isCountError && !searchError && totalCount > 0 && (
         <div className="mt-8 flex flex-col items-center justify-between gap-4 border-t border-white/10 pt-6 sm:flex-row">
           <p className="text-sm text-slate-400">
             Mostrando {start + 1}–{Math.min(end + 1, totalCount)} de {totalCount} expedientes
