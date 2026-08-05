@@ -71,9 +71,11 @@ export default async function AgendaPage() {
     });
   }
 
+  const firmasVistas = new Set<string>();
+
   for (const p of plazos) {
     if (!p.fecha) continue;
-    const categoria = (p as { categoria?: string }).categoria ?? 'plazo';
+    const categoria = (p as { categoria?: string }).categoria ?? '__sin_categoria__';
     const cid = (p as { case_id?: string | null }).case_id ?? null;
     const hora = (p as { hora?: string | null }).hora ?? null;
     const tipo =
@@ -81,11 +83,20 @@ export default async function AgendaPage() {
       : categoria === 'turno' ? 'turno'
       : categoria === 'firma' ? 'firma'
       : 'plazo';
+    const tituloString = p.titulo ?? (tipo === 'evento' ? 'Evento' : tipo === 'turno' ? 'Turno' : tipo === 'firma' ? 'Firma' : agendaLabels.plazoLabel);
+
+    const tituloNorm = tituloString.normalize('NFC').trim().toLowerCase().replace(/\s+/g, ' ');
+    const fechaNorm = String(p.fecha).slice(0, 10);
+    const firma = `${cid || ''}|${fechaNorm}|${categoria}|${tituloNorm}`;
+    
+    if (firmasVistas.has(firma)) continue;
+    firmasVistas.add(firma);
+
     eventos.push({
       id: `${tipo}-${p.id}`,
-      fecha: String(p.fecha).slice(0, 10),
+      fecha: fechaNorm,
       hora: hora ?? undefined,
-      titulo: p.titulo ?? (tipo === 'evento' ? 'Evento' : tipo === 'turno' ? 'Turno' : tipo === 'firma' ? 'Firma' : agendaLabels.plazoLabel),
+      titulo: tituloString,
       tipo,
       href: cid ? `/expedientes/${cid}` : '/agenda',
       expedienteNombre: cid ? caseTitleById.get(cid) : undefined,

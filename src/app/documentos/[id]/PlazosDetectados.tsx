@@ -20,7 +20,7 @@ export function PlazosDetectados({
   docNombre: string;
 }) {
   const [estados, setEstados] = useState<
-    Record<number, 'idle' | 'loading' | 'ok' | 'error'>
+    Record<number, 'idle' | 'loading' | 'ok' | 'existing' | 'error'>
   >({});
 
   async function cargar(index: number, plazo: Plazo) {
@@ -31,7 +31,7 @@ export function PlazosDetectados({
         fecha: plazo.fecha,
         detalle: `Detectado por IA en el documento: ${docNombre}`,
       });
-      setEstados((prev) => ({ ...prev, [index]: res.ok ? 'ok' : 'error' }));
+      setEstados((prev) => ({ ...prev, [index]: res.ok ? (res.existing ? 'existing' : 'ok') : 'error' }));
     } catch {
       setEstados((prev) => ({ ...prev, [index]: 'error' }));
     }
@@ -64,6 +64,11 @@ export function PlazosDetectados({
                 <span className="flex min-w-[132px] shrink-0 items-center justify-center gap-1 rounded-lg bg-emerald-500/15 px-3 py-1.5 text-xs font-medium text-emerald-400">
                   <Check className="h-3.5 w-3.5" />
                   Cargado
+                </span>
+              ) : estado === 'existing' ? (
+                <span className="flex min-w-[132px] shrink-0 items-center justify-center gap-1 rounded-lg bg-slate-800 px-3 py-1.5 text-xs font-medium text-slate-400">
+                  <Check className="h-3.5 w-3.5" />
+                  Ya en agenda
                 </span>
               ) : (
                 <button

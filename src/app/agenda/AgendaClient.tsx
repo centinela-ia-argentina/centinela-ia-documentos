@@ -56,9 +56,13 @@ export function AgendaClient({ eventos, cases, industry, puedeGuardar = true }: 
       : await guardarTurno({ titulo: nuevoTitulo, fecha: nuevaFecha, hora: nuevaHora || undefined, tipo: nuevoTipo, detalle: nuevoDetalle, caseId: nuevoCaseId || undefined });
     setGuardando(false);
     if (res.ok) {
-      setNuevoTitulo(''); setNuevaFecha(''); setNuevoDetalle(''); setNuevoCaseId(''); setNuevaHora(''); setNuevoTipo('evento');
-      setShowForm(false);
-      router.refresh();
+      if (res.existing) {
+        setAviso('Ya en agenda.');
+      } else {
+        setNuevoTitulo(''); setNuevaFecha(''); setNuevoDetalle(''); setNuevoCaseId(''); setNuevaHora(''); setNuevoTipo('evento');
+        setShowForm(false);
+        router.refresh();
+      }
     } else {
       setAviso(res.motivo === 'no_auth' ? 'Iniciá sesión para guardar.' : (res.mensaje || 'No se pudo guardar.'));
     }
@@ -100,7 +104,12 @@ export function AgendaClient({ eventos, cases, industry, puedeGuardar = true }: 
 
   const eventosMes = eventos
     .filter((ev) => ev.fecha.startsWith(`${year}-${String(month + 1).padStart(2, '0')}`))
-    .sort((a, b) => a.fecha.localeCompare(b.fecha));
+    .sort((a, b) => {
+      if (a.fecha !== b.fecha) return a.fecha.localeCompare(b.fecha);
+      if (a.tipo !== b.tipo) return a.tipo.localeCompare(b.tipo);
+      if (a.titulo !== b.titulo) return a.titulo.localeCompare(b.titulo);
+      return a.id.localeCompare(b.id);
+    });
 
   return (
     <div className="space-y-6">
