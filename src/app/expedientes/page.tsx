@@ -43,12 +43,28 @@ export default async function CasesPage({
   const CASES_PAGE_SIZE = 25;
 
   let page = 1;
-  if (typeof rawPage === 'string' && /^\d+$/.test(rawPage)) {
-    const parsed = parseInt(rawPage, 10);
-    if (parsed > 0) page = parsed;
+  let pageError = false;
+  if (rawPage) {
+    const p = Number(rawPage);
+    if (Number.isSafeInteger(p) && p > 0) {
+      page = p;
+    } else {
+      pageError = true;
+    }
   }
 
-  const safeQ = rawQ ? rawQ.replace(/[%,_\\()]/g, '').trim() : '';
+  let safeQ = '';
+  let searchError = false;
+  
+  if (rawQ) {
+    if (rawQ.length > 100) {
+      searchError = true;
+    } else if (/[%_\\"()]/.test(rawQ)) {
+      searchError = true;
+    } else {
+      safeQ = rawQ.trim();
+    }
+  }
 
   let queryBuilder = supabase
     .from('cases')
@@ -61,12 +77,16 @@ export default async function CasesPage({
     queryBuilder = queryBuilder.not('status', 'in', '("archived","Archivado")');
   }
 
-  if (safeQ) {
-    queryBuilder = queryBuilder.or(`title.ilike.%${safeQ}%,client_name.ilike.%${safeQ}%,case_type.ilike.%${safeQ}%`);
+  if (safeQ && !searchError) {
+    queryBuilder = queryBuilder.or(`title.ilike."%${safeQ}%",client_name.ilike."%${safeQ}%",case_type.ilike."%${safeQ}%"`);
+  } else if (searchError) {
+    // Si la búsqueda es inválida o riesgosa, evitamos que traiga toda la base pretendiendo un .or() ausente
+    // Filtramos para asegurar 0 resultados.
+    queryBuilder = queryBuilder.eq('id', '00000000-0000-0000-0000-000000000000');
   }
 
   queryBuilder = queryBuilder
-    .order('updated_at', { ascending: false })
+    .order('updated_at', { ascending: false, nullsFirst: false })
     .order('created_at', { ascending: false })
     .order('id', { ascending: false });
 
@@ -76,7 +96,12 @@ export default async function CasesPage({
   queryBuilder = queryBuilder.range(start, end);
 
   const { data: cases, count, error } = await queryBuilder;
-  const totalCount = count ?? 0;
+  let totalCount = count;
+  if (totalCount === null && cases && cases.length > 0) {
+    totalCount = cases.length;
+  } else if (totalCount === null) {
+    totalCount = 0;
+  }
   const totalPages = Math.max(1, Math.ceil(totalCount / CASES_PAGE_SIZE));
 
   if (page > totalPages && totalCount > 0) {
@@ -84,6 +109,14 @@ export default async function CasesPage({
     if (rawQ) url.set('q', rawQ);
     if (estado) url.set('estado', estado);
     url.set('page', totalPages.toString());
+    redirect(`/expedientes?${url.toString()}`);
+  }
+
+  if (pageError && rawPage) {
+    const url = new URLSearchParams();
+    if (rawQ) url.set('q', rawQ);
+    if (estado) url.set('estado', estado);
+    url.set('page', '1');
     redirect(`/expedientes?${url.toString()}`);
   }
 
@@ -246,6 +279,10 @@ export default async function CasesPage({
             <p className="font-bold text-rose-400 text-lg">
               Ocurrió un error al cargar los expedientes.
             </p>
+          ) : searchError ? (
+            <p className="font-bold text-amber-400 text-lg">
+              Búsqueda inválida.
+            </p>
           ) : rawQ ? (
             <p className="font-bold text-white text-lg">
               {terms.vacioSinResultados} «{rawQ}».
@@ -257,7 +294,9 @@ export default async function CasesPage({
           )}
 
           <p className="mt-2 text-sm text-slate-400">
-            {error ? 'Intentá recargar la página en unos instantes.' : terms.vacioAyuda}
+            {error ? 'Intentá recargar la página en unos instantes.' 
+              : searchError ? 'Evitá caracteres especiales (%, _, comillas, paréntesis) y un máximo de 100 letras.'
+              : terms.vacioAyuda}
           </p>
         </MotionCard>
       ) : null}
