@@ -118,7 +118,7 @@ const defaultTerms: IndustryTerms = {
   observacionesPlazosTitulo: 'Plazos y fechas clave',
   observacionesPlazosDesc: 'Casos con fechas próximas o vencidas.',
   observacionesPlazosVacio: 'No hay fechas próximas para mostrar.',
-  dashboardActivesHelper: 'Expedientes activos',
+  dashboardActivesHelper: 'Registros actualmente en curso',
   dashboardPlazosHelper: 'Fechas clave próximas o vencidas',
   reportesSubtitulo: 'Análisis y visión de conjunto: métricas, actividad y auditoría para leer el panorama general de la organización.',
 };
