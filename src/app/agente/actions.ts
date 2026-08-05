@@ -44,13 +44,18 @@ export async function preguntarAgenteGlobal(input: {
     .maybeSingle();
   const industry = normalizeIndustryType(organization?.industry_type);
 
+const GLOBAL_AGENT_CASE_CONTEXT_LIMIT = 40;
+
   const [casesResult, docsResult, plazosResult] = await Promise.all([
     supabase
       .from('cases')
-      .select('id, title, client_name, case_type, status')
+      .select('id, title, client_name, case_type, status', { count: 'exact' })
       .eq('organization_id', profile.organization_id)
       .neq('status', 'archived')
-      .neq('status', 'Archivado'),
+      .neq('status', 'Archivado')
+      .order('created_at', { ascending: false })
+      .order('id', { ascending: false })
+      .limit(GLOBAL_AGENT_CASE_CONTEXT_LIMIT),
     supabase
       .from('documents')
       .select('file_name, expires_at, case_id')
@@ -63,6 +68,11 @@ export async function preguntarAgenteGlobal(input: {
   ]);
 
   const cases = casesResult.data ?? [];
+  const countIsUnknown = casesResult.count === null;
+  const totalActiveCases = casesResult.count ?? cases.length;
+  const includedCaseCount = cases.length;
+  const isCaseContextPartial = totalActiveCases > includedCaseCount;
+
   const documents = docsResult.data ?? [];
   const plazos = plazosResult.data ?? [];
 
@@ -72,24 +82,41 @@ export async function preguntarAgenteGlobal(input: {
   const partes: string[] = [];
   partes.push('VISTA GLOBAL DE LA ORGANIZACIÓN (todos los legajos activos).');
   partes.push(
-    'REGLA DE ALCANCE Y LÍMITES DE EJECUCIÓN (INNEGOCIABLE):\n' +
-      'Estás operando exclusivamente como Agente IA general de orientación y panorama organizacional.\n' +
-      'Ante pedidos de ejecución o modificación (por ejemplo: cambiar estado de un expediente/legajo/operación, agendar un plazo procesal o de vencimiento, modificar un expediente, vincular documentos, generar un resultado dentro de un caso, o ejecutar cualquier acción sobre un expediente, legajo u operación), TENÉS ESTRICTAMENTE PROHIBIDO:\n' +
-      '- Pedir el ID, número o nombre del caso.\n' +
-      '- Pedir el nuevo estado, la fecha u otros parámetros de ejecución.\n' +
-      '- Prometer o dar a entender que podrás realizar la acción al recibir más datos u otra confirmación.\n' +
+    'REGLAS INNEGOCIABLES DE RESPUESTA Y LÍMITES DE EJECUCIÓN:\n' +
+      'Estás operando exclusivamente como Agente IA general de orientación y panorama organizacional.\n\n' +
+      '1. CONSULTAS INFORMATIVAS: Si el usuario hace una pregunta informativa (ej. "¿Qué información tenés sobre el expediente X?"), NO apliques la limitación de ejecución. Respondé con los datos disponibles. Si el expediente consultado no figura en tu contexto, aplicá estrictamente las reglas de expediente no encontrado detalladas más abajo.\n\n' +
+      '2. SOLICITUDES OPERATIVAS: Ante pedidos de ejecución o modificación (por ejemplo: cambiar estado de un expediente, agendar un plazo procesal, modificar un expediente, vincular documentos, eliminar o cargar un documento desde acá), TENÉS ESTRICTAMENTE PROHIBIDO:\n' +
+      '- Pedir parámetros de ejecución, fechas o el ID del caso.\n' +
+      '- Prometer o dar a entender que podrás realizar la acción luego.\n' +
       '- Devolver tokens o bloques de acción.\n' +
-      'En lugar de continuar recopilando parámetros para algo que no podés ejecutar, DEBÉS RESPONDER EXACTA Y CLARAMENTE CON ESTE TEXTO:\n' +
-      '“Desde el Agente IA general no puedo modificar casos ni ejecutar acciones concretas. Abrí el expediente, legajo u operación correspondiente y utilizá su Agente IA.”\n' +
-      'Podés complementar con orientación general del sistema, pero sin intentar recopilar datos de ejecución.'
+      'Ante pedidos operativos, DEBÉS RESPONDER EXACTA Y CLARAMENTE CON ESTE TEXTO:\n' +
+      '“Desde el Agente IA general no puedo modificar casos ni ejecutar acciones concretas. Abrí el expediente, legajo u operación correspondiente y utilizá su Agente IA.”'
   );
-  partes.push(`Total de legajos activos: ${cases.length}.`);
+
+  if (countIsUnknown && includedCaseCount === GLOBAL_AGENT_CASE_CONTEXT_LIMIT) {
+    partes.push(
+      `Contexto limitado a un máximo de ${GLOBAL_AGENT_CASE_CONTEXT_LIMIT} expedientes activos creados más recientemente.\n` +
+      `REGLA PARA EXPEDIENTES NO ENCONTRADOS: Si el usuario pregunta por un expediente que no figura acá, respondé exactamente: "Ese expediente no aparece entre los ${GLOBAL_AGENT_CASE_CONTEXT_LIMIT} incluidos en el contexto actual. Puede estar fuera del recorte. Usá Buscar o abrí el expediente específico."\n` +
+      `Si el usuario hace peticiones exhaustivas (ej. "todos mis casos", "panorama completo"), TENÉS ESTRICTAMENTE PROHIBIDO presentar este análisis parcial como total.`
+    );
+  } else if (isCaseContextPartial) {
+    partes.push(
+      `La organización tiene ${totalActiveCases} expedientes activos. En esta conversación disponés únicamente de los ${GLOBAL_AGENT_CASE_CONTEXT_LIMIT} expedientes creados más recientemente.\n` +
+      `REGLA PARA EXPEDIENTES NO ENCONTRADOS: Si el usuario pregunta por un expediente que no figura acá, respondé exactamente: "Ese expediente no aparece entre los ${GLOBAL_AGENT_CASE_CONTEXT_LIMIT} incluidos en el contexto actual. Puede estar fuera del recorte. Usá Buscar o abrí el expediente específico."\n` +
+      `Si el usuario hace peticiones exhaustivas (ej. "todos mis casos", "panorama completo", "resumen de todos"), TENÉS ESTRICTAMENTE PROHIBIDO presentar un análisis parcial como total. DEBÉS INCLUIR EXACTAMENTE ESTA ADVERTENCIA:\n` +
+      `“Esta vista del Agente General incluye los ${GLOBAL_AGENT_CASE_CONTEXT_LIMIT} expedientes creados más recientemente de ${totalActiveCases} activos. No puedo afirmar que el análisis cubra la totalidad. Para localizar un expediente fuera de este contexto, usá Buscar o abrí el expediente específico.”`
+    );
+  } else {
+    partes.push(
+      `Disponés de detalles de los ${totalActiveCases} expedientes activos de esta organización.\n` +
+      `REGLA PARA EXPEDIENTES NO ENCONTRADOS: Si el usuario pregunta por un expediente que no aparece en este contexto, respondé exactamente: "Ese expediente no aparece entre los expedientes activos disponibles en este contexto. No puedo concluir que no exista. Verificá el nombre con Buscar o abrí el expediente específico."`
+    );
+  }
 
   if (cases.length) {
-    partes.push('\nLEGAJOS ACTIVOS:');
+    partes.push('\nLEGAJOS INCLUIDOS EN CONTEXTO:');
     partes.push(
       cases
-        .slice(0, 40)
         .map(
           (c) =>
             `- ${c.title ?? 'Sin título'} | Cliente: ${c.client_name ?? '-'} | Tipo: ${c.case_type ?? '-'} | Estado: ${c.status ?? '-'}`
