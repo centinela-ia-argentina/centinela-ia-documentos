@@ -59,6 +59,9 @@ export function PlazosDetectados({
                 <p className="truncate text-xs text-slate-400">
                   {plazo.descripcion}
                 </p>
+                <p className="mt-1 text-[10px] text-amber-300/80">
+                  Detectado por IA en el documento: {docNombre}. Verificá que la fecha sea correcta antes de cargarla a Agenda.
+                </p>
               </div>
               {estado === 'ok' ? (
                 <span className="flex min-w-[132px] shrink-0 items-center justify-center gap-1 rounded-lg bg-emerald-500/15 px-3 py-1.5 text-xs font-medium text-emerald-400">

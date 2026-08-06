@@ -87,7 +87,7 @@ export function RadarPlazos({
       <section className="rounded-2xl border border-white/10 bg-white/[0.03] p-5 shadow-sm">
         <h2 className="text-base font-semibold text-white">🚦 {titulo}</h2>
         <p className="mt-2 text-sm text-slate-300">
-          No hay plazos vencidos ni próximos (30 días). Se alimenta de las actuaciones futuras y de las fechas detectadas por la IA en los documentos.
+          No hay plazos vencidos ni próximos (30 días). Aparecerán aquí los plazos que detecte la IA o que cargues manualmente.
         </p>
       </section>
     );
