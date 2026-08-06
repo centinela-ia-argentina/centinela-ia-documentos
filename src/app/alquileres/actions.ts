@@ -286,8 +286,8 @@ export async function aplicarAjusteAlquiler(formData: FormData) {
     valorObjetivo
   });
 
-  if (!res.ok) {
-    redirect(`/alquileres/${id}?error=${encodeURIComponent(res.motivo || 'Error calculando')}`);
+  if (!res.ok || typeof res.coeficiente !== 'number' || !Number.isFinite(res.coeficiente) || res.coeficiente <= 0 || typeof res.montoSugerido !== 'number' || !Number.isFinite(res.montoSugerido) || res.montoSugerido <= 0) {
+    redirect(`/alquileres/${id}?error=${encodeURIComponent(res.motivo || 'Error de validación matemática en el cálculo del ajuste.')}`);
   }
 
   // Update
