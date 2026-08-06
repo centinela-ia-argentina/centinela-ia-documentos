@@ -76,7 +76,7 @@ export interface InteresesMoratoriosResult {
 	total: number
 }
 
-// Motor de intereses históricos temporalmente bloqueado (J-LEGAL-1B.3).
+// Los intereses históricos no se calculan automáticamente: requieren tasas verificadas y revisión profesional.
 // No se puede aplicar una tasa plana (ej. 25.57%) de manera retroactiva.
 // Requiere la implementación de series históricas oficiales segmentadas por tramo.
 export function calcularInteresesMoratorios(args: {
