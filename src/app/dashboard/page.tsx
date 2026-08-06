@@ -286,7 +286,7 @@ export default async function DashboardPage() {
           <div className="mt-6 grid gap-4 sm:grid-cols-3">
             <div className="rounded-2xl border border-white/5 bg-white/[0.02] p-4">
               <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                Procesados
+                {industry === 'legal' ? 'Analizados' : 'Procesados'}
               </p>
               <p className="mt-2 text-2xl font-bold text-white">
                 {analyzedDocuments.length}
