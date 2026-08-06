@@ -42,7 +42,13 @@ drop policy if exists "rent_index_insert" on public.rent_index_values;
 drop policy if exists "rent_index_update" on public.rent_index_values;
 drop policy if exists "rent_index_delete" on public.rent_index_values;
 
--- 3. Crear políticas granulares por rol
+-- 3. Habilitar RLS explícitamente en las tablas maestras inmobiliarias
+alter table public.properties enable row level security;
+alter table public.clients enable row level security;
+alter table public.rental_contracts enable row level security;
+alter table public.rent_index_values enable row level security;
+
+-- 4. Crear políticas granulares por rol
 
 -- PROPERTIES
 create policy "properties_select_role" on public.properties for select to authenticated

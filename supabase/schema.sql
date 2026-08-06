@@ -265,6 +265,11 @@ values (
 )
 on conflict do nothing;
 
+alter table public.properties enable row level security;
+alter table public.clients enable row level security;
+alter table public.rental_contracts enable row level security;
+alter table public.rent_index_values enable row level security;
+
 create policy "properties_select_role" on public.properties for select to authenticated using (organization_id = public.current_user_organization_id() and public.current_user_role() in ('admin', 'employee', 'auditor'));
 create policy "properties_insert_role" on public.properties for insert to authenticated with check (organization_id = public.current_user_organization_id() and public.current_user_role() in ('admin', 'employee'));
 create policy "properties_update_role" on public.properties for update to authenticated using (organization_id = public.current_user_organization_id() and public.current_user_role() in ('admin', 'employee')) with check (organization_id = public.current_user_organization_id() and public.current_user_role() in ('admin', 'employee'));
