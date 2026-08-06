@@ -32,8 +32,13 @@ Usuario: Administrador (admin), Operador (employee), Auditor (auditor), Cliente 
 ## 6. Estado actual
 Landing, login, dashboard, expedientes, documentos, análisis beta, reportes, auditoría, usuarios/roles/invitaciones: OK. Seguridad multi-organización validada. Fase 0 (industry_type + diccionario documental) OK. Fase 1 verticalización VALIDADA en 4 rubros: legal, inmobiliaria, escribania, empresa.
 
-## 7. Próximo: Fase 2 (capacidades operativas)
-1. Checklist de faltantes automático. 2. Vencimientos y alertas. 3. Panel de observaciones IA.
+## 7. Estado actual de las capacidades jurídicas
+
+- Checklist documental y sugerencias sujetas a revisión profesional.
+- Radar de plazos y fechas detectadas por IA.
+- Agenda con confirmación humana y mitigación conservadora de duplicados.
+- Panel de observaciones para pendientes y documentos que requieren atención.
+- Los cálculos, plazos y acciones propuestas no se ejecutan ni persisten sin la intervención correspondiente del usuario.
 
 ## 8. Flujo obligatorio antes de pushear
 1. Hacer el cambio. 2. npm run build (sin errores). 3. git restore next-env.d.ts. 4. git add -A && git commit -m "<mensaje>". 5. git push origin main. 6. Esperar Vercel Ready y validar online (cache-bust con ?v=). Si tocás SQL/migraciones, correrlas en Supabase.

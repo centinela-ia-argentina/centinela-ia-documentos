@@ -44,7 +44,7 @@ Centinela IA busca centralizar esa documentación en un panel privado, seguro y 
 * Recuperación de contraseña.
 * Dashboard operativo.
 * Gestión de expedientes.
-* Ocultamiento de expedientes archivados en la vista principal.
+* Paginación server-side y ocultamiento de expedientes archivados en la vista principal.
 * Gestión de documentos.
 * Carga documental en PDF.
 * Supabase Storage privado.
