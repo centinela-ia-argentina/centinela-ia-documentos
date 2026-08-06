@@ -57,7 +57,7 @@ export function calcularAjuste(params: {
     if (!Number.isFinite(coeficiente) || coeficiente <= 0) {
       return { ok: false, motivo: 'El coeficiente calculado es inválido.' };
     }
-    
+
     const montoSugerido = Number((montoActual * coeficiente).toFixed(2));
     if (!Number.isFinite(montoSugerido) || montoSugerido <= 0) {
       return { ok: false, motivo: 'El monto sugerido calculado es inválido.' };

@@ -31,12 +31,12 @@ export async function calificarInquilinoConIA(input: {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) return { ok: false, motivo: 'sin_api_key' };
   if (input.documentos.length === 0) return { ok: false, motivo: 'sin_datos' };
-  
+
   const modelo = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
   const docsTexto = input.documentos.map((d, i) =>
     `Documento ${i + 1}: ${d.nombre} (${d.tipo})\nResumen: ${d.resumen}\nDatos clave: ${d.datos.join('; ') || '-'}\nAlertas: ${d.alertas.join('; ') || '-'}`
   ).join('\n\n');
-  
+
   const prompt = [
     'Sos un analista de riesgo crediticio especializado en evaluar postulantes a alquileres residenciales en Argentina. Vas a evaluar la aptitud de un inquilino y la solidez de sus garantías a partir de los documentos ya analizados (recibos de sueldo, DNI, informe de dominio de la garantía, contrato laboral, etc.).',
     'Tu tarea es EXTRAER datos, NO calcular el veredicto final (eso lo hace el sistema con una regla fija).',
@@ -60,7 +60,7 @@ export async function calificarInquilinoConIA(input: {
     'DOCUMENTOS ANALIZADOS:',
     docsTexto || '(sin documentos analizados)',
   ].join('\n');
-  
+
   try {
     const resp = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/${modelo}:generateContent?key=${apiKey}`,
@@ -86,7 +86,7 @@ export async function calificarInquilinoConIA(input: {
     const alquiler = input.alquilerMensual > 0 ? input.alquilerMensual : 0;
     const monedaAlquiler = typeof input.moneda === 'string' && (input.moneda === 'ARS' || input.moneda === 'USD') ? input.moneda : null;
     const gravamenes = arr(parsed.gravamenes_detectados);
-    
+
     let nivel: NivelCalificacion;
     let veces: number | null = null;
     let regla: string = 'Ingresos netos ≥ 3x el valor del alquiler';
@@ -107,13 +107,13 @@ export async function calificarInquilinoConIA(input: {
       } else {
         nivel = 'no_apto';
       }
-      
+
       // Con gravámenes sobre la garantía no puede quedar "apto" solo por ingresos.
       if (nivel === 'apto' && gravamenes.length > 0) {
         nivel = 'condicional';
       }
     }
-    
+
     return {
       ok: true, model: `prescore-${modelo}`,
       prescore: {

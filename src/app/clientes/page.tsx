@@ -19,6 +19,7 @@ export default async function ClientesPage() {
 
   if (!user) redirect('/login');
   if (!profile) redirect('/onboarding');
+  if (profile.role === 'client') redirect('/acceso-denegado');
 
   const supabase = await createClient();
 
