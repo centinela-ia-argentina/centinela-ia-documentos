@@ -353,6 +353,7 @@ export default async function RentalDetailPage({ params }: { params: Promise<{ i
                         <AplicarAjusteButton
                           rentalId={record.id}
                           montoLabel={`${record.currency === 'USD' ? 'u$s' : '$'}${resAjuste.montoSugerido?.toLocaleString('es-AR')}`}
+                          expectedUpdatedAt={record.updated_at}
                         />
                       )}
                     </div>
