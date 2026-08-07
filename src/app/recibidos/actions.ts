@@ -28,7 +28,7 @@ export async function aceptarDerivacion(formData: FormData) {
   
   if (!esOrgDestino && !esEmailDestino) return;
 
-  const { error, count } = await supabase
+  const { data: updated, error } = await supabase
     .from('case_derivations')
     .update({
       status: 'aceptada',
@@ -37,10 +37,12 @@ export async function aceptarDerivacion(formData: FormData) {
       updated_at: new Date().toISOString(),
     })
     .eq('id', id)
-    .eq('status', 'pendiente');
+    .eq('status', 'pendiente')
+    .select('id')
+    .maybeSingle();
 
-  if (error) {
-    console.error('Error al aceptar derivacion:', error);
+  if (error || !updated) {
+    console.error('Error o sin cambios al aceptar derivacion:', error);
     return;
   }
 
@@ -78,7 +80,7 @@ export async function rechazarDerivacion(formData: FormData) {
   
   if (!esOrgDestino && !esEmailDestino) return;
 
-  const { error } = await supabase
+  const { data: updated, error } = await supabase
     .from('case_derivations')
     .update({
       status: 'rechazada',
@@ -86,10 +88,12 @@ export async function rechazarDerivacion(formData: FormData) {
       updated_at: new Date().toISOString(),
     })
     .eq('id', id)
-    .eq('status', 'pendiente');
+    .eq('status', 'pendiente')
+    .select('id')
+    .maybeSingle();
 
-  if (error) {
-    console.error('Error al rechazar derivacion:', error);
+  if (error || !updated) {
+    console.error('Error o sin cambios al rechazar derivacion:', error);
     return;
   }
 

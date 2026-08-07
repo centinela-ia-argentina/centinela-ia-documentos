@@ -24,7 +24,7 @@ const MESES = ['Todos','Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio',
 const escapeHtml = (s: string) =>
   s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
-export function ProtocoloClient({ escrituras, cases, esAuditor }: { escrituras: EscrituraProtocolo[]; cases: { id: string; title: string }[]; esAuditor?: boolean }) {
+export function ProtocoloClient({ escrituras, cases, esAuditor, esAdmin }: { escrituras: EscrituraProtocolo[]; cases: { id: string; title: string }[]; esAuditor?: boolean; esAdmin?: boolean }) {
   const router = useRouter();
   const anioActual = new Date().getFullYear();
 
@@ -227,7 +227,7 @@ export function ProtocoloClient({ escrituras, cases, esAuditor }: { escrituras: 
                 <td className="px-3 py-2 text-white/70">{e.comparecientes || '-'}</td>
                 <td className="px-3 py-2 text-white/60">{e.folio_desde || e.folio_hasta ? `${e.folio_desde || '?'} – ${e.folio_hasta || '?'}` : '-'}</td>
                 <td className="px-3 py-2 text-right">
-                  {!esAuditor && (
+                  {esAdmin && (
                     <button onClick={() => borrar(e.id)} className="text-white/30 hover:text-rose-400"><Trash2 className="h-4 w-4" /></button>
                   )}
                 </td>

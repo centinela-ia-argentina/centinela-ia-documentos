@@ -10,6 +10,7 @@ export default async function ProtocoloPage() {
   if (profile.role === 'client') redirect('/acceso-denegado');
   
   const esAuditor = profile.role === 'auditor';
+  const esAdmin = profile.role === 'admin';
 
   const supabase = await createClient();
 
@@ -33,7 +34,7 @@ export default async function ProtocoloPage() {
 
   return (
     <AppShell>
-      <ProtocoloClient escrituras={escrituras} cases={cases} esAuditor={esAuditor} />
+      <ProtocoloClient escrituras={escrituras} cases={cases} esAuditor={esAuditor} esAdmin={esAdmin} />
     </AppShell>
   );
 }

@@ -7,7 +7,7 @@ create table if not exists public.protocolo_escrituras (
   organization_id uuid not null references public.organizations(id) on delete cascade,
   numero integer not null,
   anio integer not null,
-  fecha_otorgamiento date not null,
+  fecha_otorgamiento date,
   tipo_acto text,
   comparecientes text,
   objeto text,
@@ -15,7 +15,7 @@ create table if not exists public.protocolo_escrituras (
   folio_hasta text,
   observaciones text,
   case_id uuid references public.cases(id) on delete set null,
-  created_by uuid references public.profiles(id) on delete set null,
+  created_by uuid references auth.users(id) on delete set null,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -30,11 +30,14 @@ create table if not exists public.case_derivations (
   id uuid primary key default gen_random_uuid(),
   case_id uuid not null references public.cases(id) on delete cascade,
   from_organization_id uuid not null references public.organizations(id) on delete cascade,
+  from_organization_name text,
+  case_title text,
+  mensaje text,
   to_email text not null,
-  to_organization_id uuid references public.organizations(id) on delete cascade,
+  to_organization_id uuid references public.organizations(id) on delete set null,
   status text not null default 'pendiente' check (status in ('pendiente', 'aceptada', 'rechazada', 'revocada')),
-  created_by uuid references public.profiles(id) on delete set null,
-  accepted_by uuid references public.profiles(id) on delete set null,
+  created_by uuid references auth.users(id) on delete set null,
+  accepted_by uuid references auth.users(id) on delete set null,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -46,7 +49,7 @@ create table if not exists public.derivation_notes (
   derivation_id uuid not null references public.case_derivations(id) on delete cascade,
   case_id uuid not null references public.cases(id) on delete cascade,
   author_organization_id uuid not null references public.organizations(id) on delete cascade,
-  author_user_id uuid not null references public.profiles(id) on delete cascade,
+  author_user_id uuid references auth.users(id) on delete set null,
   author_name text,
   author_org_name text,
   body text not null,
@@ -60,18 +63,17 @@ alter table public.derivation_notes enable row level security;
 alter table public.document_chunks enable row level security;
 
 -- 2. LIMPIEZA DE PRIVILEGIOS
-revoke all on public.protocolo_escrituras from public, anon;
-revoke all on public.case_derivations from public, anon;
-revoke all on public.derivation_notes from public, anon;
-revoke all on public.document_chunks from public, anon;
+revoke all on public.protocolo_escrituras from public, anon, authenticated;
+revoke all on public.case_derivations from public, anon, authenticated;
+revoke all on public.derivation_notes from public, anon, authenticated;
+revoke all on public.document_chunks from public, anon, authenticated;
 
 grant select, insert, update, delete on public.protocolo_escrituras to authenticated;
 grant select, insert, update, delete on public.case_derivations to authenticated;
 grant select, insert, update, delete on public.derivation_notes to authenticated;
 grant select, insert, update, delete on public.document_chunks to authenticated;
 
--- 3. FUNCIONES DE CONTEXTO COLABORATIVO
--- helper de estado activo
+-- 3. FUNCIONES DE CONTEXTO Y VALIDACIÓN
 create or replace function public.current_user_is_active()
 returns boolean
 language sql security definer set search_path = public stable
@@ -79,7 +81,6 @@ as $$
   select exists(select 1 from public.profiles where id = auth.uid() and status = 'active');
 $$;
 
--- lectura colaborativa (recibida)
 create or replace function public.can_read_derived_case(target_case_id uuid)
 returns boolean
 language sql security definer set search_path = public stable
@@ -93,7 +94,6 @@ as $$
   );
 $$;
 
--- contribución colaborativa (recibida)
 create or replace function public.can_contribute_derived_case(target_case_id uuid)
 returns boolean
 language sql security definer set search_path = public stable
@@ -107,12 +107,70 @@ as $$
   );
 $$;
 
+create or replace function public.is_valid_derived_storage_path(p_path text)
+returns boolean
+language sql security definer set search_path = public stable
+as $$
+  select
+    array_length(string_to_array(p_path, '/'), 1) = 4
+    and (string_to_array(p_path, '/'))[1] ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+    and (string_to_array(p_path, '/'))[2] ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+    and (string_to_array(p_path, '/'))[3] ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$';
+$$;
+
+-- INMUTABILIDAD CASE_DERIVATIONS
+create or replace function public.prevent_derivations_mutation()
+returns trigger
+language plpgsql security definer
+as $$
+begin
+  if old.id is distinct from new.id then
+    raise exception 'Cannot modify id';
+  end if;
+  if old.case_id is distinct from new.case_id then
+    raise exception 'Cannot modify case_id';
+  end if;
+  if old.from_organization_id is distinct from new.from_organization_id then
+    raise exception 'Cannot modify from_organization_id';
+  end if;
+  if old.created_by is distinct from new.created_by then
+    raise exception 'Cannot modify created_by';
+  end if;
+  if old.created_at is distinct from new.created_at then
+    raise exception 'Cannot modify created_at';
+  end if;
+
+  if old.status = 'pendiente' and new.status not in ('aceptada', 'rechazada', 'revocada', 'pendiente') then
+    raise exception 'Invalid transition from pendiente';
+  end if;
+  if old.status = 'aceptada' and new.status not in ('revocada', 'aceptada') then
+    raise exception 'Invalid transition from aceptada';
+  end if;
+  if old.status in ('rechazada', 'revocada') and new.status is distinct from old.status then
+    raise exception 'Cannot transition from final status';
+  end if;
+
+  return new;
+end;
+$$;
+
+drop trigger if exists enforce_derivations_mutation on public.case_derivations;
+create trigger enforce_derivations_mutation
+before update on public.case_derivations
+for each row execute function public.prevent_derivations_mutation();
+
+
 -- 4. RLS DE CASE_DERIVATIONS
 drop policy if exists "derivaciones destino select" on public.case_derivations;
 drop policy if exists "derivaciones destino update" on public.case_derivations;
 drop policy if exists "derivaciones origen insert" on public.case_derivations;
 drop policy if exists "derivaciones origen select" on public.case_derivations;
 drop policy if exists "derivaciones origen update" on public.case_derivations;
+drop policy if exists "derivations_select_origin" on public.case_derivations;
+drop policy if exists "derivations_insert_origin" on public.case_derivations;
+drop policy if exists "derivations_update_origin" on public.case_derivations;
+drop policy if exists "derivations_select_dest" on public.case_derivations;
+drop policy if exists "derivations_update_dest" on public.case_derivations;
 
 create policy "derivations_select_origin" on public.case_derivations for select to authenticated
 using (public.current_user_is_active() and from_organization_id = public.current_user_organization_id() and public.current_user_role() in ('admin', 'employee', 'auditor'));
@@ -121,38 +179,31 @@ create policy "derivations_insert_origin" on public.case_derivations for insert 
 with check (public.current_user_is_active() and from_organization_id = public.current_user_organization_id() and public.current_user_role() in ('admin', 'employee'));
 
 create policy "derivations_update_origin" on public.case_derivations for update to authenticated
-using (public.current_user_is_active() and from_organization_id = public.current_user_organization_id() and public.current_user_role() in ('admin', 'employee'))
-with check (
-  from_organization_id = public.current_user_organization_id()
-  and case_id = case_id
-  and created_by = created_by
-  and created_at = created_at
-);
+using (public.current_user_is_active() and from_organization_id = public.current_user_organization_id() and public.current_user_role() in ('admin', 'employee'));
 
 create policy "derivations_select_dest" on public.case_derivations for select to authenticated
 using (
   public.current_user_is_active()
   and public.current_user_role() in ('admin', 'employee', 'auditor')
-  and (to_organization_id = public.current_user_organization_id() or lower(to_email) = lower((select email from public.profiles where id = auth.uid() limit 1)))
+  and (to_organization_id = public.current_user_organization_id() or lower(to_email) = lower((select email from auth.users where id = auth.uid() limit 1)))
 );
 
 create policy "derivations_update_dest" on public.case_derivations for update to authenticated
 using (
   public.current_user_is_active()
   and public.current_user_role() in ('admin', 'employee')
-  and (to_organization_id = public.current_user_organization_id() or lower(to_email) = lower((select email from public.profiles where id = auth.uid() limit 1)))
-)
-with check (
-  case_id = case_id
-  and from_organization_id = from_organization_id
-  and created_by = created_by
-  and created_at = created_at
+  and (to_organization_id = public.current_user_organization_id() or lower(to_email) = lower((select email from auth.users where id = auth.uid() limit 1)))
 );
 
 -- 5. RLS DE DERIVATION_NOTES
 drop policy if exists "notes_select_legacy" on public.derivation_notes;
 drop policy if exists "notes_insert_legacy" on public.derivation_notes;
 drop policy if exists "notes_update_legacy" on public.derivation_notes;
+drop policy if exists "derivation_notes_insert_dest" on public.derivation_notes;
+drop policy if exists "derivation_notes_select_dest" on public.derivation_notes;
+drop policy if exists "derivation_notes_select_origin" on public.derivation_notes;
+drop policy if exists "derivation_notes_select" on public.derivation_notes;
+drop policy if exists "derivation_notes_insert" on public.derivation_notes;
 
 create policy "derivation_notes_select" on public.derivation_notes for select to authenticated
 using (
@@ -169,6 +220,7 @@ with check (
   public.current_user_is_active() and public.current_user_role() in ('admin', 'employee') and
   author_organization_id = public.current_user_organization_id() and
   author_user_id = auth.uid() and
+  exists (select 1 from public.case_derivations d where d.id = derivation_id and d.case_id = derivation_notes.case_id) and
   (
     exists (select 1 from public.case_derivations d where d.id = derivation_id and d.from_organization_id = public.current_user_organization_id())
     or public.can_contribute_derived_case(case_id)
@@ -179,6 +231,9 @@ with check (
 drop policy if exists "cases_select_derived" on public.cases;
 drop policy if exists "documents_select_derived" on public.documents;
 drop policy if exists "documents_insert_derived" on public.documents;
+drop policy if exists "cases_select_derived_role" on public.cases;
+drop policy if exists "documents_select_derived_role" on public.documents;
+drop policy if exists "documents_insert_derived_role" on public.documents;
 
 create policy "cases_select_derived_role" on public.cases for select to authenticated
 using (
@@ -193,26 +248,35 @@ using (
 create policy "documents_insert_derived_role" on public.documents for insert to authenticated
 with check (
   public.can_contribute_derived_case(case_id)
+  and organization_id = (select organization_id from public.cases c where c.id = case_id limit 1)
+  and contributed_by_organization_id = public.current_user_organization_id()
+  and uploaded_by = auth.uid()
 );
 
 -- 7. STORAGE DERIVADO
 drop policy if exists "documents_storage_insert_derived" on storage.objects;
 drop policy if exists "documents_storage_select_derived" on storage.objects;
+drop policy if exists "documents_storage_select_derived_role" on storage.objects;
+drop policy if exists "documents_storage_insert_derived_role" on storage.objects;
 
 create policy "documents_storage_select_derived_role" on storage.objects for select to authenticated
 using (
-  bucket_id = 'documents' 
+  bucket_id = 'documents'
+  and public.is_valid_derived_storage_path(name)
   and public.can_read_derived_case((string_to_array(name, '/'))[2]::uuid)
 );
 
 create policy "documents_storage_insert_derived_role" on storage.objects for insert to authenticated
 with check (
   bucket_id = 'documents'
+  and public.is_valid_derived_storage_path(name)
+  and (string_to_array(name, '/'))[1]::uuid = (select organization_id from public.cases c where c.id = (string_to_array(name, '/'))[2]::uuid limit 1)
   and public.can_contribute_derived_case((string_to_array(name, '/'))[2]::uuid)
 );
 
 -- 8. DOCUMENTS DELETE
 drop policy if exists "documents_delete_own_org" on public.documents;
+drop policy if exists "documents_delete_admin" on public.documents;
 
 create policy "documents_delete_admin" on public.documents for delete to authenticated
 using (
@@ -226,6 +290,9 @@ drop policy if exists "document_chunks_select_org" on public.document_chunks;
 drop policy if exists "document_chunks_insert_org" on public.document_chunks;
 drop policy if exists "document_chunks_delete_org" on public.document_chunks;
 drop policy if exists "document_chunks_delete_own_org" on public.document_chunks;
+drop policy if exists "document_chunks_select_role" on public.document_chunks;
+drop policy if exists "document_chunks_insert_role" on public.document_chunks;
+drop policy if exists "document_chunks_delete_role" on public.document_chunks;
 
 create policy "document_chunks_select_role" on public.document_chunks for select to authenticated
 using (
@@ -248,12 +315,16 @@ using (
   and public.current_user_role() in ('admin', 'employee')
 );
 
+-- DROP de la firma bigint incorrecta y cualquier otra que exista
+drop function if exists public.match_document_chunks(vector, uuid, integer);
+drop function if exists public.match_document_chunks(vector, uuid, bigint);
+
 create or replace function public.match_document_chunks(
   query_embedding vector(768),
   match_org uuid,
   match_count integer default 10
 ) returns table (
-  id bigint,
+  id uuid,
   document_id uuid,
   content text,
   similarity float
@@ -264,6 +335,8 @@ begin
   if not public.current_user_is_active() then return; end if;
   if public.current_user_role() not in ('admin', 'employee', 'auditor') then return; end if;
   if public.current_user_organization_id() != match_org then return; end if;
+  if match_count > 100 then match_count := 100; end if;
+  if query_embedding is null then return; end if;
 
   return query
   select
@@ -278,7 +351,7 @@ begin
 end;
 $$;
 
-revoke execute on function public.match_document_chunks(vector, uuid, integer) from public, anon;
+revoke execute on function public.match_document_chunks(vector, uuid, integer) from public, anon, authenticated;
 grant execute on function public.match_document_chunks(vector, uuid, integer) to authenticated;
 
 -- 10. PROTOCOLO RLS
@@ -286,6 +359,10 @@ drop policy if exists "protocolo_org_select" on public.protocolo_escrituras;
 drop policy if exists "protocolo_org_insert" on public.protocolo_escrituras;
 drop policy if exists "protocolo_org_update" on public.protocolo_escrituras;
 drop policy if exists "protocolo_org_delete" on public.protocolo_escrituras;
+drop policy if exists "protocolo_select_role" on public.protocolo_escrituras;
+drop policy if exists "protocolo_insert_role" on public.protocolo_escrituras;
+drop policy if exists "protocolo_update_role" on public.protocolo_escrituras;
+drop policy if exists "protocolo_delete_admin" on public.protocolo_escrituras;
 
 create policy "protocolo_select_role" on public.protocolo_escrituras for select to authenticated
 using (public.current_user_is_active() and organization_id = public.current_user_organization_id() and public.current_user_role() in ('admin', 'employee', 'auditor'));
@@ -301,6 +378,7 @@ create policy "protocolo_delete_admin" on public.protocolo_escrituras for delete
 using (public.current_user_is_active() and organization_id = public.current_user_organization_id() and public.current_user_role() = 'admin');
 
 -- 11. NUMERACIÓN ATÓMICA
+drop function if exists public.registrar_escritura_atomica;
 create or replace function public.registrar_escritura_atomica(
   p_anio integer,
   p_fecha date,
@@ -318,6 +396,7 @@ declare
   v_org_id uuid;
   v_role text;
   v_numero integer;
+  v_case_org uuid;
 begin
   if not public.current_user_is_active() then
     raise exception 'Perfil inactivo';
@@ -330,7 +409,22 @@ begin
     raise exception 'Sin permisos para registrar escrituras';
   end if;
 
-  perform pg_advisory_xact_lock(abs(hashtext(v_org_id::text))::integer, p_anio);
+  if p_fecha is null then
+    raise exception 'Fecha requerida';
+  end if;
+
+  if extract(year from p_fecha) != p_anio then
+    raise exception 'Incoherencia entre p_anio y el año de p_fecha';
+  end if;
+
+  if p_case_id is not null then
+    select organization_id into v_case_org from public.cases where id = p_case_id;
+    if v_case_org != v_org_id then
+      raise exception 'Case_id no pertenece a la organización';
+    end if;
+  end if;
+
+  perform pg_advisory_xact_lock(hashtextextended(v_org_id::text || ':' || p_anio::text, 0));
 
   select coalesce(max(numero), 0) + 1 into v_numero
   from public.protocolo_escrituras
@@ -350,7 +444,7 @@ begin
 end;
 $$;
 
-revoke execute on function public.registrar_escritura_atomica from public, anon;
+revoke execute on function public.registrar_escritura_atomica from public, anon, authenticated;
 grant execute on function public.registrar_escritura_atomica to authenticated;
 
 commit;
