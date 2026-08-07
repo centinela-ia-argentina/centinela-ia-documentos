@@ -13,8 +13,15 @@ permisos antes de escribir datos.
 - `auditor`: solo lectura de expedientes, documentos y auditoria de su
   organizacion.
 - `client`: solo lectura de expedientes asignados mediante `cases.assigned_to`
-  y de sus documentos vinculados. No accede a usuarios, reportes, auditoria ni
-  configuracion.
+  y de sus documentos vinculados. Conserva exclusivamente expedientes/documentos asignados. No accede a usuarios, reportes, auditoria ni
+  configuracion, ni a tablas maestras inmobiliarias.
+
+**Bloqueo general**: Todo perfil inactivo es bloqueado automáticamente y se le deniega el acceso a sus respectivas organizaciones independientemente del rol.
+
+**Tablas Maestras Inmobiliarias**: Las tablas `properties`, `clients`, `rental_contracts` y `rent_index_values` tienen políticas rígidas por rol:
+- `admin` y `employee`: lectura y mutación CRUD.
+- `auditor`: acceso de solo lectura (read-only).
+- `client`: sin acceso a las tablas maestras.
 
 ## Aplicacion en Supabase
 

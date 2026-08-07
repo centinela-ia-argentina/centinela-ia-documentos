@@ -141,7 +141,7 @@ security definer
 set search_path = public
 stable
 as $$
-  select organization_id from public.profiles where id = auth.uid() limit 1;
+  select organization_id from public.profiles where id = auth.uid() and status = 'active' limit 1;
 $$;
 
 create or replace function public.current_user_role()
@@ -151,7 +151,7 @@ security definer
 set search_path = public
 stable
 as $$
-  select role from public.profiles where id = auth.uid() limit 1;
+  select role from public.profiles where id = auth.uid() and status = 'active' limit 1;
 $$;
 
 create or replace function public.is_org_admin()
@@ -264,3 +264,28 @@ values (
   '["DNI comprador", "DNI vendedor", "Constancia CUIT/CUIL", "Título de propiedad", "Libre deuda", "Boleto de compraventa", "Comprobantes", "Autorizaciones"]'::jsonb
 )
 on conflict do nothing;
+
+alter table public.properties enable row level security;
+alter table public.clients enable row level security;
+alter table public.rental_contracts enable row level security;
+alter table public.rent_index_values enable row level security;
+
+create policy "properties_select_role" on public.properties for select to authenticated using (organization_id = public.current_user_organization_id() and public.current_user_role() in ('admin', 'employee', 'auditor'));
+create policy "properties_insert_role" on public.properties for insert to authenticated with check (organization_id = public.current_user_organization_id() and public.current_user_role() in ('admin', 'employee'));
+create policy "properties_update_role" on public.properties for update to authenticated using (organization_id = public.current_user_organization_id() and public.current_user_role() in ('admin', 'employee')) with check (organization_id = public.current_user_organization_id() and public.current_user_role() in ('admin', 'employee'));
+create policy "properties_delete_role" on public.properties for delete to authenticated using (organization_id = public.current_user_organization_id() and public.current_user_role() in ('admin', 'employee'));
+
+create policy "clients_select_role" on public.clients for select to authenticated using (organization_id = public.current_user_organization_id() and public.current_user_role() in ('admin', 'employee', 'auditor'));
+create policy "clients_insert_role" on public.clients for insert to authenticated with check (organization_id = public.current_user_organization_id() and public.current_user_role() in ('admin', 'employee'));
+create policy "clients_update_role" on public.clients for update to authenticated using (organization_id = public.current_user_organization_id() and public.current_user_role() in ('admin', 'employee')) with check (organization_id = public.current_user_organization_id() and public.current_user_role() in ('admin', 'employee'));
+create policy "clients_delete_role" on public.clients for delete to authenticated using (organization_id = public.current_user_organization_id() and public.current_user_role() in ('admin', 'employee'));
+
+create policy "rental_contracts_select_role" on public.rental_contracts for select to authenticated using (organization_id = public.current_user_organization_id() and public.current_user_role() in ('admin', 'employee', 'auditor'));
+create policy "rental_contracts_insert_role" on public.rental_contracts for insert to authenticated with check (organization_id = public.current_user_organization_id() and public.current_user_role() in ('admin', 'employee'));
+create policy "rental_contracts_update_role" on public.rental_contracts for update to authenticated using (organization_id = public.current_user_organization_id() and public.current_user_role() in ('admin', 'employee')) with check (organization_id = public.current_user_organization_id() and public.current_user_role() in ('admin', 'employee'));
+create policy "rental_contracts_delete_role" on public.rental_contracts for delete to authenticated using (organization_id = public.current_user_organization_id() and public.current_user_role() in ('admin', 'employee'));
+
+create policy "rent_index_values_select_role" on public.rent_index_values for select to authenticated using (organization_id = public.current_user_organization_id() and public.current_user_role() in ('admin', 'employee', 'auditor'));
+create policy "rent_index_values_insert_role" on public.rent_index_values for insert to authenticated with check (organization_id = public.current_user_organization_id() and public.current_user_role() in ('admin', 'employee'));
+create policy "rent_index_values_update_role" on public.rent_index_values for update to authenticated using (organization_id = public.current_user_organization_id() and public.current_user_role() in ('admin', 'employee')) with check (organization_id = public.current_user_organization_id() and public.current_user_role() in ('admin', 'employee'));
+create policy "rent_index_values_delete_role" on public.rent_index_values for delete to authenticated using (organization_id = public.current_user_organization_id() and public.current_user_role() in ('admin', 'employee'));

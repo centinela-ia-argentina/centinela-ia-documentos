@@ -16,7 +16,7 @@ export async function tasarPropiedadIA(datos: {
   surfaceCovered: number | null;
   rooms: number | null;
   currency: string | null;
-}, comparables: ComparableProp[]): Promise<{ ok: false; motivo: 'sin_api_key' | 'error' } | { ok: true; texto: string; model: string }> {
+}, comparables: ComparableProp[]): Promise<{ ok: false; motivo: 'sin_api_key' | 'error' | 'sin_comparables' } | { ok: true; texto: string; model: string }> {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) return { ok: false, motivo: 'sin_api_key' };
 
@@ -26,12 +26,14 @@ export async function tasarPropiedadIA(datos: {
     return `[${i + 1}] Nombre: ${c.name}, Superficie: ${c.surfaceTotal || 'S/N'} m2, Ambientes: ${c.rooms || 'S/N'}, Precio: ${c.currency || ''} ${c.price || 'S/N'}`;
   };
 
-  const compsText = comparables.length > 0 
-    ? comparables.map((c, i) => formatComp(c, i)).join('\n')
-    : 'No hay comparables directos disponibles. (Estimar con criterio de mercado).';
+  if (comparables.length === 0) {
+    return { ok: false, motivo: 'sin_comparables' };
+  }
+
+  const compsText = comparables.map((c, i) => formatComp(c, i)).join('\n');
 
   const prompt = [
-    'Sos un tasador inmobiliario argentino experto. Estimá el valor de mercado de la propiedad SUJETO. Usá los COMPARABLES provistos (propiedades similares de la misma cartera) como referencia principal de precio por m². Si no hay comparables suficientes, estimá con criterio de mercado (tipo, superficie, ambientes, zona) y aclaralo explícitamente. No inventes datos que no te di. Sé conservador. Usá la moneda de la propiedad sujeto.',
+    'Sos un tasador inmobiliario argentino experto. Estimá el valor de mercado de la propiedad SUJETO. Usá los COMPARABLES provistos (propiedades similares de la misma cartera) como referencia principal de precio por m². No inventes datos que no te di. Sé conservador. Usá la moneda de la propiedad sujeto.',
     '',
     'PROPIEDAD SUJETO:',
     `Nombre: ${datos.name}`,

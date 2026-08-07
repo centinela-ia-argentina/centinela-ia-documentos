@@ -241,12 +241,19 @@ export async function tasarPropiedadConIA(propertyId: string) {
     return { ok: false, error: 'Propiedad no encontrada' };
   }
 
+  if (!property.currency || (property.currency !== 'ARS' && property.currency !== 'USD')) {
+    return { ok: false, error: 'La propiedad sujeto debe tener una moneda válida (ARS o USD) para ser tasada.' };
+  }
+
   const { data: comparablesData } = await supabase
     .from('properties')
     .select('name, surface_total_m2, rooms, price, currency')
     .eq('organization_id', profile.organization_id)
     .eq('property_type', property.property_type)
     .neq('id', propertyId)
+    .eq('currency', property.currency)
+    .gt('price', 0)
+    .gt('surface_total_m2', 0)
     .not('price', 'is', null)
     .not('surface_total_m2', 'is', null)
     .limit(10);
@@ -270,6 +277,9 @@ export async function tasarPropiedadConIA(propertyId: string) {
   }, comparables);
 
   if (!result.ok) {
+    if (result.motivo === 'sin_comparables') {
+      return { ok: false, error: 'No hay propiedades comparables válidas de la misma moneda para generar una estimación. Cargá comparables antes de continuar.' };
+    }
     return { ok: false, error: 'No se pudo generar la tasación.' };
   }
 

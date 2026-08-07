@@ -232,6 +232,11 @@ export async function aplicarAjusteAlquiler(formData: FormData) {
   const id = parseString(formData.get('rental_id'));
   if (!id) redirect('/alquileres');
 
+  const expectedUpdatedAt = parseString(formData.get('expected_updated_at'));
+  if (!expectedUpdatedAt) {
+    redirect(`/alquileres/${id}?error=${encodeURIComponent('Falta el token de actualización esperado.')}`);
+  }
+
   const supabase = await createClient();
 
   // Cargar contrato
@@ -246,12 +251,25 @@ export async function aplicarAjusteAlquiler(formData: FormData) {
     redirect('/alquileres');
   }
 
+  if (rentalData.updated_at !== expectedUpdatedAt) {
+    redirect(`/alquileres/${id}?error=${encodeURIComponent('El contrato cambió desde que abriste esta pantalla. Actualizá la página y revisá el nuevo monto antes de continuar.')}`);
+  }
+
   const baseDateStr = rentalData.last_adjustment_date || rentalData.start_date;
   const periodoBase = periodoDeFecha(baseDateStr);
   const nextDate = calcularProximoAjuste(rentalData.start_date, rentalData.last_adjustment_date, rentalData.adjustment_period_months);
   
   if (!nextDate) {
     throw new Error('No se puede calcular el próximo ajuste');
+  }
+
+  const formatBA = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Argentina/Buenos_Aires', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+  const nextDateISO = nextDate.toISOString().split('T')[0];
+
+  if (nextDateISO > formatBA) {
+    const [y, m, d] = nextDateISO.split('-');
+    const formattedDate = `${d}/${m}/${y}`;
+    redirect(`/alquileres/${id}?error=${encodeURIComponent(`El ajuste todavía no corresponde. Podrás aplicarlo a partir del ${formattedDate}.`)}`);
   }
 
   const periodoObjetivo = periodoDeFecha(nextDate.toISOString());
@@ -286,14 +304,14 @@ export async function aplicarAjusteAlquiler(formData: FormData) {
     valorObjetivo
   });
 
-  if (!res.ok) {
-    redirect(`/alquileres/${id}?error=${encodeURIComponent(res.motivo || 'Error calculando')}`);
+  if (!res.ok || typeof res.coeficiente !== 'number' || !Number.isFinite(res.coeficiente) || res.coeficiente <= 0 || typeof res.montoSugerido !== 'number' || !Number.isFinite(res.montoSugerido) || res.montoSugerido <= 0) {
+    redirect(`/alquileres/${id}?error=${encodeURIComponent(res.motivo || 'Error de validación matemática en el cálculo del ajuste.')}`);
   }
 
   // Update
   const newDateStr = nextDate.toISOString();
   
-  const { error: updErr } = await supabase
+  const { data: updData, error: updErr } = await supabase
     .from('rental_contracts')
     .update({
       current_amount: res.montoSugerido,
@@ -301,11 +319,13 @@ export async function aplicarAjusteAlquiler(formData: FormData) {
       updated_at: new Date().toISOString()
     })
     .eq('id', id)
-    .eq('organization_id', profile.organization_id);
+    .eq('organization_id', profile.organization_id)
+    .eq('updated_at', expectedUpdatedAt)
+    .select('id');
 
-  if (updErr) {
-    console.error('Error aplicando ajuste:', updErr);
-    throw new Error('Error al aplicar el ajuste en la base');
+  if (updErr || !updData || updData.length === 0) {
+    console.error('Error aplicando ajuste (o lock optimista falló):', updErr);
+    redirect(`/alquileres/${id}?error=${encodeURIComponent('El contrato cambió desde que abriste esta pantalla. Actualizá la página y revisá el nuevo monto antes de continuar.')}`);
   }
 
   await createAuditLog({

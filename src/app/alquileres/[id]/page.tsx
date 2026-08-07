@@ -19,6 +19,7 @@ export default async function RentalDetailPage({ params }: { params: Promise<{ i
 
   if (!user) redirect('/login');
   if (!profile) redirect('/onboarding');
+  if (profile.role === 'client') redirect('/acceso-denegado');
 
   const supabase = await createClient();
 
@@ -353,6 +354,7 @@ export default async function RentalDetailPage({ params }: { params: Promise<{ i
                         <AplicarAjusteButton
                           rentalId={record.id}
                           montoLabel={`${record.currency === 'USD' ? 'u$s' : '$'}${resAjuste.montoSugerido?.toLocaleString('es-AR')}`}
+                          expectedUpdatedAt={record.updated_at}
                         />
                       )}
                     </div>

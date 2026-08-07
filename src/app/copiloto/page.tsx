@@ -12,6 +12,7 @@ export default async function CopilotoPage() {
   const { user, profile } = await getUserProfile();
   if (!user) redirect('/login');
   if (!profile) redirect('/onboarding');
+  if (profile.role === 'client') redirect('/acceso-denegado');
 
   const supabase = await createClient();
   const { data: org } = await supabase
