@@ -1,6 +1,6 @@
 -- 20260806230000_harden_escribania_core.rollback.sql
--- ADVERTENCIA: Este rollback revertirá algunas defensas colaborativas, pero NO reabrirá 
--- las vulnerabilidades P0 intencionalmente. Mantiene RLS y acceso restrictivo básico.
+-- ADVERTENCIA: El rollback de la aplicación debe realizarse mediante deployment coordinado;
+-- este rollback SQL no retira funciones requeridas por el código activo.
 
 begin;
 
@@ -20,8 +20,8 @@ language plpgsql security invoker set search_path = public
 as $$
 begin
   if not public.current_user_is_active() then return; end if;
-  if public.current_user_organization_id() != match_org then return; end if;
   if public.current_user_role() not in ('admin', 'employee', 'auditor') then return; end if;
+  if public.current_user_organization_id() != match_org then return; end if;
 
   return query
   select
@@ -39,13 +39,9 @@ $$;
 revoke execute on function public.match_document_chunks(vector, uuid, integer) from public, anon;
 grant execute on function public.match_document_chunks(vector, uuid, integer) to authenticated;
 
--- Drop new policies and triggers safely
-drop trigger if exists enforce_derivations_mutation on public.case_derivations;
-drop function if exists public.prevent_derivations_mutation();
-drop function if exists public.registrar_escritura_atomica;
-
--- Prohibido usar USING(true) o GRANT ALL a public/anon. 
--- El sistema permanece protegido con RLS, perfiles activos y aislamiento de organización.
--- No reabrimos vulnerabilidades.
+-- El rollback debe mantener el contrato requerido por el código nuevo.
+-- NO ELIMINAMOS enforce_derivations_mutation
+-- NO ELIMINAMOS prevent_derivations_mutation()
+-- NO ELIMINAMOS registrar_escritura_atomica()
 
 commit;

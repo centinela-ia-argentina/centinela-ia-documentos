@@ -19,7 +19,7 @@ create table if not exists public.protocolo_escrituras (
   created_at timestamptz not null default now()
 );
 
-do $$ 
+do $$
 declare
   v_exists boolean;
 begin
@@ -28,15 +28,15 @@ begin
     from pg_constraint c
     join pg_namespace n on n.oid = c.connamespace
     join pg_class t on t.oid = c.conrelid
-    where n.nspname = 'public' 
+    where n.nspname = 'public'
       and t.relname = 'protocolo_escrituras'
       and c.contype = 'u'
       and array(
-        select attname from pg_attribute 
+        select attname from pg_attribute
         where attrelid = c.conrelid and attnum = any(c.conkey)
       ) @> array['organization_id'::name, 'anio'::name, 'numero'::name]
       and array['organization_id'::name, 'anio'::name, 'numero'::name] @> array(
-        select attname from pg_attribute 
+        select attname from pg_attribute
         where attrelid = c.conrelid and attnum = any(c.conkey)
       )
   ) into v_exists;
@@ -151,9 +151,9 @@ declare
   v_is_dest boolean;
   v_user_email text;
 begin
-  select 
-    (status = 'active'), organization_id, role, email 
-  into 
+  select
+    (status = 'active'), organization_id, role, email
+  into
     v_is_active, v_org_id, v_role, v_user_email
   from public.profiles where id = auth.uid() limit 1;
 
@@ -225,7 +225,7 @@ using (public.current_user_is_active() and from_organization_id = public.current
 
 create policy "derivations_insert_origin" on public.case_derivations for insert to authenticated
 with check (
-  public.current_user_is_active() 
+  public.current_user_is_active()
   and public.current_user_role() in ('admin', 'employee')
   and from_organization_id = public.current_user_organization_id()
   and created_by = auth.uid()
@@ -250,17 +250,17 @@ create policy "derivations_select_dest" on public.case_derivations for select to
 using (
   public.current_user_is_active()
   and public.current_user_role() in ('admin', 'employee', 'auditor')
-  and (to_organization_id = public.current_user_organization_id() or lower(to_email) = lower((select email from auth.users where id = auth.uid() limit 1)))
+  and (to_organization_id = public.current_user_organization_id() or lower(to_email) = lower(coalesce(auth.jwt() ->> 'email', '')))
 );
 
 create policy "derivations_update_dest" on public.case_derivations for update to authenticated
 using (
   public.current_user_is_active()
   and public.current_user_role() in ('admin', 'employee')
-  and (to_organization_id = public.current_user_organization_id() or lower(to_email) = lower((select email from auth.users where id = auth.uid() limit 1)))
+  and (to_organization_id = public.current_user_organization_id() or lower(to_email) = lower(coalesce(auth.jwt() ->> 'email', '')))
 )
 with check (
-  (to_organization_id = public.current_user_organization_id() or lower(to_email) = lower((select email from auth.users where id = auth.uid() limit 1)))
+  (to_organization_id = public.current_user_organization_id() or lower(to_email) = lower(coalesce(auth.jwt() ->> 'email', '')))
 );
 
 -- 5. RLS DE DERIVATION_NOTES
@@ -364,21 +364,27 @@ drop policy if exists "document_chunks_delete_role" on public.document_chunks;
 
 create policy "document_chunks_select_role" on public.document_chunks for select to authenticated
 using (
-  public.current_user_is_active() 
+  public.current_user_is_active()
   and organization_id = public.current_user_organization_id()
   and public.current_user_role() in ('admin', 'employee', 'auditor')
 );
 
 create policy "document_chunks_insert_role" on public.document_chunks for insert to authenticated
 with check (
-  public.current_user_is_active() 
+  public.current_user_is_active()
   and organization_id = public.current_user_organization_id()
   and public.current_user_role() in ('admin', 'employee')
+  and exists (
+    select 1
+    from public.documents d
+    where d.id = document_chunks.document_id
+      and d.organization_id = public.current_user_organization_id()
+  )
 );
 
 create policy "document_chunks_delete_role" on public.document_chunks for delete to authenticated
 using (
-  public.current_user_is_active() 
+  public.current_user_is_active()
   and organization_id = public.current_user_organization_id()
   and public.current_user_role() in ('admin', 'employee')
 );
@@ -403,7 +409,8 @@ begin
   if not public.current_user_is_active() then return; end if;
   if public.current_user_role() not in ('admin', 'employee', 'auditor') then return; end if;
   if public.current_user_organization_id() != match_org then return; end if;
-  if match_count > 100 then match_count := 100; end if;
+
+  match_count := greatest(1, least(coalesce(match_count, 10), 100));
   if query_embedding is null then return; end if;
 
   return query
