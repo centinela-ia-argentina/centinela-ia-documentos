@@ -7,8 +7,10 @@ import { aceptarDerivacion, rechazarDerivacion } from './actions';
 
 export default async function RecibidosPage() {
   const { user, profile } = await getUserProfile();
-  if (!user) redirect('/login');
-  if (!profile) redirect('/onboarding');
+  if (!user || !profile || profile.status !== 'active') redirect('/login');
+  if (profile.role === 'client') redirect('/acceso-denegado');
+
+  const esAuditor = profile.role === 'auditor';
 
   const supabase = await createClient();
   const { data } = await supabase
@@ -50,18 +52,24 @@ export default async function RecibidosPage() {
                     <p className="mt-3 text-sm text-slate-300">"{d.mensaje}"</p>
                   )}
                   <div className="mt-5 flex items-center gap-2">
-                    <form action={aceptarDerivacion}>
-                      <input type="hidden" name="id" value={d.id} />
-                      <button type="submit" className="rounded-lg bg-gradient-to-r from-cyan-500 to-violet-500 px-3 py-2 text-sm font-medium text-white hover:opacity-90">
-                        Aceptar
-                      </button>
-                    </form>
-                    <form action={rechazarDerivacion}>
-                      <input type="hidden" name="id" value={d.id} />
-                      <button type="submit" className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm font-medium text-slate-300 hover:bg-white/10">
-                        Rechazar
-                      </button>
-                    </form>
+                    {!esAuditor ? (
+                      <>
+                        <form action={aceptarDerivacion}>
+                          <input type="hidden" name="id" value={d.id} />
+                          <button type="submit" className="rounded-lg bg-gradient-to-r from-cyan-500 to-violet-500 px-3 py-2 text-sm font-medium text-white hover:opacity-90">
+                            Aceptar
+                          </button>
+                        </form>
+                        <form action={rechazarDerivacion}>
+                          <input type="hidden" name="id" value={d.id} />
+                          <button type="submit" className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm font-medium text-slate-300 hover:bg-white/10">
+                            Rechazar
+                          </button>
+                        </form>
+                      </>
+                    ) : (
+                      <span className="text-xs text-slate-500">Solo lectura</span>
+                    )}
                   </div>
                 </div>
               ))}

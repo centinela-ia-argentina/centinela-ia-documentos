@@ -7,6 +7,7 @@ import { getDocumentTypeLabel } from '@/lib/industries/documentTypes';
 import { sensitivityLabel } from '@/lib/documents/sensitivity';
 import { agregarObservacion, subirDocumentoDerivado } from '../actions';
 import { FormSubmitButton } from '@/components/ui/FormSubmitButton';
+import { isUserRole } from '@/lib/permissions/roles';
 
 interface Props { params: Promise<{ id: string }>; }
 
@@ -27,8 +28,11 @@ function asArray(v: unknown): string[] {
 export default async function RecibidoDetallePage({ params }: Props) {
   const { id } = await params;
   const { user, profile } = await getUserProfile();
-  if (!user) redirect('/login');
-  if (!profile) redirect('/onboarding');
+  if (!user || !profile || profile.status !== 'active') redirect('/login');
+  if (!isUserRole(profile.role)) redirect('/acceso-denegado');
+  if (profile.role === 'client') redirect('/acceso-denegado');
+
+  const esAuditor = profile.role === 'auditor';
 
   const supabase = await createClient();
 
@@ -120,20 +124,24 @@ export default async function RecibidoDetallePage({ params }: Props) {
                 </ul>
               )}
               <p className="text-xs text-slate-500">El archivo se abre en una pestaña nueva mediante un enlace temporal seguro.</p>
-              <form action={subirDocumentoDerivado} className="mt-4 flex flex-wrap items-center gap-3 border-t border-white/10 pt-4">
-                <input type="hidden" name="derivation_id" value={derivacion.id} />
-                <input
-                  type="file"
-                  name="file"
-                  required
-                  accept="application/pdf,image/jpeg,image/png"
-                  className="text-sm text-slate-300 file:mr-3 file:rounded-lg file:border-0 file:bg-white/10 file:px-3 file:py-1.5 file:text-white"
-                />
-                <FormSubmitButton label="Subir documento al legajo" loadingLabel="Subiendo..." />
-              </form>
-              <p className="mt-2 text-xs text-slate-500">
-                Podés aportar documentos (PDF, JPG o PNG) al legajo compartido. También los verá la organización que te lo derivó.
-              </p>
+              {!esAuditor && (
+                <>
+                  <form action={subirDocumentoDerivado} className="mt-4 flex flex-wrap items-center gap-3 border-t border-white/10 pt-4">
+                    <input type="hidden" name="derivation_id" value={derivacion.id} />
+                    <input
+                      type="file"
+                      name="file"
+                      required
+                      accept="application/pdf,image/jpeg,image/png"
+                      className="text-sm text-slate-300 file:mr-3 file:rounded-lg file:border-0 file:bg-white/10 file:px-3 file:py-1.5 file:text-white"
+                    />
+                    <FormSubmitButton label="Subir documento al legajo" loadingLabel="Subiendo..." />
+                  </form>
+                  <p className="mt-2 text-xs text-slate-500">
+                    Podés aportar documentos (PDF, JPG o PNG) al legajo compartido. También los verá la organización que te lo derivó.
+                  </p>
+                </>
+              )}
             </div>
 
             <div className="rounded-2xl border border-white/10 bg-white/5 p-6 space-y-3">
@@ -180,18 +188,20 @@ export default async function RecibidoDetallePage({ params }: Props) {
                 )}
               </ul>
 
-              <form action={agregarObservacion} className="mt-4 space-y-3">
-                <input type="hidden" name="derivation_id" value={derivacion.id} />
-                <input type="hidden" name="case_id" value={derivacion.case_id} />
-                <textarea
-                  name="body"
-                  required
-                  rows={3}
-                  placeholder="Escribí una observación para la inmobiliaria…"
-                  className="w-full rounded-xl border border-white/10 bg-white/5 p-3 text-sm text-white placeholder:text-slate-500"
-                />
-                <FormSubmitButton label="Agregar observación" loadingLabel="Agregando..." />
-              </form>
+              {!esAuditor && (
+                <form action={agregarObservacion} className="mt-4 space-y-3">
+                  <input type="hidden" name="derivation_id" value={derivacion.id} />
+                  <input type="hidden" name="case_id" value={derivacion.case_id} />
+                  <textarea
+                    name="body"
+                    required
+                    rows={3}
+                    placeholder="Escribí una observación para la inmobiliaria…"
+                    className="w-full rounded-xl border border-white/10 bg-white/5 p-3 text-sm text-white placeholder:text-slate-500"
+                  />
+                  <FormSubmitButton label="Agregar observación" loadingLabel="Agregando..." />
+                </form>
+              )}
             </section>
           </>
         )}

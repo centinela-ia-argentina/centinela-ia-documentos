@@ -4,14 +4,31 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { getUserProfile } from '@/lib/auth/getUserProfile';
+import { isUserRole, canUpdateCase, canUploadDocument } from '@/lib/permissions/roles';
 
 export async function aceptarDerivacion(formData: FormData) {
   const id = String(formData.get('id') || '');
   if (!id) return;
   const { user, profile } = await getUserProfile();
-  if (!user || !profile) redirect('/login');
+  if (!user || !profile || profile.status !== 'active') redirect('/login');
+  if (!isUserRole(profile.role) || !canUpdateCase(profile.role)) redirect('/acceso-denegado');
+
   const supabase = await createClient();
-  await supabase
+  
+  const { data: derivacion } = await supabase
+    .from('case_derivations')
+    .select('*')
+    .eq('id', id)
+    .single();
+
+  if (!derivacion || derivacion.status !== 'pendiente') return;
+
+  const esOrgDestino = derivacion.to_organization_id === profile.organization_id;
+  const esEmailDestino = derivacion.to_email.toLowerCase() === user.email?.toLowerCase();
+  
+  if (!esOrgDestino && !esEmailDestino) return;
+
+  const { error, count } = await supabase
     .from('case_derivations')
     .update({
       status: 'aceptada',
@@ -19,7 +36,23 @@ export async function aceptarDerivacion(formData: FormData) {
       accepted_by: user.id,
       updated_at: new Date().toISOString(),
     })
-    .eq('id', id);
+    .eq('id', id)
+    .eq('status', 'pendiente');
+
+  if (error) {
+    console.error('Error al aceptar derivacion:', error);
+    return;
+  }
+
+  await supabase.from('audit_logs').insert({
+    organization_id: profile.organization_id,
+    user_id: user.id,
+    action: 'aceptar_derivacion',
+    entity_type: 'case_derivations',
+    entity_id: id,
+    details: { case_id: derivacion.case_id }
+  });
+
   revalidatePath('/recibidos');
 }
 
@@ -27,23 +60,55 @@ export async function rechazarDerivacion(formData: FormData) {
   const id = String(formData.get('id') || '');
   if (!id) return;
   const { user, profile } = await getUserProfile();
-  if (!user || !profile) redirect('/login');
+  if (!user || !profile || profile.status !== 'active') redirect('/login');
+  if (!isUserRole(profile.role) || !canUpdateCase(profile.role)) redirect('/acceso-denegado');
+
   const supabase = await createClient();
-  await supabase
+  
+  const { data: derivacion } = await supabase
+    .from('case_derivations')
+    .select('*')
+    .eq('id', id)
+    .single();
+
+  if (!derivacion || derivacion.status !== 'pendiente') return;
+
+  const esOrgDestino = derivacion.to_organization_id === profile.organization_id;
+  const esEmailDestino = derivacion.to_email.toLowerCase() === user.email?.toLowerCase();
+  
+  if (!esOrgDestino && !esEmailDestino) return;
+
+  const { error } = await supabase
     .from('case_derivations')
     .update({
       status: 'rechazada',
       accepted_by: user.id,
       updated_at: new Date().toISOString(),
     })
-    .eq('id', id);
+    .eq('id', id)
+    .eq('status', 'pendiente');
+
+  if (error) {
+    console.error('Error al rechazar derivacion:', error);
+    return;
+  }
+
+  await supabase.from('audit_logs').insert({
+    organization_id: profile.organization_id,
+    user_id: user.id,
+    action: 'rechazar_derivacion',
+    entity_type: 'case_derivations',
+    entity_id: id,
+    details: { case_id: derivacion.case_id }
+  });
+
   revalidatePath('/recibidos');
 }
 
 export async function agregarObservacion(formData: FormData) {
   const { user, profile } = await getUserProfile();
-  if (!user) redirect('/login');
-  if (!profile) redirect('/onboarding');
+  if (!user || !profile || profile.status !== 'active') redirect('/login');
+  if (!isUserRole(profile.role) || !canUpdateCase(profile.role)) redirect('/acceso-denegado');
 
   const derivationId = String(formData.get('derivation_id') || '');
   const caseId = String(formData.get('case_id') || '');
@@ -54,6 +119,18 @@ export async function agregarObservacion(formData: FormData) {
   }
 
   const supabase = await createClient();
+
+  const { data: derivacion } = await supabase
+    .from('case_derivations')
+    .select('id, to_organization_id, from_organization_id, status, case_id')
+    .eq('id', derivationId)
+    .single();
+
+  if (!derivacion || derivacion.case_id !== caseId) redirect('/acceso-denegado');
+  if (derivacion.to_organization_id !== profile.organization_id && derivacion.from_organization_id !== profile.organization_id) {
+    redirect('/acceso-denegado');
+  }
+  if (derivacion.status !== 'aceptada') redirect(`/recibidos/${derivationId}`);
 
   const { data: org } = await supabase
     .from('organizations')
@@ -73,6 +150,15 @@ export async function agregarObservacion(formData: FormData) {
 
   if (error) {
     console.error('Error al agregar observacion:', error);
+  } else {
+    await supabase.from('audit_logs').insert({
+      organization_id: profile.organization_id,
+      user_id: user.id,
+      action: 'crear_nota_derivacion',
+      entity_type: 'derivation_notes',
+      entity_id: derivationId,
+      details: { case_id: caseId }
+    });
   }
 
   revalidatePath(`/recibidos/${derivationId}`);
@@ -88,8 +174,8 @@ function limpiarNombreArchivo(n: string) {
 
 export async function subirDocumentoDerivado(formData: FormData) {
   const { user, profile } = await getUserProfile();
-  if (!user) redirect('/login');
-  if (!profile) redirect('/onboarding');
+  if (!user || !profile || profile.status !== 'active') redirect('/login');
+  if (!isUserRole(profile.role) || !canUploadDocument(profile.role)) redirect('/acceso-denegado');
 
   const derivationId = String(formData.get('derivation_id') || '');
   const file = formData.get('file');
@@ -103,19 +189,19 @@ export async function subirDocumentoDerivado(formData: FormData) {
 
   const { data: derivacion } = await supabase
     .from('case_derivations')
-    .select('id, case_id, status')
+    .select('id, case_id, status, to_organization_id')
     .eq('id', derivationId)
-    .maybeSingle();
+    .single();
 
-  if (!derivacion || derivacion.status !== 'aceptada') {
-    redirect(`/recibidos/${derivationId}`);
+  if (!derivacion || derivacion.status !== 'aceptada' || derivacion.to_organization_id !== profile.organization_id) {
+    redirect(`/recibidos/${derivationId}?error=permisos`);
   }
 
   const { data: caseRecord } = await supabase
     .from('cases')
     .select('id, organization_id')
     .eq('id', derivacion.case_id)
-    .maybeSingle();
+    .single();
 
   if (!caseRecord) redirect(`/recibidos/${derivationId}?error=caso`);
 
@@ -162,6 +248,15 @@ export async function subirDocumentoDerivado(formData: FormData) {
     await supabase.storage.from('documents').remove([storagePath]);
     redirect(`/recibidos/${derivationId}?error=metadata`);
   }
+
+  await supabase.from('audit_logs').insert({
+    organization_id: profile.organization_id,
+    user_id: user.id,
+    action: 'subir_documento_colaborativo',
+    entity_type: 'documents',
+    entity_id: documentId,
+    details: { case_id: caseRecord.id, derivation_id: derivationId }
+  });
 
   revalidatePath(`/recibidos/${derivationId}`);
   redirect(`/recibidos/${derivationId}`);
