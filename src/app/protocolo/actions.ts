@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { getUserProfile } from '@/lib/auth/getUserProfile';
-import { canUpdateCase, isUserRole } from '@/lib/permissions/roles';
+import { canUpdateCase, canDeleteDocument, isUserRole } from '@/lib/permissions/roles';
 
 export type RegistrarEscrituraResult =
   | { ok: true; numero: number }
@@ -21,7 +21,7 @@ export async function registrarEscritura(input: {
   anio?: number;
 }): Promise<RegistrarEscrituraResult> {
   const { user, profile } = await getUserProfile();
-  if (!user || !profile) return { ok: false, motivo: 'no_auth' };
+  if (!user || !profile || profile.status !== 'active') return { ok: false, motivo: 'no_auth' };
   if (!isUserRole(profile.role) || !canUpdateCase(profile.role)) return { ok: false, motivo: 'sin_permiso' };
 
   const fecha = input.fechaOtorgamiento?.trim();
@@ -30,42 +30,32 @@ export async function registrarEscritura(input: {
   const anio = input.anio ?? Number(fecha.slice(0, 4));
   const supabase = await createClient();
 
-  const { data: ultima } = await supabase
-    .from('protocolo_escrituras')
-    .select('numero')
-    .eq('organization_id', profile.organization_id)
-    .eq('anio', anio)
-    .order('numero', { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  const numero = (ultima?.numero ?? 0) + 1;
-
-  const { error } = await supabase.from('protocolo_escrituras').insert({
-    organization_id: profile.organization_id,
-    numero,
-    anio,
-    fecha_otorgamiento: fecha,
-    tipo_acto: input.tipoActo?.trim() || null,
-    comparecientes: input.comparecientes?.trim() || null,
-    objeto: input.objeto?.trim() || null,
-    folio_desde: input.folioDesde?.trim() || null,
-    folio_hasta: input.folioHasta?.trim() || null,
-    observaciones: input.observaciones?.trim() || null,
-    case_id: input.caseId || null,
-    created_by: user.id,
+  const { data: numero, error } = await supabase.rpc('registrar_escritura_atomica', {
+    p_anio: anio,
+    p_fecha: fecha,
+    p_tipo_acto: input.tipoActo?.trim() || null,
+    p_comparecientes: input.comparecientes?.trim() || null,
+    p_objeto: input.objeto?.trim() || null,
+    p_folio_desde: input.folioDesde?.trim() || null,
+    p_folio_hasta: input.folioHasta?.trim() || null,
+    p_observaciones: input.observaciones?.trim() || null,
+    p_case_id: input.caseId || null,
   });
 
-  if (error) return { ok: false, motivo: 'error', mensaje: error.message };
+  if (error) {
+    console.error('Error al registrar escritura:', error);
+    return { ok: false, motivo: 'error', mensaje: error.message };
+  }
 
   revalidatePath('/protocolo');
-  return { ok: true, numero };
+  return { ok: true, numero: numero as number };
 }
 
 export async function eliminarEscritura(id: string): Promise<{ ok: boolean }> {
   const { user, profile } = await getUserProfile();
-  if (!user || !profile) return { ok: false };
-  if (!isUserRole(profile.role) || !canUpdateCase(profile.role)) return { ok: false };
+  if (!user || !profile || profile.status !== 'active') return { ok: false };
+  // Usamos canDeleteDocument por analogía con la regla de casos/documentos.
+  if (!isUserRole(profile.role) || !canDeleteDocument(profile.role)) return { ok: false };
 
   const supabase = await createClient();
   const { error } = await supabase
@@ -73,6 +63,10 @@ export async function eliminarEscritura(id: string): Promise<{ ok: boolean }> {
     .delete()
     .eq('id', id)
     .eq('organization_id', profile.organization_id);
+
+  if (error) {
+    console.error('Error al eliminar escritura:', error);
+  }
 
   revalidatePath('/protocolo');
   return { ok: !error };

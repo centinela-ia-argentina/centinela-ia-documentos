@@ -24,7 +24,7 @@ const MESES = ['Todos','Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio',
 const escapeHtml = (s: string) =>
   s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
-export function ProtocoloClient({ escrituras, cases }: { escrituras: EscrituraProtocolo[]; cases: { id: string; title: string }[] }) {
+export function ProtocoloClient({ escrituras, cases, esAuditor }: { escrituras: EscrituraProtocolo[]; cases: { id: string; title: string }[]; esAuditor?: boolean }) {
   const router = useRouter();
   const anioActual = new Date().getFullYear();
 
@@ -136,9 +136,11 @@ export function ProtocoloClient({ escrituras, cases }: { escrituras: EscrituraPr
           <h1 className="flex items-center gap-2 text-2xl font-semibold text-white"><BookText className="h-6 w-6 text-amber-400" /> Índice / Repertorio</h1>
           <p className="mt-1 text-sm text-white/50">Registro correlativo de escrituras y actos, con índice por mes.</p>
         </div>
-        <button onClick={() => setShowForm(!showForm)} className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 px-4 py-2 text-sm font-semibold text-white shadow-sm">
-          {showForm ? <X className="h-4 w-4" /> : <Plus className="h-4 w-4" />} Registrar escritura
-        </button>
+        {!esAuditor && (
+          <button onClick={() => setShowForm(!showForm)} className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 px-4 py-2 text-sm font-semibold text-white shadow-sm">
+            {showForm ? <X className="h-4 w-4" /> : <Plus className="h-4 w-4" />} Registrar escritura
+          </button>
+        )}
       </div>
 
       {showForm && (
@@ -225,7 +227,9 @@ export function ProtocoloClient({ escrituras, cases }: { escrituras: EscrituraPr
                 <td className="px-3 py-2 text-white/70">{e.comparecientes || '-'}</td>
                 <td className="px-3 py-2 text-white/60">{e.folio_desde || e.folio_hasta ? `${e.folio_desde || '?'} – ${e.folio_hasta || '?'}` : '-'}</td>
                 <td className="px-3 py-2 text-right">
-                  <button onClick={() => borrar(e.id)} className="text-white/30 hover:text-rose-400"><Trash2 className="h-4 w-4" /></button>
+                  {!esAuditor && (
+                    <button onClick={() => borrar(e.id)} className="text-white/30 hover:text-rose-400"><Trash2 className="h-4 w-4" /></button>
+                  )}
                 </td>
               </tr>
             ))}

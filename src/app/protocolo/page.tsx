@@ -6,8 +6,10 @@ import { ProtocoloClient, type EscrituraProtocolo } from './ProtocoloClient';
 
 export default async function ProtocoloPage() {
   const { user, profile } = await getUserProfile();
-  if (!user) redirect('/login');
-  if (!profile) redirect('/onboarding');
+  if (!user || !profile || profile.status !== 'active') redirect('/login');
+  if (profile.role === 'client') redirect('/acceso-denegado');
+  
+  const esAuditor = profile.role === 'auditor';
 
   const supabase = await createClient();
 
@@ -31,7 +33,7 @@ export default async function ProtocoloPage() {
 
   return (
     <AppShell>
-      <ProtocoloClient escrituras={escrituras} cases={cases} />
+      <ProtocoloClient escrituras={escrituras} cases={cases} esAuditor={esAuditor} />
     </AppShell>
   );
 }
