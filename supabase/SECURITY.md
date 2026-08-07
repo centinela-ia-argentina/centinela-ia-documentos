@@ -52,3 +52,10 @@ Ejecutar `platform-owner-stage-2.sql` en Supabase SQL Editor. El script:
 El panel privado se encuentra en `/plataforma`. Tanto la pagina como su accion
 vuelven a validar al dueno desde el servidor. La aceptacion reutiliza el flujo
 existente de invitaciones y crea el perfil `admin` dentro de la nueva organizacion.
+
+## Tablas Notariales
+Las tablas `protocolo_escrituras`, `case_derivations` y `derivation_notes` se rigen por políticas RLS robustas que:
+- Solo permiten a `admin` y `employee` mutar datos de protocolo.
+- Filtran las derivaciones y documentos en Storage según la organización de destino y origen.
+- Bloquean por completo a los perfiles `client` el acceso al protocolo o a operar legajos derivados.
+- Reemplazan el chequeo inseguro de `match_document_chunks` y restringen lectura/escritura RAG para auditores y administradores.

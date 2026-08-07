@@ -289,3 +289,50 @@ create policy "rent_index_values_select_role" on public.rent_index_values for se
 create policy "rent_index_values_insert_role" on public.rent_index_values for insert to authenticated with check (organization_id = public.current_user_organization_id() and public.current_user_role() in ('admin', 'employee'));
 create policy "rent_index_values_update_role" on public.rent_index_values for update to authenticated using (organization_id = public.current_user_organization_id() and public.current_user_role() in ('admin', 'employee')) with check (organization_id = public.current_user_organization_id() and public.current_user_role() in ('admin', 'employee'));
 create policy "rent_index_values_delete_role" on public.rent_index_values for delete to authenticated using (organization_id = public.current_user_organization_id() and public.current_user_role() in ('admin', 'employee'));
+
+-- TABLAS NOTARIALES (Escribanía)
+create table if not exists public.protocolo_escrituras (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  numero integer not null,
+  anio integer not null,
+  fecha_otorgamiento date not null,
+  tipo_acto text,
+  comparecientes text,
+  objeto text,
+  folio_desde text,
+  folio_hasta text,
+  observaciones text,
+  case_id uuid references public.cases(id) on delete set null,
+  created_by uuid references public.profiles(id) on delete set null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  constraint protocolo_escrituras_org_anio_numero_key unique (organization_id, anio, numero)
+);
+
+create table if not exists public.case_derivations (
+  id uuid primary key default gen_random_uuid(),
+  case_id uuid not null references public.cases(id) on delete cascade,
+  from_organization_id uuid not null references public.organizations(id) on delete cascade,
+  to_email text not null,
+  to_organization_id uuid references public.organizations(id) on delete cascade,
+  status text not null default 'pendiente' check (status in ('pendiente', 'aceptada', 'rechazada', 'revocada')),
+  created_by uuid references public.profiles(id) on delete set null,
+  accepted_by uuid references public.profiles(id) on delete set null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create unique index if not exists case_derivations_activa_unica on public.case_derivations (case_id, lower(to_email)) where status in ('pendiente', 'aceptada');
+
+create table if not exists public.derivation_notes (
+  id uuid primary key default gen_random_uuid(),
+  derivation_id uuid not null references public.case_derivations(id) on delete cascade,
+  case_id uuid not null references public.cases(id) on delete cascade,
+  author_organization_id uuid not null references public.organizations(id) on delete cascade,
+  author_user_id uuid not null references public.profiles(id) on delete cascade,
+  author_name text,
+  author_org_name text,
+  body text not null,
+  created_at timestamptz not null default now()
+);
