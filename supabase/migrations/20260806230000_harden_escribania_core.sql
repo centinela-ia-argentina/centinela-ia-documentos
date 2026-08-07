@@ -16,13 +16,33 @@ create table if not exists public.protocolo_escrituras (
   observaciones text,
   case_id uuid references public.cases(id) on delete set null,
   created_by uuid references auth.users(id) on delete set null,
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
+  created_at timestamptz not null default now()
 );
 
-do $$ begin
-  if not exists (select 1 from pg_constraint where conname = 'protocolo_escrituras_org_anio_numero_key') then
-    alter table public.protocolo_escrituras add constraint protocolo_escrituras_org_anio_numero_key unique (organization_id, anio, numero);
+do $$ 
+declare
+  v_exists boolean;
+begin
+  select exists (
+    select 1
+    from pg_constraint c
+    join pg_namespace n on n.oid = c.connamespace
+    join pg_class t on t.oid = c.conrelid
+    where n.nspname = 'public' 
+      and t.relname = 'protocolo_escrituras'
+      and c.contype = 'u'
+      and array(
+        select attname from pg_attribute 
+        where attrelid = c.conrelid and attnum = any(c.conkey)
+      ) @> array['organization_id'::name, 'anio'::name, 'numero'::name]
+      and array['organization_id'::name, 'anio'::name, 'numero'::name] @> array(
+        select attname from pg_attribute 
+        where attrelid = c.conrelid and attnum = any(c.conkey)
+      )
+  ) into v_exists;
+
+  if not v_exists then
+    alter table public.protocolo_escrituras add constraint protocolo_escrituras_organization_id_anio_numero_key unique (organization_id, anio, numero);
   end if;
 end $$;
 
@@ -121,36 +141,64 @@ $$;
 -- INMUTABILIDAD CASE_DERIVATIONS
 create or replace function public.prevent_derivations_mutation()
 returns trigger
-language plpgsql security definer
+language plpgsql security definer set search_path = public
 as $$
+declare
+  v_org_id uuid;
+  v_role text;
+  v_is_active boolean;
+  v_is_origin boolean;
+  v_is_dest boolean;
+  v_user_email text;
 begin
-  if old.id is distinct from new.id then
-    raise exception 'Cannot modify id';
-  end if;
-  if old.case_id is distinct from new.case_id then
-    raise exception 'Cannot modify case_id';
-  end if;
-  if old.from_organization_id is distinct from new.from_organization_id then
-    raise exception 'Cannot modify from_organization_id';
-  end if;
-  if old.created_by is distinct from new.created_by then
-    raise exception 'Cannot modify created_by';
-  end if;
-  if old.created_at is distinct from new.created_at then
-    raise exception 'Cannot modify created_at';
+  select 
+    (status = 'active'), organization_id, role, email 
+  into 
+    v_is_active, v_org_id, v_role, v_user_email
+  from public.profiles where id = auth.uid() limit 1;
+
+  if not coalesce(v_is_active, false) then
+    raise exception 'Perfil inactivo';
   end if;
 
-  if old.status = 'pendiente' and new.status not in ('aceptada', 'rechazada', 'revocada', 'pendiente') then
-    raise exception 'Invalid transition from pendiente';
-  end if;
-  if old.status = 'aceptada' and new.status not in ('revocada', 'aceptada') then
-    raise exception 'Invalid transition from aceptada';
-  end if;
-  if old.status in ('rechazada', 'revocada') and new.status is distinct from old.status then
-    raise exception 'Cannot transition from final status';
+  if old.id is distinct from new.id then raise exception 'Cannot modify id'; end if;
+  if old.case_id is distinct from new.case_id then raise exception 'Cannot modify case_id'; end if;
+  if old.from_organization_id is distinct from new.from_organization_id then raise exception 'Cannot modify from_organization_id'; end if;
+  if old.created_by is distinct from new.created_by then raise exception 'Cannot modify created_by'; end if;
+  if old.created_at is distinct from new.created_at then raise exception 'Cannot modify created_at'; end if;
+  if old.to_email is distinct from new.to_email then raise exception 'Cannot modify to_email'; end if;
+
+  v_is_origin := (old.from_organization_id = v_org_id);
+  v_is_dest := (old.to_organization_id = v_org_id or lower(old.to_email) = lower(v_user_email));
+
+  if v_is_dest and v_role in ('admin', 'employee') then
+    if old.status = 'pendiente' and new.status = 'aceptada' then
+      if new.to_organization_id is distinct from v_org_id then raise exception 'Invalid to_organization_id'; end if;
+      if new.accepted_by is distinct from auth.uid() then raise exception 'Invalid accepted_by'; end if;
+      return new;
+    end if;
+    if old.status = 'pendiente' and new.status = 'rechazada' then
+      if new.accepted_by is distinct from auth.uid() then raise exception 'Invalid accepted_by'; end if;
+      if new.to_organization_id is distinct from old.to_organization_id then raise exception 'Cannot modify to_organization_id'; end if;
+      return new;
+    end if;
   end if;
 
-  return new;
+  if v_is_origin and v_role in ('admin', 'employee') then
+    if old.status in ('pendiente', 'aceptada') and new.status = 'revocada' then
+      if new.to_organization_id is distinct from old.to_organization_id then raise exception 'Cannot modify to_organization_id'; end if;
+      if new.accepted_by is distinct from old.accepted_by then raise exception 'Cannot modify accepted_by'; end if;
+      return new;
+    end if;
+  end if;
+
+  if old.status = new.status then
+    if old.to_organization_id is distinct from new.to_organization_id then raise exception 'Cannot modify to_organization_id without status change'; end if;
+    if old.accepted_by is distinct from new.accepted_by then raise exception 'Cannot modify accepted_by without status change'; end if;
+    return new;
+  end if;
+
+  raise exception 'Invalid transition or unauthorized';
 end;
 $$;
 
@@ -176,10 +224,27 @@ create policy "derivations_select_origin" on public.case_derivations for select 
 using (public.current_user_is_active() and from_organization_id = public.current_user_organization_id() and public.current_user_role() in ('admin', 'employee', 'auditor'));
 
 create policy "derivations_insert_origin" on public.case_derivations for insert to authenticated
-with check (public.current_user_is_active() and from_organization_id = public.current_user_organization_id() and public.current_user_role() in ('admin', 'employee'));
+with check (
+  public.current_user_is_active() 
+  and public.current_user_role() in ('admin', 'employee')
+  and from_organization_id = public.current_user_organization_id()
+  and created_by = auth.uid()
+  and status = 'pendiente'
+  and to_organization_id is null
+  and accepted_by is null
+  and exists (
+    select 1
+    from public.cases c
+    where c.id = case_derivations.case_id
+      and c.organization_id = public.current_user_organization_id()
+  )
+);
 
 create policy "derivations_update_origin" on public.case_derivations for update to authenticated
-using (public.current_user_is_active() and from_organization_id = public.current_user_organization_id() and public.current_user_role() in ('admin', 'employee'));
+using (public.current_user_is_active() and from_organization_id = public.current_user_organization_id() and public.current_user_role() in ('admin', 'employee'))
+with check (
+  from_organization_id = public.current_user_organization_id()
+);
 
 create policy "derivations_select_dest" on public.case_derivations for select to authenticated
 using (
@@ -193,6 +258,9 @@ using (
   public.current_user_is_active()
   and public.current_user_role() in ('admin', 'employee')
   and (to_organization_id = public.current_user_organization_id() or lower(to_email) = lower((select email from auth.users where id = auth.uid() limit 1)))
+)
+with check (
+  (to_organization_id = public.current_user_organization_id() or lower(to_email) = lower((select email from auth.users where id = auth.uid() limit 1)))
 );
 
 -- 5. RLS DE DERIVATION_NOTES
