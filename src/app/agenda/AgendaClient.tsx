@@ -169,20 +169,20 @@ export function AgendaClient({ eventos, cases, industry, puedeGuardar = true }: 
             )}
             <label className="block">
               <span className="mb-1 block text-xs font-semibold text-slate-400">Título</span>
-              <input type="text" value={nuevoTitulo} onChange={(e) => setNuevoTitulo(e.target.value)} placeholder="Ej: Presentar escrito - Pérez c/ García" className="w-full rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2 text-sm text-white outline-none placeholder-slate-500 focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400" />
+              <input type="text" value={nuevoTitulo} onChange={(e) => setNuevoTitulo(e.target.value)} placeholder={industry === 'inmobiliaria' ? 'Ej: Firma de boleto - Martina López' : industry === 'escribania' ? 'Ej: Firma de escritura - López' : 'Ej: Presentar escrito - Pérez c/ García'} className="w-full rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2 text-sm text-white outline-none placeholder-slate-500 focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400" />
             </label>
             <label className="block">
               <span className="mb-1 block text-xs font-semibold text-slate-400">Detalle (opcional)</span>
               <input type="text" value={nuevoDetalle} onChange={(e) => setNuevoDetalle(e.target.value)} placeholder="Descripción adicional" className="w-full rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2 text-sm text-white outline-none placeholder-slate-500 focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400" />
             </label>
             <label className="block">
-              <span className="mb-1 block text-xs font-medium text-slate-400">Expediente (opcional)</span>
+              <span className="mb-1 block text-xs font-medium text-slate-400">{terms.expedienteSingular} (opcional)</span>
               <select
                 value={nuevoCaseId}
                 onChange={(e) => setNuevoCaseId(e.target.value)}
                 className="w-full rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2 text-sm text-white outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400"
               >
-                <option value="">Sin expediente</option>
+                <option value="">Sin {terms.expedienteSingular.toLowerCase()}</option>
                 {cases.map((c) => (
                   <option key={c.id} value={c.id}>{c.title}</option>
                 ))}
