@@ -83,7 +83,7 @@ async function deduplicateAndInsert(input: {
       .maybeSingle();
     
     if (!caseData) {
-      return { ok: false, motivo: 'error', mensaje: 'Expediente no encontrado o sin acceso.' };
+      return { ok: false, motivo: 'error', mensaje: 'Recurso no encontrado o sin acceso.' };
     }
   }
 

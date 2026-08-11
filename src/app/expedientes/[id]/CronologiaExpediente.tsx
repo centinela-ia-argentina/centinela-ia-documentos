@@ -31,13 +31,15 @@ const ORIGEN_ICON: Record<string, string> = {
   agenda: '📌',
 };
 
-export function CronologiaExpediente({ items }: { items: ItemCronologia[] }) {
+import type { IndustryTerms } from '@/lib/industries/uiLabels';
+
+export function CronologiaExpediente({ items, terms }: { items: ItemCronologia[], terms: IndustryTerms }) {
   if (items.length === 0) {
     return (
       <section className="rounded-2xl border border-white/10 bg-white/[0.03] p-6">
-        <h2 className="font-display text-lg font-semibold text-white">🕒 Cronología del caso</h2>
+        <h2 className="font-display text-lg font-semibold text-white">🕒 Cronología {terms.expedienteSingular === 'Operación' ? 'de la operación' : 'del caso'}</h2>
         <p className="mt-2 text-sm text-slate-400">
-          Todavía no hay fechas para mostrar. Se irá armando sola con las actuaciones, las fechas detectadas por la IA en los documentos y las cargas de archivos.
+          Todavía no hay fechas para mostrar. Se irá armando sola con {terms.expedienteSingular === 'Operación' ? 'los eventos' : 'las actuaciones'}, las fechas detectadas por la IA en los documentos y las cargas de archivos.
         </p>
       </section>
     );
@@ -46,11 +48,11 @@ export function CronologiaExpediente({ items }: { items: ItemCronologia[] }) {
   return (
     <section className="rounded-2xl border border-white/10 bg-white/[0.03] p-6">
       <div className="mb-1 flex items-center gap-2">
-        <h2 className="font-display text-lg font-semibold text-white">🕒 Cronología del caso</h2>
+        <h2 className="font-display text-lg font-semibold text-white">🕒 Cronología {terms.expedienteSingular === 'Operación' ? 'de la operación' : 'del caso'}</h2>
         <span className="rounded-full bg-white/10 px-2 py-0.5 text-xs text-slate-400">{items.length} hitos</span>
       </div>
       <p className="mb-5 text-sm text-slate-400">
-        Todas las fechas del expediente unificadas y ordenadas: actuaciones, fechas detectadas por la IA y cargas de documentos.
+        Todas las fechas {terms.expedienteSingular === 'Operación' ? 'de la operación' : 'del expediente'} unificadas y ordenadas: {terms.expedienteSingular === 'Operación' ? 'eventos' : 'actuaciones'}, fechas detectadas por la IA y cargas de documentos.
       </p>
 
       <ol className="relative space-y-5 border-l border-white/10 pl-6">

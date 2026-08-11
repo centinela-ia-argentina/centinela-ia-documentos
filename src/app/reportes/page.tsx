@@ -501,6 +501,32 @@ if (
         .in('id', auditUserIds);
       profiles = (pRes.data ?? []) as ProfileRecordForReport[];
     }
+
+    const auditCaseIds = Array.from(new Set(
+      auditLogs.filter(log => log.resource_type === 'case' || log.action.startsWith('case_')).map(log => log.resource_id).filter(Boolean)
+    )) as string[];
+    
+    if (auditCaseIds.length > 0) {
+      const cRes = await supabase
+        .from('cases')
+        .select('id, title, status')
+        .eq('organization_id', profile.organization_id)
+        .in('id', auditCaseIds);
+      cases = (cRes.data ?? []) as CaseRecord[];
+    }
+
+    const auditDocIds = Array.from(new Set(
+      auditLogs.filter(log => log.resource_type === 'document' || log.action.startsWith('document_')).map(log => log.resource_id).filter(Boolean)
+    )) as string[];
+
+    if (auditDocIds.length > 0) {
+      const dRes = await supabase
+        .from('documents')
+        .select('id, file_name, sensitivity_level, expires_at')
+        .eq('organization_id', profile.organization_id)
+        .in('id', auditDocIds);
+      documents = (dRes.data ?? []) as DocumentRecordForReport[];
+    }
   }
 
   const documentsById = new Map(documents.map((document) => [document.id, document]));
@@ -1090,7 +1116,7 @@ if (
                             log.action
                           )}`}
                         />
-                        {formatAuditActionLabel(log.action)}
+                        {formatAuditActionLabel(log.action, terms)}
                       </span>
 
                     </td>

@@ -13,6 +13,7 @@ import { generarEmbedding } from '@/lib/ai/embeddings';
 import { calcularIncapacidad } from "@/lib/legal/liquidacion";
 import { calcularVencimientoProcesal } from '@/lib/legal/plazos';
 import { calcularTasaJusticia } from '@/lib/legal/tasaJusticia';
+import { rankAndFilterFragments } from '@/lib/ai/ragRanking';
 
 export async function preguntarAgente(input: {
   caseId: string;
@@ -342,18 +343,18 @@ export async function preguntarAgente(input: {
             match_count: 80,
           }));
         }
-        const delLegajo = (matches ?? [])
-          .filter((m: any) => idsCasoRag.has(m.document_id))
-          .slice(0, 20);
-        if (delLegajo.length > 0) {
+        const delLegajo = (matches ?? []).filter((m: any) => idsCasoRag.has(m.document_id));
+        const rankedFragments = rankAndFilterFragments(delLegajo, pregunta);
+
+        if (rankedFragments.length > 0) {
           partes.push(
             '\nFRAGMENTOS TEXTUALES RELEVANTES (extractos del texto real de los documentos para ESTA pregunta; citá el documento por su nombre entre paréntesis cuando los uses):'
           );
           partes.push(
-            delLegajo
+            rankedFragments
               .map((m: any, i: number) => {
-                const nombre = nombrePorDoc.get(m.document_id) ?? 'documento';
-                return `[${i + 1}] (${nombre})\n${m.content}`;
+                const nombre = nombrePorDoc.get(m.documentId) ?? 'documento';
+                return `[${i}] (${nombre})\n${m.fragmento}`;
               })
               .join('\n\n')
           );

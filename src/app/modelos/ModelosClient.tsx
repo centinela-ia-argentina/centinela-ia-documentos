@@ -17,8 +17,10 @@ export type ExpedienteLite = {
   metadata: Record<string, string> | null;
 };
 
-function datosDeExpediente(exp: ExpedienteLite): Record<string, string> {
+function datosDeExpediente(exp: ExpedienteLite, industria?: string): Record<string, string> {
   const meta = (exp.metadata as Record<string, string>) ?? {};
+  const esInmobiliaria = industria === 'inmobiliaria';
+
   const posibles: Record<string, string | null | undefined> = {
     ...meta,
     caratula: meta.caratula ?? exp.title,
@@ -37,11 +39,14 @@ function datosDeExpediente(exp: ExpedienteLite): Record<string, string> {
     tipo_inmueble: meta.tipo_inmueble ?? meta.tipo,
     moneda: meta.moneda ?? meta.divisa,
     precio: meta.precio ?? meta.valor,
-    vendedor: meta.vendedor ?? (exp.case_type?.toLowerCase().includes('venta') ? exp.client_name : undefined),
+    vendedor: esInmobiliaria ? meta.vendedor : (meta.vendedor ?? (exp.case_type?.toLowerCase().includes('venta') ? exp.client_name : undefined)),
     comprador: meta.comprador,
-    locador: meta.locador ?? (exp.case_type?.toLowerCase().includes('alquiler') ? exp.client_name : undefined),
-    locatario: meta.locatario,
-    propietario: meta.propietario ?? meta.titular ?? exp.client_name,
+    locador: esInmobiliaria ? meta.locador : (meta.locador ?? (exp.case_type?.toLowerCase().includes('alquiler') ? exp.client_name : undefined)),
+    locatario: meta.locatario ?? meta.inquilino,
+    propietario: esInmobiliaria ? (meta.propietario ?? meta.titular) : (meta.propietario ?? meta.titular ?? exp.client_name),
+    garante: meta.garante,
+    cliente: exp.client_name,
+    nombre_cliente: exp.client_name,
   };
   return Object.fromEntries(
     Object.entries(posibles).filter(([, v]) => typeof v === 'string' && v.trim() !== '')
@@ -64,7 +69,7 @@ function extractVars(cuerpo: string): string[] {
 function fillTemplate(cuerpo: string, values: Record<string, string>): string {
   return cuerpo.replace(/\{\{\s*([\w-]+)\s*\}\}/g, (_match, k: string) => {
     const v = values[k]?.trim();
-    return v ? v : `[${humanize(k)}]`;
+    return v ? v : `[COMPLETAR: ${humanize(k)}]`;
   });
 }
 
@@ -96,7 +101,7 @@ export function ModelosClient({
   const [seleccionadoId, setSeleccionadoId] = useState<string | null>(idInicial);
   const [busqueda, setBusqueda] = useState('');
   const [provincia, setProvincia] = useState<ProvinciaFiltro>('todas');
-  const [valores, setValores] = useState<Record<string, string>>(expInicial ? datosDeExpediente(expInicial) : {});
+  const [valores, setValores] = useState<Record<string, string>>(expInicial ? datosDeExpediente(expInicial, industria) : {});
   const [copiado, setCopiado] = useState(false);
   const [expedienteId, setExpedienteId] = useState(expInicial?.id ?? '');
   const [instruccion, setInstruccion] = useState('');
@@ -176,7 +181,7 @@ export function ModelosClient({
   const abrir = (m: ModeloEscrito) => {
     setSeleccionadoId(m.id);
     const exp = expedientes.find((e) => e.id === expedienteId);
-    setValores(exp ? datosDeExpediente(exp) : {});
+    setValores(exp ? datosDeExpediente(exp, industria) : {});
     setCopiado(false);
     setTextoIA(null);
     setInstruccion('');
@@ -186,7 +191,7 @@ export function ModelosClient({
   const aplicarExpediente = (id: string) => {
     setExpedienteId(id);
     const exp = expedientes.find((e) => e.id === id);
-    setValores((prev) => (exp ? { ...prev, ...datosDeExpediente(exp) } : prev));
+    setValores((prev) => (exp ? { ...prev, ...datosDeExpediente(exp, industria) } : prev));
   };
 
   const volver = () => {
@@ -355,11 +360,11 @@ export function ModelosClient({
                     {expedienteId ? (() => {
                       const filledCount = variables.filter(key => valores[key] && valores[key].trim() !== '').length;
                       if (filledCount === 0) {
-                        return <p className="mt-1.5 text-[11px] text-amber-400">No encontramos datos suficientes para prellenar este modelo. Podés completarlo manualmente.</p>;
+                        return <p className="mt-1.5 text-[11px] text-amber-400">La operación no contiene datos contractuales suficientes para prellenar. Podés completarlo manualmente.</p>;
                       } else if (filledCount < variables.length) {
-                        return <p className="mt-1.5 text-[11px] text-emerald-400">Se completaron los datos disponibles. Revisá y completá los campos pendientes.</p>;
+                        return <p className="mt-1.5 text-[11px] text-emerald-400">Prellenado parcial: faltan datos que deben completarse manualmente.</p>;
                       } else {
-                        return <p className="mt-1.5 text-[11px] text-emerald-400">Se completaron todos los campos requeridos con éxito.</p>;
+                        return <p className="mt-1.5 text-[11px] text-emerald-400">Datos explícitos de la operación prellenados con éxito.</p>;
                       }
                     })() : (
                       <p className="mt-1.5 text-[11px] text-slate-400">
@@ -405,7 +410,7 @@ export function ModelosClient({
                   {avisoIA && <p className="mt-2 text-[11px] text-amber-500">{avisoIA}</p>}
                   {textoIA && (
                     <div className="mt-2 flex items-center justify-between gap-2">
-                      <span className="text-[11px] font-medium text-brandviolet">✨ Borrador generado con IA — revisalo antes de presentar.</span>
+                      <span className="text-[11px] font-medium text-brandviolet">✨ {esInmobiliaria ? 'Borrador generado con IA — revisalo y completalo antes de usar o firmar.' : esEscribania ? 'Borrador generado con IA — revisalo y completalo antes de otorgarlo.' : 'Borrador generado con IA — revisalo antes de presentar.'}</span>
                       <button type="button" onClick={() => setTextoIA(null)} className="shrink-0 text-[11px] font-semibold text-slate-400 hover:text-white underline">
                         Volver al relleno manual
                       </button>

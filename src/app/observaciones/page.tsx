@@ -37,8 +37,6 @@ export default async function ObservacionesPage() {
       .from('cases')
       .select('id, title, status, metadata')
       .eq('organization_id', profile.organization_id)
-      .neq('status', 'archived')
-      .neq('status', 'Archivado')
       .order('created_at', { ascending: false }),
 
     supabase
@@ -63,6 +61,7 @@ export default async function ObservacionesPage() {
   const isFem = terms.expedientePlural.toLowerCase() === 'operaciones';
 
   const caseTitleMap = new Map(cases.map(c => [c.id, c.title || terms.itemSinTitulo]));
+  const caseStatusMap = new Map(cases.map(c => [c.id, c.status]));
 
   // 1. Documentos sensibles
   const sensiblesAll = documents.filter((doc) => isSensitiveDocument(doc.sensitivity_level));
@@ -92,7 +91,7 @@ export default async function ObservacionesPage() {
     const statuses = statusesByCase[c.id] || [];
     const summary = summarizeChecklistStatuses(statuses);
     return { ...c, summary };
-  }).filter((c) => !c.summary.isComplete && c.summary.total > 0);
+  }).filter((c) => !c.summary.isComplete && c.summary.total > 0 && c.status !== 'archived' && c.status !== 'Archivado');
   const incompletos = incompletosAll.slice(0, 8);
 
   // 4. Análisis IA pendientes
@@ -106,6 +105,7 @@ export default async function ObservacionesPage() {
 
   // 6. Plazos procesales / fechas clave
   const plazosAll = cases
+    .filter(c => c.status !== 'archived' && c.status !== 'Archivado')
     .map((c) => {
       const metadata = c.metadata as Record<string, unknown> | null;
       const fecha = (metadata?.fecha_relevante as string | undefined)?.trim();
@@ -273,7 +273,7 @@ export default async function ObservacionesPage() {
                     <div className="overflow-hidden">
                       <p className="truncate font-bold text-slate-200">{doc.file_name}</p>
                       <p className="truncate text-xs text-slate-400">
-                        {doc.case_id && caseTitleMap.has(doc.case_id) ? `${caseTitleMap.get(doc.case_id)} · ` : 'Sin operación asociada · '}
+                        {doc.case_id && caseTitleMap.has(doc.case_id) ? `${caseTitleMap.get(doc.case_id)}${caseStatusMap.get(doc.case_id) === 'archived' || caseStatusMap.get(doc.case_id) === 'Archivado' ? ' (Archivada)' : ''} · ` : `Sin ${terms.expedienteSingular.toLowerCase()} asociada · `}
                         Tipo: {getDocumentTypeLabel(doc.document_type) || 'Sin clasificar'} · IA pendiente
                       </p>
                     </div>
@@ -305,7 +305,7 @@ export default async function ObservacionesPage() {
                   <div className="overflow-hidden">
                     <p className="truncate font-bold text-slate-200">{doc.file_name}</p>
                     <p className="truncate text-xs text-slate-400">
-                      {doc.case_id && caseTitleMap.has(doc.case_id) ? `${caseTitleMap.get(doc.case_id)} · ` : 'Sin operación asociada · '}
+                      {doc.case_id && caseTitleMap.has(doc.case_id) ? `${caseTitleMap.get(doc.case_id)}${caseStatusMap.get(doc.case_id) === 'archived' || caseStatusMap.get(doc.case_id) === 'Archivado' ? ' (Archivada)' : ''} · ` : `Sin ${terms.expedienteSingular.toLowerCase()} asociada · `}
                       Sin clasificar · {analyzedDocIds.has(String(doc.id)) ? 'IA completada' : 'IA pendiente'}
                     </p>
                   </div>

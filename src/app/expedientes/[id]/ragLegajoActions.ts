@@ -6,6 +6,7 @@ import { canUseAi, isUserRole } from '@/lib/permissions/roles';
 import { generarEmbedding } from '@/lib/ai/embeddings';
 import { normalizeIndustryType } from '@/lib/industries/documentTypes';
 import { getRagSystemPrompt } from '@/lib/industries/aiConfig';
+import { rankAndFilterFragments, cleanMarkdownForUI, parseModelJson } from '@/lib/ai/ragRanking';
 
 export type FuenteLegajo = {
   documentId: string;
@@ -91,9 +92,11 @@ export async function preguntarADocumentosLegajo(
   if (matchError) return { ok: false, error: 'Error al buscar: ' + matchError.message };
 
   // 4) Quedarnos SOLO con fragmentos de los documentos de este legajo
-  const delLegajo = (matches ?? []).filter((m: any) => idsCaso.has(m.document_id)).slice(0, 8);
+  const delLegajo = (matches ?? []).filter((m: any) => idsCaso.has(m.document_id));
 
-  if (delLegajo.length === 0) {
+  const rankedFragments = rankAndFilterFragments(delLegajo, texto);
+
+  if (rankedFragments.length === 0) {
     return {
       ok: true,
       respuesta:
@@ -102,23 +105,32 @@ export async function preguntarADocumentosLegajo(
     };
   }
 
-  const fuentes: FuenteLegajo[] = delLegajo.map((m: any) => ({
-    documentId: m.document_id,
-    fileName: nombrePorId.get(m.document_id) ?? 'Documento',
-    fragmento: m.content,
-    similitud: m.similarity,
+  const fuentes: FuenteLegajo[] = rankedFragments.map((m: any) => ({
+    documentId: m.documentId,
+    fileName: nombrePorId.get(m.documentId) ?? 'Documento',
+    fragmento: m.fragmento,
+    similitud: m.similitud,
   }));
 
   // 5) Prompt RAG (mismo criterio que el buscador global)
-  const contexto = fuentes.map((f, i) => `[${i + 1}] (${f.fileName})\n${f.fragmento}`).join('\n\n');
+  const contexto = fuentes.map((f, i) => `[${i}] (${f.fileName})\n${f.fragmento}`).join('\n\n');
   const prompt = `${getRagSystemPrompt(industry)}
+
+Tu respuesta debe estar estructurada en formato JSON estricto con las siguientes claves:
+"respuesta": "tu texto de respuesta"
+"fuentes_utilizadas": [arreglo de enteros con los índices de los fragmentos que utilizaste, por ejemplo [0, 2]]
+
+Reglas:
+- Responde únicamente con los fragmentos provistos.
+- No cites un fragmento si no sustenta un dato de la respuesta.
+- Si no hay evidencia suficiente, dilo en la respuesta.
+- No utilices encabezados Markdown, tablas, bloques de código ni asteriscos de negrita en la respuesta.
+- El JSON debe ser válido.
 
 FRAGMENTOS:
 ${contexto}
 
-PREGUNTA: ${texto}
-
-RESPUESTA:`;
+PREGUNTA: ${texto}`;
 
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) return { ok: false, error: 'Falta la API key.' };
@@ -136,7 +148,7 @@ RESPUESTA:`;
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: { temperature: 0.2 },
+        generationConfig: { temperature: 0.1, responseMimeType: 'application/json' },
       }),
     });
 
@@ -146,11 +158,31 @@ RESPUESTA:`;
     }
 
     const data = await resp.json();
-    const respuesta =
+    const textoCrudo =
       data?.candidates?.[0]?.content?.parts?.map((p: any) => p.text).join('') ??
-      'No se pudo generar una respuesta.';
+      '';
 
-    return { ok: true, respuesta, fuentes };
+    const parseado = parseModelJson(textoCrudo, { respuesta: textoCrudo, fuentes_utilizadas: [] as number[] });
+    const respuestaFinal = cleanMarkdownForUI(parseado.respuesta || 'No se pudo generar una respuesta.');
+    
+    // Filtrar las fuentes para devolver solo las usadas
+    let fuentesUsadas = fuentes;
+    if (Array.isArray(parseado.fuentes_utilizadas) && parseado.fuentes_utilizadas.length > 0) {
+      fuentesUsadas = parseado.fuentes_utilizadas
+        .map(idx => fuentes[idx])
+        .filter(f => !!f);
+    }
+
+    if (fuentesUsadas.length === 0 && parseado.respuesta !== textoCrudo) {
+       // Parseó bien pero array vacío
+    } else if (fuentesUsadas.length === 0) {
+       // Falló el parseo
+       fuentesUsadas = fuentes;
+    }
+
+    const fuentesUI = Array.from(new Map(fuentesUsadas.map(f => [f.documentId, f])).values());
+
+    return { ok: true, respuesta: respuestaFinal, fuentes: fuentesUI };
   } catch (e) {
     return { ok: false, error: 'Error de red: ' + String(e).slice(0, 160) };
   }

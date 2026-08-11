@@ -38,11 +38,22 @@ const auditActionLabels: Record<string, string> = {
   invitation_accepted_account_created: 'Invitación aceptada y cuenta creada',
 };
 
-export function formatAuditActionLabel(action?: string | null): string {
+export function formatAuditActionLabel(action?: string | null, terms?: IndustryTerms): string {
   if (!action) return 'Evento sin acción';
 
   const label = auditActionLabels[action];
-  if (label) return label;
+  if (label) {
+    if (terms && terms.expedienteSingular.toLowerCase() === 'operación') {
+      if (action === 'case_created') return 'Operación creada';
+      if (action === 'case_updated') return 'Operación actualizada';
+      if (action === 'case_status_updated') return 'Estado de operación actualizado';
+      if (action === 'case_summary_generated') return 'Resumen de operación generado';
+      if (action === 'case_event_added') return 'Movimiento de operación registrado';
+      if (action === 'case_event_removed') return 'Movimiento de operación eliminado';
+      if (action === 'case_checklist_created') return 'Checklist documental de operación creado';
+    }
+    return label;
+  }
 
   return action
     .replace(/[-_]+/g, ' ')

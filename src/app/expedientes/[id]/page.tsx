@@ -117,6 +117,11 @@ const CASE_EVENT_TYPE_LABELS: Record<string,string> = {
   notificacion: 'Notificación / Cédula',
   resolucion: 'Resolución / Sentencia',
   prueba: 'Prueba / Pericia',
+  visita: 'Visita / Mostración',
+  oferta: 'Oferta / Negociación',
+  reserva: 'Reserva / Seña',
+  boleto: 'Firma de Boleto',
+  escritura: 'Escritura / Posesión',
   otro: 'Otro movimiento',
 };
 
@@ -127,6 +132,11 @@ function getEventTypeBadgeColor(type: string): "warning" | "success" | "accent" 
     notificacion: 'accent',
     resolucion: 'success',
     prueba: 'accent',
+    visita: 'neutral',
+    oferta: 'accent',
+    reserva: 'warning',
+    boleto: 'success',
+    escritura: 'success',
     otro: 'neutral',
   };
   return tones[type] || 'neutral';
@@ -513,7 +523,7 @@ export default async function CaseDetailPage({ params, searchParams }: CaseDetai
       titulo: ev.title,
       detalle: ev.description,
       origen: 'actuacion',
-      etiquetaOrigen: CASE_EVENT_TYPE_LABELS[ev.event_type] || 'Actuación',
+      etiquetaOrigen: CASE_EVENT_TYPE_LABELS[ev.event_type] || 'Movimiento',
       esFuturo: esFuturo(f),
     });
   }
@@ -1328,7 +1338,7 @@ export default async function CaseDetailPage({ params, searchParams }: CaseDetai
               <div className="mt-6 rounded-2xl border border-white/10 bg-white/5 p-6">
                 <h3 className="text-lg font-semibold text-white">Observaciones de la escribanía</h3>
                 <p className="mt-1 text-sm text-slate-400">
-                  Notas que dejó la escribanía sobre este legajo.
+                  Notas que dejó la escribanía sobre {terms.expedienteSingular.toLowerCase()}.
                 </p>
                 <ul className="mt-4 space-y-3">
                   {observacionesEscribania.map((o) => (
@@ -1350,10 +1360,10 @@ export default async function CaseDetailPage({ params, searchParams }: CaseDetai
             label: '🕑 Cronología',
             content: (
               <div className="space-y-6">
-                <CronologiaExpediente items={cronologia} />
+                <CronologiaExpediente items={cronologia} terms={terms} />
                 <MotionCard index={0}>
-            <h3 className="font-display text-lg font-semibold text-white">Línea de tiempo del expediente</h3>
-            <p className="mt-1 text-sm text-slate-400">Registro cronológico de actuaciones, audiencias y movimientos.</p>
+            <h3 className="font-display text-lg font-semibold text-white">Línea de tiempo de {terms.expedientePlural.toLowerCase()}</h3>
+            <p className="mt-1 text-sm text-slate-400">Registro cronológico de {industry === 'inmobiliaria' ? 'eventos, hitos y movimientos' : 'actuaciones, audiencias y movimientos'}.</p>
             
             <form action={async (formData: FormData) => {
               'use server';
@@ -1373,52 +1383,63 @@ export default async function CaseDetailPage({ params, searchParams }: CaseDetai
                 <div>
                   <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">Tipo</label>
                   <select name="eventType" defaultValue="otro" className="mt-1 w-full rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-white placeholder:text-slate-500 outline-none focus:ring-2 focus:ring-sky-400">
-                    {Object.entries(CASE_EVENT_TYPE_LABELS).map(([val, label]) => (
-                      <option key={val} value={val} style={darkOptionStyle} className="bg-[#0C2340] text-white">{label}</option>
-                    ))}
+                    {industry === 'inmobiliaria' ? (
+                      <>
+                        <option value="visita" style={darkOptionStyle} className="bg-[#0C2340] text-white">Visita / Mostración</option>
+                        <option value="oferta" style={darkOptionStyle} className="bg-[#0C2340] text-white">Oferta / Negociación</option>
+                        <option value="reserva" style={darkOptionStyle} className="bg-[#0C2340] text-white">Reserva / Seña</option>
+                        <option value="boleto" style={darkOptionStyle} className="bg-[#0C2340] text-white">Firma de Boleto</option>
+                        <option value="escritura" style={darkOptionStyle} className="bg-[#0C2340] text-white">Escritura / Posesión</option>
+                        <option value="otro" style={darkOptionStyle} className="bg-[#0C2340] text-white">Otro movimiento</option>
+                      </>
+                    ) : (
+                      <>
+                        <option value="escrito" style={darkOptionStyle} className="bg-[#0C2340] text-white">Escrito / Presentación</option>
+                        <option value="audiencia" style={darkOptionStyle} className="bg-[#0C2340] text-white">Audiencia</option>
+                        <option value="notificacion" style={darkOptionStyle} className="bg-[#0C2340] text-white">Notificación / Cédula</option>
+                        <option value="resolucion" style={darkOptionStyle} className="bg-[#0C2340] text-white">Resolución / Sentencia</option>
+                        <option value="prueba" style={darkOptionStyle} className="bg-[#0C2340] text-white">Prueba / Pericia</option>
+                        <option value="otro" style={darkOptionStyle} className="bg-[#0C2340] text-white">Otro movimiento</option>
+                      </>
+                    )}
                   </select>
                 </div>
               </div>
               <div>
                 <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">Título</label>
-                <input type="text" name="title" required placeholder="Ej: Se presentó la demanda" className="mt-1 w-full rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-white placeholder:text-slate-500 outline-none focus:ring-2 focus:ring-sky-400" />
+                <input type="text" name="title" required placeholder={industry === 'inmobiliaria' ? 'Ej: Se firmó la reserva' : 'Ej: Se presentó la demanda'} className="mt-1 w-full rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-white placeholder:text-slate-500 outline-none focus:ring-2 focus:ring-sky-400" />
               </div>
               <div>
                 <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">Descripción (opcional)</label>
                 <textarea name="description" rows={2} className="mt-1 w-full rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-white placeholder:text-slate-500 outline-none focus:ring-2 focus:ring-sky-400" />
               </div>
               <button type="submit" className="justify-self-start rounded-xl bg-slate-900 px-4 py-2 text-sm font-bold text-white hover:bg-slate-800 transition-all">
-                Agregar actuación
+                {industry === 'inmobiliaria' ? 'Agregar movimiento' : 'Agregar actuación'}
               </button>
             </form>
 
             <div className="mt-6 space-y-4 border-l-2 border-white/10 pl-4">
               {eventos.length === 0 ? (
-                <div className="text-sm text-slate-400">Todavía no hay actuaciones registradas en este expediente.</div>
+                <div className="text-sm text-slate-400">Todavía no hay movimientos registrados en {terms.expedienteSingular.toLowerCase()}.</div>
               ) : (
                 eventos.map((item) => (
                   <div key={item.id} className="relative mb-6 last:mb-0">
-                    <span className="absolute -left-[23px] top-1 flex h-3 w-3 items-center justify-center rounded-full bg-slate-300 ring-4 ring-[#0a1830]" />
+                    <span className="absolute -left-[1.32rem] top-1 h-2 w-2 rounded-full ring-2 ring-[#0a1830] bg-slate-500" />
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="text-xs font-bold text-slate-400">{formatPlazoDate(item.event_date)}</span>
-                      <Badge tone={getEventTypeBadgeColor(item.event_type)}>
-                        {CASE_EVENT_TYPE_LABELS[item.event_type] || CASE_EVENT_TYPE_LABELS.otro}
-                      </Badge>
+                      <span className="text-sm font-medium text-white">{formatPlazoDate(item.event_date)}</span>
+                      <Badge tone={getEventTypeBadgeColor(item.event_type)}>{CASE_EVENT_TYPE_LABELS[item.event_type] || 'Movimiento'}</Badge>
                     </div>
-                    <div className="mt-2 rounded-2xl border border-white/10 bg-white/[0.04] p-4">
-                      <div className="flex items-start justify-between gap-4">
-                        <div>
-                          <p className="font-bold text-white">{item.title}</p>
-                          {item.description && <p className="mt-1 text-sm text-slate-400">{item.description}</p>}
-                        </div>
-                        <form action={async () => {
-                          'use server';
-                          await deleteCaseEvent({ eventId: item.id, caseId: caseRecord.id });
-                        }}>
-                          <button type="submit" className="text-xs font-bold text-rose-500 hover:text-rose-400 transition-colors">Eliminar</button>
-                        </form>
-                      </div>
-                    </div>
+                    <p className="mt-1 text-sm text-slate-300">{item.title}</p>
+                    {item.description && <p className="mt-0.5 text-sm text-slate-500">{item.description}</p>}
+                    
+                    <form action={async () => {
+                      'use server';
+                      await deleteCaseEvent({ eventId: item.id, caseId: caseRecord.id });
+                    }}>
+                      <button type="submit" className="mt-1 text-[11px] font-semibold text-rose-500/80 hover:text-rose-400 transition-colors">
+                        Eliminar
+                      </button>
+                    </form>
                   </div>
                 ))
               )}

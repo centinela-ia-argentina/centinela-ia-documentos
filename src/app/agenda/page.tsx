@@ -3,7 +3,7 @@ import { AppShell } from '@/components/layout/AppShell';
 import { createClient } from '@/lib/supabase/server';
 import { getUserProfile } from '@/lib/auth/getUserProfile';
 import { normalizeIndustryType } from '@/lib/industries/documentTypes';
-import { getAgendaLabels } from '@/lib/industries/uiLabels';
+import { getAgendaLabels, getIndustryTerms } from '@/lib/industries/uiLabels';
 import { AgendaClient, type AgendaEvento } from './AgendaClient';
 
 export default async function AgendaPage() {
@@ -42,11 +42,12 @@ export default async function AgendaPage() {
   const documents = documentsResult.data ?? [];
   const cases = casesResult.data ?? [];
   const plazos = plazosResult.data ?? [];
+  const terms = getIndustryTerms(industry);
 
   const eventos: AgendaEvento[] = [];
 
   const caseTitleById = new Map<string, string>();
-  for (const c of cases) caseTitleById.set(c.id, c.title || 'Expediente sin título');
+  for (const c of cases) caseTitleById.set(c.id, c.title || terms.itemSinTitulo);
 
   for (const doc of documents) {
     if (!doc.expires_at) continue;
@@ -65,7 +66,7 @@ export default async function AgendaPage() {
     eventos.push({
       id: `case-${c.id}`,
       fecha: fecha.slice(0, 10),
-      titulo: c.title || 'Expediente sin título',
+      titulo: c.title || terms.itemSinTitulo,
       tipo: 'expediente',
       href: `/expedientes/${c.id}`,
     });
@@ -107,7 +108,7 @@ export default async function AgendaPage() {
 
   return (
     <AppShell>
-      <AgendaClient industry={industry} eventos={eventos} cases={cases.map((c) => ({ id: c.id, title: c.title || 'Expediente sin título' }))} puedeGuardar={puedeGuardar} />
+      <AgendaClient industry={industry} eventos={eventos} cases={cases.map((c) => ({ id: c.id, title: c.title || terms.itemSinTitulo }))} puedeGuardar={puedeGuardar} />
     </AppShell>
   );
 }
