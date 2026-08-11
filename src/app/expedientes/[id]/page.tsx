@@ -868,15 +868,17 @@ export default async function CaseDetailPage({ params, searchParams }: CaseDetai
                     {prescore ? (
                       <div className="mt-4 space-y-4">
                         <div className="flex flex-wrap items-center gap-2">
-                          <span className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-sm font-semibold ${
+                          <span className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold ${
                             prescore.nivel_calificacion === 'apto' ? 'bg-emerald-500/15 text-emerald-300'
                             : prescore.nivel_calificacion === 'condicional' ? 'bg-amber-500/15 text-amber-300'
                             : prescore.nivel_calificacion === 'no_apto' ? 'bg-rose-500/15 text-rose-300'
+                            : prescore.nivel_calificacion === 'indeterminado' ? 'bg-orange-500/15 text-orange-300 border border-orange-500/20'
                             : 'bg-slate-500/15 text-slate-300'
                           }`}>
                             {prescore.nivel_calificacion === 'apto' ? 'Apto'
                             : prescore.nivel_calificacion === 'condicional' ? 'Condicional'
                             : prescore.nivel_calificacion === 'no_apto' ? 'No apto'
+                            : prescore.nivel_calificacion === 'indeterminado' ? 'Revisión Manual (Disparidad de Moneda)'
                             : 'Información insuficiente'}
                           </span>
                           {prescore.veces_alquiler != null && (

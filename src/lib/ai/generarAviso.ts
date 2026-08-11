@@ -20,7 +20,7 @@ export async function generarAvisoPropiedad(datos: {
     'TÍTULO: (un título corto y vendedor)',
     'DESCRIPCIÓN: (4 a 6 oraciones destacando ubicación, ambientes, superficie y valor)',
     'REDES: (una versión corta con 2-3 emojis y 3 hashtags para Instagram)',
-    'Reglas: NO inventes datos, comodidades ni características que no estén en los datos. No inventes barrio si no está la dirección. Tono profesional y cálido.',
+    'Reglas: NO inventes datos, comodidades ni características que no estén en los datos. Si falta algún dato esencial para el aviso, escribí el marcador [COMPLETAR: dato]. No inventes barrio si no está la dirección. Tono profesional y cálido.',
     '',
     'DATOS DE LA PROPIEDAD:',
     `Nombre: ${datos.name}`,
