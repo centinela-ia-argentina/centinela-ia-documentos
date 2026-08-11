@@ -2,6 +2,7 @@ export type RawMatch = {
   document_id: string;
   content: string;
   similarity: number;
+  fileName?: string;
 };
 
 export type RankedFragment = {
@@ -34,18 +35,20 @@ export function rankAndFilterFragments(matches: RawMatch[], query: string): Rank
 
   const scoredMatches = validMatches.map(m => {
     let score = m.similarity;
-    if (score < threshold) score *= 0.5; // penalize if below threshold
+    if (score < threshold) score = 0; // Excluir efectivamente candidatos irrelevantes
     
     // Lexical boost
     let lexicalMatches = 0;
     const contentLower = m.content.toLowerCase();
+    const nameLower = m.fileName ? m.fileName.toLowerCase() : '';
     for (const token of queryTokens) {
       if (contentLower.includes(token)) lexicalMatches++;
+      if (nameLower.includes(token)) lexicalMatches += 2; // boost for filename match
     }
     score += (lexicalMatches * 0.02);
 
     return { ...m, finalScore: score };
-  });
+  }).filter(m => m.finalScore >= threshold); // Filter out the ones that were excluded
 
   // Sort by final score
   scoredMatches.sort((a, b) => b.finalScore - a.finalScore);

@@ -163,8 +163,8 @@ PREGUNTA: ${texto}`;
     if (fuentesUsadas.length === 0 && parseado.respuesta !== textoCrudo) {
        // Significa que parseó bien pero el array estaba vacío, es decir, no usó fuentes.
     } else if (fuentesUsadas.length === 0) {
-       // Falló el parseo, devolvemos las fuentes originales para no perderlas en un error.
-       fuentesUsadas = fuentes;
+       // Falló el parseo, no devolvemos todas las fuentes por seguridad.
+       fuentesUsadas = [];
     }
 
     // Deduplicate fuentesUsadas by documentId to avoid showing the same file multiple times

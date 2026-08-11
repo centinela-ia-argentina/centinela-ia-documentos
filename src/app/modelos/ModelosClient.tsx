@@ -144,7 +144,7 @@ export function ModelosClient({
       grupos.set(m.categoria, arr);
     }
     return Array.from(grupos.entries());
-  }, [busqueda, provincia]);
+  }, [busqueda, provincia, industria]);
 
   const variables = seleccionado ? extractVars(seleccionado.cuerpo) : [];
   const textoFinal = seleccionado ? fillTemplate(seleccionado.cuerpo, valores) : '';

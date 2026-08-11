@@ -176,8 +176,8 @@ PREGUNTA: ${texto}`;
     if (fuentesUsadas.length === 0 && parseado.respuesta !== textoCrudo) {
        // Parseó bien pero array vacío
     } else if (fuentesUsadas.length === 0) {
-       // Falló el parseo
-       fuentesUsadas = fuentes;
+       // Falló el parseo, no devolvemos todas las fuentes por seguridad.
+       fuentesUsadas = [];
     }
 
     const fuentesUI = Array.from(new Map(fuentesUsadas.map(f => [f.documentId, f])).values());

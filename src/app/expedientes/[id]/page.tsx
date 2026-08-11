@@ -14,6 +14,7 @@ import {
   normalizeIndustryType,
 } from '@/lib/industries/documentTypes';
 import { getIndustryTerms } from '@/lib/industries/uiLabels';
+import { getCaseEventTypes, getCaseEventLabel } from '@/lib/industries/caseEventTypes';
 import { summarizeChecklistStatuses } from '@/lib/checklist/progress';
 import { getDocumentExpiryStatus, expiryStatusLabel, getExpiryBadgeStyles, getDaysUntilExpiry } from '@/lib/documents/expiry';
 import { sensitivityLabel } from '@/lib/documents/sensitivity';
@@ -111,19 +112,7 @@ type CaseEventRecord = {
   created_by: string | null;
 };
 
-const CASE_EVENT_TYPE_LABELS: Record<string,string> = {
-  escrito: 'Escrito / Presentación',
-  audiencia: 'Audiencia',
-  notificacion: 'Notificación / Cédula',
-  resolucion: 'Resolución / Sentencia',
-  prueba: 'Prueba / Pericia',
-  visita: 'Visita / Mostración',
-  oferta: 'Oferta / Negociación',
-  reserva: 'Reserva / Seña',
-  boleto: 'Firma de Boleto',
-  escritura: 'Escritura / Posesión',
-  otro: 'Otro movimiento',
-};
+
 
 function getEventTypeBadgeColor(type: string): "warning" | "success" | "accent" | "neutral" {
   const tones: Record<string, "warning" | "success" | "accent" | "neutral"> = {
@@ -523,7 +512,7 @@ export default async function CaseDetailPage({ params, searchParams }: CaseDetai
       titulo: ev.title,
       detalle: ev.description,
       origen: 'actuacion',
-      etiquetaOrigen: CASE_EVENT_TYPE_LABELS[ev.event_type] || 'Movimiento',
+      etiquetaOrigen: getCaseEventLabel(ev.event_type, industry),
       esFuturo: esFuturo(f),
     });
   }
@@ -1383,25 +1372,11 @@ export default async function CaseDetailPage({ params, searchParams }: CaseDetai
                 <div>
                   <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">Tipo</label>
                   <select name="eventType" defaultValue="otro" className="mt-1 w-full rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-white placeholder:text-slate-500 outline-none focus:ring-2 focus:ring-sky-400">
-                    {industry === 'inmobiliaria' ? (
-                      <>
-                        <option value="visita" style={darkOptionStyle} className="bg-[#0C2340] text-white">Visita / Mostración</option>
-                        <option value="oferta" style={darkOptionStyle} className="bg-[#0C2340] text-white">Oferta / Negociación</option>
-                        <option value="reserva" style={darkOptionStyle} className="bg-[#0C2340] text-white">Reserva / Seña</option>
-                        <option value="boleto" style={darkOptionStyle} className="bg-[#0C2340] text-white">Firma de Boleto</option>
-                        <option value="escritura" style={darkOptionStyle} className="bg-[#0C2340] text-white">Escritura / Posesión</option>
-                        <option value="otro" style={darkOptionStyle} className="bg-[#0C2340] text-white">Otro movimiento</option>
-                      </>
-                    ) : (
-                      <>
-                        <option value="escrito" style={darkOptionStyle} className="bg-[#0C2340] text-white">Escrito / Presentación</option>
-                        <option value="audiencia" style={darkOptionStyle} className="bg-[#0C2340] text-white">Audiencia</option>
-                        <option value="notificacion" style={darkOptionStyle} className="bg-[#0C2340] text-white">Notificación / Cédula</option>
-                        <option value="resolucion" style={darkOptionStyle} className="bg-[#0C2340] text-white">Resolución / Sentencia</option>
-                        <option value="prueba" style={darkOptionStyle} className="bg-[#0C2340] text-white">Prueba / Pericia</option>
-                        <option value="otro" style={darkOptionStyle} className="bg-[#0C2340] text-white">Otro movimiento</option>
-                      </>
-                    )}
+                    {getCaseEventTypes(industry).map(t => (
+                      <option key={t.value} value={t.value} style={darkOptionStyle} className="bg-[#0C2340] text-white">
+                        {t.label}
+                      </option>
+                    ))}
                   </select>
                 </div>
               </div>
@@ -1427,7 +1402,7 @@ export default async function CaseDetailPage({ params, searchParams }: CaseDetai
                     <span className="absolute -left-[1.32rem] top-1 h-2 w-2 rounded-full ring-2 ring-[#0a1830] bg-slate-500" />
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="text-sm font-medium text-white">{formatPlazoDate(item.event_date)}</span>
-                      <Badge tone={getEventTypeBadgeColor(item.event_type)}>{CASE_EVENT_TYPE_LABELS[item.event_type] || 'Movimiento'}</Badge>
+                      <Badge tone={getEventTypeBadgeColor(item.event_type)}>{getCaseEventLabel(item.event_type, industry)}</Badge>
                     </div>
                     <p className="mt-1 text-sm text-slate-300">{item.title}</p>
                     {item.description && <p className="mt-0.5 text-sm text-slate-500">{item.description}</p>}

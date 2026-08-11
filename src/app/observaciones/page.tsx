@@ -53,15 +53,20 @@ export default async function ObservacionesPage() {
 
   const documents = documentsResult.data ?? [];
   const aiOutputs = aiOutputsResult.data ?? [];
-  const cases = casesResult.data ?? [];
+  const allCases = casesResult.data ?? [];
   const checklistItems = checklistItemsResult.data ?? [];
+  const activeCases = allCases.filter(c => c.status !== 'archived' && c.status !== 'Archivado');
 
   const industry = normalizeIndustryType(organizationResult?.data?.industry_type);
   const terms = getIndustryTerms(industry);
   const isFem = terms.expedientePlural.toLowerCase() === 'operaciones';
 
-  const caseTitleMap = new Map(cases.map(c => [c.id, c.title || terms.itemSinTitulo]));
-  const caseStatusMap = new Map(cases.map(c => [c.id, c.status]));
+  const caseTitleMap = new Map(allCases.map(c => {
+    const title = c.title || terms.itemSinTitulo;
+    const suffix = (c.status === 'archived' || c.status === 'Archivado') ? ' (Archivada)' : '';
+    return [c.id, title + suffix];
+  }));
+  const caseStatusMap = new Map(allCases.map(c => [c.id, c.status]));
 
   // 1. Documentos sensibles
   const sensiblesAll = documents.filter((doc) => isSensitiveDocument(doc.sensitivity_level));
@@ -87,11 +92,11 @@ export default async function ObservacionesPage() {
     return acc;
   }, {});
 
-  const incompletosAll = cases.map((c) => {
+  const incompletosAll = activeCases.map((c) => {
     const statuses = statusesByCase[c.id] || [];
     const summary = summarizeChecklistStatuses(statuses);
     return { ...c, summary };
-  }).filter((c) => !c.summary.isComplete && c.summary.total > 0 && c.status !== 'archived' && c.status !== 'Archivado');
+  }).filter((c) => !c.summary.isComplete && c.summary.total > 0);
   const incompletos = incompletosAll.slice(0, 8);
 
   // 4. Análisis IA pendientes
@@ -104,8 +109,7 @@ export default async function ObservacionesPage() {
   const sinClasificar = sinClasificarAll.slice(0, 8);
 
   // 6. Plazos procesales / fechas clave
-  const plazosAll = cases
-    .filter(c => c.status !== 'archived' && c.status !== 'Archivado')
+  const plazosAll = activeCases
     .map((c) => {
       const metadata = c.metadata as Record<string, unknown> | null;
       const fecha = (metadata?.fecha_relevante as string | undefined)?.trim();

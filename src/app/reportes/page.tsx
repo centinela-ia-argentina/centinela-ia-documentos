@@ -37,6 +37,7 @@ interface DocumentRecordForReport {
   file_mime_type?: string | null;
   created_at?: string | null;
   expires_at?: string | null;
+  case_id?: string | null;
 }
 
 interface AiOutputRecordForReport {
@@ -296,24 +297,21 @@ function getResourceLabel(
   }
 
   if (log.resource_type === 'document' || log.action.startsWith('document_')) {
-    const docName =
-      metadataFileName ??
-      (log.resource_id && documentsById.get(log.resource_id)?.file_name) ??
-      (log.resource_id ? `Documento ${log.resource_id.slice(0, 8)}...` : 'Documento');
+    const docData = log.resource_id ? documentsById.get(log.resource_id) : undefined;
+    const docName = docData?.file_name ?? metadataFileName ?? (log.resource_id ? `Documento ${log.resource_id.slice(0, 8)}...` : 'Documento');
+    const associatedCase = docData?.case_id ? casesById.get(docData.case_id) : undefined;
+    const caseTitle = associatedCase?.title ?? metadataCaseTitle;
     
-    if (metadataCaseTitle) {
-      return `${metadataCaseTitle} — ${docName}`;
+    if (caseTitle) {
+      return `${caseTitle} — ${docName}`;
     }
     return docName;
   }
 
   if (log.resource_type === 'case' || log.action.startsWith('case_')) {
-    return (
-      metadataCaseTitle ??
-      metadataTitle ??
-      (log.resource_id && casesById.get(log.resource_id)?.title) ??
-      `${terms ? terms.expedienteSingular : 'Expediente'} ${log.resource_id ? log.resource_id.slice(0, 8) + '...' : ''}`
-    );
+    const caseData = log.resource_id ? casesById.get(log.resource_id) : undefined;
+    const title = caseData?.title ?? metadataCaseTitle ?? metadataTitle;
+    return title ?? `${terms ? terms.expedienteSingular : 'Expediente'} ${log.resource_id ? log.resource_id.slice(0, 8) + '...' : ''}`;
   }
 
   if (log.resource_type === 'organization') return 'Organización';
@@ -522,10 +520,21 @@ if (
     if (auditDocIds.length > 0) {
       const dRes = await supabase
         .from('documents')
-        .select('id, file_name, sensitivity_level, expires_at')
+        .select('id, file_name, sensitivity_level, expires_at, case_id')
         .eq('organization_id', profile.organization_id)
         .in('id', auditDocIds);
       documents = (dRes.data ?? []) as DocumentRecordForReport[];
+
+      const caseIdsFromDocs = Array.from(new Set(documents.map(d => d.case_id).filter(Boolean))) as string[];
+      const missingCaseIds = caseIdsFromDocs.filter(id => !cases.some(c => c.id === id));
+      if (missingCaseIds.length > 0) {
+        const mcRes = await supabase
+          .from('cases')
+          .select('id, title, status')
+          .eq('organization_id', profile.organization_id)
+          .in('id', missingCaseIds);
+        cases = [...cases, ...((mcRes.data ?? []) as CaseRecord[])];
+      }
     }
   }
 
