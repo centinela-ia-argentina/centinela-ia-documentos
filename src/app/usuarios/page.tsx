@@ -539,7 +539,7 @@ export default async function UsuariosPage({ searchParams }: UsuariosPageProps) 
               href="/usuarios/invitaciones"
               className="mt-4 inline-flex rounded-xl bg-cyan-600 px-4 py-2.5 text-sm font-bold text-white shadow-lg shadow-cyan-500/20 transition-all hover:scale-[1.03] hover:bg-cyan-500 hover:shadow-cyan-500/40 active:scale-[0.97]"
             >
-              Revisar invitaciones
+              Ver estado de invitaciones
             </Link>
           </MotionCard>
         </section>

@@ -83,7 +83,17 @@ export function TasarButton({ propertyId }: { propertyId: string }) {
 
   return (
     <div className="mb-6">
-      {error && <p className="mb-2 text-sm text-red-400">{error}</p>}
+      {error && (
+        <div className="mb-4 rounded-xl border border-red-500/20 bg-red-500/10 p-4">
+          <div className="flex items-start gap-3">
+            <span className="text-xl">⚠️</span>
+            <div>
+              <h4 className="text-sm font-bold text-red-400">No se pudo tasar</h4>
+              <p className="mt-1 text-sm text-red-200/80">{error}</p>
+            </div>
+          </div>
+        </div>
+      )}
       <button
         onClick={handleTasar}
         disabled={isPending}

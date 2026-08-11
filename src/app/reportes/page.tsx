@@ -286,10 +286,6 @@ function getResourceLabel(
     metadataText(log.metadata, 'invitation_email') ??
     metadataText(log.metadata, 'invited_email');
 
-  if (metadataFileName) return metadataFileName;
-  if (metadataCaseTitle) return metadataCaseTitle;
-  if (metadataTitle) return metadataTitle;
-
   if (
     log.resource_type === 'user_invitation' ||
     log.resource_type === 'invitation' ||
@@ -299,17 +295,24 @@ function getResourceLabel(
     return metadataEmail ?? 'Invitación de usuario';
   }
 
-  if (log.resource_type === 'document' && log.resource_id) {
-    return (
-      documentsById.get(log.resource_id)?.file_name ??
-      `Documento ${log.resource_id.slice(0, 8)}...`
-    );
+  if (log.resource_type === 'document' || log.action.startsWith('document_')) {
+    const docName =
+      metadataFileName ??
+      (log.resource_id && documentsById.get(log.resource_id)?.file_name) ??
+      (log.resource_id ? `Documento ${log.resource_id.slice(0, 8)}...` : 'Documento');
+    
+    if (metadataCaseTitle) {
+      return `${metadataCaseTitle} — ${docName}`;
+    }
+    return docName;
   }
 
-  if (log.resource_type === 'case' && log.resource_id) {
+  if (log.resource_type === 'case' || log.action.startsWith('case_')) {
     return (
-      casesById.get(log.resource_id)?.title ??
-      `${terms ? terms.expedienteSingular : 'Expediente'} ${log.resource_id.slice(0, 8)}...`
+      metadataCaseTitle ??
+      metadataTitle ??
+      (log.resource_id && casesById.get(log.resource_id)?.title) ??
+      `${terms ? terms.expedienteSingular : 'Expediente'} ${log.resource_id ? log.resource_id.slice(0, 8) + '...' : ''}`
     );
   }
 
@@ -585,7 +588,7 @@ if (
     {
       label: `${terms.expedientePlural} totales`,
       value: totalCases,
-      helper: `${activeCases} ${isFem ? 'activas' : 'activos'}`,
+      helper: `Incluye ${isFem ? 'activas' : 'activos'} y ${isFem ? 'archivadas' : 'archivados'}`,
     },
     {
       label: `${terms.expedientePlural} ${isFem ? 'activas' : 'activos'}`,
@@ -593,9 +596,9 @@ if (
       helper: 'En proceso o preparación',
     },
     {
-      label: 'Documentos cargados',
+      label: 'Documentos totales',
       value: totalDocuments,
-      helper: 'En todo el sistema',
+      helper: 'Incluye documentos activos y archivados',
     },
     {
       label: 'Cobertura IA',
