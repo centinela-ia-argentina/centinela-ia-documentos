@@ -75,6 +75,14 @@ async function deduplicateAndInsert(input: {
   const supabase = await createClient();
 
   if (input.caseId) {
+    const { data: orgData } = await supabase
+      .from('organizations')
+      .select('industry_type')
+      .eq('id', profile.organization_id)
+      .maybeSingle();
+    const industry = orgData?.industry_type === 'inmobiliaria' ? 'inmobiliaria' : orgData?.industry_type === 'escribania' ? 'escribania' : 'legal';
+    const term = industry === 'inmobiliaria' ? 'Operación' : industry === 'escribania' ? 'Legajo' : 'Expediente';
+
     const { data: caseData } = await supabase
       .from('cases')
       .select('id')
@@ -83,7 +91,7 @@ async function deduplicateAndInsert(input: {
       .maybeSingle();
     
     if (!caseData) {
-      return { ok: false, motivo: 'error', mensaje: 'Recurso no encontrado o sin acceso.' };
+      return { ok: false, motivo: 'error', mensaje: `${term} no encontrad${industry === 'inmobiliaria' ? 'a' : 'o'} o sin acceso.` };
     }
   }
 

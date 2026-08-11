@@ -39,15 +39,21 @@ function datosDeExpediente(exp: ExpedienteLite, industria?: string): Record<stri
     tipo_inmueble: meta.tipo_inmueble ?? meta.tipo,
     moneda: meta.moneda ?? meta.divisa,
     precio: meta.precio ?? meta.valor,
-    vendedor: esInmobiliaria ? meta.vendedor : (meta.vendedor ?? (exp.case_type?.toLowerCase().includes('venta') ? exp.client_name : undefined)),
+    vendedor: meta.vendedor,
     comprador: meta.comprador,
-    locador: esInmobiliaria ? meta.locador : (meta.locador ?? (exp.case_type?.toLowerCase().includes('alquiler') ? exp.client_name : undefined)),
+    locador: meta.locador,
     locatario: meta.locatario ?? meta.inquilino,
-    propietario: esInmobiliaria ? (meta.propietario ?? meta.titular) : (meta.propietario ?? meta.titular ?? exp.client_name),
+    propietario: meta.propietario ?? meta.titular,
     garante: meta.garante,
     cliente: exp.client_name,
     nombre_cliente: exp.client_name,
   };
+
+  if (!esInmobiliaria) {
+    posibles.vendedor = posibles.vendedor ?? (exp.case_type?.toLowerCase().includes('venta') ? exp.client_name : undefined);
+    posibles.locador = posibles.locador ?? (exp.case_type?.toLowerCase().includes('alquiler') ? exp.client_name : undefined);
+    posibles.propietario = posibles.propietario ?? exp.client_name;
+  }
   return Object.fromEntries(
     Object.entries(posibles).filter(([, v]) => typeof v === 'string' && v.trim() !== '')
   ) as Record<string, string>;
@@ -358,13 +364,13 @@ export function ModelosClient({
                       ))}
                     </select>
                     {expedienteId ? (() => {
-                      const filledCount = variables.filter(key => valores[key] && valores[key].trim() !== '').length;
+                      const filledCount = variables.filter(key => valores[key] && valores[key].trim() !== '' && !valores[key].startsWith('[COMPLETAR:')).length;
                       if (filledCount === 0) {
-                        return <p className="mt-1.5 text-[11px] text-amber-400">La operación no contiene datos contractuales suficientes para prellenar. Podés completarlo manualmente.</p>;
+                        return <p className="mt-1.5 text-[11px] text-amber-400">La operación no contiene datos contractuales suficientes para prellenar este modelo. Completá los campos manualmente.</p>;
                       } else if (filledCount < variables.length) {
-                        return <p className="mt-1.5 text-[11px] text-emerald-400">Prellenado parcial: faltan datos que deben completarse manualmente.</p>;
+                        return <p className="mt-1.5 text-[11px] text-emerald-400">Se completaron los datos explícitos disponibles. Revisá y completá los campos pendientes.</p>;
                       } else {
-                        return <p className="mt-1.5 text-[11px] text-emerald-400">Datos explícitos de la operación prellenados con éxito.</p>;
+                        return <p className="mt-1.5 text-[11px] text-emerald-400">Se completaron todos los campos disponibles de la operación. Verificá los datos antes de usar el documento.</p>;
                       }
                     })() : (
                       <p className="mt-1.5 text-[11px] text-slate-400">

@@ -68,25 +68,30 @@ export async function preguntarADocumentos(pregunta: string): Promise<RespuestaB
 
   if (matchError) return { ok: false, error: 'Error al buscar: ' + matchError.message };
 
-  const rankedFragments = rankAndFilterFragments(matches || [], texto);
-
-  if (rankedFragments.length === 0) {
-    return {
-      ok: true,
-      respuesta:
-        'No encontré información relacionada en tus documentos indexados. Probá reanalizar algún documento o reformular la pregunta.',
-      fuentes: [],
-    };
-  }
-
-  // 3) Nombres de archivo para citar
-  const docIds = [...new Set(rankedFragments.map((m) => m.documentId))];
+  // 3) Nombres de archivo para citar y rankear
+  const docIds = [...new Set((matches || []).map((m: any) => m.document_id))];
   const { data: docs } = await supabase
     .from('documents')
     .select('id, file_name')
     .eq('organization_id', profile.organization_id)
     .in('id', docIds);
   const nombrePorId = new Map((docs ?? []).map((d: any) => [d.id, d.file_name]));
+
+  const matchesWithNames = (matches || []).map((m: any) => ({
+    ...m,
+    fileName: nombrePorId.get(m.document_id) ?? 'Documento'
+  }));
+
+  const rankedFragments = rankAndFilterFragments(matchesWithNames, texto);
+
+  if (rankedFragments.length === 0) {
+    return {
+      ok: true,
+      respuesta:
+        'No encontré evidencia suficientemente relacionada en tus documentos indexados. Probá reformular la pregunta o revisar la indexación.',
+      fuentes: [],
+    };
+  }
 
   const fuentes: FuenteBusqueda[] = rankedFragments.map((m) => ({
     documentId: m.documentId,
@@ -106,11 +111,16 @@ Tu respuesta debe estar estructurada en formato JSON estricto con las siguientes
 "respuesta": "tu texto de respuesta"
 "fuentes_utilizadas": [arreglo de enteros con los índices de los fragmentos que utilizaste, por ejemplo [0, 2]]
 
-Reglas:
-- Responde únicamente con los fragmentos provistos.
-- No cites un fragmento si no sustenta un dato de la respuesta.
-- Si no hay evidencia suficiente, dilo en la respuesta.
-- No utilices encabezados Markdown, tablas, bloques de código ni asteriscos de negrita en la respuesta.
+Reglas obligatorias:
+- Usa únicamente los fragmentos aportados.
+- No inventes datos.
+- No cites documentos que no sustenten la respuesta.
+- "fuentes_utilizadas" debe contener solo índices válidos (enteros).
+- Si no existe evidencia suficiente, decilo.
+- No utilices encabezados Markdown.
+- No utilices bloques de código.
+- No utilices tablas Markdown.
+- No utilices asteriscos de negrita en la respuesta.
 - El JSON debe ser válido.
 
 FRAGMENTOS:

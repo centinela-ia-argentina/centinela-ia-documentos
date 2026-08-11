@@ -91,8 +91,11 @@ export async function preguntarADocumentosLegajo(
 
   if (matchError) return { ok: false, error: 'Error al buscar: ' + matchError.message };
 
-  // 4) Quedarnos SOLO con fragmentos de los documentos de este legajo
-  const delLegajo = (matches ?? []).filter((m: any) => idsCaso.has(m.document_id));
+  // 4) Quedarnos SOLO con fragmentos de los documentos de este legajo y agregar fileName
+  const delLegajo = (matches ?? []).filter((m: any) => idsCaso.has(m.document_id)).map((m: any) => ({
+    ...m,
+    fileName: nombrePorId.get(m.document_id) ?? 'Documento'
+  }));
 
   const rankedFragments = rankAndFilterFragments(delLegajo, texto);
 
@@ -100,7 +103,7 @@ export async function preguntarADocumentosLegajo(
     return {
       ok: true,
       respuesta:
-        'No encontré información relacionada en los documentos de este legajo. Puede que todavía no estén analizados con IA (indexados): analizalos desde la pestaña Documentos y volvé a preguntar.',
+        `No encontré información relacionada en los documentos de esta ${industry === 'inmobiliaria' ? 'operación' : 'legajo'}. Puede que todavía no estén analizados con IA (indexados): analizalos desde la pestaña Documentos y volvé a preguntar.`,
       fuentes: [],
     };
   }
@@ -120,11 +123,16 @@ Tu respuesta debe estar estructurada en formato JSON estricto con las siguientes
 "respuesta": "tu texto de respuesta"
 "fuentes_utilizadas": [arreglo de enteros con los índices de los fragmentos que utilizaste, por ejemplo [0, 2]]
 
-Reglas:
-- Responde únicamente con los fragmentos provistos.
-- No cites un fragmento si no sustenta un dato de la respuesta.
-- Si no hay evidencia suficiente, dilo en la respuesta.
-- No utilices encabezados Markdown, tablas, bloques de código ni asteriscos de negrita en la respuesta.
+Reglas obligatorias:
+- Usa únicamente los fragmentos aportados.
+- No inventes datos.
+- No cites documentos que no sustenten la respuesta.
+- "fuentes_utilizadas" debe contener solo índices válidos (enteros).
+- Si no existe evidencia suficiente, decilo.
+- No utilices encabezados Markdown.
+- No utilices bloques de código.
+- No utilices tablas Markdown.
+- No utilices asteriscos de negrita en la respuesta.
 - El JSON debe ser válido.
 
 FRAGMENTOS:

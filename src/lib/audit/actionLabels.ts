@@ -51,6 +51,17 @@ export function formatAuditActionLabel(action?: string | null, terms?: IndustryT
       if (action === 'case_event_added') return 'Movimiento de operación registrado';
       if (action === 'case_event_removed') return 'Movimiento de operación eliminado';
       if (action === 'case_checklist_created') return 'Checklist documental de operación creado';
+    } else if (terms && terms.expedienteSingular.toLowerCase() !== 'expediente') {
+      // Escribania (Legajo) or others
+      const singular = terms.expedienteSingular;
+      const lower = singular.toLowerCase();
+      if (action === 'case_created') return `${singular} creado`;
+      if (action === 'case_updated') return `${singular} actualizado`;
+      if (action === 'case_status_updated') return `Estado de ${lower} actualizado`;
+      if (action === 'case_summary_generated') return `Resumen de ${lower} generado`;
+      if (action === 'case_event_added') return `Actuación registrada`;
+      if (action === 'case_event_removed') return `Actuación eliminada`;
+      if (action === 'case_checklist_created') return `Checklist documental de ${lower} creado`;
     }
     return label;
   }

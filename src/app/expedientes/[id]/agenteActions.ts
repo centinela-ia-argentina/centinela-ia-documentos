@@ -123,8 +123,11 @@ export async function preguntarAgente(input: {
     checklistItemsCtx = (itemsData ?? []) as any;
   }
 
+  const termDoc = industry === 'inmobiliaria' ? 'OPERACIÓN' : industry === 'escribania' ? 'LEGAJO' : 'EXPEDIENTE';
+  const termLower = industry === 'inmobiliaria' ? 'la operación' : industry === 'escribania' ? 'el legajo' : 'el expediente';
+
   const partes: string[] = [];
-  partes.push(`LEGAJO: ${caseData.title ?? 'Sin título'}`);
+  partes.push(`${termDoc}: ${caseData.title ?? 'Sin título'}`);
   partes.push(
     `Cliente: ${caseData.client_name ?? '-'} | Tipo: ${caseData.case_type ?? '-'} | Estado: ${getCaseStatusLabel(caseData.status, industry)}`
   );
@@ -141,13 +144,13 @@ export async function preguntarAgente(input: {
     })
     .filter(Boolean);
   if (camposRubro.length) {
-    partes.push('\nDATOS DEL EXPEDIENTE (cargados en el legajo, usalos como verdad):');
+    partes.push(`\nDATOS DE ${termDoc} (cargados en ${termLower}, usalos como verdad):`);
     partes.push(camposRubro.join('\n'));
   }
 
   const resumenJson = (resumenData?.result_json ?? null) as any;
   if (resumenJson) {
-    partes.push('\nRESUMEN DEL EXPEDIENTE:');
+    partes.push(`\nRESUMEN DE ${termDoc}:`);
     if (resumenJson.resumen_general) partes.push(String(resumenJson.resumen_general));
     if (resumenJson.estado_actual) partes.push(`Estado procesal: ${resumenJson.estado_actual}`);
     if (Array.isArray(resumenJson.puntos_clave) && resumenJson.puntos_clave.length)
@@ -258,7 +261,7 @@ export async function preguntarAgente(input: {
   const eventos = eventosData ?? [];
   if (eventos.length) {
     const hoyIso = new Date().toISOString().slice(0, 10);
-    partes.push('\nCRONOLOGÍA DEL LEGAJO (actuaciones y plazos; los marcados como PLAZO FUTURO son agendables):');
+    partes.push(`\nCRONOLOGÍA DE ${termDoc} (actuaciones y plazos; los marcados como PLAZO FUTURO son agendables):`);
     partes.push(
       eventos
         .map((e) => {
@@ -298,13 +301,13 @@ export async function preguntarAgente(input: {
       i++;
     }
   } else if (documentos.length > 0) {
-    partes.push('\nDOCUMENTOS DEL LEGAJO (sin analizar aún):');
+    partes.push(`\nDOCUMENTOS DE ${termDoc} (sin analizar aún):`);
     partes.push(documentos.map((d) => `- ${d.file_name}`).join('\n'));
   }
 
   // Checklist en el contexto: marcamos cuáles se pueden vincular a un documento.
   if (checklistItemsCtx.length > 0) {
-    partes.push('\nCHECKLIST DEL LEGAJO (los marcados "PENDIENTE (sin documento)" se pueden vincular con un documento del legajo que los cumpla):');
+    partes.push(`\nCHECKLIST DE ${termDoc} (los marcados "PENDIENTE (sin documento)" se pueden vincular con un documento de ${termLower} que los cumpla):`);
     partes.push(
       checklistItemsCtx
         .map((it) => {
@@ -343,7 +346,10 @@ export async function preguntarAgente(input: {
             match_count: 80,
           }));
         }
-        const delLegajo = (matches ?? []).filter((m: any) => idsCasoRag.has(m.document_id));
+        const delLegajo = (matches ?? []).filter((m: any) => idsCasoRag.has(m.document_id)).map((m: any) => ({
+          ...m,
+          fileName: nombrePorDoc.get(m.document_id) ?? 'Documento'
+        }));
         const rankedFragments = rankAndFilterFragments(delLegajo, pregunta);
 
         if (rankedFragments.length > 0) {
