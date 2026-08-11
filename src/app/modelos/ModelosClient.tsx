@@ -18,20 +18,30 @@ export type ExpedienteLite = {
 };
 
 function datosDeExpediente(exp: ExpedienteLite): Record<string, string> {
-  const meta = exp.metadata ?? {};
+  const meta = (exp.metadata as Record<string, string>) ?? {};
   const posibles: Record<string, string | null | undefined> = {
-    // La carátula formal del expediente (jurídico) tiene prioridad sobre el título interno.
+    ...meta,
     caratula: meta.caratula ?? exp.title,
     nombre_parte: exp.client_name,
     parte: exp.client_name,
     destinatario: exp.client_name,
     numero_expediente: meta.numero_expediente ?? meta.expediente,
-    // Datos procesales del expediente jurídico (se usan si el modelo los pide).
     juzgado: meta.juzgado,
     fuero: meta.fuero,
     parte_contraria: meta.parte_contraria,
-    domicilio_destinatario: meta.domicilio,
-    domicilio_fisico: meta.domicilio,
+    domicilio_destinatario: meta.domicilio ?? meta.domicilio_destinatario,
+    domicilio_fisico: meta.domicilio ?? meta.domicilio_fisico,
+
+    // Inmobiliaria fallbacks
+    direccion_inmueble: meta.direccion_inmueble ?? meta.direccion ?? meta.ubicacion ?? meta.inmueble,
+    tipo_inmueble: meta.tipo_inmueble ?? meta.tipo,
+    moneda: meta.moneda ?? meta.divisa,
+    precio: meta.precio ?? meta.valor,
+    vendedor: meta.vendedor ?? (exp.case_type?.toLowerCase().includes('venta') ? exp.client_name : undefined),
+    comprador: meta.comprador,
+    locador: meta.locador ?? (exp.case_type?.toLowerCase().includes('alquiler') ? exp.client_name : undefined),
+    locatario: meta.locatario,
+    propietario: meta.propietario ?? meta.titular ?? exp.client_name,
   };
   return Object.fromEntries(
     Object.entries(posibles).filter(([, v]) => typeof v === 'string' && v.trim() !== '')
@@ -328,23 +338,34 @@ export function ModelosClient({
                   <div className="mb-4 rounded-xl border border-cyan-500/20 bg-cyan-500/10 p-3">
                     <label className="flex items-center gap-2 text-xs font-semibold text-cyan-400">
                       <FolderKanban className="h-3.5 w-3.5" />
-                      Prellenar desde un expediente
+                      Prellenar desde {industria === 'inmobiliaria' ? 'una operación' : industria === 'escribania' ? 'un legajo' : 'un expediente'}
                     </label>
                     <select
                       value={expedienteId}
                       onChange={(e) => aplicarExpediente(e.target.value)}
                       className="mt-2 w-full rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2 text-sm text-white outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400"
                     >
-                      <option value="" className="text-slate-900">— Sin expediente (completar a mano) —</option>
+                      <option value="" className="text-slate-900">— Sin selección (completar a mano) —</option>
                       {expedientes.map((exp) => (
                         <option key={exp.id} value={exp.id} className="text-slate-900">
-                          {exp.title || 'Expediente sin título'}{exp.client_name ? ` — ${exp.client_name}` : ''}
+                          {exp.title || 'Sin título'}{exp.client_name ? ` — ${exp.client_name}` : ''}
                         </option>
                       ))}
                     </select>
-                    <p className="mt-1.5 text-[11px] text-slate-400">
-                      Completa carátula, parte y datos disponibles automáticamente. Podés editar todo abajo.
-                    </p>
+                    {expedienteId ? (() => {
+                      const filledCount = variables.filter(key => valores[key] && valores[key].trim() !== '').length;
+                      if (filledCount === 0) {
+                        return <p className="mt-1.5 text-[11px] text-amber-400">No encontramos datos suficientes para prellenar este modelo. Podés completarlo manualmente.</p>;
+                      } else if (filledCount < variables.length) {
+                        return <p className="mt-1.5 text-[11px] text-emerald-400">Se completaron los datos disponibles. Revisá y completá los campos pendientes.</p>;
+                      } else {
+                        return <p className="mt-1.5 text-[11px] text-emerald-400">Se completaron todos los campos requeridos con éxito.</p>;
+                      }
+                    })() : (
+                      <p className="mt-1.5 text-[11px] text-slate-400">
+                        Completa carátula, parte y datos disponibles automáticamente. Podés editar todo abajo.
+                      </p>
+                    )}
                   </div>
                 )}
                 {variables.length === 0 && <p className="text-sm text-slate-500">Este modelo no tiene campos para completar.</p>}

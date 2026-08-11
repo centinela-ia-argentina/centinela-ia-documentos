@@ -62,6 +62,8 @@ export default async function ObservacionesPage() {
   const terms = getIndustryTerms(industry);
   const isFem = terms.expedientePlural.toLowerCase() === 'operaciones';
 
+  const caseTitleMap = new Map(cases.map(c => [c.id, c.title || terms.itemSinTitulo]));
+
   // 1. Documentos sensibles
   const sensiblesAll = documents.filter((doc) => isSensitiveDocument(doc.sensitivity_level));
   const sensibles = sensiblesAll.slice(0, 8);
@@ -105,10 +107,12 @@ export default async function ObservacionesPage() {
   // 6. Plazos procesales / fechas clave
   const plazosAll = cases
     .map((c) => {
-      const fecha = ((c.metadata as Record<string, unknown> | null)?.fecha_relevante as string | undefined)?.trim();
-      return fecha ? { id: c.id, title: c.title, fecha } : null;
+      const metadata = c.metadata as Record<string, unknown> | null;
+      const fecha = (metadata?.fecha_relevante as string | undefined)?.trim();
+      const tipo = (metadata?.tipo_fecha as string | undefined)?.trim() || 'Fecha de operación';
+      return fecha ? { id: c.id, title: c.title, fecha, tipo } : null;
     })
-    .filter((c): c is { id: string; title: string; fecha: string } => {
+    .filter((c): c is { id: string; title: string; fecha: string; tipo: string } => {
       if (!c) return false;
       const status = getDocumentExpiryStatus(c.fecha);
       return status === 'por_vencer' || status === 'vencido';
@@ -268,6 +272,10 @@ export default async function ObservacionesPage() {
                   <Link key={doc.id} href={`/documentos/${doc.id}`} className="flex items-center justify-between rounded-xl border border-white/10 bg-white/[0.02] p-3 cursor-pointer transition hover:bg-white/[0.04]">
                     <div className="overflow-hidden">
                       <p className="truncate font-bold text-slate-200">{doc.file_name}</p>
+                      <p className="truncate text-xs text-slate-400">
+                        {doc.case_id && caseTitleMap.has(doc.case_id) ? `${caseTitleMap.get(doc.case_id)} · ` : 'Sin operación asociada · '}
+                        Tipo: {getDocumentTypeLabel(doc.document_type) || 'Sin clasificar'} · IA pendiente
+                      </p>
                     </div>
                     <div className="ml-3 flex shrink-0 items-center gap-3">
                       {isPdf ? (
@@ -296,10 +304,14 @@ export default async function ObservacionesPage() {
                 <Link key={doc.id} href={`/documentos/${doc.id}`} className="flex items-center justify-between rounded-xl border border-white/10 bg-white/[0.02] p-3 cursor-pointer transition hover:bg-white/[0.04]">
                   <div className="overflow-hidden">
                     <p className="truncate font-bold text-slate-200">{doc.file_name}</p>
+                    <p className="truncate text-xs text-slate-400">
+                      {doc.case_id && caseTitleMap.has(doc.case_id) ? `${caseTitleMap.get(doc.case_id)} · ` : 'Sin operación asociada · '}
+                      Sin clasificar · {analyzedDocIds.has(String(doc.id)) ? 'IA completada' : 'IA pendiente'}
+                    </p>
                   </div>
                   <div className="ml-3 flex shrink-0 items-center gap-3">
                     <span className="rounded-full bg-white/10 px-2 py-1 text-xs font-bold text-slate-300">Sin clasificar</span>
-                    <span className="text-xs font-semibold text-cyan-400">Clasificar ›</span>
+                    <span className="text-xs font-semibold text-cyan-400">Abrir para clasificar ›</span>
                   </div>
                 </Link>
               )) : (
@@ -322,7 +334,7 @@ export default async function ObservacionesPage() {
                   <Link key={item.id} href={`/expedientes/${item.id}`} className="flex items-center justify-between rounded-xl border border-white/10 bg-white/[0.02] p-3 cursor-pointer transition hover:bg-white/[0.04]">
                     <div className="overflow-hidden">
                       <p className="truncate font-bold text-slate-200">{item.title || terms.itemSinTitulo}</p>
-                      <p className="truncate text-xs text-slate-400">{formatPlazoDate(item.fecha)}</p>
+                      <p className="truncate text-xs text-slate-400">{item.tipo} · {formatPlazoDate(item.fecha)}</p>
                     </div>
                     <div className="ml-3 flex shrink-0 items-center gap-3">
                       <span className={`rounded-full px-2 py-1 text-xs font-bold ${badgeStyles}`}>{label}</span>
