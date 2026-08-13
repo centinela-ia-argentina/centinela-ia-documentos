@@ -1,5 +1,6 @@
 import type { ClientRecord } from '@/types/client';
 import type { PropertyRecord } from '@/types/property';
+import { normalizeZone } from '@/lib/location/normalizeZone';
 
 export type CriterioMatch = { 
   key: 'tipo' | 'presupuesto' | 'ambientes' | 'zona'; 
@@ -42,9 +43,32 @@ export function evaluarMatch(client: ClientRecord, property: PropertyRecord): Re
   criterios.push({ key: 'ambientes', label: 'Ambientes', aplica: aplicaAmbientes, cumple: cumpleAmbientes });
 
   // Criterio: Zona
-  const aplicaZona = !!client.zone && client.zone.trim() !== '';
-  const cumpleZona = aplicaZona && !!property.address && 
-    property.address.toLowerCase().includes(client.zone!.trim().toLowerCase());
+  // La zona del cliente puede venir en desired_neighborhood, desired_city, o el viejo zone.
+  const desiredNeigh = client.desired_neighborhood?.trim() || client.zone?.trim();
+  const desiredCity = client.desired_city?.trim();
+  const aplicaZona = !!desiredNeigh || !!desiredCity;
+  
+  let cumpleZona = false;
+  if (aplicaZona) {
+    if (desiredNeigh) {
+      const normDesiredNeigh = normalizeZone(desiredNeigh);
+      if (property.neighborhood && normalizeZone(property.neighborhood).includes(normDesiredNeigh)) {
+        cumpleZona = true;
+      } else if (property.address && normalizeZone(property.address).includes(normDesiredNeigh)) {
+        cumpleZona = true;
+      }
+    }
+    
+    if (!cumpleZona && desiredCity) {
+      const normDesiredCity = normalizeZone(desiredCity);
+      if (property.city && normalizeZone(property.city).includes(normDesiredCity)) {
+        cumpleZona = true;
+      } else if (property.address && normalizeZone(property.address).includes(normDesiredCity)) {
+        cumpleZona = true;
+      }
+    }
+  }
+
   criterios.push({ key: 'zona', label: 'Zona', aplica: aplicaZona, cumple: cumpleZona });
 
   const coincidencias = criterios.filter(c => c.aplica && c.cumple).length;

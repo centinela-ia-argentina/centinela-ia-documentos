@@ -59,6 +59,16 @@ export async function createProperty(formData: FormData) {
     owners: parseString(formData.get('owners')),
     gravamenes: parseString(formData.get('gravamenes')),
     notes: parseString(formData.get('notes')),
+    province: parseString(formData.get('province')),
+    city: parseString(formData.get('city')),
+    neighborhood: parseString(formData.get('neighborhood')),
+    subzone: parseString(formData.get('subzone')),
+    publication_status: parseString(formData.get('publication_status')) || 'no_publicada',
+    publication_url_mercadolibre: parseString(formData.get('publication_url_mercadolibre')),
+    publication_url_zonaprop: parseString(formData.get('publication_url_zonaprop')),
+    publication_url_argenprop: parseString(formData.get('publication_url_argenprop')),
+    publication_url_other: parseString(formData.get('publication_url_other')),
+    publication_notes: parseString(formData.get('publication_notes')),
     created_by: user.id,
   };
 
@@ -245,26 +255,54 @@ export async function tasarPropiedadConIA(propertyId: string) {
     return { ok: false, error: 'La propiedad sujeto debe tener una moneda válida (ARS o USD) para ser tasada.' };
   }
 
-  const { data: comparablesData } = await supabase
-    .from('properties')
-    .select('name, surface_total_m2, rooms, price, currency')
+  // 1. Fetch external comparables (property specific first, then general compatible)
+  const { data: extCompsData } = await supabase
+    .from('property_comparables')
+    .select('source_name, surface_total_m2, rooms, price, currency, address, property_id')
     .eq('organization_id', profile.organization_id)
-    .eq('property_type', property.property_type)
-    .neq('id', propertyId)
     .eq('currency', property.currency)
     .gt('price', 0)
-    .gt('surface_total_m2', 0)
-    .not('price', 'is', null)
-    .not('surface_total_m2', 'is', null)
-    .limit(10);
+    .gt('surface_total_m2', 0);
 
-  const comparables: ComparableProp[] = (comparablesData || []).map(c => ({
-    name: c.name,
+  const extCompsRaw = (extCompsData || []).sort((a, b) => {
+    if (a.property_id === propertyId && b.property_id !== propertyId) return -1;
+    if (a.property_id !== propertyId && b.property_id === propertyId) return 1;
+    return 0;
+  });
+
+  const comparables: ComparableProp[] = extCompsRaw.map(c => ({
+    name: (c.source_name ? c.source_name + ' (Ext)' : 'Comparable Externo') + (c.address ? ` - ${c.address}` : ''),
     surfaceTotal: c.surface_total_m2,
     rooms: c.rooms,
     price: c.price,
     currency: c.currency,
   }));
+
+  // 2. If we need more, fetch internal portfolio properties
+  if (comparables.length < 10) {
+    const { data: intCompsData } = await supabase
+      .from('properties')
+      .select('name, surface_total_m2, rooms, price, currency, address')
+      .eq('organization_id', profile.organization_id)
+      .eq('property_type', property.property_type)
+      .neq('id', propertyId)
+      .eq('currency', property.currency)
+      .gt('price', 0)
+      .gt('surface_total_m2', 0)
+      .not('price', 'is', null)
+      .not('surface_total_m2', 'is', null)
+      .limit(10 - comparables.length);
+
+    const intComps: ComparableProp[] = (intCompsData || []).map(c => ({
+      name: c.name + (c.address ? ` - ${c.address}` : ''),
+      surfaceTotal: c.surface_total_m2,
+      rooms: c.rooms,
+      price: c.price,
+      currency: c.currency,
+    }));
+
+    comparables.push(...intComps);
+  }
 
   const result = await tasarPropiedadIA({
     name: property.name,
@@ -326,6 +364,16 @@ export async function updateProperty(formData: FormData) {
     owners: parseString(formData.get('owners')),
     gravamenes: parseString(formData.get('gravamenes')),
     notes: parseString(formData.get('notes')),
+    province: parseString(formData.get('province')),
+    city: parseString(formData.get('city')),
+    neighborhood: parseString(formData.get('neighborhood')),
+    subzone: parseString(formData.get('subzone')),
+    publication_status: parseString(formData.get('publication_status')),
+    publication_url_mercadolibre: parseString(formData.get('publication_url_mercadolibre')),
+    publication_url_zonaprop: parseString(formData.get('publication_url_zonaprop')),
+    publication_url_argenprop: parseString(formData.get('publication_url_argenprop')),
+    publication_url_other: parseString(formData.get('publication_url_other')),
+    publication_notes: parseString(formData.get('publication_notes')),
     updated_at: new Date().toISOString(),
   };
 
@@ -475,4 +523,137 @@ export async function aplicarDatosIAPropiedad(formData: FormData) {
 
   revalidatePath(`/propiedades/${propertyId}`);
   redirect(`/propiedades/${propertyId}`);
+}
+
+export async function crearComparable(formData: FormData) {
+  const { user, profile } = await getUserProfile();
+  if (!user || !profile || !isUserRole(profile.role) || !canManageProperty(profile.role)) {
+    return { ok: false, error: 'Sin permiso' };
+  }
+
+  const propertyId = parseString(formData.get('property_id'));
+  
+  const comparableData = {
+    organization_id: profile.organization_id,
+    property_id: propertyId,
+    property_type: parseString(formData.get('property_type')),
+    province: parseString(formData.get('province')),
+    city: parseString(formData.get('city')),
+    neighborhood: parseString(formData.get('neighborhood')),
+    subzone: parseString(formData.get('subzone')),
+    address: parseString(formData.get('address')),
+    surface_total_m2: parseNumber(formData.get('surface_total_m2')),
+    surface_covered_m2: parseNumber(formData.get('surface_covered_m2')),
+    rooms: parseNumber(formData.get('rooms')),
+    price: parseNumber(formData.get('price')) || 0,
+    currency: parseString(formData.get('currency')) || 'USD',
+    source_name: parseString(formData.get('source_name')),
+    source_url: parseString(formData.get('source_url')),
+    reference_date: parseString(formData.get('reference_date')),
+    notes: parseString(formData.get('notes')),
+    created_by: user.id,
+  };
+
+  const supabase = await createClient();
+  const { error, data } = await supabase
+    .from('property_comparables')
+    .insert([comparableData])
+    .select('id')
+    .single();
+
+  if (error) {
+    return { ok: false, error: 'No se pudo crear el comparable' };
+  }
+
+  await createAuditLog({
+    organizationId: profile.organization_id,
+    userId: user.id,
+    action: 'comparable_created' as any,
+    resourceType: 'property_comparables' as any,
+    resourceId: data.id,
+  });
+
+  if (propertyId) {
+    revalidatePath(`/propiedades/${propertyId}`);
+  }
+  return { ok: true };
+}
+
+export async function eliminarComparable(comparableId: string, propertyId?: string) {
+  const { user, profile } = await getUserProfile();
+  if (!user || !profile || !isUserRole(profile.role) || !canManageProperty(profile.role)) {
+    return { ok: false, error: 'Sin permiso' };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from('property_comparables')
+    .delete()
+    .eq('id', comparableId)
+    .eq('organization_id', profile.organization_id);
+
+  if (error) {
+    return { ok: false, error: 'No se pudo eliminar el comparable' };
+  }
+
+  await createAuditLog({
+    organizationId: profile.organization_id,
+    userId: user.id,
+    action: 'comparable_deleted' as any,
+    resourceType: 'property_comparables' as any,
+    resourceId: comparableId,
+  });
+
+  if (propertyId) {
+    revalidatePath(`/propiedades/${propertyId}`);
+  }
+  return { ok: true };
+}
+
+export async function actualizarPublicacion(formData: FormData) {
+  const { user, profile } = await getUserProfile();
+  if (!user || !profile || !isUserRole(profile.role) || !canManageProperty(profile.role)) {
+    return { ok: false, error: 'Sin permiso' };
+  }
+
+  const propertyId = parseString(formData.get('property_id'));
+  if (!propertyId) return { ok: false, error: 'ID requerido' };
+
+  const publication_status = parseString(formData.get('publication_status')) || 'no_publicada';
+  const publication_notes = parseString(formData.get('publication_notes'));
+  const publication_url_mercadolibre = parseString(formData.get('publication_url_mercadolibre'));
+  const publication_url_zonaprop = parseString(formData.get('publication_url_zonaprop'));
+  const publication_url_argenprop = parseString(formData.get('publication_url_argenprop'));
+  const publication_url_other = parseString(formData.get('publication_url_other'));
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from('properties')
+    .update({
+      publication_status,
+      publication_notes,
+      publication_url_mercadolibre,
+      publication_url_zonaprop,
+      publication_url_argenprop,
+      publication_url_other,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', propertyId)
+    .eq('organization_id', profile.organization_id);
+
+  if (error) {
+    return { ok: false, error: 'Error al actualizar publicación' };
+  }
+
+  await createAuditLog({
+    organizationId: profile.organization_id,
+    userId: user.id,
+    action: 'property_updated' as any,
+    resourceType: 'property',
+    resourceId: propertyId,
+    metadata: { note: 'publication_status_updated', status: publication_status },
+  });
+
+  revalidatePath(`/propiedades/${propertyId}`);
+  return { ok: true };
 }

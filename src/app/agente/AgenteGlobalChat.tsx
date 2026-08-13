@@ -4,6 +4,7 @@ import { useState, useRef, useEffect, type ReactNode } from 'react';
 import { preguntarAgenteGlobal } from './actions';
 import type { MensajeChat, AccionPropuesta } from '@/lib/ai/agente';
 import { MaquinaEscribir } from '@/components/MaquinaEscribir';
+import { AiDisclaimer } from '@/lib/industries/disclaimers';
 
 type MensajeUI = MensajeChat & { acciones?: AccionPropuesta[] };
 
@@ -294,6 +295,7 @@ export function AgenteGlobalChat({ industry, puedeUsarIA }: Props) {
           Enviar
         </button>
       </form>
+      <AiDisclaimer industry={industry} className="mt-3" />
     </div>
   );
 }

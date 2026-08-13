@@ -20,7 +20,15 @@ export default async function ObservacionesPage() {
 
   const supabase = await createClient();
 
-  const [documentsResult, aiOutputsResult, casesResult, checklistItemsResult, organizationResult] = await Promise.all([
+  const [
+    documentsResult,
+    aiOutputsResult,
+    casesResult,
+    checklistItemsResult,
+    organizationResult,
+    clientsResult,
+    propertiesResult,
+  ] = await Promise.all([
     supabase
       .from('documents')
       .select('id, file_name, document_type, sensitivity_level, expires_at, case_id, file_mime_type, created_at')
@@ -51,12 +59,29 @@ export default async function ObservacionesPage() {
       .select('industry_type')
       .eq('id', profile.organization_id)
       .maybeSingle(),
+
+    supabase
+      .from('clients')
+      .select('id, name, updated_at, status')
+      .eq('organization_id', profile.organization_id)
+      .neq('status', 'inactivo')
+      .order('updated_at', { ascending: true }),
+
+    supabase
+      .from('properties')
+      .select('id, name, updated_at, status')
+      .eq('organization_id', profile.organization_id)
+      .neq('status', 'vendida')
+      .neq('status', 'alquilada')
+      .order('updated_at', { ascending: true }),
   ]);
 
   const documents = documentsResult.data ?? [];
   const aiOutputs = aiOutputsResult.data ?? [];
   const cases = casesResult.data ?? [];
   const checklistItems = checklistItemsResult.data ?? [];
+  const clients = clientsResult?.data ?? [];
+  const properties = propertiesResult?.data ?? [];
 
   const industry = normalizeIndustryType(organizationResult?.data?.industry_type);
   const terms = getIndustryTerms(industry);
@@ -120,7 +145,39 @@ export default async function ObservacionesPage() {
     .sort((a, b) => (getDaysUntilExpiry(a.fecha) ?? 0) - (getDaysUntilExpiry(b.fecha) ?? 0));
   const plazos = plazosAll.slice(0, 8);
 
-  const totalObservaciones = sensiblesAll.length + vencimientosAll.length + incompletosAll.length + iaPendientesAll.length + sinClasificarAll.length + plazosAll.length;
+  const now = new Date();
+  
+  // 7. Clientes sin seguimiento
+  const clientesSinSeguimientoAll = clients.filter(c => {
+    const lastUpdate = new Date(c.updated_at);
+    const diffTime = Math.abs(now.getTime() - lastUpdate.getTime());
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    return diffDays > 15;
+  });
+  const clientesSinSeguimiento = clientesSinSeguimientoAll.slice(0, 8);
+
+  // 8. Propiedades sin movimiento
+  const propiedadesSinMovimientoAll = properties.filter(p => {
+    const lastUpdate = new Date(p.updated_at);
+    const diffTime = Math.abs(now.getTime() - lastUpdate.getTime());
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    return diffDays > 30;
+  });
+  const propiedadesSinMovimiento = propiedadesSinMovimientoAll.slice(0, 8);
+
+  // 9. Reservas por vencer (Inmobiliaria)
+  const reservasPorVencerAll = cases.map(c => {
+    const meta = c.metadata as Record<string, unknown> | null;
+    const fecha = (meta?.fecha_fin_reserva as string | undefined)?.trim();
+    return fecha ? { id: c.id, title: c.title, fecha, tipo: 'Reserva' } : null;
+  }).filter((c): c is { id: string; title: string; fecha: string; tipo: string } => {
+    if (!c) return false;
+    const status = getDocumentExpiryStatus(c.fecha);
+    return status === 'por_vencer' || status === 'vencido';
+  }).sort((a, b) => (getDaysUntilExpiry(a.fecha) ?? 0) - (getDaysUntilExpiry(b.fecha) ?? 0));
+  const reservasPorVencer = reservasPorVencerAll.slice(0, 8);
+
+  const totalObservaciones = sensiblesAll.length + vencimientosAll.length + incompletosAll.length + iaPendientesAll.length + sinClasificarAll.length + plazosAll.length + (industry === 'inmobiliaria' ? (clientesSinSeguimientoAll.length + propiedadesSinMovimientoAll.length + reservasPorVencerAll.length) : 0);
 
   return (
     <AppShell>
@@ -348,6 +405,84 @@ export default async function ObservacionesPage() {
               {plazosAll.length > 8 && <Link href="/expedientes" className="block text-sm font-bold text-cyan-400 hover:text-cyan-300">Ver todos ({plazosAll.length})</Link>}
             </div>
           </MotionCard>
+
+          {industry === 'inmobiliaria' && (
+            <>
+              {/* 7. Clientes sin seguimiento */}
+              <MotionCard index={12} className="p-6">
+                <h3 className="text-lg font-bold text-white">Clientes sin seguimiento</h3>
+                <p className="mt-1 text-sm text-slate-400">Sin movimientos en los últimos 15 días.</p>
+                <div className="mt-4 space-y-3">
+                  {clientesSinSeguimiento.length > 0 ? clientesSinSeguimiento.map((item) => (
+                    <Link key={item.id} href={`/clientes/${item.id}`} className="flex items-center justify-between rounded-xl border border-white/10 bg-white/[0.02] p-3 cursor-pointer transition hover:bg-white/[0.04]">
+                      <div className="overflow-hidden">
+                        <p className="truncate font-bold text-slate-200">{item.name}</p>
+                        <p className="truncate text-xs text-slate-400">Último cambio: {formatPlazoDate(item.updated_at)}</p>
+                      </div>
+                      <div className="ml-3 flex shrink-0 items-center gap-3">
+                        <span className="rounded-full bg-amber-500/20 px-2 py-1 text-xs font-bold text-amber-400">+15 días</span>
+                        <span className="text-xs font-semibold text-cyan-400">Revisar ›</span>
+                      </div>
+                    </Link>
+                  )) : (
+                    <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-4 text-sm text-emerald-200/70">Todos los clientes tienen seguimiento reciente.</div>
+                  )}
+                  {clientesSinSeguimientoAll.length > 8 && <Link href="/clientes" className="block text-sm font-bold text-cyan-400 hover:text-cyan-300">Ver todos ({clientesSinSeguimientoAll.length})</Link>}
+                </div>
+              </MotionCard>
+
+              {/* 8. Propiedades sin movimiento */}
+              <MotionCard index={13} className="p-6">
+                <h3 className="text-lg font-bold text-white">Propiedades sin movimiento</h3>
+                <p className="mt-1 text-sm text-slate-400">Sin movimientos en los últimos 30 días.</p>
+                <div className="mt-4 space-y-3">
+                  {propiedadesSinMovimiento.length > 0 ? propiedadesSinMovimiento.map((item) => (
+                    <Link key={item.id} href={`/propiedades/${item.id}`} className="flex items-center justify-between rounded-xl border border-white/10 bg-white/[0.02] p-3 cursor-pointer transition hover:bg-white/[0.04]">
+                      <div className="overflow-hidden">
+                        <p className="truncate font-bold text-slate-200">{item.name}</p>
+                        <p className="truncate text-xs text-slate-400">Último cambio: {formatPlazoDate(item.updated_at)}</p>
+                      </div>
+                      <div className="ml-3 flex shrink-0 items-center gap-3">
+                        <span className="rounded-full bg-amber-500/20 px-2 py-1 text-xs font-bold text-amber-400">+30 días</span>
+                        <span className="text-xs font-semibold text-cyan-400">Revisar ›</span>
+                      </div>
+                    </Link>
+                  )) : (
+                    <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-4 text-sm text-emerald-200/70">Todas las propiedades tienen movimientos recientes.</div>
+                  )}
+                  {propiedadesSinMovimientoAll.length > 8 && <Link href="/propiedades" className="block text-sm font-bold text-cyan-400 hover:text-cyan-300">Ver todas ({propiedadesSinMovimientoAll.length})</Link>}
+                </div>
+              </MotionCard>
+
+              {/* 9. Reservas por vencer */}
+              <MotionCard index={14} className="p-6 xl:col-span-2">
+                <h3 className="text-lg font-bold text-white">Reservas por vencer</h3>
+                <p className="mt-1 text-sm text-slate-400">Operaciones con reserva próxima a vencer.</p>
+                <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                  {reservasPorVencer.length > 0 ? reservasPorVencer.map((item) => {
+                    const status = getDocumentExpiryStatus(item.fecha);
+                    const badgeStyles = getExpiryBadgeStyles(status);
+                    const label = expiryStatusLabel(status);
+                    return (
+                      <Link key={item.id} href={`/expedientes/${item.id}`} className="flex items-center justify-between rounded-xl border border-white/10 bg-white/[0.02] p-3 cursor-pointer transition hover:bg-white/[0.04]">
+                        <div className="overflow-hidden">
+                          <p className="truncate font-bold text-slate-200">{item.title || terms.itemSinTitulo}</p>
+                          <p className="truncate text-xs text-slate-400">Fin de reserva: {formatPlazoDate(item.fecha)}</p>
+                        </div>
+                        <div className="ml-3 flex shrink-0 items-center gap-3">
+                          <span className={`rounded-full px-2 py-1 text-xs font-bold ${badgeStyles}`}>{label}</span>
+                          <span className="text-xs font-semibold text-cyan-400">Revisar ›</span>
+                        </div>
+                      </Link>
+                    );
+                  }) : (
+                    <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-4 text-sm text-emerald-200/70 sm:col-span-2">No hay reservas próximas a vencer.</div>
+                  )}
+                </div>
+                {reservasPorVencerAll.length > 8 && <Link href="/expedientes" className="mt-3 block text-sm font-bold text-cyan-400 hover:text-cyan-300">Ver todas ({reservasPorVencerAll.length})</Link>}
+              </MotionCard>
+            </>
+          )}
         </div>
       )}
     </AppShell>

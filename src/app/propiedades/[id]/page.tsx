@@ -18,9 +18,12 @@ import { evaluarMatch, ordenarPorMatch } from '@/lib/matching/match';
 import { getDesiredPropertyTypeLabel, getOperationInterestLabel } from '@/lib/clients/labels';
 import { PropertyMatchAiButton } from './PropertyMatchAiButton';
 import { GenerarAvisoButton } from './GenerarAvisoButton';
-import { CompartirWhatsappButton } from './CompartirWhatsappButton';
 import { DescargarFichaPdfButton } from './DescargarFichaPdfButton';
 import { TasarButton } from './TasarButton';
+import { TasacionPanel } from './TasacionPanel';
+import { PublicacionAsistidaPanel } from './PublicacionAsistidaPanel';
+import { WhatsAppIntentBuilder } from '@/components/WhatsAppIntentBuilder';
+import { generatePropertyMessage } from '@/lib/whatsapp';
 
 interface PropertyDetailPageProps {
   params: Promise<{ id: string }>;
@@ -75,6 +78,15 @@ export default async function PropertyDetailPage({ params }: PropertyDetailPageP
     .order('created_at', { ascending: false });
 
   const operations = operationsData || [];
+
+  const { data: comparablesData } = await supabase
+    .from('property_comparables')
+    .select('*')
+    .eq('property_id', record.id)
+    .eq('organization_id', profile.organization_id)
+    .order('created_at', { ascending: false });
+    
+  const comparables = comparablesData || [];
 
   let sortedMatches: { item: ClientRecord; match: any }[] = [];
   if (record.status === 'disponible') {
@@ -185,12 +197,54 @@ export default async function PropertyDetailPage({ params }: PropertyDetailPageP
                         <option value="no_disponible" className="bg-[#0C2340] text-white">No disponible</option>
                       </select>
                     </div>
+                  </div>
+                </section>
+
+                <section>
+                  <h3 className="mb-4 text-sm font-bold uppercase tracking-wide text-slate-500">Ubicación</h3>
+                  <div className="grid gap-4 sm:grid-cols-2">
                     <div className="sm:col-span-2">
-                      <label className="mb-1.5 block text-xs font-semibold text-slate-400">Dirección</label>
+                      <label className="mb-1.5 block text-xs font-semibold text-slate-400">Dirección (calle, número, piso, depto)</label>
                       <input
                         name="address"
                         type="text"
                         defaultValue={record.address ?? ''}
+                        className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-white placeholder:text-slate-500 outline-none focus:ring-2 focus:ring-sky-400"
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-1.5 block text-xs font-semibold text-slate-400">Barrio / Zona</label>
+                      <input
+                        name="neighborhood"
+                        type="text"
+                        defaultValue={record.neighborhood ?? ''}
+                        className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-white placeholder:text-slate-500 outline-none focus:ring-2 focus:ring-sky-400"
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-1.5 block text-xs font-semibold text-slate-400">Subzona (opcional)</label>
+                      <input
+                        name="subzone"
+                        type="text"
+                        defaultValue={record.subzone ?? ''}
+                        className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-white placeholder:text-slate-500 outline-none focus:ring-2 focus:ring-sky-400"
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-1.5 block text-xs font-semibold text-slate-400">Localidad / Ciudad</label>
+                      <input
+                        name="city"
+                        type="text"
+                        defaultValue={record.city ?? ''}
+                        className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-white placeholder:text-slate-500 outline-none focus:ring-2 focus:ring-sky-400"
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-1.5 block text-xs font-semibold text-slate-400">Provincia</label>
+                      <input
+                        name="province"
+                        type="text"
+                        defaultValue={record.province ?? ''}
                         className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-white placeholder:text-slate-500 outline-none focus:ring-2 focus:ring-sky-400"
                       />
                     </div>
@@ -361,18 +415,10 @@ export default async function PropertyDetailPage({ params }: PropertyDetailPageP
               {useAi && (
                 <GenerarAvisoButton propertyId={record.id} />
               )}
-              {useAi && (
-                <TasarButton propertyId={record.id} />
-              )}
-              <CompartirWhatsappButton
-                name={record.name}
-                propertyType={getPropertyTypeLabel(record.property_type)}
-                address={record.address}
-                rooms={record.rooms}
-                surfaceTotal={record.surface_total_m2}
-                surfaceCovered={record.surface_covered_m2}
-                price={record.price}
-                currency={record.currency}
+              <WhatsAppIntentBuilder
+                context="property"
+                resourceId={record.id}
+                defaultMessage={generatePropertyMessage(record)}
               />
               <DescargarFichaPdfButton
                 name={record.name}
@@ -418,6 +464,10 @@ export default async function PropertyDetailPage({ params }: PropertyDetailPageP
               </li>
             </ul>
           </div>
+
+          <TasacionPanel propertyId={record.id} propertyType={record.property_type ?? ''} comparables={comparables} />
+
+          <PublicacionAsistidaPanel property={record} canManage={canManage} />
 
           <div className="rounded-3xl border border-white/5 bg-white/[0.02] p-6 mt-6">
             <h3 className="mb-4 text-sm font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2">

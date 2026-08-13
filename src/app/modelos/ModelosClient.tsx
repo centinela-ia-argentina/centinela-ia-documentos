@@ -8,6 +8,7 @@ import { Reveal } from '@/components/ui/Reveal';
 import { MotionCard } from '@/components/ui/MotionCard';
 import { MotionButton } from '@/components/ui/MotionButton';
 import { redactarEscritoIA } from './actions';
+import { AiDisclaimer } from '@/lib/industries/disclaimers';
 
 export type ExpedienteLite = {
   id: string;
@@ -404,11 +405,14 @@ export function ModelosClient({
                   </MotionButton>
                   {avisoIA && <p className="mt-2 text-[11px] text-amber-500">{avisoIA}</p>}
                   {textoIA && (
-                    <div className="mt-2 flex items-center justify-between gap-2">
-                      <span className="text-[11px] font-medium text-brandviolet">✨ Borrador generado con IA — revisalo antes de presentar.</span>
-                      <button type="button" onClick={() => setTextoIA(null)} className="shrink-0 text-[11px] font-semibold text-slate-400 hover:text-white underline">
-                        Volver al relleno manual
-                      </button>
+                    <div className="mt-2 space-y-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-[11px] font-medium text-brandviolet">✨ Borrador generado con IA — revisalo antes de presentar.</span>
+                        <button type="button" onClick={() => setTextoIA(null)} className="shrink-0 text-[11px] font-semibold text-slate-400 hover:text-white underline">
+                          Volver al relleno manual
+                        </button>
+                      </div>
+                      <AiDisclaimer industry={industria} />
                     </div>
                   )}
                 </div>

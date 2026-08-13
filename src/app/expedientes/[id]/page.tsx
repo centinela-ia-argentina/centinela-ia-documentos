@@ -13,6 +13,7 @@ import {
   getDocumentTypeLabel,
   normalizeIndustryType,
 } from '@/lib/industries/documentTypes';
+import { AiDisclaimer } from '@/lib/industries/disclaimers';
 import { getIndustryTerms } from '@/lib/industries/uiLabels';
 import { summarizeChecklistStatuses } from '@/lib/checklist/progress';
 import { getDocumentExpiryStatus, expiryStatusLabel, getExpiryBadgeStyles, getDaysUntilExpiry } from '@/lib/documents/expiry';
@@ -38,6 +39,8 @@ import {
 import { canUseAi, canArchiveCase, canDeleteCase, canUpdateCase } from '@/lib/permissions/roles';
 import { getPropertyStatusLabel, getPropertyTypeLabel } from '@/lib/properties/labels';
 import { FormSubmitButton } from '@/components/ui/FormSubmitButton';
+import { WhatsAppIntentBuilder } from '@/components/WhatsAppIntentBuilder';
+import { generateOperationMessage } from '@/lib/whatsapp';
 import { MapPin } from 'lucide-react';
 import { DeleteCaseButton } from './DeleteCaseButton';
 import { CopilotoExpediente } from './CopilotoExpediente';
@@ -601,15 +604,23 @@ export default async function CaseDetailPage({ params, searchParams }: CaseDetai
               <div className="space-y-6">
                 <AgenteChat caseId={caseRecord.id} caseTitle={displayText(caseRecord.title, terms.itemSinTitulo)} industry={industry} puedeUsarIA={puedeUsarIA} historialInicial={historialAgente} modeloUrl={modeloSugerido ? `/modelos?modelo=${modeloSugerido}&expediente=${caseRecord.id}` : '/modelos'} />
                 {(industry === 'escribania' || industry === 'legal' || industry === 'inmobiliaria') && (
-                  <CopilotoExpediente
-                    caseId={caseRecord.id}
-                    resumen={(resumenData?.result_json as any) ?? null}
-                    generadoEl={resumenData?.created_at ?? null}
-                    documentosAnalizados={documentosAnalizados}
-                    puedeUsarIA={puedeUsarIA}
-                    terms={terms}
-                  />
-                )}
+                    <CopilotoExpediente
+                      caseId={caseRecord.id}
+                      resumen={(resumenData?.result_json as any) ?? null}
+                      generadoEl={resumenData?.created_at ?? null}
+                      documentosAnalizados={documentosAnalizados}
+                      puedeUsarIA={puedeUsarIA}
+                      terms={terms}
+                    />
+                  )}
+                  {industry === 'inmobiliaria' && (
+                    <WhatsAppIntentBuilder
+                      phone={(caseRecord.metadata as any)?.phone || (caseRecord.metadata as any)?.telefono || null}
+                      context="operation"
+                      resourceId={caseRecord.id}
+                      defaultMessage={generateOperationMessage(caseRecord)}
+                    />
+                  )}
                 {industry === 'legal' && liquidacion && (
                   <section className="mt-6 rounded-2xl border border-cyan-500/20 bg-slate-900/40 p-6">
                     <div className="mb-4 flex items-center gap-2">
@@ -784,6 +795,7 @@ export default async function CaseDetailPage({ params, searchParams }: CaseDetai
                             </ul>
                           </div>
                         )}
+                        <AiDisclaimer industry={industry} className="mt-4" />
                         <p className="text-xs text-white/40">Borrador generado por IA. Revisalo y completalo antes de otorgar.</p>
                       </div>
                     ) : (
@@ -852,7 +864,7 @@ export default async function CaseDetailPage({ params, searchParams }: CaseDetai
                             </ul>
                           </div>
                         )}
-                        <p className="text-xs text-white/30">Apoyo al criterio profesional del escribano. No reemplaza su análisis ni constituye asesoramiento legal.</p>
+                        <AiDisclaimer industry={industry} className="mt-4" />
                       </div>
                     ) : (
                       <p className="mt-3 text-sm text-white/50">Generá un análisis de riesgo PLA/FT del legajo con IA.</p>
@@ -931,7 +943,7 @@ export default async function CaseDetailPage({ params, searchParams }: CaseDetai
                             </ul>
                           </div>
                         )}
-                        <p className="mt-2 text-xs text-white/30">Evaluación orientativa generada por IA para asistir la decisión. No sustituye la verificación documental ni el criterio del operador. La IA propone, vos decidís.</p>
+                        <AiDisclaimer industry="inmobiliaria" className="mt-4" />
                       </div>
                     ) : (
                       <p className="mt-3 text-sm text-white/50">Evaluá la solvencia del inquilino y solidez de garantías con IA.</p>

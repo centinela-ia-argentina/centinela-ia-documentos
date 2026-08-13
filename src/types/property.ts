@@ -9,6 +9,16 @@ export interface PropertyRecord {
   surface_covered_m2: number | null;
   rooms: number | null;
   status: string | null;
+  province?: string | null;
+  city?: string | null;
+  neighborhood?: string | null;
+  subzone?: string | null;
+  publication_status?: string | null;
+  publication_url_mercadolibre?: string | null;
+  publication_url_zonaprop?: string | null;
+  publication_url_argenprop?: string | null;
+  publication_url_other?: string | null;
+  publication_notes?: string | null;
   price: number | null;
   currency: string | null;
   owners: string | null;

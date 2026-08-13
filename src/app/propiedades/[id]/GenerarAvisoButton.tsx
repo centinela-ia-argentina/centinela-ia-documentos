@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react';
 import { Bot, Sparkles, X, Copy, Check } from 'lucide-react';
 import { generarAvisoPropiedadIA } from '../actions';
+import { AiDisclaimer } from '@/lib/industries/disclaimers';
 
 export function GenerarAvisoButton({ propertyId }: { propertyId: string }) {
   const [isPending, startTransition] = useTransition();
@@ -58,9 +59,7 @@ export function GenerarAvisoButton({ propertyId }: { propertyId: string }) {
         
         {/* Pie: aclaración arriba, botones abajo en fila pareja */}
         <div className="mt-3 pt-3 border-t border-white/10 space-y-3">
-          <p className="text-[11px] leading-snug text-slate-400">
-            Beta operativa comercial · revisá el aviso antes de publicar.
-          </p>
+          <AiDisclaimer industry="inmobiliaria" className="mt-0" />
           <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"

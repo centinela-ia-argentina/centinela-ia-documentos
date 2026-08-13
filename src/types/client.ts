@@ -8,6 +8,10 @@ export interface ClientRecord {
   operation_interest: string | null;
   desired_property_type: string | null;
   zone: string | null;
+  desired_province?: string | null;
+  desired_city?: string | null;
+  desired_neighborhood?: string | null;
+  desired_subzone?: string | null;
   budget_min: number | null;
   budget_max: number | null;
   currency: string | null;

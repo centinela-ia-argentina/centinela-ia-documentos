@@ -33,7 +33,7 @@ export async function tasarPropiedadIA(datos: {
   const compsText = comparables.map((c, i) => formatComp(c, i)).join('\n');
 
   const prompt = [
-    'Sos un tasador inmobiliario argentino experto. Estimá el valor de mercado de la propiedad SUJETO. Usá los COMPARABLES provistos (propiedades similares de la misma cartera) como referencia principal de precio por m². No inventes datos que no te di. Sé conservador. Usá la moneda de la propiedad sujeto.',
+    'Sos un tasador inmobiliario argentino experto. Estimá el valor de mercado de la propiedad SUJETO. Usá los COMPARABLES provistos (propiedades similares de la misma cartera o testigos externos) como referencia principal de precio por m². No inventes datos que no te di. Sé conservador. Usá la moneda de la propiedad sujeto.',
     '',
     'PROPIEDAD SUJETO:',
     `Nombre: ${datos.name}`,
@@ -44,7 +44,7 @@ export async function tasarPropiedadIA(datos: {
     `Ambientes: ${datos.rooms ?? 'No especificados'}`,
     `Moneda: ${datos.currency ?? 'USD'}`,
     '',
-    'COMPARABLES (Misma cartera):',
+    'COMPARABLES (Cartera propia y testigos externos):',
     compsText,
     '',
     'Pedí la respuesta en TEXTO PLANO con estas secciones exactas y en este orden:',
@@ -52,8 +52,8 @@ export async function tasarPropiedadIA(datos: {
     'VALOR ESTIMADO: (un valor puntual)',
     'PRECIO POR M² DE REFERENCIA: (si aplica)',
     'FUNDAMENTOS: (3 a 5 puntos breves)',
-    'COMPARABLES CONSIDERADOS: (lista breve; si no hubo, indicarlo)',
-    'ACLARACIÓN: estimación orientativa; no reemplaza una tasación profesional.'
+    'COMPARABLES CONSIDERADOS: (lista breve, distinguiendo si son externos o propios; si no hubo, indicarlo)',
+    'ACLARACIÓN: Estimación orientativa automatizada generada en entorno controlado. No reemplaza una tasación profesional.'
   ].join('\n');
 
   try {
