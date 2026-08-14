@@ -80,7 +80,8 @@ export async function createProperty(formData: FormData) {
     .single();
 
   // Fallback if migration hasn't run on Vercel Preview (missing columns)
-  if (error && error.message && error.message.includes('does not exist')) {
+  // PostgREST returns code 'PGRST204' or message 'Could not find the X column'
+  if (error && (error.code === 'PGRST204' || (error.message && (error.message.includes('does not exist') || error.message.includes('Could not find') || error.message.includes('column'))))) {
     const { 
       province, city, neighborhood, subzone, 
       publication_status, publication_url_mercadolibre, 
@@ -405,7 +406,8 @@ export async function updateProperty(formData: FormData) {
     .eq('organization_id', profile.organization_id);
 
   // Fallback if migration hasn't run on Vercel Preview (missing columns)
-  if (error && error.message && error.message.includes('does not exist')) {
+  // PostgREST returns code 'PGRST204' or message 'Could not find the X column'
+  if (error && (error.code === 'PGRST204' || (error.message && (error.message.includes('does not exist') || error.message.includes('Could not find') || error.message.includes('column'))))) {
     const { 
       province, city, neighborhood, subzone, 
       publication_status, publication_url_mercadolibre, 
