@@ -73,11 +73,31 @@ export async function createProperty(formData: FormData) {
   };
 
   const supabase = await createClient();
-  const { data, error } = await supabase
+  let { data, error } = await supabase
     .from('properties')
     .insert([propertyData])
     .select('id')
     .single();
+
+  // Fallback if migration hasn't run on Vercel Preview (missing columns)
+  if (error && error.message && error.message.includes('does not exist')) {
+    const { 
+      province, city, neighborhood, subzone, 
+      publication_status, publication_url_mercadolibre, 
+      publication_url_zonaprop, publication_url_argenprop, 
+      publication_url_other, publication_notes, 
+      ...oldPropertyData 
+    } = propertyData as any;
+    
+    const retry = await supabase
+      .from('properties')
+      .insert([oldPropertyData])
+      .select('id')
+      .single();
+      
+    data = retry.data;
+    error = retry.error;
+  }
 
   if (error || !data) {
     throw new Error('No se pudo crear la propiedad');
@@ -378,11 +398,30 @@ export async function updateProperty(formData: FormData) {
   };
 
   const supabase = await createClient();
-  const { error } = await supabase
+  let { error } = await supabase
     .from('properties')
     .update(propertyData)
     .eq('id', propertyId)
     .eq('organization_id', profile.organization_id);
+
+  // Fallback if migration hasn't run on Vercel Preview (missing columns)
+  if (error && error.message && error.message.includes('does not exist')) {
+    const { 
+      province, city, neighborhood, subzone, 
+      publication_status, publication_url_mercadolibre, 
+      publication_url_zonaprop, publication_url_argenprop, 
+      publication_url_other, publication_notes, 
+      ...oldPropertyData 
+    } = propertyData as any;
+    
+    const retry = await supabase
+      .from('properties')
+      .update(oldPropertyData)
+      .eq('id', propertyId)
+      .eq('organization_id', profile.organization_id);
+      
+    error = retry.error;
+  }
 
   if (error) {
     throw new Error('No se pudo actualizar la propiedad');
