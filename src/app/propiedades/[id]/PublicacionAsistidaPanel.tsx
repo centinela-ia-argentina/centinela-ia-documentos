@@ -26,6 +26,7 @@ function SubmitButton() {
 }
 
 export function PublicacionAsistidaPanel({ property, canManage }: PublicacionAsistidaPanelProps) {
+  const [status, setStatus] = useState(property.publication_status ?? 'no_publicada');
   const [copied, setCopied] = useState<string | null>(null);
 
   const handleCopy = (id: string, text: string) => {
