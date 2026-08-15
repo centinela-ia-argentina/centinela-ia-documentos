@@ -62,9 +62,10 @@ Para más información, contactanos.`;
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
             <label className="mb-1.5 block text-xs font-semibold text-slate-400">Estado de publicación</label>
+            <input type="hidden" name="publication_status" value={status} />
             <select
-              name="publication_status"
-              defaultValue={property.publication_status ?? 'no_publicada'}
+              value={status}
+              onChange={(e) => setStatus(e.target.value)}
               disabled={!canManage}
               className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2 text-sm text-white outline-none focus:ring-1 focus:ring-sky-400"
             >

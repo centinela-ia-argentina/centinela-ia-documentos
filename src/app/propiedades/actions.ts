@@ -389,12 +389,6 @@ export async function updateProperty(formData: FormData) {
     city: parseString(formData.get('city')),
     neighborhood: parseString(formData.get('neighborhood')),
     subzone: parseString(formData.get('subzone')),
-    publication_status: parseString(formData.get('publication_status')),
-    publication_url_mercadolibre: parseString(formData.get('publication_url_mercadolibre')),
-    publication_url_zonaprop: parseString(formData.get('publication_url_zonaprop')),
-    publication_url_argenprop: parseString(formData.get('publication_url_argenprop')),
-    publication_url_other: parseString(formData.get('publication_url_other')),
-    publication_notes: parseString(formData.get('publication_notes')),
     updated_at: new Date().toISOString(),
   };
 
@@ -410,9 +404,6 @@ export async function updateProperty(formData: FormData) {
   if (error && (error.code === 'PGRST204' || (error.message && (error.message.includes('does not exist') || error.message.includes('Could not find') || error.message.includes('column'))))) {
     const { 
       province, city, neighborhood, subzone, 
-      publication_status, publication_url_mercadolibre, 
-      publication_url_zonaprop, publication_url_argenprop, 
-      publication_url_other, publication_notes, 
       ...oldPropertyData 
     } = propertyData as any;
     
