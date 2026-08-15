@@ -2,8 +2,8 @@
 
 import { useFormStatus } from 'react-dom';
 import { actualizarPublicacion } from '../actions';
-import { ExternalLink, Globe, Copy, Check } from 'lucide-react';
-import { useState } from 'react';
+import { ExternalLink, Globe, Copy, Check, Info } from 'lucide-react';
+import { useState, useEffect } from 'react';
 import type { PropertyRecord } from '@/types/property';
 import { getPropertyTypeLabel } from '@/lib/properties/labels';
 
@@ -28,6 +28,27 @@ function SubmitButton() {
 export function PublicacionAsistidaPanel({ property, canManage }: PublicacionAsistidaPanelProps) {
   const [status, setStatus] = useState(property.publication_status ?? 'no_publicada');
   const [copied, setCopied] = useState<string | null>(null);
+  const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  useEffect(() => {
+    setStatus(property.publication_status ?? 'no_publicada');
+  }, [property.publication_status]);
+
+  async function handleAction(formData: FormData) {
+    setFeedback(null);
+    try {
+      const res = await actualizarPublicacion(formData);
+      if (res?.ok) {
+        setFeedback({ type: 'success', text: 'Publicación actualizada' });
+        // Hide success message after 3 seconds
+        setTimeout(() => setFeedback(null), 3000);
+      } else if (res?.error) {
+        setFeedback({ type: 'error', text: res.error });
+      }
+    } catch (e) {
+      setFeedback({ type: 'error', text: 'Error inesperado al guardar' });
+    }
+  }
 
   const handleCopy = (id: string, text: string) => {
     navigator.clipboard.writeText(text);
@@ -57,7 +78,7 @@ Para más información, contactanos.`;
         </p>
       </div>
 
-      <form action={async (fd) => { await actualizarPublicacion(fd); }} className="space-y-4">
+      <form action={handleAction} className="space-y-4">
         <input type="hidden" name="property_id" value={property.id} />
 
         <div className="grid gap-4 sm:grid-cols-2">
@@ -143,7 +164,12 @@ Para más información, contactanos.`;
         </div>
 
         {canManage && (
-          <div className="flex justify-end pt-4 border-t border-white/10">
+          <div className="flex items-center justify-end gap-4 pt-4 border-t border-white/10">
+            {feedback && (
+              <span className={`text-sm ${feedback.type === 'success' ? 'text-emerald-400' : 'text-red-400'}`}>
+                {feedback.text}
+              </span>
+            )}
             <SubmitButton />
           </div>
         )}
