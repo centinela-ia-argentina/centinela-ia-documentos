@@ -661,7 +661,7 @@ export async function actualizarPublicacion(formData: FormData) {
   const publication_url_other = parseString(formData.get('publication_url_other'));
 
   const supabase = await createClient();
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from('properties')
     .update({
       publication_status,
@@ -673,9 +673,11 @@ export async function actualizarPublicacion(formData: FormData) {
       updated_at: new Date().toISOString(),
     })
     .eq('id', propertyId)
-    .eq('organization_id', profile.organization_id);
+    .eq('organization_id', profile.organization_id)
+    .select('publication_status, publication_notes, publication_url_mercadolibre, publication_url_zonaprop, publication_url_argenprop, publication_url_other')
+    .single();
 
-  if (error) {
+  if (error || !data) {
     return { ok: false, error: 'Error al actualizar publicación' };
   }
 
@@ -685,9 +687,9 @@ export async function actualizarPublicacion(formData: FormData) {
     action: 'property_updated' as any,
     resourceType: 'property',
     resourceId: propertyId,
-    metadata: { note: 'publication_status_updated', status: publication_status },
+    metadata: { note: 'publication_status_updated', status: data.publication_status },
   });
 
   revalidatePath(`/propiedades/${propertyId}`);
-  return { ok: true };
+  return { ok: true, publication: data };
 }

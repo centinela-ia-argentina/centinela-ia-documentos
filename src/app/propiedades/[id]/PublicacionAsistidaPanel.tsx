@@ -27,18 +27,36 @@ function SubmitButton() {
 
 export function PublicacionAsistidaPanel({ property, canManage }: PublicacionAsistidaPanelProps) {
   const [status, setStatus] = useState(property.publication_status ?? 'no_publicada');
+  const [notes, setNotes] = useState(property.publication_notes ?? '');
+  const [urlMercadoLibre, setUrlMercadoLibre] = useState(property.publication_url_mercadolibre ?? '');
+  const [urlZonaprop, setUrlZonaprop] = useState(property.publication_url_zonaprop ?? '');
+  const [urlArgenprop, setUrlArgenprop] = useState(property.publication_url_argenprop ?? '');
+  const [urlOther, setUrlOther] = useState(property.publication_url_other ?? '');
+
   const [copied, setCopied] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   useEffect(() => {
     setStatus(property.publication_status ?? 'no_publicada');
-  }, [property.publication_status]);
+    setNotes(property.publication_notes ?? '');
+    setUrlMercadoLibre(property.publication_url_mercadolibre ?? '');
+    setUrlZonaprop(property.publication_url_zonaprop ?? '');
+    setUrlArgenprop(property.publication_url_argenprop ?? '');
+    setUrlOther(property.publication_url_other ?? '');
+  }, [property.id]);
 
   async function handleAction(formData: FormData) {
     setFeedback(null);
     try {
       const res = await actualizarPublicacion(formData);
-      if (res?.ok) {
+      if (res?.ok && res.publication) {
+        setStatus(res.publication.publication_status ?? 'no_publicada');
+        setNotes(res.publication.publication_notes ?? '');
+        setUrlMercadoLibre(res.publication.publication_url_mercadolibre ?? '');
+        setUrlZonaprop(res.publication.publication_url_zonaprop ?? '');
+        setUrlArgenprop(res.publication.publication_url_argenprop ?? '');
+        setUrlOther(res.publication.publication_url_other ?? '');
+
         setFeedback({ type: 'success', text: 'Publicación actualizada' });
         // Hide success message after 3 seconds
         setTimeout(() => setFeedback(null), 3000);
@@ -102,7 +120,8 @@ Para más información, contactanos.`;
             <input
               name="publication_notes"
               type="text"
-              defaultValue={property.publication_notes ?? ''}
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
               disabled={!canManage}
               placeholder="Ej. Falta renovar cartel"
               className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2 text-sm text-white placeholder:text-slate-500 outline-none focus:ring-1 focus:ring-sky-400"
@@ -115,30 +134,30 @@ Para más información, contactanos.`;
           <div className="flex flex-col gap-2">
             <div className="flex items-center gap-2">
               <span className="w-32 text-xs font-medium text-slate-300">MercadoLibre</span>
-              <input name="publication_url_mercadolibre" type="url" defaultValue={property.publication_url_mercadolibre ?? ''} disabled={!canManage} placeholder="https://inmueble.mercadolibre.com.ar/..." className="flex-1 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs text-white placeholder:text-slate-500 outline-none focus:ring-1 focus:ring-sky-400" />
-              {property.publication_url_mercadolibre && (
-                <a href={property.publication_url_mercadolibre} target="_blank" rel="noopener noreferrer" className="p-2 text-cyan-400 hover:text-cyan-300"><ExternalLink className="h-4 w-4" /></a>
+              <input name="publication_url_mercadolibre" type="url" value={urlMercadoLibre} onChange={(e) => setUrlMercadoLibre(e.target.value)} disabled={!canManage} placeholder="https://inmueble.mercadolibre.com.ar/..." className="flex-1 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs text-white placeholder:text-slate-500 outline-none focus:ring-1 focus:ring-sky-400" />
+              {urlMercadoLibre && (
+                <a href={urlMercadoLibre} target="_blank" rel="noopener noreferrer" className="p-2 text-cyan-400 hover:text-cyan-300"><ExternalLink className="h-4 w-4" /></a>
               )}
             </div>
             <div className="flex items-center gap-2">
               <span className="w-32 text-xs font-medium text-slate-300">Zonaprop</span>
-              <input name="publication_url_zonaprop" type="url" defaultValue={property.publication_url_zonaprop ?? ''} disabled={!canManage} placeholder="https://www.zonaprop.com.ar/..." className="flex-1 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs text-white placeholder:text-slate-500 outline-none focus:ring-1 focus:ring-sky-400" />
-              {property.publication_url_zonaprop && (
-                <a href={property.publication_url_zonaprop} target="_blank" rel="noopener noreferrer" className="p-2 text-cyan-400 hover:text-cyan-300"><ExternalLink className="h-4 w-4" /></a>
+              <input name="publication_url_zonaprop" type="url" value={urlZonaprop} onChange={(e) => setUrlZonaprop(e.target.value)} disabled={!canManage} placeholder="https://www.zonaprop.com.ar/..." className="flex-1 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs text-white placeholder:text-slate-500 outline-none focus:ring-1 focus:ring-sky-400" />
+              {urlZonaprop && (
+                <a href={urlZonaprop} target="_blank" rel="noopener noreferrer" className="p-2 text-cyan-400 hover:text-cyan-300"><ExternalLink className="h-4 w-4" /></a>
               )}
             </div>
             <div className="flex items-center gap-2">
               <span className="w-32 text-xs font-medium text-slate-300">Argenprop</span>
-              <input name="publication_url_argenprop" type="url" defaultValue={property.publication_url_argenprop ?? ''} disabled={!canManage} placeholder="https://www.argenprop.com/..." className="flex-1 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs text-white placeholder:text-slate-500 outline-none focus:ring-1 focus:ring-sky-400" />
-              {property.publication_url_argenprop && (
-                <a href={property.publication_url_argenprop} target="_blank" rel="noopener noreferrer" className="p-2 text-cyan-400 hover:text-cyan-300"><ExternalLink className="h-4 w-4" /></a>
+              <input name="publication_url_argenprop" type="url" value={urlArgenprop} onChange={(e) => setUrlArgenprop(e.target.value)} disabled={!canManage} placeholder="https://www.argenprop.com/..." className="flex-1 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs text-white placeholder:text-slate-500 outline-none focus:ring-1 focus:ring-sky-400" />
+              {urlArgenprop && (
+                <a href={urlArgenprop} target="_blank" rel="noopener noreferrer" className="p-2 text-cyan-400 hover:text-cyan-300"><ExternalLink className="h-4 w-4" /></a>
               )}
             </div>
             <div className="flex items-center gap-2">
               <span className="w-32 text-xs font-medium text-slate-300">Otro / Redes</span>
-              <input name="publication_url_other" type="url" defaultValue={property.publication_url_other ?? ''} disabled={!canManage} placeholder="https://..." className="flex-1 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs text-white placeholder:text-slate-500 outline-none focus:ring-1 focus:ring-sky-400" />
-              {property.publication_url_other && (
-                <a href={property.publication_url_other} target="_blank" rel="noopener noreferrer" className="p-2 text-cyan-400 hover:text-cyan-300"><ExternalLink className="h-4 w-4" /></a>
+              <input name="publication_url_other" type="url" value={urlOther} onChange={(e) => setUrlOther(e.target.value)} disabled={!canManage} placeholder="https://..." className="flex-1 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs text-white placeholder:text-slate-500 outline-none focus:ring-1 focus:ring-sky-400" />
+              {urlOther && (
+                <a href={urlOther} target="_blank" rel="noopener noreferrer" className="p-2 text-cyan-400 hover:text-cyan-300"><ExternalLink className="h-4 w-4" /></a>
               )}
             </div>
           </div>
