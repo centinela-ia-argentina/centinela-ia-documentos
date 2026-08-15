@@ -690,6 +690,6 @@ export async function actualizarPublicacion(formData: FormData) {
     metadata: { note: 'publication_status_updated', status: data.publication_status },
   });
 
-  revalidatePath(`/propiedades/${propertyId}`);
+  // Removed revalidatePath to prevent visual race conditions in the client state
   return { ok: true, publication: data };
 }
