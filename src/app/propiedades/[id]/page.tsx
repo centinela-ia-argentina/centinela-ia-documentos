@@ -467,7 +467,7 @@ export default async function PropertyDetailPage({ params }: PropertyDetailPageP
 
           <TasacionPanel propertyId={record.id} propertyType={record.property_type ?? ''} comparables={comparables} />
 
-          <PublicacionAsistidaPanel property={record} canManage={canManage} />
+          <PublicacionAsistidaPanel key={record.id} property={record} canManage={canManage} />
 
           <div className="rounded-3xl border border-white/5 bg-white/[0.02] p-6 mt-6">
             <h3 className="mb-4 text-sm font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2">

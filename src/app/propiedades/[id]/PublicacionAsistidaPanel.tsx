@@ -1,28 +1,13 @@
 'use client';
 
-import { useFormStatus } from 'react-dom';
-import { actualizarPublicacion } from '../actions';
 import { ExternalLink, Globe, Copy, Check, Info } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import type { PropertyRecord } from '@/types/property';
 import { getPropertyTypeLabel } from '@/lib/properties/labels';
 
 interface PublicacionAsistidaPanelProps {
   property: PropertyRecord;
   canManage: boolean;
-}
-
-function SubmitButton() {
-  const { pending } = useFormStatus();
-  return (
-    <button
-      type="submit"
-      disabled={pending}
-      className="inline-flex items-center justify-center rounded-xl bg-cyan-500 px-4 py-2 text-sm font-bold text-slate-900 transition hover:bg-cyan-400 disabled:opacity-50"
-    >
-      {pending ? 'Guardando...' : 'Guardar enlaces'}
-    </button>
-  );
 }
 
 export function PublicacionAsistidaPanel({ property, canManage }: PublicacionAsistidaPanelProps) {
@@ -35,21 +20,30 @@ export function PublicacionAsistidaPanel({ property, canManage }: PublicacionAsi
 
   const [copied, setCopied] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
 
-  useEffect(() => {
-    setStatus(property.publication_status ?? 'no_publicada');
-    setNotes(property.publication_notes ?? '');
-    setUrlMercadoLibre(property.publication_url_mercadolibre ?? '');
-    setUrlZonaprop(property.publication_url_zonaprop ?? '');
-    setUrlArgenprop(property.publication_url_argenprop ?? '');
-    setUrlOther(property.publication_url_other ?? '');
-  }, [property.id]);
-
-  async function handleAction(formData: FormData) {
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
     setFeedback(null);
+    setIsSaving(true);
+
     try {
-      const res = await actualizarPublicacion(formData);
-      if (res?.ok && res.publication) {
+      const response = await fetch(`/api/propiedades/${property.id}/publicacion`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          publication_status: status,
+          publication_notes: notes,
+          publication_url_mercadolibre: urlMercadoLibre,
+          publication_url_zonaprop: urlZonaprop,
+          publication_url_argenprop: urlArgenprop,
+          publication_url_other: urlOther
+        })
+      });
+
+      const res = await response.json();
+
+      if (response.ok && res.publication) {
         setStatus(res.publication.publication_status ?? 'no_publicada');
         setNotes(res.publication.publication_notes ?? '');
         setUrlMercadoLibre(res.publication.publication_url_mercadolibre ?? '');
@@ -60,11 +54,13 @@ export function PublicacionAsistidaPanel({ property, canManage }: PublicacionAsi
         setFeedback({ type: 'success', text: 'Publicación actualizada' });
         // Hide success message after 3 seconds
         setTimeout(() => setFeedback(null), 3000);
-      } else if (res?.error) {
-        setFeedback({ type: 'error', text: res.error });
+      } else {
+        setFeedback({ type: 'error', text: res.error || 'Error al guardar' });
       }
     } catch (e) {
       setFeedback({ type: 'error', text: 'Error inesperado al guardar' });
+    } finally {
+      setIsSaving(false);
     }
   }
 
@@ -96,7 +92,7 @@ Para más información, contactanos.`;
         </p>
       </div>
 
-      <form action={handleAction} className="space-y-4">
+      <form onSubmit={handleSubmit} className="space-y-4">
         <input type="hidden" name="property_id" value={property.id} />
 
         <div className="grid gap-4 sm:grid-cols-2">
@@ -189,7 +185,13 @@ Para más información, contactanos.`;
                 {feedback.text}
               </span>
             )}
-            <SubmitButton />
+            <button
+              type="submit"
+              disabled={isSaving}
+              className="inline-flex items-center justify-center rounded-xl bg-cyan-500 px-4 py-2 text-sm font-bold text-slate-900 transition hover:bg-cyan-400 disabled:opacity-50"
+            >
+              {isSaving ? 'Guardando...' : 'Guardar enlaces'}
+            </button>
           </div>
         )}
       </form>
