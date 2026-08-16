@@ -158,6 +158,7 @@ export default async function ObservacionesPage() {
 
   // 8. Propiedades sin movimiento
   const propiedadesSinMovimientoAll = properties.filter(p => {
+    if (p.status !== 'disponible') return false;
     const lastUpdate = new Date(p.updated_at);
     const diffTime = Math.abs(now.getTime() - lastUpdate.getTime());
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));

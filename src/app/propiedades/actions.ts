@@ -282,22 +282,20 @@ export async function tasarPropiedadConIA(propertyId: string) {
     .from('property_comparables')
     .select('source_name, surface_total_m2, rooms, price, currency, address, property_id')
     .eq('organization_id', profile.organization_id)
+    .eq('property_id', propertyId) // Strict match to this property as requested
     .eq('currency', property.currency)
     .gt('price', 0)
     .gt('surface_total_m2', 0);
 
-  const extCompsRaw = (extCompsData || []).sort((a, b) => {
-    if (a.property_id === propertyId && b.property_id !== propertyId) return -1;
-    if (a.property_id !== propertyId && b.property_id === propertyId) return 1;
-    return 0;
-  });
+  const extCompsRaw = extCompsData || [];
 
   const comparables: ComparableProp[] = extCompsRaw.map(c => ({
-    name: (c.source_name ? c.source_name + ' (Ext)' : 'Comparable Externo') + (c.address ? ` - ${c.address}` : ''),
+    name: (c.source_name ? c.source_name : 'Portal / Manual') + (c.address ? ` - ${c.address}` : ''),
     surfaceTotal: c.surface_total_m2,
     rooms: c.rooms,
     price: c.price,
     currency: c.currency,
+    sourceType: 'external',
   }));
 
   // 2. If we need more, fetch internal portfolio properties
@@ -321,9 +319,18 @@ export async function tasarPropiedadConIA(propertyId: string) {
       rooms: c.rooms,
       price: c.price,
       currency: c.currency,
+      sourceType: 'internal',
     }));
 
     comparables.push(...intComps);
+  }
+
+  // BLOQUEO ESTRICTO: No llamar a IA si no hay comparables
+  if (comparables.length === 0) {
+    return { 
+      ok: false, 
+      error: 'No hay comparables válidos de la misma moneda y tipo para generar una estimación. Cargá al menos un comparable con precio y superficie total.' 
+    };
   }
 
   const result = await tasarPropiedadIA({
@@ -338,7 +345,7 @@ export async function tasarPropiedadConIA(propertyId: string) {
 
   if (!result.ok) {
     if (result.motivo === 'sin_comparables') {
-      return { ok: false, error: 'No hay propiedades comparables válidas de la misma moneda para generar una estimación. Cargá comparables antes de continuar.' };
+      return { ok: false, error: 'No hay comparables válidos de la misma moneda y tipo para generar una estimación. Cargá al menos un comparable con precio y superficie total.' };
     }
     return { ok: false, error: 'No se pudo generar la tasación.' };
   }

@@ -6,6 +6,7 @@ export type ComparableProp = {
   rooms: number | null;
   price: number | null;
   currency: string | null;
+  sourceType: 'internal' | 'external';
 };
 
 export async function tasarPropiedadIA(datos: {
@@ -23,7 +24,8 @@ export async function tasarPropiedadIA(datos: {
   const modelo = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
 
   const formatComp = (c: ComparableProp, i: number) => {
-    return `[${i + 1}] Nombre: ${c.name}, Superficie: ${c.surfaceTotal || 'S/N'} m2, Ambientes: ${c.rooms || 'S/N'}, Precio: ${c.currency || ''} ${c.price || 'S/N'}`;
+    const origen = c.sourceType === 'internal' ? 'Interno/Propio' : 'Externo/Portal';
+    return `[${i + 1}] (${origen}) Nombre: ${c.name}, Superficie: ${c.surfaceTotal || 'S/N'} m2, Ambientes: ${c.rooms || 'S/N'}, Precio: ${c.currency || ''} ${c.price || 'S/N'}`;
   };
 
   if (comparables.length === 0) {
@@ -52,8 +54,8 @@ export async function tasarPropiedadIA(datos: {
     'VALOR ESTIMADO: (un valor puntual)',
     'PRECIO POR M² DE REFERENCIA: (si aplica)',
     'FUNDAMENTOS: (3 a 5 puntos breves)',
-    'COMPARABLES CONSIDERADOS: (lista breve, distinguiendo si son externos o propios; si no hubo, indicarlo)',
-    'ACLARACIÓN: Estimación orientativa automatizada generada en entorno controlado. No reemplaza una tasación profesional.'
+    'COMPARABLES CONSIDERADOS: (lista breve indicando cuántos internos/propios y cuántos externos se utilizaron, y por qué se descartaron los no utilizados si hubo descartes)',
+    'ACLARACIÓN: Beta operativa comercial · estimación orientativa basada en los comparables disponibles. No es una tasación oficial ni certificada y requiere revisión profesional. Las referencias externas provistas son cargadas manualmente y no se verifica su vigencia actual.'
   ].join('\n');
 
   try {

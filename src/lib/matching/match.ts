@@ -49,21 +49,31 @@ export function evaluarMatch(client: ClientRecord, property: PropertyRecord): Re
   const aplicaZona = !!desiredNeigh || !!desiredCity;
   
   let cumpleZona = false;
+  
+  const matchesZone = (targetText: string, searchZone: string) => {
+    if (!targetText || !searchZone) return false;
+    const normTarget = normalizeZone(targetText);
+    const normSearch = normalizeZone(searchZone);
+    // Para evitar que "Recoleta" valide a una propiedad en "Palermo"
+    // Buscamos la palabra completa, no solo un fragmento.
+    // Usamos delimitadores de palabra o espacios
+    const regex = new RegExp(`(^|\\s)${normSearch}(\\s|$)`, 'i');
+    return regex.test(normTarget);
+  };
+
   if (aplicaZona) {
     if (desiredNeigh) {
-      const normDesiredNeigh = normalizeZone(desiredNeigh);
-      if (property.neighborhood && normalizeZone(property.neighborhood).includes(normDesiredNeigh)) {
+      if (matchesZone(property.neighborhood || '', desiredNeigh)) {
         cumpleZona = true;
-      } else if (property.address && normalizeZone(property.address).includes(normDesiredNeigh)) {
+      } else if (!property.neighborhood && property.address && matchesZone(property.address, desiredNeigh)) {
         cumpleZona = true;
       }
     }
     
     if (!cumpleZona && desiredCity) {
-      const normDesiredCity = normalizeZone(desiredCity);
-      if (property.city && normalizeZone(property.city).includes(normDesiredCity)) {
+      if (matchesZone(property.city || '', desiredCity)) {
         cumpleZona = true;
-      } else if (property.address && normalizeZone(property.address).includes(normDesiredCity)) {
+      } else if (!property.city && property.address && matchesZone(property.address, desiredCity)) {
         cumpleZona = true;
       }
     }
