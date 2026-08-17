@@ -1,5 +1,6 @@
 import type { ClientRecord } from '@/types/client';
 import type { PropertyRecord } from '@/types/property';
+import { normalizeZone } from '@/lib/location/normalizeZone';
 
 export type CriterioMatch = { 
   key: 'tipo' | 'presupuesto' | 'ambientes' | 'zona'; 
@@ -42,9 +43,42 @@ export function evaluarMatch(client: ClientRecord, property: PropertyRecord): Re
   criterios.push({ key: 'ambientes', label: 'Ambientes', aplica: aplicaAmbientes, cumple: cumpleAmbientes });
 
   // Criterio: Zona
-  const aplicaZona = !!client.zone && client.zone.trim() !== '';
-  const cumpleZona = aplicaZona && !!property.address && 
-    property.address.toLowerCase().includes(client.zone!.trim().toLowerCase());
+  // La zona del cliente puede venir en desired_neighborhood, desired_city, o el viejo zone.
+  const desiredNeigh = client.desired_neighborhood?.trim() || client.zone?.trim();
+  const desiredCity = client.desired_city?.trim();
+  const aplicaZona = !!desiredNeigh || !!desiredCity;
+  
+  let cumpleZona = false;
+  
+  const matchesZone = (targetText: string, searchZone: string) => {
+    if (!targetText || !searchZone) return false;
+    const normTarget = normalizeZone(targetText);
+    const normSearch = normalizeZone(searchZone);
+    // Para evitar que "Recoleta" valide a una propiedad en "Palermo"
+    // Buscamos la palabra completa, no solo un fragmento.
+    // Usamos delimitadores de palabra o espacios
+    const regex = new RegExp(`(^|\\s)${normSearch}(\\s|$)`, 'i');
+    return regex.test(normTarget);
+  };
+
+  if (aplicaZona) {
+    if (desiredNeigh) {
+      if (matchesZone(property.neighborhood || '', desiredNeigh)) {
+        cumpleZona = true;
+      } else if (!property.neighborhood && property.address && matchesZone(property.address, desiredNeigh)) {
+        cumpleZona = true;
+      }
+    }
+    
+    if (!cumpleZona && desiredCity) {
+      if (matchesZone(property.city || '', desiredCity)) {
+        cumpleZona = true;
+      } else if (!property.city && property.address && matchesZone(property.address, desiredCity)) {
+        cumpleZona = true;
+      }
+    }
+  }
+
   criterios.push({ key: 'zona', label: 'Zona', aplica: aplicaZona, cumple: cumpleZona });
 
   const coincidencias = criterios.filter(c => c.aplica && c.cumple).length;

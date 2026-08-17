@@ -6,6 +6,7 @@ export type ComparableProp = {
   rooms: number | null;
   price: number | null;
   currency: string | null;
+  sourceType: 'internal' | 'external';
 };
 
 export async function tasarPropiedadIA(datos: {
@@ -23,7 +24,8 @@ export async function tasarPropiedadIA(datos: {
   const modelo = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
 
   const formatComp = (c: ComparableProp, i: number) => {
-    return `[${i + 1}] Nombre: ${c.name}, Superficie: ${c.surfaceTotal || 'S/N'} m2, Ambientes: ${c.rooms || 'S/N'}, Precio: ${c.currency || ''} ${c.price || 'S/N'}`;
+    const origen = c.sourceType === 'internal' ? 'Interno/Propio' : 'Externo/Portal';
+    return `[${i + 1}] (${origen}) Nombre: ${c.name}, Superficie: ${c.surfaceTotal || 'S/N'} m2, Ambientes: ${c.rooms || 'S/N'}, Precio: ${c.currency || ''} ${c.price || 'S/N'}`;
   };
 
   if (comparables.length === 0) {
@@ -33,7 +35,7 @@ export async function tasarPropiedadIA(datos: {
   const compsText = comparables.map((c, i) => formatComp(c, i)).join('\n');
 
   const prompt = [
-    'Sos un tasador inmobiliario argentino experto. Estimá el valor de mercado de la propiedad SUJETO. Usá los COMPARABLES provistos (propiedades similares de la misma cartera) como referencia principal de precio por m². No inventes datos que no te di. Sé conservador. Usá la moneda de la propiedad sujeto.',
+    'Sos un tasador inmobiliario argentino experto. Estimá el valor de mercado de la propiedad SUJETO. Usá los COMPARABLES provistos (propiedades similares de la misma cartera o testigos externos) como referencia principal de precio por m². No inventes datos que no te di. Sé conservador. Usá la moneda de la propiedad sujeto.',
     '',
     'PROPIEDAD SUJETO:',
     `Nombre: ${datos.name}`,
@@ -44,7 +46,7 @@ export async function tasarPropiedadIA(datos: {
     `Ambientes: ${datos.rooms ?? 'No especificados'}`,
     `Moneda: ${datos.currency ?? 'USD'}`,
     '',
-    'COMPARABLES (Misma cartera):',
+    'COMPARABLES (Cartera propia y testigos externos):',
     compsText,
     '',
     'Pedí la respuesta en TEXTO PLANO con estas secciones exactas y en este orden:',
@@ -52,8 +54,8 @@ export async function tasarPropiedadIA(datos: {
     'VALOR ESTIMADO: (un valor puntual)',
     'PRECIO POR M² DE REFERENCIA: (si aplica)',
     'FUNDAMENTOS: (3 a 5 puntos breves)',
-    'COMPARABLES CONSIDERADOS: (lista breve; si no hubo, indicarlo)',
-    'ACLARACIÓN: estimación orientativa; no reemplaza una tasación profesional.'
+    'COMPARABLES CONSIDERADOS: (lista breve indicando cuántos internos/propios y cuántos externos se utilizaron, y por qué se descartaron los no utilizados si hubo descartes)',
+    'ACLARACIÓN: Beta operativa comercial · estimación orientativa basada en los comparables disponibles. No es una tasación oficial ni certificada y requiere revisión profesional. Las referencias externas provistas son cargadas manualmente y no se verifica su vigencia actual.'
   ].join('\n');
 
   try {

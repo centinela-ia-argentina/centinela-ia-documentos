@@ -106,9 +106,23 @@ export default async function NuevoClientePage() {
                 </select>
               </div>
 
-              <div className="sm:col-span-2">
-                <label className={labelStyle}>Zona / barrio buscado</label>
-                <input name="zone" placeholder="Ej: Palermo, Recoleta" className={inputStyle} />
+              <div className="sm:col-span-2 grid gap-6 sm:grid-cols-2">
+                <div>
+                  <label className={labelStyle}>Provincia buscada</label>
+                  <input name="desired_province" placeholder="Ej: Buenos Aires" className={inputStyle} />
+                </div>
+                <div>
+                  <label className={labelStyle}>Localidad / Ciudad buscada</label>
+                  <input name="desired_city" placeholder="Ej: CABA" className={inputStyle} />
+                </div>
+                <div>
+                  <label className={labelStyle}>Barrio / Zona buscada</label>
+                  <input name="desired_neighborhood" placeholder="Ej: Palermo" className={inputStyle} />
+                </div>
+                <div>
+                  <label className={labelStyle}>Subzona buscada (opcional)</label>
+                  <input name="desired_subzone" placeholder="Ej: Palermo Soho" className={inputStyle} />
+                </div>
               </div>
 
               <div className="sm:col-span-2">

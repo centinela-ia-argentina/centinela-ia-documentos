@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react';
 import { Calculator, X, Copy, Check } from 'lucide-react';
 import { tasarPropiedadConIA } from '../actions';
+import { AiDisclaimer } from '@/lib/industries/disclaimers';
 
 export function TasarButton({ propertyId }: { propertyId: string }) {
   const [isPending, startTransition] = useTransition();
@@ -57,9 +58,7 @@ export function TasarButton({ propertyId }: { propertyId: string }) {
         </pre>
         
         <div className="mt-4 flex items-center justify-between border-t border-white/10 pt-4">
-          <p className="text-xs text-slate-500 italic">
-            Beta operativa comercial · estimación orientativa, no es una tasación oficial.
-          </p>
+          <AiDisclaimer industry="inmobiliaria" className="mt-0 flex-1 mr-4" />
           <div className="flex gap-2">
             <button
               onClick={handleCopy}

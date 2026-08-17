@@ -27,6 +27,10 @@ export async function createClientRecord(formData: FormData) {
   const budget_max_raw = formData.get('budget_max');
   const currency = String(formData.get('currency') || '');
   const min_rooms_raw = formData.get('min_rooms');
+  const desired_province = String(formData.get('desired_province') || '').trim();
+  const desired_city = String(formData.get('desired_city') || '').trim();
+  const desired_neighborhood = String(formData.get('desired_neighborhood') || '').trim();
+  const desired_subzone = String(formData.get('desired_subzone') || '').trim();
   const notes = String(formData.get('notes') || '').trim();
 
   const budget_min = budget_min_raw ? Number(budget_min_raw) : null;
@@ -53,6 +57,10 @@ export async function createClientRecord(formData: FormData) {
       budget_max,
       currency: currency || null,
       min_rooms,
+      desired_province: desired_province || null,
+      desired_city: desired_city || null,
+      desired_neighborhood: desired_neighborhood || null,
+      desired_subzone: desired_subzone || null,
       notes: notes || null,
       created_by: user.id,
     })
@@ -101,6 +109,10 @@ export async function updateClientRecord(formData: FormData) {
   const budget_max_raw = formData.get('budget_max');
   const currency = String(formData.get('currency') || '');
   const min_rooms_raw = formData.get('min_rooms');
+  const desired_province = String(formData.get('desired_province') || '').trim();
+  const desired_city = String(formData.get('desired_city') || '').trim();
+  const desired_neighborhood = String(formData.get('desired_neighborhood') || '').trim();
+  const desired_subzone = String(formData.get('desired_subzone') || '').trim();
   const notes = String(formData.get('notes') || '').trim();
 
   const budget_min = budget_min_raw ? Number(budget_min_raw) : null;
@@ -126,6 +138,10 @@ export async function updateClientRecord(formData: FormData) {
       budget_max,
       currency: currency || null,
       min_rooms,
+      desired_province: desired_province || null,
+      desired_city: desired_city || null,
+      desired_neighborhood: desired_neighborhood || null,
+      desired_subzone: desired_subzone || null,
       notes: notes || null,
       updated_at: new Date().toISOString(),
     })

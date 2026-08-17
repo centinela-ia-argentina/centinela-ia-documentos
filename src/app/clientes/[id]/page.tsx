@@ -14,6 +14,8 @@ import type { PropertyRecord } from '@/types/property';
 import { evaluarMatch, ordenarPorMatch } from '@/lib/matching/match';
 import { canUseAi } from '@/lib/permissions/roles';
 import { ClientMatchAiButton } from './ClientMatchAiButton';
+import { WhatsAppIntentBuilder } from '@/components/WhatsAppIntentBuilder';
+import { generateClientMessage } from '@/lib/whatsapp';
 
 export default async function ClientDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -113,6 +115,15 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
               </div>
             </li>
           </ul>
+
+          <div className="mt-6">
+            <WhatsAppIntentBuilder
+              phone={record.phone}
+              context="client"
+              resourceId={record.id}
+              defaultMessage={generateClientMessage(record)}
+            />
+          </div>
         </div>
 
         <div className="rounded-3xl border border-white/5 bg-white/[0.02] p-8">
@@ -135,7 +146,7 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
             <li className="flex items-center gap-3">
               <MapPin className="h-5 w-5 text-cyan-400" />
               <span className="font-medium text-white">
-                Zona: {record.zone || 'Cualquiera'}
+                Zona: {[record.desired_neighborhood, record.desired_city, record.zone].filter(Boolean).join(', ') || 'Cualquiera'}
               </span>
             </li>
             <li className="flex items-center gap-3">
@@ -289,9 +300,23 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
                     </select>
                   </div>
 
-                  <div className="sm:col-span-2">
-                    <label className={labelStyle}>Zona / barrio buscado</label>
-                    <input name="zone" defaultValue={record.zone || ''} className={inputStyle} />
+                  <div className="sm:col-span-2 grid gap-6 sm:grid-cols-2">
+                    <div>
+                      <label className={labelStyle}>Provincia buscada</label>
+                      <input name="desired_province" defaultValue={record.desired_province || ''} className={inputStyle} />
+                    </div>
+                    <div>
+                      <label className={labelStyle}>Localidad / Ciudad buscada</label>
+                      <input name="desired_city" defaultValue={record.desired_city || ''} className={inputStyle} />
+                    </div>
+                    <div>
+                      <label className={labelStyle}>Barrio / Zona buscada</label>
+                      <input name="desired_neighborhood" defaultValue={record.desired_neighborhood || ''} className={inputStyle} />
+                    </div>
+                    <div>
+                      <label className={labelStyle}>Subzona buscada (opcional)</label>
+                      <input name="desired_subzone" defaultValue={record.desired_subzone || ''} className={inputStyle} />
+                    </div>
                   </div>
 
                   <div className="sm:col-span-2">

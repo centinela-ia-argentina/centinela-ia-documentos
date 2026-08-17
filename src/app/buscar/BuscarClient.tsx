@@ -4,6 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { preguntarADocumentos, type FuenteBusqueda } from './actions';
 import { AvisoPrivacidadIA } from '@/components/AvisoPrivacidadIA';
+import { AiDisclaimer } from '@/lib/industries/disclaimers';
 import { MotionButton } from '@/components/ui/MotionButton';
 import { MotionCard } from '@/components/ui/MotionCard';
 
@@ -38,6 +39,7 @@ export function BuscarClient() {
   return (
     <div>
       <AvisoPrivacidadIA contexto="responder tu pregunta" />
+      <AiDisclaimer industry="inmobiliaria" className="mb-4" />
       <form onSubmit={onSubmit} className="flex flex-col gap-3 sm:flex-row">
         <input
           type="text"

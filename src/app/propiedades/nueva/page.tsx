@@ -94,15 +94,64 @@ export default async function NuevaPropiedadPage() {
                     <option value="no_disponible" className="bg-[#0C2340] text-white">No disponible</option>
                   </select>
                 </div>
+              </div>
+            </section>
 
+            <section>
+              <h2 className="mb-4 text-lg font-semibold text-white">Ubicación</h2>
+              <div className="grid gap-4 sm:grid-cols-2">
                 <div className="sm:col-span-2">
                   <label className="mb-1.5 block text-sm font-semibold text-slate-400">
-                    Dirección
+                    Dirección (calle, número, piso, depto)
                   </label>
                   <input
                     name="address"
                     type="text"
-                    placeholder="Calle, número, piso, depto..."
+                    placeholder="Ej. Av. Libertador 1234, Piso 5 Depto A"
+                    className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-white placeholder:text-slate-500 outline-none focus:ring-2 focus:ring-sky-400"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1.5 block text-sm font-semibold text-slate-400">
+                    Barrio / Zona
+                  </label>
+                  <input
+                    name="neighborhood"
+                    type="text"
+                    placeholder="Ej. Palermo"
+                    className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-white placeholder:text-slate-500 outline-none focus:ring-2 focus:ring-sky-400"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1.5 block text-sm font-semibold text-slate-400">
+                    Subzona (opcional)
+                  </label>
+                  <input
+                    name="subzone"
+                    type="text"
+                    placeholder="Ej. Palermo Soho"
+                    className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-white placeholder:text-slate-500 outline-none focus:ring-2 focus:ring-sky-400"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1.5 block text-sm font-semibold text-slate-400">
+                    Localidad / Ciudad
+                  </label>
+                  <input
+                    name="city"
+                    type="text"
+                    placeholder="Ej. CABA"
+                    className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-white placeholder:text-slate-500 outline-none focus:ring-2 focus:ring-sky-400"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1.5 block text-sm font-semibold text-slate-400">
+                    Provincia
+                  </label>
+                  <input
+                    name="province"
+                    type="text"
+                    placeholder="Ej. Buenos Aires"
                     className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-white placeholder:text-slate-500 outline-none focus:ring-2 focus:ring-sky-400"
                   />
                 </div>
