@@ -15,7 +15,8 @@ export function UploadClient({
   initialCaseId: string;
 }) {
   const router = useRouter();
-  const [files, setFiles] = useState<File[]>([]);
+  const MAX_FILE_SIZE_MB = 50;
+  const [files, setFiles] = useState<{ id: string; file: File }[]>([]);
   const [caseId, setCaseId] = useState(initialCaseId);
   const [documentType, setDocumentType] = useState('');
   const [sensitivityLevel, setSensitivityLevel] = useState('medium');
@@ -51,13 +52,14 @@ export function UploadClient({
       'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
     ];
     
-    const valid = selectedFiles.filter(f => validTypes.includes(f.type) && f.size <= 50 * 1024 * 1024);
+    const valid = selectedFiles.filter(f => validTypes.includes(f.type) && f.size <= MAX_FILE_SIZE_MB * 1024 * 1024);
     
     setFiles(prev => {
-      const newFiles = [...prev, ...valid];
+      const wrappedFiles = valid.map(f => ({ id: crypto.randomUUID(), file: f }));
+      const newFiles = [...prev, ...wrappedFiles];
       const initialStatus = { ...uploadStatus };
-      valid.forEach(f => {
-        initialStatus[f.name] = { status: 'pending' };
+      wrappedFiles.forEach(wf => {
+        initialStatus[wf.id] = { status: 'pending' };
       });
       setUploadStatus(initialStatus);
       return newFiles;
@@ -78,51 +80,52 @@ export function UploadClient({
     
     setIsUploading(true);
     
-    // Concurrent upload with max 3 concurrency
-    const maxConcurrent = 3;
-    let index = 0;
+    const uploadTasks = files.map(wf => async () => {
+      setUploadStatus(prev => ({ ...prev, [wf.id]: { status: 'uploading' } }));
+      
+      const fd = new FormData();
+      fd.append('file', wf.file);
+      fd.append('file_id', wf.id); // Idempotency
+      fd.append('case_id', caseId);
+      fd.append('document_type', documentType);
+      fd.append('sensitivity_level', sensitivityLevel);
+      fd.append('expires_at', expiresAt);
+      
+      const res = await uploadSingleDocumentAsync(fd);
+      
+      if (res.ok) {
+        setUploadStatus(prev => ({ ...prev, [wf.id]: { status: 'success' } }));
+      } else {
+        setUploadStatus(prev => ({ ...prev, [wf.id]: { status: 'error', error: res.error || 'Error al subir' } }));
+        throw new Error(res.error || 'Error al subir');
+      }
+    });
     
-    const uploadWorker = async () => {
-      while (index < files.length) {
-        const currentIndex = index++;
-        const file = files[currentIndex];
-        
-        setUploadStatus(prev => ({ ...prev, [file.name]: { status: 'uploading' } }));
-        
-        const fd = new FormData();
-        fd.append('file', file);
-        fd.append('case_id', caseId);
-        fd.append('document_type', documentType);
-        fd.append('sensitivity_level', sensitivityLevel);
-        fd.append('expires_at', expiresAt);
-        
-        const res = await uploadSingleDocumentAsync(fd);
-        
-        if (res.ok) {
-          setUploadStatus(prev => ({ ...prev, [file.name]: { status: 'success' } }));
-        } else {
-          setUploadStatus(prev => ({ ...prev, [file.name]: { status: 'error', error: res.error || 'Error al subir' } }));
+    // Concurrency queue
+    const maxConcurrent = 3;
+    const queue = [...uploadTasks];
+    const runWorker = async () => {
+      while (queue.length > 0) {
+        const task = queue.shift();
+        if (task) {
+          try {
+            await task();
+          } catch (e) {
+            // Error logged to state inside task
+          }
         }
       }
     };
     
     const workers = [];
-    for (let i = 0; i < Math.min(maxConcurrent, files.length); i++) {
-      workers.push(uploadWorker());
+    for (let i = 0; i < Math.min(maxConcurrent, uploadTasks.length); i++) {
+      workers.push(runWorker());
     }
     
-    await Promise.all(workers);
+    await Promise.allSettled(workers);
     setIsUploading(false);
     
-    // Redirect if all successful
-    const anyError = files.some(f => uploadStatus[f.name]?.status === 'error');
-    if (!anyError) {
-      if (caseId) {
-        router.push(`/expedientes/${caseId}`);
-      } else {
-        router.push('/documentos');
-      }
-    }
+    // Removed automatic redirect to show summary
   };
 
   return (
@@ -206,20 +209,20 @@ export function UploadClient({
             />
             <UploadCloud className={`h-10 w-10 mb-3 ${isDragging ? 'text-sky-500' : 'text-slate-400'}`} />
             <p className="text-sm font-semibold text-slate-700">Arrastrá tus archivos acá o hacé clic para seleccionar</p>
-            <p className="mt-1 text-xs text-slate-500">PDF, JPG, PNG, DOCX, XLSX. Máximo 50 MB por archivo.</p>
+            <p className="mt-1 text-xs text-slate-500">PDF, JPG, PNG, DOCX, XLSX. Máximo {MAX_FILE_SIZE_MB} MB por archivo.</p>
           </div>
 
           {files.length > 0 && (
             <div className="mt-4 space-y-2">
-              {files.map((file, index) => {
-                const status = uploadStatus[file.name]?.status || 'pending';
+              {files.map((wf, index) => {
+                const status = uploadStatus[wf.id]?.status || 'pending';
                 return (
-                  <div key={index} className="flex items-center justify-between p-3 bg-white border border-slate-200 rounded-xl">
+                  <div key={wf.id} className="flex items-center justify-between p-3 bg-white border border-slate-200 rounded-xl">
                     <div className="flex items-center gap-3 overflow-hidden">
                       <FileIcon className="h-5 w-5 text-slate-400 shrink-0" />
                       <div className="truncate text-sm font-medium text-slate-700">
-                        {file.name}
-                        <div className="text-xs text-slate-400 font-normal">{(file.size / 1024 / 1024).toFixed(2)} MB</div>
+                        {wf.file.name}
+                        <div className="text-xs text-slate-400 font-normal">{(wf.file.size / 1024 / 1024).toFixed(2)} MB</div>
                       </div>
                     </div>
                     
@@ -229,7 +232,7 @@ export function UploadClient({
                       {status === 'error' && (
                         <div className="flex items-center gap-1 text-rose-500 text-xs">
                           <AlertCircle className="h-4 w-4" />
-                          <span className="hidden sm:inline">{uploadStatus[file.name]?.error || 'Error'}</span>
+                          <span className="hidden sm:inline">{uploadStatus[wf.id]?.error || 'Error'}</span>
                         </div>
                       )}
                       

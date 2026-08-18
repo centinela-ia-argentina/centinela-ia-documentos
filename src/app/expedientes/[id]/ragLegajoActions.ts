@@ -84,33 +84,33 @@ export async function preguntarADocumentosLegajo(
   let matches: any[] | null = null;
   let matchError: { message: string } | null = null;
 
-  ({ data: matches, error: matchError } = await supabase.rpc('match_document_chunks', {
-    query_embedding: emb.values,
-    match_org: profile.organization_id,
-    match_count: 80,
+  ({ data: matches, error: matchError } = await supabase.rpc('match_case_document_chunks', {
+    p_organization_id: profile.organization_id,
+    p_case_id: caseId,
+    p_query_embedding: emb.values,
+    p_match_threshold: 0.1,
+    p_match_count: 8,
   }));
 
   if (matchError) {
-    ({ data: matches, error: matchError } = await supabase.rpc('match_document_chunks', {
-      query_embedding: JSON.stringify(emb.values),
-      match_org: profile.organization_id,
-      match_count: 80,
+    ({ data: matches, error: matchError } = await supabase.rpc('match_case_document_chunks', {
+      p_organization_id: profile.organization_id,
+      p_case_id: caseId,
+      p_query_embedding: JSON.stringify(emb.values),
+      p_match_threshold: 0.1,
+      p_match_count: 8,
     }));
   }
 
   if (matchError) return { ok: false, error: 'Error al buscar: ' + matchError.message };
 
-  // 4) Quedarnos SOLO con fragmentos de los documentos de este legajo (deduplicados y máximo 8)
   const delLegajo: any[] = [];
   const contentSet = new Set<string>();
   for (const m of (matches ?? [])) {
-    if (idsCaso.has(m.document_id)) {
-      const c = (m.content || '').trim();
-      if (!contentSet.has(c)) {
-        contentSet.add(c);
-        delLegajo.push(m);
-        if (delLegajo.length >= 8) break;
-      }
+    const c = (m.content || '').trim();
+    if (!contentSet.has(c)) {
+      contentSet.add(c);
+      delLegajo.push(m);
     }
   }
 

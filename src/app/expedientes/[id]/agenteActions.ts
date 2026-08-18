@@ -331,21 +331,31 @@ export async function preguntarAgente(input: {
       if (!('error' in emb)) {
         let matches: any[] | null = null;
         let matchError: { message: string } | null = null;
-        ({ data: matches, error: matchError } = await supabase.rpc('match_document_chunks', {
-          query_embedding: emb.values,
-          match_org: profile.organization_id,
-          match_count: 80,
+        ({ data: matches, error: matchError } = await supabase.rpc('match_case_document_chunks', {
+          p_organization_id: profile.organization_id,
+          p_case_id: input.caseId,
+          p_query_embedding: emb.values,
+          p_match_threshold: 0.1,
+          p_match_count: 20,
         }));
         if (matchError) {
-          ({ data: matches, error: matchError } = await supabase.rpc('match_document_chunks', {
-            query_embedding: JSON.stringify(emb.values),
-            match_org: profile.organization_id,
-            match_count: 80,
+          ({ data: matches, error: matchError } = await supabase.rpc('match_case_document_chunks', {
+            p_organization_id: profile.organization_id,
+            p_case_id: input.caseId,
+            p_query_embedding: JSON.stringify(emb.values),
+            p_match_threshold: 0.1,
+            p_match_count: 20,
           }));
         }
-        const delLegajo = (matches ?? [])
-          .filter((m: any) => idsCasoRag.has(m.document_id))
-          .slice(0, 20);
+        const delLegajo: any[] = [];
+        const contentSet = new Set<string>();
+        for (const m of (matches ?? [])) {
+          const c = (m.content || '').trim();
+          if (!contentSet.has(c)) {
+            contentSet.add(c);
+            delLegajo.push(m);
+          }
+        }
         if (delLegajo.length > 0) {
           partes.push(
             '\nFRAGMENTOS TEXTUALES RELEVANTES (extractos del texto real de los documentos para ESTA pregunta; citá el documento por su nombre entre paréntesis cuando los uses):'

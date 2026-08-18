@@ -30,7 +30,8 @@ const ALLOWED_MIME_TYPES = [
   'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
 ];
 
-const MAX_FILE_SIZE = 20 * 1024 * 1024;
+const MAX_FILE_SIZE_MB = 50;
+const MAX_FILE_SIZE = MAX_FILE_SIZE_MB * 1024 * 1024;
 
 function sanitizeFileName(fileName: string) {
   return fileName.replace(/[^a-zA-Z0-9._-]/g, '_');
@@ -176,7 +177,8 @@ export async function uploadSingleDocumentAsync(formData: FormData): Promise<{ o
       if (!caseRecord) return { ok: false, error: 'invalid_case' };
     }
 
-    const documentId = randomUUID();
+    const clientFileId = String(formData.get('file_id') || '');
+    const documentId = clientFileId || randomUUID();
     const safeFileName = sanitizeFileName(file.name);
     const storagePath = `${profile.organization_id}/${caseId || 'general'}/${documentId}/${safeFileName}`;
 

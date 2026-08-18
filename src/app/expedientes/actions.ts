@@ -26,6 +26,7 @@ import {
   canDeleteCase,
   isUserRole,
 } from '@/lib/permissions/roles';
+import { getChecklistItemsToInsert, getNextChecklistStatus } from './helpers';
 
 const CASE_METADATA_PREFIX = 'case_metadata.';
 
@@ -96,6 +97,9 @@ function resolveCaseStatus(
   return getCaseStatuses(industry)[0]?.value ?? 'active';
 }
 
+// Imported from helpers.ts
+// export function getChecklistItemsToInsert...
+
 async function createCaseChecklist(input: {
   caseId: string;
   organizationId: string;
@@ -144,10 +148,9 @@ async function createCaseChecklist(input: {
     .from('checklist_items')
     .select('title')
     .eq('checklist_id', checklistId);
-  const currentTitles = new Set((currentItems ?? []).map(i => i.title));
+  
+  const newItems = getChecklistItemsToInsert(checklistItems, (currentItems ?? []).map(i => i.title));
 
-  // Filtra los que no existen y los inserta
-  const newItems = checklistItems.filter(t => !currentTitles.has(t));
   if (newItems.length > 0) {
     const { error: itemsError } = await supabase.from('checklist_items').insert(
       newItems.map((title) => ({
@@ -339,13 +342,16 @@ export async function updateCaseStatus(formData: FormData) {
   revalidatePath(`/expedientes/${caseId}`);
 }
 
+// Imported from helpers.ts
+// export function getNextChecklistStatus...
+
 export async function toggleChecklistItem(formData: FormData) {
   const { user, profile } = await requireCaseAccess('update');
 
   const caseId = String(formData.get('case_id') || '');
   const itemId = String(formData.get('item_id') || '');
   const currentStatus = String(formData.get('current_status') || 'pending');
-  const nextStatus = currentStatus === 'pending' ? 'received' : 'pending';
+  const nextStatus = getNextChecklistStatus(currentStatus);
 
   if (!caseId || !itemId) {
     redirect('/expedientes');
@@ -437,17 +443,10 @@ export async function linkChecklistItemDocument(formData: FormData) {
 
     linkedDocumentId = documentRecord.id;
 
-    if (!documentRecord.case_id) {
-      const { error: documentCaseError } = await supabase
-        .from('documents')
-        .update({ case_id: caseId })
-        .eq('id', documentRecord.id)
-        .eq('organization_id', profile.organization_id)
-        .is('case_id', null);
-
-      if (documentCaseError) {
-        console.error('Checklist document case assignment error:', documentCaseError);
-      }
+    if (documentRecord.case_id !== caseId) {
+      console.error('Checklist document link rejected: document case_id does not match caseId');
+      revalidatePath(`/expedientes/${caseId}`);
+      return;
     }
   }
 

@@ -40,16 +40,13 @@ jobs:
       - name: Start local Supabase
         run: supabase start
       - name: Apply Migrations
-        run: supabase db push
-      - name: Seed test data
-        run: supabase db reset # if seed exists, otherwise use a custom script
+        run: supabase db reset --local
+      - name: Extract Supabase Keys
+        run: supabase status -o env >> $GITHUB_ENV
       - name: Run Security Tests
         env:
           ALLOW_DESTRUCTIVE_TESTS: true
-          # La base local arranca en puerto 54321
           NEXT_PUBLIC_SUPABASE_URL: http://127.0.0.1:54321
-          # TODO: Obtener el service role key real usando supabase start/status
-          SUPABASE_SERVICE_ROLE_KEY: \${{ secrets.SUPABASE_LOCAL_ROLE_KEY_PLACEHOLDER }}
         run: npm run test:security
       - name: Stop Supabase
         if: always()
@@ -65,10 +62,27 @@ jobs:
           node-version: lts/*
       - name: Install dependencies
         run: npm ci
+      - uses: supabase/setup-cli@v1
+      - name: Start local Supabase
+        run: supabase start
+      - name: Apply Migrations
+        run: supabase db reset --local
+      - name: Extract Supabase Keys
+        run: supabase status -o env >> $GITHUB_ENV
       - name: Install Playwright Browsers
         run: npx playwright install --with-deps
-      - name: Run E2E
-        run: npm run test:e2e
+      - name: Start Next.js and Run E2E
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: http://127.0.0.1:54321
+          TEST_USER_EMAIL: admin@test.com
+          TEST_USER_PASSWORD: TestPassword123!
+          MOCK_AI: 'true'
+          NODE_OPTIONS: '--require ./mock-ai.js'
+        run: |
+          npm run build
+          npm run start &
+          npx wait-on http://127.0.0.1:3000
+          npm run test:e2e
       - uses: actions/upload-artifact@v4
         if: always()
         with:

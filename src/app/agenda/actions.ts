@@ -5,51 +5,16 @@ import { createClient } from '@/lib/supabase/server';
 import { getUserProfile } from '@/lib/auth/getUserProfile';
 import { canUpdateCase } from '@/lib/permissions/roles';
 import { createAuditLog } from '@/lib/audit/createAuditLog';
+import { normalizeDateLocal, normalizeTitle, validateTime } from './helpers';
 
 export type GuardarEventoResult =
   | { ok: true; created?: boolean; existing?: boolean; mensaje?: string }
   | { ok: false; motivo: 'no_auth' | 'error'; mensaje?: string };
 
-function normalizeDateLocal(dateStr: string | undefined): string | null {
-  if (!dateStr) return null;
-  const str = dateStr.trim();
-  if (!str) return null;
-
-  if (/^\d{4}-\d{2}-\d{2}$/.test(str)) {
-    return str;
-  }
-
-  try {
-    const d = new Date(str);
-    if (Number.isNaN(d.getTime())) return null;
-
-    const formatter = new Intl.DateTimeFormat('es-AR', {
-      timeZone: 'America/Argentina/Buenos_Aires',
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-    });
-    const parts = formatter.formatToParts(d);
-    let y = '', m = '', day = '';
-    for (const p of parts) {
-      if (p.type === 'year') y = p.value;
-      if (p.type === 'month') m = p.value;
-      if (p.type === 'day') day = p.value;
-    }
-    if (y && m && day) return `${y}-${m}-${day}`;
-    return null;
-  } catch {
-    return null;
-  }
-}
-
-function normalizeTitle(title: string): string {
-  return title
-    .normalize('NFC')
-    .trim()
-    .toLowerCase()
-    .replace(/\s+/g, ' ');
-}
+// Imported from helpers.ts
+// export function normalizeDateLocal...
+// export function normalizeTitle...
+// export function validateTime...
 
 async function deduplicateAndInsert(input: {
   titulo: string;
@@ -71,6 +36,13 @@ async function deduplicateAndInsert(input: {
 
   if (!canUpdateCase(profile.role as any)) {
     return { ok: false, motivo: 'no_auth', mensaje: 'No tenés permisos para esta acción.' };
+  }
+
+  let horaValida: string | null = null;
+  try {
+    horaValida = validateTime(input.hora);
+  } catch (err: any) {
+    return { ok: false, motivo: 'error', mensaje: err.message };
   }
 
   const supabase = await createClient();
@@ -106,8 +78,7 @@ async function deduplicateAndInsert(input: {
   const { data: candidates } = await query;
 
   if (candidates && candidates.length > 0) {
-    const inputHora = input.hora || null;
-    const exists = candidates.some((c) => normalizeTitle(c.titulo || '') === tituloNorm && (c.hora || null) === inputHora);
+    const exists = candidates.some((c) => normalizeTitle(c.titulo || '') === tituloNorm && (c.hora || null) === horaValida);
     if (exists) {
       await createAuditLog({
         organizationId: profile.organization_id,
@@ -115,7 +86,7 @@ async function deduplicateAndInsert(input: {
         action: 'agenda_event_duplicate_prevented' as any,
         resourceType: input.caseId ? 'case' : 'organization',
         resourceId: input.caseId || profile.organization_id,
-        metadata: { titulo: tituloInput, fecha: fechaNorm, hora: input.hora, categoria: input.categoria },
+        metadata: { titulo: tituloInput, fecha: fechaNorm, hora: horaValida, categoria: input.categoria },
       });
       return { ok: true, created: false, existing: true };
     }
@@ -125,7 +96,7 @@ async function deduplicateAndInsert(input: {
     organization_id: profile.organization_id,
     titulo: tituloInput,
     fecha: fechaNorm,
-    hora: input.hora,
+    hora: horaValida,
     detalle: input.detalle,
     categoria: input.categoria,
     created_by: user.id,
@@ -140,7 +111,7 @@ async function deduplicateAndInsert(input: {
         action: 'agenda_event_duplicate_prevented' as any,
         resourceType: input.caseId ? 'case' : 'organization',
         resourceId: input.caseId || profile.organization_id,
-        metadata: { titulo: tituloInput, fecha: fechaNorm, hora: input.hora, categoria: input.categoria },
+        metadata: { titulo: tituloInput, fecha: fechaNorm, hora: horaValida, categoria: input.categoria },
       });
       return { ok: true, created: false, existing: true };
     }
@@ -156,7 +127,7 @@ async function deduplicateAndInsert(input: {
     metadata: {
       titulo: tituloInput,
       fecha: fechaNorm,
-      hora: input.hora,
+      hora: horaValida,
       categoria: input.categoria,
     },
   });
