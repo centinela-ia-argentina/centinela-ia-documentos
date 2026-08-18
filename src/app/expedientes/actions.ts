@@ -350,8 +350,6 @@ export async function toggleChecklistItem(formData: FormData) {
 
   const caseId = String(formData.get('case_id') || '');
   const itemId = String(formData.get('item_id') || '');
-  const currentStatus = String(formData.get('current_status') || 'pending');
-  const nextStatus = getNextChecklistStatus(currentStatus);
 
   if (!caseId || !itemId) {
     redirect('/expedientes');
@@ -373,6 +371,9 @@ export async function toggleChecklistItem(formData: FormData) {
     return;
   }
 
+  const actualCurrentStatus = checklistItem.status || 'pending';
+  const nextStatus = getNextChecklistStatus(actualCurrentStatus);
+
   const { error } = await supabase
     .from('checklist_items')
     .update({ status: nextStatus })
@@ -389,7 +390,7 @@ export async function toggleChecklistItem(formData: FormData) {
       resourceId: caseId,
       metadata: {
         checklist_item_id: itemId,
-        previous_status: currentStatus,
+        previous_status: actualCurrentStatus,
         next_status: nextStatus,
       },
     });
@@ -454,7 +455,6 @@ export async function linkChecklistItemDocument(formData: FormData) {
     .from('checklist_items')
     .update({
       document_id: linkedDocumentId,
-      status: linkedDocumentId ? 'received' : 'pending',
     })
     .eq('id', itemId);
 
@@ -484,8 +484,6 @@ export async function toggleChecklistItemNotRequired(formData: FormData) {
 
   const caseId = String(formData.get('case_id') || '');
   const itemId = String(formData.get('item_id') || '');
-  const currentStatus = String(formData.get('current_status') || '');
-  const nextStatus = currentStatus === 'not_required' ? 'pending' : 'not_required';
 
   if (!caseId || !itemId) redirect('/expedientes');
   const supabase = await createClient();
@@ -503,6 +501,9 @@ export async function toggleChecklistItemNotRequired(formData: FormData) {
     return;
   }
 
+  const actualCurrentStatus = checklistItem.status || 'pending';
+  const nextStatus = actualCurrentStatus === 'not_required' ? 'pending' : 'not_required';
+
   const { error } = await supabase
     .from('checklist_items')
     .update({ status: nextStatus })
@@ -515,7 +516,7 @@ export async function toggleChecklistItemNotRequired(formData: FormData) {
       action: 'checklist_item_marked',
       resourceType: 'case',
       resourceId: caseId,
-      metadata: { checklist_item_id: itemId, previous_status: currentStatus, next_status: nextStatus },
+      metadata: { checklist_item_id: itemId, previous_status: actualCurrentStatus, next_status: nextStatus },
     });
   }
   revalidatePath(`/expedientes/${caseId}`);

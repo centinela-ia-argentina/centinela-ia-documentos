@@ -4,8 +4,9 @@ import { randomUUID } from 'crypto';
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
-import { getUserProfile } from '@/lib/auth/getUserProfile';
 import { createAuditLog } from '@/lib/audit/createAuditLog';
+import crypto from 'crypto';
+import { getUserProfile } from '@/lib/auth/getUserProfile';
 import { indexarDocumento } from '@/lib/ai/indexarDocumento';
 import { analizarPoderConIA } from '@/lib/ai/poderes';
 import { normalizeIndustryType, type IndustryType } from '@/lib/industries/documentTypes';
@@ -81,6 +82,23 @@ export async function uploadDocument(formData: FormData) {
     }
   }
 
+  const buffer = Buffer.from(await file.arrayBuffer());
+  const fileHash = crypto.createHash('sha256').update(buffer).digest('hex');
+
+  let existingQuery = supabase
+    .from('documents')
+    .select('id')
+    .eq('organization_id', profile.organization_id)
+    .eq('file_hash', fileHash);
+  if (caseId) existingQuery = existingQuery.eq('case_id', caseId);
+  else existingQuery = existingQuery.is('case_id', null);
+
+  const { data: existingDoc } = await existingQuery.single();
+
+  if (existingDoc) {
+    redirect('/documentos/subir?error=duplicate');
+  }
+
   const documentId = randomUUID();
   const safeFileName = sanitizeFileName(file.name);
   const storagePath = `${profile.organization_id}/${caseId || 'general'}/${documentId}/${safeFileName}`;
@@ -106,6 +124,7 @@ export async function uploadDocument(formData: FormData) {
     file_path: storagePath,
     file_mime_type: file.type,
     file_size: file.size,
+    file_hash: fileHash,
     document_type: documentType || null,
     sensitivity_level: sensitivityLevel,
     uploaded_by: user.id,
@@ -115,6 +134,23 @@ export async function uploadDocument(formData: FormData) {
   if (insertError) {
     console.error('Metadata error:', insertError);
     await supabase.storage.from('documents').remove([storagePath]);
+
+    if (insertError.code === '23505') {
+      let query = supabase
+        .from('documents')
+        .select('id')
+        .eq('organization_id', profile.organization_id)
+        .eq('file_hash', fileHash);
+      if (caseId) query = query.eq('case_id', caseId);
+      else query = query.is('case_id', null);
+
+      const { data: winner } = await query.single();
+
+      if (winner) {
+        redirect(`/documentos/subir?error=duplicate&existingDocumentId=${winner.id}`);
+      }
+    }
+
     redirect('/documentos/subir?error=metadata_failed');
   }
 
@@ -177,8 +213,24 @@ export async function uploadSingleDocumentAsync(formData: FormData): Promise<{ o
       if (!caseRecord) return { ok: false, error: 'invalid_case' };
     }
 
-    const clientFileId = String(formData.get('file_id') || '');
-    const documentId = clientFileId || randomUUID();
+    const buffer = Buffer.from(await file.arrayBuffer());
+    const fileHash = crypto.createHash('sha256').update(buffer).digest('hex');
+
+    let existingQuery = supabase
+      .from('documents')
+      .select('id')
+      .eq('organization_id', profile.organization_id)
+      .eq('file_hash', fileHash);
+    if (caseId) existingQuery = existingQuery.eq('case_id', caseId);
+    else existingQuery = existingQuery.is('case_id', null);
+
+    const { data: existingDoc } = await existingQuery.single();
+
+    if (existingDoc) {
+      return { ok: false, error: 'duplicate' };
+    }
+
+    const documentId = randomUUID();
     const safeFileName = sanitizeFileName(file.name);
     const storagePath = `${profile.organization_id}/${caseId || 'general'}/${documentId}/${safeFileName}`;
 
@@ -203,6 +255,7 @@ export async function uploadSingleDocumentAsync(formData: FormData): Promise<{ o
       file_path: storagePath,
       file_mime_type: file.type,
       file_size: file.size,
+      file_hash: fileHash,
       document_type: documentType || null,
       sensitivity_level: sensitivityLevel,
       uploaded_by: user.id,
@@ -212,6 +265,23 @@ export async function uploadSingleDocumentAsync(formData: FormData): Promise<{ o
     if (insertError) {
       console.error('Metadata error:', insertError);
       await supabase.storage.from('documents').remove([storagePath]);
+
+      if (insertError.code === '23505') {
+        let query = supabase
+          .from('documents')
+          .select('id')
+          .eq('organization_id', profile.organization_id)
+          .eq('file_hash', fileHash);
+        if (caseId) query = query.eq('case_id', caseId);
+        else query = query.is('case_id', null);
+
+        const { data: winner } = await query.single();
+
+        if (winner) {
+          return { ok: false, error: 'duplicate', documentId: winner.id };
+        }
+      }
+
       return { ok: false, error: 'metadata_failed' };
     }
 
@@ -642,7 +712,7 @@ async function analizarConIA(texto: string, industry: IndustryType): Promise<{
       Array.isArray(v) ? v.map(toText).filter((s) => s.trim().length > 0) : [];
 
     const rawFechas = Array.isArray(parsed.fechas_plazos) ? parsed.fechas_plazos : [];
-    const fechas_plazos = rawFechas.filter((f: any) => 
+    const fechas_plazos = rawFechas.filter((f: any) =>
       f && typeof f.descripcion === 'string' && typeof f.fecha === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(f.fecha)
     ).map((f: any) => ({ descripcion: f.descripcion, fecha: f.fecha }));
 
@@ -730,7 +800,7 @@ async function analizarConIAMultimodal(
       Array.isArray(v) ? v.map(toText).filter((s) => s.trim().length > 0) : [];
 
     const rawFechas = Array.isArray(parsed.fechas_plazos) ? parsed.fechas_plazos : [];
-    const fechas_plazos = rawFechas.filter((f: any) => 
+    const fechas_plazos = rawFechas.filter((f: any) =>
       f && typeof f.descripcion === 'string' && typeof f.fecha === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(f.fecha)
     ).map((f: any) => ({ descripcion: f.descripcion, fecha: f.fecha }));
 

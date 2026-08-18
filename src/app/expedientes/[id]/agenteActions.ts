@@ -14,13 +14,14 @@ import { calcularIncapacidad } from "@/lib/legal/liquidacion";
 import { calcularVencimientoProcesal } from '@/lib/legal/plazos';
 import { calcularTasaJusticia } from '@/lib/legal/tasaJusticia';
 import { createAuditLog } from '@/lib/audit/createAuditLog';
+import crypto from 'crypto';
 
 export async function preguntarAgente(input: {
   caseId: string;
   historial: MensajeChat[];
   pregunta: string;
 }): Promise<
-  { ok: false; motivo: string } | { ok: true; respuesta: string; acciones: AccionPropuesta[] }
+  { ok: false; motivo: string; correlationId?: string } | { ok: true; respuesta: string; acciones: AccionPropuesta[] }
 > {
   const pregunta = (input.pregunta ?? '').trim();
   if (!pregunta) return { ok: false, motivo: 'Escribí una pregunta.' };
@@ -332,7 +333,6 @@ export async function preguntarAgente(input: {
         let matches: any[] | null = null;
         let matchError: { message: string } | null = null;
         ({ data: matches, error: matchError } = await supabase.rpc('match_case_document_chunks', {
-          p_organization_id: profile.organization_id,
           p_case_id: input.caseId,
           p_query_embedding: emb.values,
           p_match_threshold: 0.1,
@@ -340,7 +340,6 @@ export async function preguntarAgente(input: {
         }));
         if (matchError) {
           ({ data: matches, error: matchError } = await supabase.rpc('match_case_document_chunks', {
-            p_organization_id: profile.organization_id,
             p_case_id: input.caseId,
             p_query_embedding: JSON.stringify(emb.values),
             p_match_threshold: 0.1,
@@ -350,7 +349,7 @@ export async function preguntarAgente(input: {
         const delLegajo: any[] = [];
         const contentSet = new Set<string>();
         for (const m of (matches ?? [])) {
-          const c = (m.content || '').trim();
+          const c = (m.chunk_text || '').trim();
           if (!contentSet.has(c)) {
             contentSet.add(c);
             delLegajo.push(m);
@@ -364,7 +363,7 @@ export async function preguntarAgente(input: {
             delLegajo
               .map((m: any, i: number) => {
                 const nombre = nombrePorDoc.get(m.document_id) ?? 'documento';
-                return `[${i + 1}] (${nombre})\n${m.content}`;
+                return `[${i + 1}] (${nombre})\n${m.chunk_text}`;
               })
               .join('\n\n')
           );
@@ -401,13 +400,41 @@ export async function preguntarAgente(input: {
   });
 
   if (!res.ok) {
-    let motivo = 'No pude generar una respuesta. Probá de nuevo.';
-    if (res.motivo === 'sin_api_key') motivo = 'La IA no está configurada (falta la API key).';
-    else if (res.motivo === 'invalid_request') motivo = 'No pude completar el análisis de inconsistencias con la información disponible. No generé conclusiones ni acciones.';
-    else if (res.motivo === 'rate_limit') motivo = 'El servicio de análisis está temporalmente ocupado. No se generaron conclusiones ni acciones. Intentá nuevamente en unos minutos.';
-    else if (res.motivo === 'invalid_response') motivo = 'No pude validar el resultado del análisis. No generé conclusiones ni acciones.';
-    return { ok: false, motivo };
+    const correlationId = crypto.randomUUID();
+    let errorState = 'technical_error';
+    if (res.motivo === 'rate_limit') errorState = 'rate_limit';
+    else if (res.motivo === 'invalid_response') errorState = 'guardrail';
+    else if (res.motivo === 'sin_api_key') errorState = 'unavailable';
+
+    await supabase.from('audit_logs').insert({
+      organization_id: profile.organization_id,
+      user_id: user.id,
+      action: 'AI_AGENT_ERROR',
+      entity_type: 'case',
+      entity_id: input.caseId,
+      details: { correlation_id: correlationId, error: errorState, original_error: res.motivo },
+      ip_address: null
+    });
+
+    return { ok: false, motivo: errorState, correlationId };
   }
+
+  const promptHash = crypto.createHash('sha256').update(contextoLegajo + pregunta).digest('hex');
+  await supabase.from('audit_logs').insert({
+    organization_id: profile.organization_id,
+    user_id: user.id,
+    action: 'AI_AGENT_QUERY',
+    entity_type: 'case',
+    entity_id: input.caseId,
+    details: {
+      correlation_id: crypto.randomUUID(),
+      prompt_hash: promptHash,
+      prompt_length: contextoLegajo.length + pregunta.length,
+      response_length: res.respuesta.length,
+      source_count: partes.length
+    },
+    ip_address: null
+  });
   // Guardar la conversación en la memoria del legajo.
   // Si falla, no rompemos el chat: solo lo registramos en consola.
   try {

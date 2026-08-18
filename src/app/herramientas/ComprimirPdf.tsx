@@ -28,7 +28,7 @@ export function ComprimirPdf() {
 	const [error, setError] = useState<string | null>(null);
 	const [resultado, setResultado] = useState<{ blob: Blob; original: number; nuevo: number } | null>(null);
 
-	const elegir = (files: FileList | null) => {
+	const elegir = async (files: FileList | null) => {
 		const f = files?.[0];
 		setError(null);
 		setResultado(null);
@@ -37,6 +37,16 @@ export function ComprimirPdf() {
 			setError('El archivo debe ser un PDF.');
 			return;
 		}
+
+		const slice = f.slice(0, 4);
+		const buf = await slice.arrayBuffer();
+		const arr = new Uint8Array(buf);
+		const header = String.fromCharCode(...arr);
+		if (header !== '%PDF') {
+		  setError('El archivo no es un PDF válido o está corrupto.');
+		  return;
+		}
+
 		setFile(f);
 	};
 
@@ -47,7 +57,8 @@ export function ComprimirPdf() {
 
 		const { escala, calidad } = NIVELES[nivel];
 		const buf = await file!.arrayBuffer();
-		const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
+		// @ts-expect-error isEvalSupported mitigates JS exec but is omitted in TS defs
+		const pdf = await pdfjsLib.getDocument({ data: buf, isEvalSupported: false }).promise;
 
 		let out: jsPDF | null = null;
 		for (let i = 1; i <= pdf.numPages; i++) {

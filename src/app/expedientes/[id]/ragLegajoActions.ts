@@ -4,8 +4,10 @@ import { createClient } from '@/lib/supabase/server';
 import { getUserProfile } from '@/lib/auth/getUserProfile';
 import { canUseAi, isUserRole } from '@/lib/permissions/roles';
 import { generarEmbedding } from '@/lib/ai/embeddings';
+import { createAuditLog } from '@/lib/audit/createAuditLog';
 import { normalizeIndustryType } from '@/lib/industries/documentTypes';
 import { getRagSystemPrompt } from '@/lib/industries/aiConfig';
+import crypto from 'crypto';
 
 export type FuenteLegajo = {
   documentId: string;
@@ -19,6 +21,7 @@ export type RespuestaLegajo = {
   respuesta?: string;
   fuentes?: FuenteLegajo[];
   error?: string;
+  correlationId?: string;
 };
 
 export async function preguntarADocumentosLegajo(
@@ -85,7 +88,6 @@ export async function preguntarADocumentosLegajo(
   let matchError: { message: string } | null = null;
 
   ({ data: matches, error: matchError } = await supabase.rpc('match_case_document_chunks', {
-    p_organization_id: profile.organization_id,
     p_case_id: caseId,
     p_query_embedding: emb.values,
     p_match_threshold: 0.1,
@@ -94,7 +96,6 @@ export async function preguntarADocumentosLegajo(
 
   if (matchError) {
     ({ data: matches, error: matchError } = await supabase.rpc('match_case_document_chunks', {
-      p_organization_id: profile.organization_id,
       p_case_id: caseId,
       p_query_embedding: JSON.stringify(emb.values),
       p_match_threshold: 0.1,
@@ -104,13 +105,25 @@ export async function preguntarADocumentosLegajo(
 
   if (matchError) return { ok: false, error: 'Error al buscar: ' + matchError.message };
 
+  // Deduplicación, diversidad y límite por documento
   const delLegajo: any[] = [];
   const contentSet = new Set<string>();
+  const docCounts = new Map<string, number>();
+
   for (const m of (matches ?? [])) {
-    const c = (m.content || '').trim();
+    const c = (m.chunk_text || '').trim();
+    if (!c) continue;
+
     if (!contentSet.has(c)) {
-      contentSet.add(c);
-      delLegajo.push(m);
+      const dId = m.document_id;
+      const dCount = docCounts.get(dId) || 0;
+
+      // Máximo 3 chunks por documento para garantizar diversidad
+      if (dCount < 3) {
+        contentSet.add(c);
+        docCounts.set(dId, dCount + 1);
+        delLegajo.push(m);
+      }
     }
   }
 
@@ -126,7 +139,7 @@ export async function preguntarADocumentosLegajo(
   const fuentes: FuenteLegajo[] = delLegajo.map((m: any) => ({
     documentId: m.document_id,
     fileName: nombrePorId.get(m.document_id) ?? 'Documento',
-    fragmento: m.content,
+    fragmento: m.chunk_text,
     similitud: m.similarity,
   }));
 
@@ -161,15 +174,23 @@ RESPUESTA:`;
       }),
     });
 
+    const correlationId = crypto.randomUUID();
+
     if (!resp.ok) {
-      const t = await resp.text();
-      return { ok: false, error: 'Error del modelo: ' + t.slice(0, 160) };
+      if (resp.status === 429) return { ok: false, error: 'rate_limit' };
+      return { ok: false, error: 'technical_error', correlationId };
     }
 
     const data = await resp.json();
     const respuesta =
       data?.candidates?.[0]?.content?.parts?.map((p: any) => p.text).join('') ??
-      'No se pudo generar una respuesta.';
+      '';
+
+    if (!respuesta || data?.candidates?.[0]?.finishReason === 'SAFETY') {
+      return { ok: false, error: 'guardrail', correlationId };
+    }
+
+    const promptHash = crypto.createHash('sha256').update(prompt).digest('hex');
 
     await supabase.from('audit_logs').insert({
       organization_id: profile.organization_id,
@@ -177,7 +198,14 @@ RESPUESTA:`;
       action: 'AI_RAG_QUERY',
       entity_type: 'case',
       entity_id: caseId,
-      details: { prompt_length: prompt.length, response_length: respuesta.length, chunks: fuentes.length },
+      details: {
+        correlation_id: correlationId,
+        prompt_hash: promptHash,
+        prompt_length: prompt.length,
+        response_length: respuesta.length,
+        chunks: fuentes.length,
+        document_ids: Array.from(docCounts.keys())
+      },
       ip_address: null
     });
 
