@@ -140,21 +140,18 @@ export function AgendaClient({ eventos, cases, industry, puedeGuardar = true }: 
             </button>
           </div>
           <div className="space-y-4">
-            <div>
-              <label className="mb-1 block text-xs font-semibold text-slate-400">Tipo</label>
-              <select
-                value={nuevoTipo}
-                onChange={(e) => setNuevoTipo(e.target.value as 'evento' | 'turno' | 'firma')}
-                className="w-full rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2 text-sm text-white outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400"
-              >
+            <label className="block">
+              <span className="mb-1 block text-xs font-semibold text-slate-400">Categoría</span>
+              <select value={nuevoTipo} onChange={(e) => setNuevoTipo(e.target.value as any)} className="w-full rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2 text-sm text-white outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400" data-testid="agenda-categoria">
+                {industry === 'legal' && <option value="plazo">Plazo / Audiencia</option>}
                 <option value="evento">Recordatorio</option>
                 <option value="turno">Turno</option>
                 <option value="firma">Firma</option>
               </select>
-            </div>
+            </label>
             <label className="block">
               <span className="mb-1 block text-xs font-semibold text-slate-400">Fecha</span>
-              <input type="date" value={nuevaFecha} onChange={(e) => setNuevaFecha(e.target.value)} className="w-full rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2 text-sm text-white outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400" />
+              <input type="date" value={nuevaFecha} onChange={(e) => setNuevaFecha(e.target.value)} className="w-full rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2 text-sm text-white outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400" data-testid="agenda-fecha" />
             </label>
             <div>
               <label className="mb-1 block text-xs font-semibold text-slate-400">Hora (opcional)</label>
@@ -163,12 +160,13 @@ export function AgendaClient({ eventos, cases, industry, puedeGuardar = true }: 
                 value={nuevaHora}
                 onChange={(e) => setNuevaHora(e.target.value)}
                 className="w-full rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2 text-sm text-white outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400"
+                data-testid="agenda-hora"
               />
               <span className="mt-1 block text-[10px] text-slate-500">Se interpreta como America/Argentina/Buenos_Aires. Vacio = todo el día.</span>
             </div>
             <label className="block">
               <span className="mb-1 block text-xs font-semibold text-slate-400">Título</span>
-              <input type="text" value={nuevoTitulo} onChange={(e) => setNuevoTitulo(e.target.value)} placeholder={industry === 'inmobiliaria' ? 'Ej: Firma de boleto - Martina López' : industry === 'escribania' ? 'Ej: Firma de escritura - López' : 'Ej: Presentar escrito - Pérez c/ García'} className="w-full rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2 text-sm text-white outline-none placeholder-slate-500 focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400" />
+              <input type="text" value={nuevoTitulo} onChange={(e) => setNuevoTitulo(e.target.value)} placeholder={industry === 'inmobiliaria' ? 'Ej: Firma de boleto - Martina López' : industry === 'escribania' ? 'Ej: Firma de escritura - López' : 'Ej: Presentar escrito - Pérez c/ García'} className="w-full rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2 text-sm text-white outline-none placeholder-slate-500 focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400" data-testid="agenda-titulo" />
             </label>
             <label className="block">
               <span className="mb-1 block text-xs font-semibold text-slate-400">Detalle (opcional)</span>
@@ -191,6 +189,7 @@ export function AgendaClient({ eventos, cases, industry, puedeGuardar = true }: 
               type="button"
               onClick={crearEvento}
               disabled={guardando}
+              data-testid="agenda-submit"
               className="mt-2 inline-flex w-full items-center justify-center gap-1.5 rounded-xl bg-cyan-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-cyan-500 disabled:opacity-60"
             >
               {guardando ? 'Guardando…' : 'Guardar'}

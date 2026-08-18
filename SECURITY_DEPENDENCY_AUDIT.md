@@ -48,5 +48,6 @@ Se ejecutaron pruebas integrales sobre:
 
 ## Estado Final
 - **Resultado posterior (`npm audit --omit=dev`)**: 0 vulnerabilidades (0 Critical, 0 High, 0 Moderate).
-- **Riesgos de Regresión Residuales**: Nulos. Los parches aplicados se mantuvieron dentro del espectro semver menor/parche soportado nativamente por la base del código, no generando colisiones de peer-dependencies (como verificado vía `npm ls`).
+- **Riesgos de Regresión Residuales**: Verificados en entornos de prueba con dependencias bloqueadas y tests locales en verde. Los parches aplicados se mantuvieron dentro del espectro semver menor/parche soportado nativamente por la base del código, no generando colisiones de peer-dependencies (como verificado vía `npm ls`).
+- **Validación Final CI**: El pipeline automatizado (Security, E2E y tests RLS) se ejecutará en GitHub Actions una vez emitido el push.
 - **Procedimiento de Rollback**: De ser necesario revertir, aplicar `git restore package.json package-lock.json && rm -rf node_modules && npm ci`.

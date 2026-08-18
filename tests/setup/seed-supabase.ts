@@ -23,84 +23,111 @@ export const SEED_DATA = {
   ORG_LEGAL_ID: '11111111-1111-1111-1111-111111111111',
   ORG_INM_ID: '22222222-2222-2222-2222-222222222222',
   ADMIN_LEGAL_ID: 'aaaa1111-1111-1111-1111-111111111111',
-  ADMIN_INM_ID: 'bbbb2222-2222-2222-2222-222222222222',
   EMPLOYEE_LEGAL_ID: 'eeee1111-1111-1111-1111-111111111111',
+  AUDITOR_LEGAL_ID: 'ffff1111-1111-1111-1111-111111111111',
+  CLIENT_ASSIGNED_ID: 'c1a11111-1111-1111-1111-111111111111',
+  CLIENT_UNASSIGNED_ID: 'c1b11111-1111-1111-1111-111111111111',
+  INACTIVE_LEGAL_ID: 'iiii1111-1111-1111-1111-111111111111',
+  ADMIN_INM_ID: 'bbbb2222-2222-2222-2222-222222222222',
   CASE_LEGAL_ID: 'cccc1111-1111-1111-1111-111111111111',
   CASE_INM_ID: 'dddd2222-2222-2222-2222-222222222222',
   DOC_LEGAL_ID: 'ddcc1111-1111-1111-1111-111111111111',
+  CHUNK_ID: '33333333-3333-3333-3333-333333333333'
 };
+
+async function throwOnError(promise: any, entity: string) {
+  const result = await promise;
+  if (result.error) {
+    throw new Error(`Error in ${entity}: ${JSON.stringify(result.error)}`);
+  }
+  return result;
+}
 
 export async function seedSupabase() {
   console.log('🌱 Seeding Supabase...');
+  let hasError = false;
 
-  // 1. Orgs
-  await supabaseAdmin.from('organizations').upsert([
-    { id: SEED_DATA.ORG_LEGAL_ID, name: 'Estudio Legal Test', industry_type: 'legal' },
-    { id: SEED_DATA.ORG_INM_ID, name: 'Inmobiliaria Test', industry_type: 'inmobiliaria' },
-  ]);
+  try {
+    // 1. Orgs
+    await throwOnError(supabaseAdmin.from('organizations').upsert([
+      { id: SEED_DATA.ORG_LEGAL_ID, name: 'Estudio Legal Test', industry_type: 'legal' },
+      { id: SEED_DATA.ORG_INM_ID, name: 'Inmobiliaria Test', industry_type: 'inmobiliaria' },
+    ]), 'organizations');
 
-  // 2. Auth Users
-  const users = [
-    { id: SEED_DATA.ADMIN_LEGAL_ID, email: 'admin.legal@test.com' },
-    { id: SEED_DATA.ADMIN_INM_ID, email: 'admin.inm@test.com' },
-    { id: SEED_DATA.EMPLOYEE_LEGAL_ID, email: 'emp.legal@test.com' }
-  ];
+    // 2. Auth Users
+    const users = [
+      { id: SEED_DATA.ADMIN_LEGAL_ID, email: 'admin.legal@test.com' },
+      { id: SEED_DATA.EMPLOYEE_LEGAL_ID, email: 'emp.legal@test.com' },
+      { id: SEED_DATA.AUDITOR_LEGAL_ID, email: 'auditor.legal@test.com' },
+      { id: SEED_DATA.CLIENT_ASSIGNED_ID, email: 'client.assigned@test.com' },
+      { id: SEED_DATA.CLIENT_UNASSIGNED_ID, email: 'client.unassigned@test.com' },
+      { id: SEED_DATA.INACTIVE_LEGAL_ID, email: 'inactive.legal@test.com' },
+      { id: SEED_DATA.ADMIN_INM_ID, email: 'admin.inm@test.com' }
+    ];
 
-  for (const u of users) {
-    const { data: existingUser } = await supabaseAdmin.auth.admin.getUserById(u.id);
-    if (!existingUser.user) {
-      const { error } = await supabaseAdmin.auth.admin.createUser({
-        id: u.id,
-        email: u.email,
-        password: 'password123',
-        email_confirm: true,
-      });
-      if (error && !error.message.includes('already exists')) {
-        console.error('Error creating user:', u.email, error);
+    for (const u of users) {
+      const { data: existingUser } = await supabaseAdmin.auth.admin.getUserById(u.id);
+      if (!existingUser?.user) {
+        const { error } = await supabaseAdmin.auth.admin.createUser({
+          id: u.id,
+          email: u.email,
+          password: 'password123',
+          email_confirm: true,
+        });
+        if (error && !error.message.includes('already exists')) {
+          throw new Error(`Error creating Auth user ${u.email}: ${error.message}`);
+        }
       }
     }
+
+    // 3. Profiles
+    await throwOnError(supabaseAdmin.from('profiles').upsert([
+      { id: SEED_DATA.ADMIN_LEGAL_ID, organization_id: SEED_DATA.ORG_LEGAL_ID, email: 'admin.legal@test.com', role: 'admin', status: 'active', full_name: 'Admin Legal' },
+      { id: SEED_DATA.EMPLOYEE_LEGAL_ID, organization_id: SEED_DATA.ORG_LEGAL_ID, email: 'emp.legal@test.com', role: 'employee', status: 'active', full_name: 'Employee Legal' },
+      { id: SEED_DATA.AUDITOR_LEGAL_ID, organization_id: SEED_DATA.ORG_LEGAL_ID, email: 'auditor.legal@test.com', role: 'auditor', status: 'active', full_name: 'Auditor Legal' },
+      { id: SEED_DATA.CLIENT_ASSIGNED_ID, organization_id: SEED_DATA.ORG_LEGAL_ID, email: 'client.assigned@test.com', role: 'client', status: 'active', full_name: 'Client Assigned' },
+      { id: SEED_DATA.CLIENT_UNASSIGNED_ID, organization_id: SEED_DATA.ORG_LEGAL_ID, email: 'client.unassigned@test.com', role: 'client', status: 'active', full_name: 'Client Unassigned' },
+      { id: SEED_DATA.INACTIVE_LEGAL_ID, organization_id: SEED_DATA.ORG_LEGAL_ID, email: 'inactive.legal@test.com', role: 'employee', status: 'inactive', full_name: 'Inactive Legal' },
+      { id: SEED_DATA.ADMIN_INM_ID, organization_id: SEED_DATA.ORG_INM_ID, email: 'admin.inm@test.com', role: 'admin', status: 'active', full_name: 'Admin Inm' }
+    ]), 'profiles');
+
+    // 4. Cases
+    await throwOnError(supabaseAdmin.from('cases').upsert([
+      { id: SEED_DATA.CASE_LEGAL_ID, organization_id: SEED_DATA.ORG_LEGAL_ID, title: 'Caso Legal 1', case_type: 'civil', status: 'active', created_by: SEED_DATA.ADMIN_LEGAL_ID, assigned_to: [SEED_DATA.CLIENT_ASSIGNED_ID] },
+      { id: SEED_DATA.CASE_INM_ID, organization_id: SEED_DATA.ORG_INM_ID, title: 'Propiedad 1', case_type: 'venta', status: 'active', created_by: SEED_DATA.ADMIN_INM_ID, assigned_to: null },
+    ]), 'cases');
+
+    // 5. Documents (For RAG/RLS tests)
+    await throwOnError(supabaseAdmin.from('documents').upsert([
+      {
+        id: SEED_DATA.DOC_LEGAL_ID,
+        organization_id: SEED_DATA.ORG_LEGAL_ID,
+        case_id: SEED_DATA.CASE_LEGAL_ID,
+        file_name: 'prueba.pdf',
+        file_path: `${SEED_DATA.ORG_LEGAL_ID}/general/prueba.pdf`,
+        file_size: 1000,
+        file_mime_type: 'application/pdf',
+        file_hash: 'mockhash123',
+        uploaded_by: SEED_DATA.ADMIN_LEGAL_ID
+      }
+    ]), 'documents');
+
+    // 6. Document Chunks (for RPC RAG tests)
+    await throwOnError(supabaseAdmin.from('document_chunks').upsert([
+      {
+        id: SEED_DATA.CHUNK_ID,
+        organization_id: SEED_DATA.ORG_LEGAL_ID,
+        document_id: SEED_DATA.DOC_LEGAL_ID,
+        chunk_text: 'Este es un fragmento de prueba para RAG en caso legal.',
+        embedding: Array(768).fill(0.01)
+      }
+    ]), 'chunks');
+
+    console.log('✅ Supabase seeded successfully.');
+  } catch (error) {
+    console.error('Seed error:', error);
+    process.exit(1);
   }
-
-  // 3. Profiles
-  await supabaseAdmin.from('profiles').upsert([
-    { id: SEED_DATA.ADMIN_LEGAL_ID, organization_id: SEED_DATA.ORG_LEGAL_ID, email: 'admin.legal@test.com', role: 'admin', status: 'active', full_name: 'Admin Legal' },
-    { id: SEED_DATA.ADMIN_INM_ID, organization_id: SEED_DATA.ORG_INM_ID, email: 'admin.inm@test.com', role: 'admin', status: 'active', full_name: 'Admin Inmobiliaria' },
-    { id: SEED_DATA.EMPLOYEE_LEGAL_ID, organization_id: SEED_DATA.ORG_LEGAL_ID, email: 'emp.legal@test.com', role: 'employee', status: 'active', full_name: 'Employee Legal' }
-  ]);
-
-  // 4. Cases
-  await supabaseAdmin.from('cases').upsert([
-    { id: SEED_DATA.CASE_LEGAL_ID, organization_id: SEED_DATA.ORG_LEGAL_ID, title: 'Caso Legal 1', case_type: 'civil', status: 'active', created_by: SEED_DATA.ADMIN_LEGAL_ID },
-    { id: SEED_DATA.CASE_INM_ID, organization_id: SEED_DATA.ORG_INM_ID, title: 'Propiedad 1', case_type: 'venta', status: 'active', created_by: SEED_DATA.ADMIN_INM_ID },
-  ]);
-
-  // 5. Documents (For RAG/RLS tests)
-  await supabaseAdmin.from('documents').upsert([
-    { 
-      id: SEED_DATA.DOC_LEGAL_ID, 
-      organization_id: SEED_DATA.ORG_LEGAL_ID, 
-      case_id: SEED_DATA.CASE_LEGAL_ID, 
-      file_name: 'prueba.pdf', 
-      file_path: `${SEED_DATA.ORG_LEGAL_ID}/general/prueba.pdf`, 
-      file_size: 1000, 
-      file_mime_type: 'application/pdf', 
-      file_hash: 'mockhash123',
-      uploaded_by: SEED_DATA.ADMIN_LEGAL_ID 
-    }
-  ]);
-
-  // 6. Document Chunks (for RPC RAG tests)
-  await supabaseAdmin.from('document_chunks').upsert([
-    {
-      id: 'chunk111-1111-1111-1111-111111111111',
-      organization_id: SEED_DATA.ORG_LEGAL_ID,
-      document_id: SEED_DATA.DOC_LEGAL_ID,
-      chunk_text: 'Este es un fragmento de prueba para RAG en caso legal.',
-      embedding: Array(768).fill(0.01) // dummy vector
-    }
-  ]);
-
-  console.log('✅ Supabase seeded successfully.');
 }
 
 if (require.main === module) {

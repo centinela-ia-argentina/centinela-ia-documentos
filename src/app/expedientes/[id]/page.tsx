@@ -1514,7 +1514,7 @@ export default async function CaseDetailPage({ params, searchParams }: CaseDetai
                 </div>
 
                 <div className="mt-5 space-y-3">
-                  {checklistItems.map((item) => {
+                  {checklistItems.map((item, idx) => {
                     const isDone = item.status === 'received' || item.status === 'reviewed';
                     const isMissing = item.status === 'pending' || item.status === 'rejected';
                     const isNotRequired = item.status === 'not_required';
@@ -1536,6 +1536,7 @@ export default async function CaseDetailPage({ params, searchParams }: CaseDetai
                             <input type="hidden" name="current_status" value={item.status} />
                             <button
                               type="submit"
+                              data-testid={`checklist-toggle-${idx}`}
                               aria-label={isDone ? 'Marcar como pendiente' : 'Marcar como recibido'}
                               className={`flex h-5 w-5 items-center justify-center rounded-md border text-xs font-bold ${
                                 isDone

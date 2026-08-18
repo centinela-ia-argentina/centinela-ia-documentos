@@ -38,114 +38,119 @@ export async function preguntarADocumentosLegajo(
     return { ok: false, error: 'Tu rol no tiene acceso a la búsqueda con IA.' };
   }
 
-  const supabase = await createClient();
+  const correlationId = crypto.randomUUID();
 
-  // Verificamos que el legajo exista y pertenezca a la organización
-  const { data: caseData } = await supabase
-    .from('cases')
-    .select('id')
-    .eq('id', caseId)
-    .eq('organization_id', profile.organization_id)
-    .maybeSingle();
+  try {
+    const supabase = await createClient();
 
-  if (!caseData) return { ok: false, error: 'Legajo no encontrado o sin acceso.' };
+    // Verificamos que el legajo exista y pertenezca a la organización
+    const { data: caseData } = await supabase
+      .from('cases')
+      .select('id')
+      .eq('id', caseId)
+      .eq('organization_id', profile.organization_id)
+      .maybeSingle();
 
-  // Rubro (define el tono del prompt: notarial / inmobiliario / jurídico)
-  const { data: orgData } = await supabase
-    .from('organizations')
-    .select('industry_type')
-    .eq('id', profile.organization_id)
-    .single();
-  const industry = normalizeIndustryType(orgData?.industry_type);
+    if (!caseData) return { ok: false, error: 'unavailable', correlationId };
 
-  // 1) Documentos que pertenecen a ESTE legajo
-  const { data: docsCaso } = await supabase
-    .from('documents')
-    .select('id, file_name')
-    .eq('case_id', caseId)
-    .eq('organization_id', profile.organization_id);
+    // Rubro (define el tono del prompt: notarial / inmobiliario / jurídico)
+    const { data: orgData } = await supabase
+      .from('organizations')
+      .select('industry_type')
+      .eq('id', profile.organization_id)
+      .single();
+    const industry = normalizeIndustryType(orgData?.industry_type);
 
-  const idsCaso = new Set((docsCaso ?? []).map((d: any) => d.id));
-  const nombrePorId = new Map((docsCaso ?? []).map((d: any) => [d.id, d.file_name]));
+    // 1) Documentos que pertenecen a ESTE legajo
+    const { data: docsCaso } = await supabase
+      .from('documents')
+      .select('id, file_name')
+      .eq('case_id', caseId)
+      .eq('organization_id', profile.organization_id);
 
-  if (idsCaso.size === 0) {
-    return {
-      ok: true,
-      respuesta: 'Este legajo todavía no tiene documentos cargados para consultar.',
-      fuentes: [],
-    };
-  }
+    const idsCaso = new Set((docsCaso ?? []).map((d: any) => d.id));
+    const nombrePorId = new Map((docsCaso ?? []).map((d: any) => [d.id, d.file_name]));
 
-  // 2) Embedding de la pregunta (mismo modelo/dimensiones que la indexación)
-  const emb = await generarEmbedding(texto);
-  if ('error' in emb) {
-    return { ok: false, error: 'No se pudo procesar la pregunta: ' + emb.error };
-  }
+    if (idsCaso.size === 0) {
+      return {
+        ok: true,
+        respuesta: 'Este legajo todavía no tiene documentos cargados para consultar.',
+        fuentes: [],
+      };
+    }
 
-  // 3) Búsqueda vectorial (org) + fallback de formato para pgvector.
-  //    Traemos de más y filtramos a los documentos de este legajo.
-  let matches: any[] | null = null;
-  let matchError: { message: string } | null = null;
+    // 2) Embedding de la pregunta
+    const emb = await generarEmbedding(texto);
+    if ('error' in emb) {
+      await logRagError(supabase, profile.organization_id, user.id, caseId, correlationId, 'embedding_failed');
+      return { ok: false, error: 'technical_error', correlationId };
+    }
 
-  ({ data: matches, error: matchError } = await supabase.rpc('match_case_document_chunks', {
-    p_case_id: caseId,
-    p_query_embedding: emb.values,
-    p_match_threshold: 0.1,
-    p_match_count: 8,
-  }));
+    // 3) Búsqueda vectorial
+    let matches: any[] | null = null;
+    let matchError: { message: string } | null = null;
 
-  if (matchError) {
     ({ data: matches, error: matchError } = await supabase.rpc('match_case_document_chunks', {
       p_case_id: caseId,
-      p_query_embedding: JSON.stringify(emb.values),
+      p_query_embedding: emb.values,
       p_match_threshold: 0.1,
       p_match_count: 8,
     }));
-  }
 
-  if (matchError) return { ok: false, error: 'Error al buscar: ' + matchError.message };
+    if (matchError) {
+      ({ data: matches, error: matchError } = await supabase.rpc('match_case_document_chunks', {
+        p_case_id: caseId,
+        p_query_embedding: JSON.stringify(emb.values),
+        p_match_threshold: 0.1,
+        p_match_count: 8,
+      }));
+    }
 
-  // Deduplicación, diversidad y límite por documento
-  const delLegajo: any[] = [];
-  const contentSet = new Set<string>();
-  const docCounts = new Map<string, number>();
+    if (matchError) {
+      await logRagError(supabase, profile.organization_id, user.id, caseId, correlationId, 'rpc_failed');
+      return { ok: false, error: 'technical_error', correlationId };
+    }
 
-  for (const m of (matches ?? [])) {
-    const c = (m.chunk_text || '').trim();
-    if (!c) continue;
+    // Deduplicación
+    const delLegajo: any[] = [];
+    const contentSet = new Set<string>();
+    const docCounts = new Map<string, number>();
 
-    if (!contentSet.has(c)) {
-      const dId = m.document_id;
-      const dCount = docCounts.get(dId) || 0;
+    for (const m of (matches ?? [])) {
+      const c = (m.chunk_text || '').trim();
+      if (!c) continue;
 
-      // Máximo 3 chunks por documento para garantizar diversidad
-      if (dCount < 3) {
-        contentSet.add(c);
-        docCounts.set(dId, dCount + 1);
-        delLegajo.push(m);
+      if (!contentSet.has(c)) {
+        const dId = m.document_id;
+        const dCount = docCounts.get(dId) || 0;
+
+        if (dCount < 3) {
+          contentSet.add(c);
+          docCounts.set(dId, dCount + 1);
+          delLegajo.push(m);
+        }
       }
     }
-  }
 
-  if (delLegajo.length === 0) {
-    return {
-      ok: true,
-      respuesta:
-        'No encontré información relacionada en los documentos de este legajo. Puede que todavía no estén analizados con IA (indexados): analizalos desde la pestaña Documentos y volvé a preguntar.',
-      fuentes: [],
-    };
-  }
+    if (delLegajo.length === 0) {
+      return {
+        ok: true,
+        respuesta:
+          'No encontré información relacionada en los documentos de este legajo. Puede que todavía no estén analizados con IA (indexados): analizalos desde la pestaña Documentos y volvé a preguntar.',
+        fuentes: [],
+      };
+    }
 
-  const fuentes: FuenteLegajo[] = delLegajo.map((m: any) => ({
-    documentId: m.document_id,
-    fileName: nombrePorId.get(m.document_id) ?? 'Documento',
-    fragmento: m.chunk_text,
-    similitud: m.similarity,
-  }));
+    const fuentes: FuenteLegajo[] = delLegajo.map((m: any) => ({
+      documentId: m.document_id,
+      fileName: nombrePorId.get(m.document_id) ?? 'Documento',
+      fragmento: m.chunk_text,
+      similitud: m.similarity,
+    }));
 
-  // 5) Prompt RAG (mismo criterio que el buscador global)
-  const contexto = fuentes.map((f, i) => `[${i + 1}] (${f.fileName})\n${f.fragmento}`).join('\n\n');
-  const prompt = `${getRagSystemPrompt(industry)}
+    // 5) Prompt RAG
+    const contexto = fuentes.map((f, i) => `[${i + 1}] (${f.fileName})\n${f.fragmento}`).join('\n\n');
+    const prompt = `${getRagSystemPrompt(industry)}
 
 FRAGMENTOS:
 ${contexto}
@@ -154,11 +159,13 @@ PREGUNTA: ${texto}
 
 RESPUESTA:`;
 
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) return { ok: false, error: 'Falta la API key.' };
-  const modelo = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+      await logRagError(supabase, profile.organization_id, user.id, caseId, correlationId, 'missing_api_key');
+      return { ok: false, error: 'technical_error', correlationId };
+    }
+    const modelo = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
 
-  try {
     const url =
       'https://generativelanguage.googleapis.com/v1beta/models/' +
       modelo +
@@ -174,10 +181,12 @@ RESPUESTA:`;
       }),
     });
 
-    const correlationId = crypto.randomUUID();
-
     if (!resp.ok) {
-      if (resp.status === 429) return { ok: false, error: 'rate_limit' };
+      if (resp.status === 429) {
+        await logRagError(supabase, profile.organization_id, user.id, caseId, correlationId, 'rate_limit');
+        return { ok: false, error: 'rate_limit', correlationId };
+      }
+      await logRagError(supabase, profile.organization_id, user.id, caseId, correlationId, 'llm_network_error');
       return { ok: false, error: 'technical_error', correlationId };
     }
 
@@ -187,6 +196,7 @@ RESPUESTA:`;
       '';
 
     if (!respuesta || data?.candidates?.[0]?.finishReason === 'SAFETY') {
+      await logRagError(supabase, profile.organization_id, user.id, caseId, correlationId, 'guardrail_triggered');
       return { ok: false, error: 'guardrail', correlationId };
     }
 
@@ -209,8 +219,30 @@ RESPUESTA:`;
       ip_address: null
     });
 
-    return { ok: true, respuesta, fuentes };
+    return { ok: true, respuesta, fuentes, correlationId };
   } catch (e) {
-    return { ok: false, error: 'Error de red: ' + String(e).slice(0, 160) };
+    // Only technical_error, securely logging without raw messages
+    const supabase = await createClient();
+    await logRagError(supabase, profile.organization_id, user.id, caseId, correlationId, 'unhandled_exception');
+    return { ok: false, error: 'technical_error', correlationId };
+  }
+}
+
+async function logRagError(supabase: any, orgId: string, userId: string, caseId: string, correlationId: string, errorType: string) {
+  try {
+    await supabase.from('audit_logs').insert({
+      organization_id: orgId,
+      user_id: userId,
+      action: 'AI_RAG_ERROR',
+      entity_type: 'case',
+      entity_id: caseId,
+      details: {
+        correlation_id: correlationId,
+        error_type: errorType,
+      },
+      ip_address: null
+    });
+  } catch(e) {
+    // Fallback if DB is down, just silently fail audit logging
   }
 }

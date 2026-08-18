@@ -179,14 +179,27 @@ export async function uploadDocument(formData: FormData) {
   redirect(`/documentos/${documentId}`);
 }
 
-export async function uploadSingleDocumentAsync(formData: FormData): Promise<{ ok: boolean; error?: string; documentId?: string }> {
+export type UploadResult =
+  | { status: 'success'; documentId: string }
+  | { status: 'duplicate'; existingDocumentId: string; documentId?: string }
+  | { status: 'error'; error: string };
+
+const MAGIC_BYTES: Record<string, string[]> = {
+  'application/pdf': ['25504446'], // %PDF
+  'image/jpeg': ['ffd8ffe0', 'ffd8ffe1', 'ffd8ffe2', 'ffd8ffe3', 'ffd8ffe8'],
+  'image/png': ['89504e47'],
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['504b0304'], // PK ZIP
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['504b0304'],
+};
+
+export async function uploadSingleDocumentAsync(formData: FormData): Promise<UploadResult> {
   try {
     const { user, profile } = await getUserProfile();
 
-    if (!user || !profile) return { ok: false, error: 'Sesión no válida.' };
+    if (!user || !profile) return { status: 'error', error: 'Sesión no válida.' };
 
     if (!isUserRole(profile.role) || !canUploadDocument(profile.role)) {
-      return { ok: false, error: 'Sin permiso para subir documentos.' };
+      return { status: 'error', error: 'Sin permiso para subir documentos.' };
     }
 
     const caseId = String(formData.get('case_id') || '');
@@ -196,9 +209,18 @@ export async function uploadSingleDocumentAsync(formData: FormData): Promise<{ o
     const expiresAt = expiresAtForm ? expiresAtForm : null;
     const file = formData.get('file');
 
-    if (!(file instanceof File)) return { ok: false, error: 'missing_file' };
-    if (!ALLOWED_MIME_TYPES.includes(file.type)) return { ok: false, error: 'invalid_type' };
-    if (file.size > MAX_FILE_SIZE) return { ok: false, error: 'file_too_large' };
+    if (!(file instanceof File)) return { status: 'error', error: 'missing_file' };
+    if (!ALLOWED_MIME_TYPES.includes(file.type)) return { status: 'error', error: 'invalid_type' };
+    if (file.size > MAX_FILE_SIZE) return { status: 'error', error: 'file_too_large' };
+
+    const buffer = Buffer.from(await file.arrayBuffer());
+
+    // Validate Magic Bytes
+    const hex = buffer.toString('hex', 0, 4).toLowerCase();
+    const expectedMagic = MAGIC_BYTES[file.type];
+    if (!expectedMagic || !expectedMagic.some(magic => hex.startsWith(magic))) {
+      return { status: 'error', error: 'invalid_file_content' };
+    }
 
     const supabase = await createClient();
 
@@ -210,10 +232,9 @@ export async function uploadSingleDocumentAsync(formData: FormData): Promise<{ o
         .eq('organization_id', profile.organization_id)
         .single();
 
-      if (!caseRecord) return { ok: false, error: 'invalid_case' };
+      if (!caseRecord) return { status: 'error', error: 'invalid_case' };
     }
 
-    const buffer = Buffer.from(await file.arrayBuffer());
     const fileHash = crypto.createHash('sha256').update(buffer).digest('hex');
 
     let existingQuery = supabase
@@ -227,26 +248,14 @@ export async function uploadSingleDocumentAsync(formData: FormData): Promise<{ o
     const { data: existingDoc } = await existingQuery.single();
 
     if (existingDoc) {
-      return { ok: false, error: 'duplicate' };
+      return { status: 'duplicate', existingDocumentId: existingDoc.id };
     }
 
     const documentId = randomUUID();
     const safeFileName = sanitizeFileName(file.name);
     const storagePath = `${profile.organization_id}/${caseId || 'general'}/${documentId}/${safeFileName}`;
 
-    const { error: uploadError } = await supabase.storage
-      .from('documents')
-      .upload(storagePath, file, {
-        cacheControl: '3600',
-        upsert: false,
-        contentType: file.type,
-      });
-
-    if (uploadError) {
-      console.error('Upload error:', uploadError);
-      return { ok: false, error: 'upload_failed' };
-    }
-
+    // Reserva atómica de metadata antes de Storage
     const { error: insertError } = await supabase.from('documents').insert({
       id: documentId,
       organization_id: profile.organization_id,
@@ -264,7 +273,6 @@ export async function uploadSingleDocumentAsync(formData: FormData): Promise<{ o
 
     if (insertError) {
       console.error('Metadata error:', insertError);
-      await supabase.storage.from('documents').remove([storagePath]);
 
       if (insertError.code === '23505') {
         let query = supabase
@@ -278,11 +286,28 @@ export async function uploadSingleDocumentAsync(formData: FormData): Promise<{ o
         const { data: winner } = await query.single();
 
         if (winner) {
-          return { ok: false, error: 'duplicate', documentId: winner.id };
+          return { status: 'duplicate', existingDocumentId: winner.id };
         }
       }
 
-      return { ok: false, error: 'metadata_failed' };
+      return { status: 'error', error: 'metadata_failed' };
+    }
+
+    const { error: uploadError } = await supabase.storage
+      .from('documents')
+      .upload(storagePath, file, {
+        cacheControl: '3600',
+        upsert: false,
+        contentType: file.type,
+      });
+
+    if (uploadError) {
+      console.error('Upload error:', uploadError);
+      // Mecanismo server-side restringido para limpiar el objeto huérfano en BD
+      const { createClient: createAdminClient } = await import('@supabase/supabase-js');
+      const adminClient = createAdminClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+      await adminClient.from('documents').delete().eq('id', documentId);
+      return { status: 'error', error: 'upload_failed' };
     }
 
     await createAuditLog({
@@ -301,10 +326,10 @@ export async function uploadSingleDocumentAsync(formData: FormData): Promise<{ o
       },
     });
 
-    return { ok: true, documentId };
+    return { status: 'success', documentId };
   } catch (err: any) {
     console.error('Upload error:', err);
-    return { ok: false, error: err.message || 'unknown_error' };
+    return { status: 'error', error: err.message || 'unknown_error' };
   }
 }
 

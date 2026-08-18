@@ -23,7 +23,7 @@ export function UploadClient({
   const [expiresAt, setExpiresAt] = useState('');
   const [isDragging, setIsDragging] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
-  const [uploadStatus, setUploadStatus] = useState<Record<string, { status: 'pending' | 'uploading' | 'success' | 'error'; error?: string }>>({});
+  const [uploadStatus, setUploadStatus] = useState<Record<string, { status: 'pending' | 'uploading' | 'success' | 'duplicate' | 'error'; error?: string; duplicateId?: string }>>({});
 
   const onDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -51,9 +51,9 @@ export function UploadClient({
       'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
       'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
     ];
-    
+
     const valid = selectedFiles.filter(f => validTypes.includes(f.type) && f.size <= MAX_FILE_SIZE_MB * 1024 * 1024);
-    
+
     setFiles(prev => {
       const wrappedFiles = valid.map(f => ({ id: crypto.randomUUID(), file: f }));
       const newFiles = [...prev, ...wrappedFiles];
@@ -74,34 +74,62 @@ export function UploadClient({
     });
   };
 
+  const retryUpload = async (id: string, file: File) => {
+    if (isUploading) return;
+    setIsUploading(true);
+    setUploadStatus(prev => ({ ...prev, [id]: { status: 'uploading' } }));
+
+    const fd = new FormData();
+    fd.append('file', file);
+    fd.append('case_id', caseId);
+    fd.append('document_type', documentType);
+    fd.append('sensitivity_level', sensitivityLevel);
+    fd.append('expires_at', expiresAt);
+
+    try {
+      const res = await uploadSingleDocumentAsync(fd);
+      if (res.status === 'success') {
+        setUploadStatus(prev => ({ ...prev, [id]: { status: 'success' } }));
+      } else if (res.status === 'duplicate') {
+        setUploadStatus(prev => ({ ...prev, [id]: { status: 'duplicate', duplicateId: res.existingDocumentId } }));
+      } else {
+        setUploadStatus(prev => ({ ...prev, [id]: { status: 'error', error: res.error || 'Error' } }));
+      }
+    } catch (err: any) {
+      setUploadStatus(prev => ({ ...prev, [id]: { status: 'error', error: err.message || 'Error' } }));
+    }
+    setIsUploading(false);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (files.length === 0) return;
-    
+
     setIsUploading(true);
-    
+
     const uploadTasks = files.map(wf => async () => {
+      if (uploadStatus[wf.id]?.status === 'success') return; // Skip already uploaded
+
       setUploadStatus(prev => ({ ...prev, [wf.id]: { status: 'uploading' } }));
-      
+
       const fd = new FormData();
       fd.append('file', wf.file);
-      fd.append('file_id', wf.id); // Idempotency
       fd.append('case_id', caseId);
       fd.append('document_type', documentType);
       fd.append('sensitivity_level', sensitivityLevel);
       fd.append('expires_at', expiresAt);
-      
+
       const res = await uploadSingleDocumentAsync(fd);
-      
-      if (res.ok) {
+
+      if (res.status === 'success') {
         setUploadStatus(prev => ({ ...prev, [wf.id]: { status: 'success' } }));
+      } else if (res.status === 'duplicate') {
+        setUploadStatus(prev => ({ ...prev, [wf.id]: { status: 'duplicate', duplicateId: res.existingDocumentId } }));
       } else {
         setUploadStatus(prev => ({ ...prev, [wf.id]: { status: 'error', error: res.error || 'Error al subir' } }));
-        throw new Error(res.error || 'Error al subir');
       }
     });
-    
-    // Concurrency queue
+
     const maxConcurrent = 3;
     const queue = [...uploadTasks];
     const runWorker = async () => {
@@ -110,31 +138,47 @@ export function UploadClient({
         if (task) {
           try {
             await task();
-          } catch (e) {
-            // Error logged to state inside task
-          }
+          } catch (e) {}
         }
       }
     };
-    
+
     const workers = [];
     for (let i = 0; i < Math.min(maxConcurrent, uploadTasks.length); i++) {
       workers.push(runWorker());
     }
-    
+
     await Promise.allSettled(workers);
     setIsUploading(false);
-    
-    // Removed automatic redirect to show summary
   };
 
+  // Summary calc
+  const totalFiles = files.length;
+  const successCount = Object.values(uploadStatus).filter(s => s.status === 'success').length;
+  const errorCount = Object.values(uploadStatus).filter(s => s.status === 'error').length;
+  const duplicateCount = Object.values(uploadStatus).filter(s => s.status === 'duplicate').length;
+
   return (
+    <div className="space-y-6">
+      {totalFiles > 0 && (successCount > 0 || errorCount > 0 || duplicateCount > 0) && !isUploading && (
+        <div className="bg-slate-50 border border-slate-200 rounded-2xl p-6" data-testid="upload-summary">
+          <h3 className="font-semibold text-slate-800 mb-2">Resumen de Subida</h3>
+          <ul className="text-sm text-slate-600 space-y-1">
+            <li>Total procesados: {totalFiles}</li>
+            <li className="text-emerald-600 font-medium" data-testid="upload-success-count">Completados con éxito: {successCount}</li>
+            {errorCount > 0 && <li className="text-rose-600 font-medium" data-testid="upload-error-count">Errores: {errorCount}</li>}
+            {duplicateCount > 0 && <li className="text-amber-600 font-medium" data-testid="upload-duplicate-count">Duplicados omitidos: {duplicateCount}</li>}
+          </ul>
+        </div>
+      )}
+
     <form onSubmit={handleSubmit} className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
       <div className="grid gap-5">
         <div>
           <label className="text-sm font-semibold text-slate-700">Expediente</label>
           <select
             value={caseId}
+            data-testid="upload-case"
             onChange={(e) => setCaseId(e.target.value)}
             className="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none focus:ring-2 focus:ring-sky-400"
             disabled={isUploading}
@@ -150,6 +194,7 @@ export function UploadClient({
           <label className="text-sm font-semibold text-slate-700">Tipo documental</label>
           <select
             value={documentType}
+            data-testid="upload-type"
             onChange={(e) => setDocumentType(e.target.value)}
             className="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none focus:ring-2 focus:ring-sky-400"
             disabled={isUploading}
@@ -165,6 +210,7 @@ export function UploadClient({
           <label className="text-sm font-semibold text-slate-700">Nivel de sensibilidad</label>
           <select
             value={sensitivityLevel}
+            data-testid="upload-sensitivity"
             onChange={(e) => setSensitivityLevel(e.target.value)}
             className="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none focus:ring-2 focus:ring-sky-400"
             disabled={isUploading}
@@ -190,8 +236,8 @@ export function UploadClient({
 
         <div>
           <label className="text-sm font-semibold text-slate-700 mb-2 block">Archivos</label>
-          
-          <div 
+
+          <div
             onDragOver={onDragOver}
             onDragLeave={onDragLeave}
             onDrop={onDrop}
@@ -199,9 +245,10 @@ export function UploadClient({
               isDragging ? 'border-sky-500 bg-sky-50' : 'border-slate-300 bg-slate-50 hover:bg-slate-100'
             } ${isUploading ? 'opacity-50 pointer-events-none' : ''}`}
           >
-            <input 
-              type="file" 
-              multiple 
+            <input
+              type="file"
+              multiple
+              data-testid="upload-file-input"
               onChange={(e) => e.target.files && handleFilesSelected(Array.from(e.target.files))}
               className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
               accept=".pdf,.jpg,.jpeg,.png,.docx,.xlsx"
@@ -225,20 +272,38 @@ export function UploadClient({
                         <div className="text-xs text-slate-400 font-normal">{(wf.file.size / 1024 / 1024).toFixed(2)} MB</div>
                       </div>
                     </div>
-                    
+
                     <div className="flex items-center gap-2 shrink-0">
                       {status === 'uploading' && <Loader2 className="h-4 w-4 animate-spin text-sky-500" />}
                       {status === 'success' && <CheckCircle2 className="h-5 w-5 text-emerald-500" />}
+                      {status === 'duplicate' && (
+                        <div className="flex items-center gap-1 text-amber-500 text-xs">
+                          <AlertCircle className="h-4 w-4" />
+                          <span className="hidden sm:inline">Duplicado</span>
+                          {uploadStatus[wf.id]?.duplicateId && (
+                            <a href={`/documentos/${uploadStatus[wf.id].duplicateId}`} target="_blank" rel="noreferrer" className="underline ml-1 hover:text-amber-600">
+                              Ver archivo
+                            </a>
+                          )}
+                        </div>
+                      )}
                       {status === 'error' && (
                         <div className="flex items-center gap-1 text-rose-500 text-xs">
                           <AlertCircle className="h-4 w-4" />
                           <span className="hidden sm:inline">{uploadStatus[wf.id]?.error || 'Error'}</span>
+                          <button
+                            type="button"
+                            onClick={(e) => { e.preventDefault(); retryUpload(wf.id, wf.file); }}
+                            className="ml-2 underline hover:text-rose-600"
+                          >
+                            Reintentar
+                          </button>
                         </div>
                       )}
-                      
+
                       {status === 'pending' && !isUploading && (
-                        <button 
-                          type="button" 
+                        <button
+                          type="button"
                           onClick={(e) => { e.preventDefault(); removeFile(index); }}
                           className="p-1 text-slate-400 hover:text-rose-500 transition-colors"
                         >
@@ -254,8 +319,9 @@ export function UploadClient({
         </div>
       </div>
 
-      <button 
-        type="submit" 
+      <button
+        type="submit"
+        data-testid="upload-submit"
         disabled={isUploading || files.length === 0}
         className="mt-6 flex w-full justify-center items-center gap-2 rounded-2xl bg-slate-950 px-5 py-3 text-sm font-bold text-white hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed"
       >
@@ -269,5 +335,6 @@ export function UploadClient({
         )}
       </button>
     </form>
+    </div>
   );
 }

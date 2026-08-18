@@ -2,9 +2,12 @@ name: CI Pipeline
 
 on:
   push:
-    branches: [ main, master ]
+    branches:
+      - fix/juridico-commercial-ready-02
   pull_request:
-    branches: [ main, master ]
+    branches:
+      - main
+  workflow_dispatch:
 
 jobs:
   lint-typecheck-unit-build:
@@ -17,6 +20,8 @@ jobs:
           node-version: lts/*
       - name: Install dependencies
         run: npm ci
+      - name: Audit dependencies
+        run: npm audit --omit=dev
       - name: Lint
         run: npm run lint
       - name: Typecheck
@@ -43,10 +48,20 @@ jobs:
         run: supabase db reset --local
       - name: Extract Supabase Keys and Map Env Vars
         run: |
-          supabase status -o env >> $GITHUB_ENV
-          echo "NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321" >> $GITHUB_ENV
-          echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=${{ env.SUPABASE_ANON_KEY }}" >> $GITHUB_ENV
-          echo "SUPABASE_SERVICE_ROLE_KEY=${{ env.SUPABASE_SERVICE_ROLE_KEY }}" >> $GITHUB_ENV
+          supabase status -o env > /tmp/supabase.env
+          set -a
+          source /tmp/supabase.env
+          set +a
+
+          : "${API_URL:?Missing API_URL}"
+          : "${ANON_KEY:?Missing ANON_KEY}"
+          : "${SERVICE_ROLE_KEY:?Missing SERVICE_ROLE_KEY}"
+
+          {
+            echo "NEXT_PUBLIC_SUPABASE_URL=$API_URL"
+            echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=$ANON_KEY"
+            echo "SUPABASE_SERVICE_ROLE_KEY=$SERVICE_ROLE_KEY"
+          } >> "$GITHUB_ENV"
       - name: Run Seed Script
         run: npx tsx tests/setup/seed-supabase.ts
       - name: Run Security Tests
@@ -74,10 +89,20 @@ jobs:
         run: supabase db reset --local
       - name: Extract Supabase Keys and Map Env Vars
         run: |
-          supabase status -o env >> $GITHUB_ENV
-          echo "NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321" >> $GITHUB_ENV
-          echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=${{ env.SUPABASE_ANON_KEY }}" >> $GITHUB_ENV
-          echo "SUPABASE_SERVICE_ROLE_KEY=${{ env.SUPABASE_SERVICE_ROLE_KEY }}" >> $GITHUB_ENV
+          supabase status -o env > /tmp/supabase.env
+          set -a
+          source /tmp/supabase.env
+          set +a
+
+          : "${API_URL:?Missing API_URL}"
+          : "${ANON_KEY:?Missing ANON_KEY}"
+          : "${SERVICE_ROLE_KEY:?Missing SERVICE_ROLE_KEY}"
+
+          {
+            echo "NEXT_PUBLIC_SUPABASE_URL=$API_URL"
+            echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=$ANON_KEY"
+            echo "SUPABASE_SERVICE_ROLE_KEY=$SERVICE_ROLE_KEY"
+          } >> "$GITHUB_ENV"
       - name: Install Playwright Browsers
         run: npx playwright install --with-deps
       - name: Start Next.js and Run E2E

@@ -446,6 +446,7 @@ function TasaCalc() {
           <Field label="Jurisdicción (obligatorio)">
             <select
               value={jurisdiccion}
+              data-testid="tasa-jurisdiccion"
               onChange={(e) => {
                 const j = e.target.value as LegalJurisdiction | '';
                 setJurisdiccion(j);
@@ -536,7 +537,7 @@ function TasaCalc() {
             {tipoProceso === 'general_pecuniary' && (
               <>
                 <Field label="Monto del proceso ($)">
-                  <input type="text" inputMode="decimal" value={montoTasa} onChange={(e) => setMontoTasa(e.target.value)} placeholder="Ej: 1.000.000" className={inputClass} />
+                  <input type="text" inputMode="decimal" value={montoTasa} onChange={(e) => setMontoTasa(e.target.value)} placeholder="Ej: 1.000.000" className={inputClass} data-testid="tasa-monto" />
                 </Field>
                 <label className="mt-2 flex items-start gap-2 text-sm text-slate-300">
                   <input type="checkbox" checked={confirmacion} onChange={(e) => { setConfirmacion(e.target.checked); setTasaRes(null); setError(null); }} className="mt-1" />
@@ -547,10 +548,10 @@ function TasaCalc() {
           </>
         )}
         {jurisdiccion !== 'pba' && jurisdiccion !== 'corrientes' && tipoProceso === 'general_pecuniary' && (
-          <MotionButton type="button" onClick={calcularTasa} className={btnClass}>Calcular tasa</MotionButton>
+          <MotionButton type="button" onClick={calcularTasa} className={btnClass} data-testid="tasa-submit">Calcular tasa</MotionButton>
         )}
         {tasaRes !== null && jurisdiccion === 'nacion' && (
-          <div className="mt-4">
+          <div className="mt-4" data-testid="tasa-resultado">
             <ResultBox label={`Tasa de justicia (${TASA_JUSTICIA_PORCENTAJE}%)`} value={currency(tasaRes)} highlight />
           </div>
         )}
