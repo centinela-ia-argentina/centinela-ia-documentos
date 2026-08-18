@@ -37,6 +37,16 @@ export async function preguntarADocumentosLegajo(
 
   const supabase = await createClient();
 
+  // Verificamos que el legajo exista y pertenezca a la organización
+  const { data: caseData } = await supabase
+    .from('cases')
+    .select('id')
+    .eq('id', caseId)
+    .eq('organization_id', profile.organization_id)
+    .maybeSingle();
+
+  if (!caseData) return { ok: false, error: 'Legajo no encontrado o sin acceso.' };
+
   // Rubro (define el tono del prompt: notarial / inmobiliario / jurídico)
   const { data: orgData } = await supabase
     .from('organizations')
@@ -90,8 +100,19 @@ export async function preguntarADocumentosLegajo(
 
   if (matchError) return { ok: false, error: 'Error al buscar: ' + matchError.message };
 
-  // 4) Quedarnos SOLO con fragmentos de los documentos de este legajo
-  const delLegajo = (matches ?? []).filter((m: any) => idsCaso.has(m.document_id)).slice(0, 8);
+  // 4) Quedarnos SOLO con fragmentos de los documentos de este legajo (deduplicados y máximo 8)
+  const delLegajo: any[] = [];
+  const contentSet = new Set<string>();
+  for (const m of (matches ?? [])) {
+    if (idsCaso.has(m.document_id)) {
+      const c = (m.content || '').trim();
+      if (!contentSet.has(c)) {
+        contentSet.add(c);
+        delLegajo.push(m);
+        if (delLegajo.length >= 8) break;
+      }
+    }
+  }
 
   if (delLegajo.length === 0) {
     return {
@@ -149,6 +170,16 @@ RESPUESTA:`;
     const respuesta =
       data?.candidates?.[0]?.content?.parts?.map((p: any) => p.text).join('') ??
       'No se pudo generar una respuesta.';
+
+    await supabase.from('audit_logs').insert({
+      organization_id: profile.organization_id,
+      user_id: user.id,
+      action: 'AI_RAG_QUERY',
+      entity_type: 'case',
+      entity_id: caseId,
+      details: { prompt_length: prompt.length, response_length: respuesta.length, chunks: fuentes.length },
+      ip_address: null
+    });
 
     return { ok: true, respuesta, fuentes };
   } catch (e) {

@@ -109,33 +109,58 @@ async function createCaseChecklist(input: {
 
   const supabase = await createClient();
 
-  const { data: checklist, error: checklistError } = await supabase
+  // Busca si ya hay un checklist para este legajo
+  let checklistId: string;
+  const { data: existingChecklist } = await supabase
     .from('checklists')
-    .insert({
-      organization_id: input.organizationId,
-      case_id: input.caseId,
-      name: 'Checklist documental',
-      template_type: input.caseType || 'Otro',
-    })
     .select('id')
-    .single();
+    .eq('case_id', input.caseId)
+    .eq('organization_id', input.organizationId)
+    .maybeSingle();
 
-  if (checklistError || !checklist) {
-    console.error('Create case checklist error:', checklistError);
-    return;
+  if (existingChecklist) {
+    checklistId = existingChecklist.id;
+  } else {
+    const { data: newChecklist, error: checklistError } = await supabase
+      .from('checklists')
+      .insert({
+        organization_id: input.organizationId,
+        case_id: input.caseId,
+        name: 'Checklist documental',
+        template_type: input.caseType || 'Otro',
+      })
+      .select('id')
+      .single();
+
+    if (checklistError || !newChecklist) {
+      console.error('Create case checklist error:', checklistError);
+      return;
+    }
+    checklistId = newChecklist.id;
   }
 
-  const { error: itemsError } = await supabase.from('checklist_items').insert(
-    checklistItems.map((title) => ({
-      checklist_id: checklist.id,
-      title,
-      status: 'pending',
-    }))
-  );
+  // Busca los items actuales
+  const { data: currentItems } = await supabase
+    .from('checklist_items')
+    .select('title')
+    .eq('checklist_id', checklistId);
+  const currentTitles = new Set((currentItems ?? []).map(i => i.title));
 
-  if (itemsError) {
-    console.error('Create case checklist items error:', itemsError);
-    return;
+  // Filtra los que no existen y los inserta
+  const newItems = checklistItems.filter(t => !currentTitles.has(t));
+  if (newItems.length > 0) {
+    const { error: itemsError } = await supabase.from('checklist_items').insert(
+      newItems.map((title) => ({
+        checklist_id: checklistId,
+        title,
+        status: 'pending',
+      }))
+    );
+
+    if (itemsError) {
+      console.error('Create case checklist items error:', itemsError);
+      return;
+    }
   }
 
   await createAuditLog({

@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { getUserProfile } from '@/lib/auth/getUserProfile';
 import { canUpdateCase } from '@/lib/permissions/roles';
+import { createAuditLog } from '@/lib/audit/createAuditLog';
 
 export type GuardarEventoResult =
   | { ok: true; created?: boolean; existing?: boolean; mensaje?: string }
@@ -91,7 +92,7 @@ async function deduplicateAndInsert(input: {
 
   let query = supabase
     .from('agenda_plazos')
-    .select('id, titulo')
+    .select('id, titulo, hora')
     .eq('organization_id', profile.organization_id)
     .eq('fecha', fechaNorm)
     .eq('categoria', input.categoria);
@@ -105,8 +106,17 @@ async function deduplicateAndInsert(input: {
   const { data: candidates } = await query;
 
   if (candidates && candidates.length > 0) {
-    const exists = candidates.some((c) => normalizeTitle(c.titulo || '') === tituloNorm);
+    const inputHora = input.hora || null;
+    const exists = candidates.some((c) => normalizeTitle(c.titulo || '') === tituloNorm && (c.hora || null) === inputHora);
     if (exists) {
+      await createAuditLog({
+        organizationId: profile.organization_id,
+        userId: user.id,
+        action: 'agenda_event_duplicate_prevented' as any,
+        resourceType: input.caseId ? 'case' : 'organization',
+        resourceId: input.caseId || profile.organization_id,
+        metadata: { titulo: tituloInput, fecha: fechaNorm, hora: input.hora, categoria: input.categoria },
+      });
       return { ok: true, created: false, existing: true };
     }
   }
@@ -122,7 +132,34 @@ async function deduplicateAndInsert(input: {
     case_id: input.caseId,
   });
 
-  if (error) return { ok: false, motivo: 'error', mensaje: error.message };
+  if (error) {
+    if (error.code === '23505') {
+      await createAuditLog({
+        organizationId: profile.organization_id,
+        userId: user.id,
+        action: 'agenda_event_duplicate_prevented' as any,
+        resourceType: input.caseId ? 'case' : 'organization',
+        resourceId: input.caseId || profile.organization_id,
+        metadata: { titulo: tituloInput, fecha: fechaNorm, hora: input.hora, categoria: input.categoria },
+      });
+      return { ok: true, created: false, existing: true };
+    }
+    return { ok: false, motivo: 'error', mensaje: error.message };
+  }
+
+  await createAuditLog({
+    organizationId: profile.organization_id,
+    userId: user.id,
+    action: 'agenda_event_created' as any,
+    resourceType: input.caseId ? 'case' : 'organization',
+    resourceId: input.caseId || profile.organization_id,
+    metadata: {
+      titulo: tituloInput,
+      fecha: fechaNorm,
+      hora: input.hora,
+      categoria: input.categoria,
+    },
+  });
 
   revalidatePath('/agenda');
   if (input.caseId) revalidatePath(`/expedientes/${input.caseId}`);
@@ -132,6 +169,7 @@ async function deduplicateAndInsert(input: {
 export async function guardarEventoManual(input: {
   titulo: string;
   fecha: string;
+  hora?: string;
   detalle?: string;
   caseId?: string;
 }): Promise<GuardarEventoResult> {
@@ -140,7 +178,7 @@ export async function guardarEventoManual(input: {
     fecha: input.fecha,
     detalle: input.detalle?.trim() || null,
     categoria: 'manual',
-    hora: null,
+    hora: input.hora?.trim() || null,
     caseId: input.caseId ?? null,
   });
 }

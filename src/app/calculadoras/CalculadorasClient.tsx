@@ -98,6 +98,7 @@ function PlazosCalc({ puedeGuardar = true }: { puedeGuardar?: boolean }) {
   const [referencia, setReferencia] = useState('');
   const [guardando, setGuardando] = useState(false);
   const [guardado, setGuardado] = useState<string | null>(null);
+  const [kmDistancia, setKmDistancia] = useState('');
 
   const calcular = () => {
     setError(null);
@@ -125,11 +126,12 @@ function PlazosCalc({ puedeGuardar = true }: { puedeGuardar?: boolean }) {
     const cal = LEGAL_CALENDARS[jurisdiccion as LegalJurisdiction];
     if (cal.coverage !== 'verified') return setError('Calendario todavía no configurado para esta jurisdicción/año.');
 
+    const km = parseInt(kmDistancia, 10);
     const res = calcularVencimientoProcesal({
       fechaNotificacion: fecha,
       diasHabiles: n,
       jurisdiccion: jurisdiccion as LegalJurisdiction,
-      kmDistancia: 0,
+      kmDistancia: Number.isFinite(km) ? km : 0,
     });
 
     if (!res.ok) {
@@ -145,7 +147,7 @@ function PlazosCalc({ puedeGuardar = true }: { puedeGuardar?: boolean }) {
 
     setResultado({
       vencimiento: vencimientoObj,
-      texto: `${n} día${n > 1 ? 's' : ''} hábiles judiciales`,
+      texto: res.diasAmpliacion > 0 ? `${n} + ${res.diasAmpliacion} días por dist. (${res.diasTotales} totales)` : `${n} día${n > 1 ? 's' : ''} hábiles judiciales`,
       adv: res.advertencia,
       fuente: res.fuente,
       calAnio: res.calendarioAnio
@@ -208,6 +210,14 @@ function PlazosCalc({ puedeGuardar = true }: { puedeGuardar?: boolean }) {
           <input type="number" min={1} value={dias} onChange={(e) => { setDias(e.target.value); setGuardado(null); setResultado(null); }} placeholder="Ej: 5" className={inputClass} />
         </Field>
       </div>
+
+      {tipo === 'habiles' && (
+        <div className="mt-4 grid gap-4 sm:grid-cols-2">
+          <Field label="Ampliación por distancia (km)">
+            <input type="number" min={0} value={kmDistancia} onChange={(e) => { setKmDistancia(e.target.value); setGuardado(null); setResultado(null); }} placeholder="Ej: 450" className={inputClass} />
+          </Field>
+        </div>
+      )}
 
       <div className="mt-4 flex gap-2">
         <RadioPill active={tipo === 'habiles'} onClick={() => { setTipo('habiles'); setResultado(null); setError(null); setGuardado(null); }} label="Días hábiles" />

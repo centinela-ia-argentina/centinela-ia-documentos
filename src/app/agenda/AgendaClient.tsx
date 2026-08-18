@@ -52,7 +52,7 @@ export function AgendaClient({ eventos, cases, industry, puedeGuardar = true }: 
     setGuardando(true);
     setAviso('');
     const res = nuevoTipo === 'evento'
-      ? await guardarEventoManual({ titulo: nuevoTitulo, fecha: nuevaFecha, detalle: nuevoDetalle, caseId: nuevoCaseId || undefined })
+      ? await guardarEventoManual({ titulo: nuevoTitulo, fecha: nuevaFecha, hora: nuevaHora || undefined, detalle: nuevoDetalle, caseId: nuevoCaseId || undefined })
       : await guardarTurno({ titulo: nuevoTitulo, fecha: nuevaFecha, hora: nuevaHora || undefined, tipo: nuevoTipo, detalle: nuevoDetalle, caseId: nuevoCaseId || undefined });
     setGuardando(false);
     if (res.ok) {
@@ -156,17 +156,16 @@ export function AgendaClient({ eventos, cases, industry, puedeGuardar = true }: 
               <span className="mb-1 block text-xs font-semibold text-slate-400">Fecha</span>
               <input type="date" value={nuevaFecha} onChange={(e) => setNuevaFecha(e.target.value)} className="w-full rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2 text-sm text-white outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400" />
             </label>
-            {nuevoTipo !== 'evento' && (
-              <div>
-                <label className="mb-1 block text-xs font-semibold text-slate-400">Hora (opcional)</label>
-                <input
-                  type="time"
-                  value={nuevaHora}
-                  onChange={(e) => setNuevaHora(e.target.value)}
-                  className="w-full rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2 text-sm text-white outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400"
-                />
-              </div>
-            )}
+            <div>
+              <label className="mb-1 block text-xs font-semibold text-slate-400">Hora (opcional)</label>
+              <input
+                type="time"
+                value={nuevaHora}
+                onChange={(e) => setNuevaHora(e.target.value)}
+                className="w-full rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2 text-sm text-white outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400"
+              />
+              <span className="mt-1 block text-[10px] text-slate-500">Se interpreta como America/Argentina/Buenos_Aires. Vacio = todo el día.</span>
+            </div>
             <label className="block">
               <span className="mb-1 block text-xs font-semibold text-slate-400">Título</span>
               <input type="text" value={nuevoTitulo} onChange={(e) => setNuevoTitulo(e.target.value)} placeholder={industry === 'inmobiliaria' ? 'Ej: Firma de boleto - Martina López' : industry === 'escribania' ? 'Ej: Firma de escritura - López' : 'Ej: Presentar escrito - Pérez c/ García'} className="w-full rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2 text-sm text-white outline-none placeholder-slate-500 focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400" />

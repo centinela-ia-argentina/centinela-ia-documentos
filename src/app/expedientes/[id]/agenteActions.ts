@@ -13,6 +13,7 @@ import { generarEmbedding } from '@/lib/ai/embeddings';
 import { calcularIncapacidad } from "@/lib/legal/liquidacion";
 import { calcularVencimientoProcesal } from '@/lib/legal/plazos';
 import { calcularTasaJusticia } from '@/lib/legal/tasaJusticia';
+import { createAuditLog } from '@/lib/audit/createAuditLog';
 
 export async function preguntarAgente(input: {
   caseId: string;
@@ -381,14 +382,14 @@ export async function preguntarAgente(input: {
         .slice(-12)
     : [];
 
-  const res = await responderAgenteLegajo({ 
-    industry, 
-    contextoLegajo, 
-    historial, 
+  const res = await responderAgenteLegajo({
+    industry,
+    contextoLegajo,
+    historial,
     pregunta,
     documentEvidenceState
   });
-  
+
   if (!res.ok) {
     let motivo = 'No pude generar una respuesta. Probá de nuevo.';
     if (res.motivo === 'sin_api_key') motivo = 'La IA no está configurada (falta la API key).';
@@ -440,12 +441,23 @@ export async function borrarConversacionAgente(input: {
     console.error('Agente borrar conversación error:', error);
     return { ok: false, motivo: 'No se pudo borrar la conversación.' };
   }
+
+  await createAuditLog({
+    organizationId: profile.organization_id,
+    userId: user.id,
+    action: 'agent_memory_cleared' as any,
+    resourceType: 'case',
+    resourceId: input.caseId,
+    metadata: { info: 'Conversación de IA eliminada' },
+  });
+
+  revalidatePath(`/expedientes/${input.caseId}`);
   return { ok: true };
 }
 
 // Ejecuta una acción aprobada por el usuario sobre un legajo concreto.
 // Valida permisos y organización antes de tocar la base.
-export async function ejecutarAccionAgente(input: {
+export async function ejecutarAccionAgenteInner(input: {
   caseId: string;
   accion: AccionPropuesta;
 }): Promise<{ ok: boolean; mensaje: string }> {
@@ -631,8 +643,8 @@ export async function ejecutarAccionAgente(input: {
       if (!Number.isFinite(montoVal) || montoVal <= 0) return { ok: false, mensaje: 'El monto debe ser numérico y mayor a cero.' };
       if (accion.moneda === 'USD') return { ok: false, mensaje: 'La moneda debe ser ARS. Para moneda extranjera indique la base imponible en pesos.' };
 
-      const r = calcularTasaJusticia({ 
-        monto: montoVal, 
+      const r = calcularTasaJusticia({
+        monto: montoVal,
         jurisdiccion: jurisdiccionStr,
         tipo_proceso: tipoProcesoStr,
         confirmacion: confirmacionBool
@@ -641,10 +653,10 @@ export async function ejecutarAccionAgente(input: {
       const { error } = await supabase.from('ai_outputs').insert({
         output_type: 'case_tasa_justicia',
         content: `${accion.titulo} — tasa $${r.tasa}`,
-        result_json: { 
-          titulo: accion.titulo, 
-          base: r.base, 
-          porcentaje: r.porcentaje, 
+        result_json: {
+          titulo: accion.titulo,
+          base: r.base,
+          porcentaje: r.porcentaje,
           tasa: r.tasa,
           jurisdiccion: r.jurisdiccion,
           fuente_nombre: r.fuente_nombre,
@@ -973,4 +985,25 @@ export async function diagnosticoLegajo(
 	} catch {
 		return { ok: false, alertas: [] };
 	}
+}
+
+export async function ejecutarAccionAgente(input: {
+  caseId: string;
+  accion: AccionPropuesta;
+}): Promise<{ ok: boolean; mensaje: string }> {
+  const result = await ejecutarAccionAgenteInner(input);
+  if (result.ok) {
+    const { user, profile } = await getUserProfile();
+    if (user && profile) {
+      await createAuditLog({
+        organizationId: profile.organization_id,
+        userId: user.id,
+        action: 'agent_action_approved' as any,
+        resourceType: 'case',
+        resourceId: input.caseId,
+        metadata: { action_tipo: input.accion.tipo, title: input.accion.titulo },
+      });
+    }
+  }
+  return result;
 }

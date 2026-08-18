@@ -269,6 +269,7 @@ export default async function CaseDetailPage({ params, searchParams }: CaseDetai
     .from('documents')
     .select('id, file_name, case_id, created_at')
     .eq('organization_id', profile.organization_id)
+    .eq('case_id', caseRecord.id)
     .order('created_at', { ascending: false });
 
   const { data: caseEventsData } = await supabase
