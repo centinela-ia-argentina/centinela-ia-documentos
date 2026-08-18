@@ -3,6 +3,7 @@
 import { getUserProfile } from '@/lib/auth/getUserProfile';
 import { canUseAi } from '@/lib/permissions/roles';
 import { createAuditLog } from '@/lib/audit/createAuditLog';
+import { createClient } from '@/lib/supabase/server';
 
 export type RedactarResult =
   | { ok: true; texto: string }
