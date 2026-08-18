@@ -46,9 +46,10 @@ jobs:
       - name: Run Security Tests
         env:
           ALLOW_DESTRUCTIVE_TESTS: true
-          # local supabase vars
+          # La base local arranca en puerto 54321
           NEXT_PUBLIC_SUPABASE_URL: http://127.0.0.1:54321
-          SUPABASE_SERVICE_ROLE_KEY: ey... # injected by local env
+          # TODO: Obtener el service role key real usando supabase start/status
+          SUPABASE_SERVICE_ROLE_KEY: \${{ secrets.SUPABASE_LOCAL_ROLE_KEY_PLACEHOLDER }}
         run: npm run test:security
       - name: Stop Supabase
         if: always()

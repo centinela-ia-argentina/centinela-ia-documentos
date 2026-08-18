@@ -5,3 +5,7 @@ node_modules
 .DS_Store
 .vercel
 out
+playwright-report/
+test-results/
+tsconfig.tsbuildinfo
+*.tsbuildinfo
