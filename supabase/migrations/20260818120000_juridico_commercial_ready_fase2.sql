@@ -80,46 +80,57 @@ ALTER TABLE public.checklists ADD CONSTRAINT checklists_id_org_key UNIQUE (id, o
 
 -- Apply composite FKs. Use ON DELETE CASCADE ONLY when logically coupled lifecycle.
 ALTER TABLE public.cases DROP CONSTRAINT IF EXISTS cases_property_fk;
+ALTER TABLE public.cases DROP CONSTRAINT IF EXISTS cases_property_id_fkey;
 ALTER TABLE public.cases ADD CONSTRAINT cases_property_fk
 FOREIGN KEY (property_id, organization_id) REFERENCES public.properties(id, organization_id) ON DELETE SET NULL (property_id);
 
 ALTER TABLE public.documents DROP CONSTRAINT IF EXISTS doc_org_match_case;
+ALTER TABLE public.documents DROP CONSTRAINT IF EXISTS documents_case_id_fkey;
 ALTER TABLE public.documents ADD CONSTRAINT doc_org_match_case
 FOREIGN KEY (case_id, organization_id) REFERENCES public.cases(id, organization_id) ON DELETE CASCADE;
 
 ALTER TABLE public.agenda_plazos DROP CONSTRAINT IF EXISTS agenda_org_match_case;
+ALTER TABLE public.agenda_plazos DROP CONSTRAINT IF EXISTS agenda_plazos_case_id_fkey;
 ALTER TABLE public.agenda_plazos ADD CONSTRAINT agenda_org_match_case
 FOREIGN KEY (case_id, organization_id) REFERENCES public.cases(id, organization_id) ON DELETE CASCADE;
 
 ALTER TABLE public.agent_messages DROP CONSTRAINT IF EXISTS agent_org_match_case;
+ALTER TABLE public.agent_messages DROP CONSTRAINT IF EXISTS agent_messages_case_id_fkey;
 ALTER TABLE public.agent_messages ADD CONSTRAINT agent_org_match_case
 FOREIGN KEY (case_id, organization_id) REFERENCES public.cases(id, organization_id) ON DELETE CASCADE;
 
 ALTER TABLE public.ai_outputs DROP CONSTRAINT IF EXISTS ai_org_match_case;
+ALTER TABLE public.ai_outputs DROP CONSTRAINT IF EXISTS ai_outputs_case_id_fkey;
 ALTER TABLE public.ai_outputs ADD CONSTRAINT ai_org_match_case
 FOREIGN KEY (case_id, organization_id) REFERENCES public.cases(id, organization_id) ON DELETE CASCADE;
 
 ALTER TABLE public.ai_outputs DROP CONSTRAINT IF EXISTS ai_org_match_doc;
+ALTER TABLE public.ai_outputs DROP CONSTRAINT IF EXISTS ai_outputs_document_id_fkey;
 ALTER TABLE public.ai_outputs ADD CONSTRAINT ai_org_match_doc
 FOREIGN KEY (document_id, organization_id) REFERENCES public.documents(id, organization_id) ON DELETE CASCADE;
 
 ALTER TABLE public.checklists DROP CONSTRAINT IF EXISTS checklist_org_match_case;
+ALTER TABLE public.checklists DROP CONSTRAINT IF EXISTS checklists_case_id_fkey;
 ALTER TABLE public.checklists ADD CONSTRAINT checklist_org_match_case
 FOREIGN KEY (case_id, organization_id) REFERENCES public.cases(id, organization_id) ON DELETE CASCADE;
 
 ALTER TABLE public.checklist_items DROP CONSTRAINT IF EXISTS checklist_items_org_match_chk;
+ALTER TABLE public.checklist_items DROP CONSTRAINT IF EXISTS checklist_items_checklist_id_fkey;
 ALTER TABLE public.checklist_items ADD CONSTRAINT checklist_items_org_match_chk
 FOREIGN KEY (checklist_id, organization_id) REFERENCES public.checklists(id, organization_id) ON DELETE CASCADE;
 
 ALTER TABLE public.checklist_items DROP CONSTRAINT IF EXISTS checklist_items_org_match_doc;
+ALTER TABLE public.checklist_items DROP CONSTRAINT IF EXISTS checklist_items_document_id_fkey;
 ALTER TABLE public.checklist_items ADD CONSTRAINT checklist_items_org_match_doc
 FOREIGN KEY (document_id, organization_id) REFERENCES public.documents(id, organization_id) ON DELETE SET NULL (document_id);
 
 ALTER TABLE public.case_events DROP CONSTRAINT IF EXISTS case_events_case_fk;
+ALTER TABLE public.case_events DROP CONSTRAINT IF EXISTS case_events_case_id_fkey;
 ALTER TABLE public.case_events ADD CONSTRAINT case_events_case_fk
 FOREIGN KEY (case_id, organization_id) REFERENCES public.cases(id, organization_id) ON DELETE CASCADE;
 
 ALTER TABLE public.reports DROP CONSTRAINT IF EXISTS reports_case_fk;
+ALTER TABLE public.reports DROP CONSTRAINT IF EXISTS reports_case_id_fkey;
 ALTER TABLE public.reports ADD CONSTRAINT reports_case_fk
 FOREIGN KEY (case_id, organization_id) REFERENCES public.cases(id, organization_id) ON DELETE CASCADE;
 

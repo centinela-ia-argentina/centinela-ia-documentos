@@ -45,7 +45,10 @@ test.describe.serial('Centinela IA - Flujo Jurídico E2E Obligatorio', () => {
     await expect(dashboardTitle).toBeVisible({ timeout: 15000 });
     await expect(dashboardTitle).toContainText('Bienvenido');
     await page.goto('/usuarios');
-    await expect(page.locator('h1')).toContainText('Usuarios'); // Admin has access
+    await expect(page).toHaveURL(/\/usuarios/);
+    const usersPageTitle = page.locator('[data-testid="users-page-title"]');
+    await expect(usersPageTitle).toBeVisible({ timeout: 15000 });
+    await expect(usersPageTitle).toContainText('Control de usuarios y accesos');
 
     // Log out
     await page.goto('/logout');
@@ -59,7 +62,7 @@ test.describe.serial('Centinela IA - Flujo Jurídico E2E Obligatorio', () => {
 
     // Employee tries to access /usuarios
     await page.goto('/usuarios');
-    await expect(page.locator('h1').or(page.locator('body'))).not.toContainText('Invitar usuario');
+    await expect(page).toHaveURL(/\/acceso-denegado/);
 
     // Log out and log back in as admin for the rest of the suite
     await page.goto('/logout');

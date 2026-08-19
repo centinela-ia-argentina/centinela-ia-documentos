@@ -58,36 +58,47 @@ CREATE POLICY "cases_org_all" ON public.cases FOR ALL USING (organization_id = p
 -- Rollback: Drop composite UNIQUE constraints, drop composite FKs, recreate simple FKs linking to id.
 -- Motivo: Restore baseline schema structure for pure diff.
 ALTER TABLE public.cases DROP CONSTRAINT IF EXISTS cases_property_fk;
+ALTER TABLE public.cases DROP CONSTRAINT IF EXISTS cases_property_id_fkey;
 ALTER TABLE public.cases ADD CONSTRAINT cases_property_id_fkey FOREIGN KEY (property_id) REFERENCES public.properties(id) ON DELETE SET NULL;
 
 ALTER TABLE public.documents DROP CONSTRAINT IF EXISTS doc_org_match_case;
+ALTER TABLE public.documents DROP CONSTRAINT IF EXISTS documents_case_id_fkey;
 ALTER TABLE public.documents ADD CONSTRAINT documents_case_id_fkey FOREIGN KEY (case_id) REFERENCES public.cases(id) ON DELETE CASCADE;
 
 ALTER TABLE public.agenda_plazos DROP CONSTRAINT IF EXISTS agenda_org_match_case;
+ALTER TABLE public.agenda_plazos DROP CONSTRAINT IF EXISTS agenda_plazos_case_id_fkey;
 ALTER TABLE public.agenda_plazos ADD CONSTRAINT agenda_plazos_case_id_fkey FOREIGN KEY (case_id) REFERENCES public.cases(id) ON DELETE CASCADE;
 
 ALTER TABLE public.agent_messages DROP CONSTRAINT IF EXISTS agent_org_match_case;
+ALTER TABLE public.agent_messages DROP CONSTRAINT IF EXISTS agent_messages_case_id_fkey;
 ALTER TABLE public.agent_messages ADD CONSTRAINT agent_messages_case_id_fkey FOREIGN KEY (case_id) REFERENCES public.cases(id) ON DELETE CASCADE;
 
 ALTER TABLE public.ai_outputs DROP CONSTRAINT IF EXISTS ai_org_match_case;
+ALTER TABLE public.ai_outputs DROP CONSTRAINT IF EXISTS ai_outputs_case_id_fkey;
 ALTER TABLE public.ai_outputs ADD CONSTRAINT ai_outputs_case_id_fkey FOREIGN KEY (case_id) REFERENCES public.cases(id) ON DELETE CASCADE;
 
 ALTER TABLE public.ai_outputs DROP CONSTRAINT IF EXISTS ai_org_match_doc;
+ALTER TABLE public.ai_outputs DROP CONSTRAINT IF EXISTS ai_outputs_document_id_fkey;
 ALTER TABLE public.ai_outputs ADD CONSTRAINT ai_outputs_document_id_fkey FOREIGN KEY (document_id) REFERENCES public.documents(id) ON DELETE CASCADE;
 
 ALTER TABLE public.checklists DROP CONSTRAINT IF EXISTS checklist_org_match_case;
+ALTER TABLE public.checklists DROP CONSTRAINT IF EXISTS checklists_case_id_fkey;
 ALTER TABLE public.checklists ADD CONSTRAINT checklists_case_id_fkey FOREIGN KEY (case_id) REFERENCES public.cases(id) ON DELETE CASCADE;
 
 ALTER TABLE public.checklist_items DROP CONSTRAINT IF EXISTS checklist_items_org_match_chk;
+ALTER TABLE public.checklist_items DROP CONSTRAINT IF EXISTS checklist_items_checklist_id_fkey;
 ALTER TABLE public.checklist_items ADD CONSTRAINT checklist_items_checklist_id_fkey FOREIGN KEY (checklist_id) REFERENCES public.checklists(id) ON DELETE CASCADE;
 
 ALTER TABLE public.checklist_items DROP CONSTRAINT IF EXISTS checklist_items_org_match_doc;
+ALTER TABLE public.checklist_items DROP CONSTRAINT IF EXISTS checklist_items_document_id_fkey;
 ALTER TABLE public.checklist_items ADD CONSTRAINT checklist_items_document_id_fkey FOREIGN KEY (document_id) REFERENCES public.documents(id) ON DELETE SET NULL;
 
 ALTER TABLE public.case_events DROP CONSTRAINT IF EXISTS case_events_case_fk;
+ALTER TABLE public.case_events DROP CONSTRAINT IF EXISTS case_events_case_id_fkey;
 ALTER TABLE public.case_events ADD CONSTRAINT case_events_case_id_fkey FOREIGN KEY (case_id) REFERENCES public.cases(id) ON DELETE CASCADE;
 
 ALTER TABLE public.reports DROP CONSTRAINT IF EXISTS reports_case_fk;
+ALTER TABLE public.reports DROP CONSTRAINT IF EXISTS reports_case_id_fkey;
 ALTER TABLE public.reports ADD CONSTRAINT reports_case_id_fkey FOREIGN KEY (case_id) REFERENCES public.cases(id) ON DELETE CASCADE;
 
 -- Drop the UNIQUE composite keys added by 120000
