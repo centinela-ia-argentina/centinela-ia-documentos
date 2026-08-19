@@ -201,6 +201,7 @@ CREATE POLICY "agenda_delete_policy" ON public.agenda_plazos FOR DELETE USING (
 );
 
 -- 4.b AGENT_MESSAGES
+DROP POLICY IF EXISTS "agent_messages_org_all" ON public.agent_messages;
 DROP POLICY IF EXISTS "agent_messages_select_policy" ON public.agent_messages;
 DROP POLICY IF EXISTS "agent_messages_insert_policy" ON public.agent_messages;
 DROP POLICY IF EXISTS "agent_messages_delete_policy" ON public.agent_messages;

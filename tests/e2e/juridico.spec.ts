@@ -41,7 +41,9 @@ test.describe.serial('Centinela IA - Flujo Jurídico E2E Obligatorio', () => {
   test('02. roles y auditoría (verificaciones básicas de sesión)', async () => {
     // Current user is admin.legal@test.com
     await expect(page).toHaveURL(/\/dashboard/);
-    await expect(page.locator('h1')).toContainText('Bienvenido');
+    const dashboardTitle = page.locator('[data-testid="dashboard-title"]');
+    await expect(dashboardTitle).toBeVisible({ timeout: 15000 });
+    await expect(dashboardTitle).toContainText('Bienvenido');
     await page.goto('/usuarios');
     await expect(page.locator('h1')).toContainText('Usuarios'); // Admin has access
 

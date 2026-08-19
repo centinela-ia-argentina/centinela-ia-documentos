@@ -35,9 +35,10 @@ DROP POLICY IF EXISTS "agenda_update_policy" ON agenda_plazos;
 DROP POLICY IF EXISTS "agenda_delete_policy" ON agenda_plazos;
 CREATE POLICY "agenda_plazos_org_all" ON public.agenda_plazos FOR ALL USING (organization_id = public.current_user_organization_id());
 
-DROP POLICY IF EXISTS "agent_messages_select_policy" ON agent_messages;
-DROP POLICY IF EXISTS "agent_messages_insert_policy" ON agent_messages;
-DROP POLICY IF EXISTS "agent_messages_delete_policy" ON agent_messages;
+DROP POLICY IF EXISTS "agent_messages_select_policy" ON public.agent_messages;
+DROP POLICY IF EXISTS "agent_messages_insert_policy" ON public.agent_messages;
+DROP POLICY IF EXISTS "agent_messages_delete_policy" ON public.agent_messages;
+DROP POLICY IF EXISTS "agent_messages_org_all" ON public.agent_messages;
 CREATE POLICY "agent_messages_org_all" ON public.agent_messages FOR ALL USING (organization_id = public.current_user_organization_id());
 
 DROP POLICY IF EXISTS "ai_outputs_select_policy" ON ai_outputs;
