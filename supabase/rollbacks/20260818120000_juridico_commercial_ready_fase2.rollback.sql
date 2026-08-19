@@ -41,6 +41,12 @@ DROP POLICY IF EXISTS "ai_outputs_delete_policy" ON ai_outputs;
 DROP POLICY IF EXISTS "ai_outputs_insert_policy" ON ai_outputs;
 CREATE POLICY "ai_outputs_org_all" ON public.ai_outputs FOR ALL USING (organization_id = public.current_user_organization_id());
 
+DROP POLICY IF EXISTS "cases_select_policy" ON public.cases;
+DROP POLICY IF EXISTS "cases_insert_policy" ON public.cases;
+DROP POLICY IF EXISTS "cases_update_policy" ON public.cases;
+DROP POLICY IF EXISTS "cases_delete_policy" ON public.cases;
+CREATE POLICY "cases_org_all" ON public.cases FOR ALL USING (organization_id = public.current_user_organization_id());
+
 -- 3. Drop unique constraints and composite FKs, restore simple FKs
 -- Baseline: Simple foreign keys linking to id.
 -- Migración: Added composite (id, organization_id) UNIQUE constraints and replaced FKs with composite ones for cross-tenant integrity.

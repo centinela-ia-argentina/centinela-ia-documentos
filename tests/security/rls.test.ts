@@ -58,7 +58,12 @@ describe('Pruebas de Seguridad y RLS con JWT Reales y Restricciones', () => {
 
   it('1. Anon Client - Denegación total y RPC', async () => {
     const { data, error } = await anonClient.from('cases').select('*');
-    expect(data?.length).toBe(0);
+    if (error) {
+      expect(error).not.toBeNull();
+      expect(data).toBeNull();
+    } else {
+      expect(data).toHaveLength(0);
+    }
 
     // RPC con error de autorización o vacío, no firma inválida
     const { error: rpcErr, data: rpcData } = await anonClient.rpc('match_case_document_chunks', {
@@ -158,7 +163,11 @@ describe('Pruebas de Seguridad y RLS con JWT Reales y Restricciones', () => {
 
     // Admin A uploads
     await adminALegal.storage.from(bucket).remove([filePathA]); // prep
-    const { error: upA } = await adminALegal.storage.from(bucket).upload(filePathA, new Uint8Array([37, 80, 68, 70]));
+    const pdfBytes = new Uint8Array([37, 80, 68, 70]);
+    const { error: upA } = await adminALegal.storage.from(bucket).upload(filePathA, pdfBytes, {
+      contentType: 'application/pdf',
+      upsert: false,
+    });
     expect(upA).toBeNull();
 
     // Admin B tries to download
@@ -166,13 +175,21 @@ describe('Pruebas de Seguridad y RLS con JWT Reales y Restricciones', () => {
     expect(downB).not.toBeNull();
 
     // Admin B tries to delete
-    await adminBInm.storage.from(bucket).remove([filePathA]);
-    // Verificamos que no se eliminó
+    const { data: removeBData, error: removeBErr } = await adminBInm.storage.from(bucket).remove([filePathA]);
+    // Verificamos que no se eliminó (generalmente remove devuelve vacío sin error si no pudo borrar, o da error)
+    if (removeBErr) {
+      expect(removeBErr).not.toBeNull();
+    } else {
+      expect(removeBData).toHaveLength(0); // Supabase sometimes returns empty array for failed deletes due to RLS
+    }
+
     const { data: verifyA } = await serviceClient.storage.from(bucket).download(filePathA);
     expect(verifyA).not.toBeNull(); // fila no eliminada (objeto no eliminado)
 
     // Cleanup A
-    await serviceClient.storage.from(bucket).remove([filePathA]);
+    const { data: cleanupData, error: cleanupErr } = await serviceClient.storage.from(bucket).remove([filePathA]);
+    expect(cleanupErr).toBeNull();
+    expect(cleanupData?.length).toBeGreaterThan(0);
   });
 
   it('8. Agenda UPDATE / DELETE - Check RLS Select', async () => {

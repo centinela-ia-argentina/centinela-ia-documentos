@@ -237,6 +237,71 @@ CREATE POLICY "ai_outputs_delete_policy" ON public.ai_outputs FOR DELETE USING (
     organization_id = (SELECT organization_id FROM public.profiles WHERE id = auth.uid() AND status = 'active' AND role = 'admin')
 );
 
+-- 4.d CASES
+DROP POLICY IF EXISTS "cases_org_all" ON public.cases;
+DROP POLICY IF EXISTS "cases_select_policy" ON public.cases;
+DROP POLICY IF EXISTS "cases_insert_policy" ON public.cases;
+DROP POLICY IF EXISTS "cases_update_policy" ON public.cases;
+DROP POLICY IF EXISTS "cases_delete_policy" ON public.cases;
+
+CREATE POLICY "cases_select_policy" ON public.cases FOR SELECT USING (
+    EXISTS (
+        SELECT 1
+        FROM public.profiles p
+        WHERE p.id = auth.uid()
+          AND p.status = 'active'
+          AND p.organization_id = cases.organization_id
+          AND (
+              p.role IN ('admin', 'employee', 'auditor')
+              OR (
+                  p.role = 'client'
+                  AND cases.assigned_to = auth.uid()
+              )
+          )
+    )
+);
+
+CREATE POLICY "cases_insert_policy" ON public.cases FOR INSERT WITH CHECK (
+    EXISTS (
+        SELECT 1
+        FROM public.profiles p
+        WHERE p.id = auth.uid()
+          AND p.status = 'active'
+          AND p.role IN ('admin', 'employee')
+          AND p.organization_id = cases.organization_id
+    )
+);
+
+CREATE POLICY "cases_update_policy" ON public.cases FOR UPDATE USING (
+    EXISTS (
+        SELECT 1
+        FROM public.profiles p
+        WHERE p.id = auth.uid()
+          AND p.status = 'active'
+          AND p.role IN ('admin', 'employee')
+          AND p.organization_id = cases.organization_id
+    )
+) WITH CHECK (
+    EXISTS (
+        SELECT 1
+        FROM public.profiles p
+        WHERE p.id = auth.uid()
+          AND p.status = 'active'
+          AND p.role IN ('admin', 'employee')
+          AND p.organization_id = cases.organization_id
+    )
+);
+
+CREATE POLICY "cases_delete_policy" ON public.cases FOR DELETE USING (
+    EXISTS (
+        SELECT 1
+        FROM public.profiles p
+        WHERE p.id = auth.uid()
+          AND p.status = 'active'
+          AND p.role IN ('admin', 'employee')
+          AND p.organization_id = cases.organization_id
+    )
+);
 
 -- ------------------------------------------------------------------------------
 -- 5. STORAGE POLICIES

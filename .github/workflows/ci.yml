@@ -75,8 +75,6 @@ jobs:
           NODE_OPTIONS: '--require ./mock-ai.js'
         run: |
           npm run build
-          npm run start &
-          npx wait-on http://127.0.0.1:3000
           npm run test:e2e
       - uses: actions/upload-artifact@v4
         if: always()

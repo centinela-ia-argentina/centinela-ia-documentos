@@ -71,7 +71,7 @@ grep -v '^--' initial_schema.sql | grep -v '^[[:space:]]*$' > initial_schema_nor
 psql "$DB_URL" -c "SELECT id, name, public, file_size_limit, allowed_mime_types FROM storage.buckets ORDER BY id;" > initial_storage.txt
 psql "$DB_URL" -c "SELECT schemaname, tablename, policyname, roles, cmd, qual, with_check FROM pg_policies WHERE schemaname IN ('public', 'storage') ORDER BY schemaname, tablename, policyname;" > initial_policies.txt
 psql "$DB_URL" -c "SELECT grantee, table_schema, table_name, privilege_type FROM information_schema.role_table_grants WHERE table_schema IN ('public', 'storage') ORDER BY grantee, table_schema, table_name, privilege_type;" > initial_grants.txt
-psql "$DB_URL" -c "SELECT proname, pg_get_function_identity_arguments(oid) FROM pg_proc JOIN pg_namespace ON pg_proc.pronamespace = pg_namespace.oid WHERE nspname = 'public' ORDER BY proname;" > initial_functions.txt
+psql "$DB_URL" -c "SELECT p.proname, pg_get_function_identity_arguments(p.oid) FROM pg_catalog.pg_proc AS p JOIN pg_catalog.pg_namespace AS n ON p.pronamespace = n.oid WHERE n.nspname = 'public' ORDER BY p.proname, pg_get_function_identity_arguments(p.oid);" > initial_functions.txt
 
 echo "6. Restoring migrations directory..."
 trap_restore
@@ -117,7 +117,7 @@ grep -v '^--' final_schema.sql | grep -v '^[[:space:]]*$' > final_schema_normali
 psql "$DB_URL" -c "SELECT id, name, public, file_size_limit, allowed_mime_types FROM storage.buckets ORDER BY id;" > final_storage.txt
 psql "$DB_URL" -c "SELECT schemaname, tablename, policyname, roles, cmd, qual, with_check FROM pg_policies WHERE schemaname IN ('public', 'storage') ORDER BY schemaname, tablename, policyname;" > final_policies.txt
 psql "$DB_URL" -c "SELECT grantee, table_schema, table_name, privilege_type FROM information_schema.role_table_grants WHERE table_schema IN ('public', 'storage') ORDER BY grantee, table_schema, table_name, privilege_type;" > final_grants.txt
-psql "$DB_URL" -c "SELECT proname, pg_get_function_identity_arguments(oid) FROM pg_proc JOIN pg_namespace ON pg_proc.pronamespace = pg_namespace.oid WHERE nspname = 'public' ORDER BY proname;" > final_functions.txt
+psql "$DB_URL" -c "SELECT p.proname, pg_get_function_identity_arguments(p.oid) FROM pg_catalog.pg_proc AS p JOIN pg_catalog.pg_namespace AS n ON p.pronamespace = n.oid WHERE n.nspname = 'public' ORDER BY p.proname, pg_get_function_identity_arguments(p.oid);" > final_functions.txt
 
 echo "11. Comparing DUMPS..."
 ERRORS=0
