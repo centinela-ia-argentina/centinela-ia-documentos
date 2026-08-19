@@ -1,4 +1,8 @@
 -- 1. FIX COMPOSITE FK ON DELETE SET NULL (Postgres 15+ supports column list for SET NULL)
+ALTER TABLE public.cases ADD CONSTRAINT cases_id_org_key UNIQUE (id, organization_id);
+ALTER TABLE public.documents ADD CONSTRAINT docs_id_org_key UNIQUE (id, organization_id);
+ALTER TABLE public.properties ADD CONSTRAINT props_id_org_key UNIQUE (id, organization_id);
+
 ALTER TABLE public.cases DROP CONSTRAINT IF EXISTS cases_property_fk;
 ALTER TABLE public.cases ADD CONSTRAINT cases_property_fk
 FOREIGN KEY (property_id, organization_id) REFERENCES public.properties(id, organization_id) ON DELETE SET NULL (property_id);

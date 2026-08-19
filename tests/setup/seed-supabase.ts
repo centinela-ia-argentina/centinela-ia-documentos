@@ -19,6 +19,8 @@ const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
   }
 });
 
+const validateUuid = (uuid: string) => /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(uuid);
+
 export const SEED_DATA = {
   ORG_LEGAL_ID: '11111111-1111-1111-1111-111111111111',
   ORG_INM_ID: '22222222-2222-2222-2222-222222222222',
@@ -27,13 +29,18 @@ export const SEED_DATA = {
   AUDITOR_LEGAL_ID: 'ffff1111-1111-1111-1111-111111111111',
   CLIENT_ASSIGNED_ID: 'c1a11111-1111-1111-1111-111111111111',
   CLIENT_UNASSIGNED_ID: 'c1b11111-1111-1111-1111-111111111111',
-  INACTIVE_LEGAL_ID: 'iiii1111-1111-1111-1111-111111111111',
+  INACTIVE_LEGAL_ID: '44444444-4444-4444-4444-444444444444',
   ADMIN_INM_ID: 'bbbb2222-2222-2222-2222-222222222222',
   CASE_LEGAL_ID: 'cccc1111-1111-1111-1111-111111111111',
   CASE_INM_ID: 'dddd2222-2222-2222-2222-222222222222',
   DOC_LEGAL_ID: 'ddcc1111-1111-1111-1111-111111111111',
   CHUNK_ID: '33333333-3333-3333-3333-333333333333'
 };
+
+// Validar que todos sean UUID válidos
+for (const [k, v] of Object.entries(SEED_DATA)) {
+  if (!validateUuid(v)) throw new Error(`Invalid UUID in SEED_DATA for ${k}: ${v}`);
+}
 
 async function throwOnError(promise: any, entity: string) {
   const result = await promise;
@@ -93,7 +100,7 @@ export async function seedSupabase() {
 
     // 4. Cases
     await throwOnError(supabaseAdmin.from('cases').upsert([
-      { id: SEED_DATA.CASE_LEGAL_ID, organization_id: SEED_DATA.ORG_LEGAL_ID, title: 'Caso Legal 1', case_type: 'civil', status: 'active', created_by: SEED_DATA.ADMIN_LEGAL_ID, assigned_to: [SEED_DATA.CLIENT_ASSIGNED_ID] },
+      { id: SEED_DATA.CASE_LEGAL_ID, organization_id: SEED_DATA.ORG_LEGAL_ID, title: 'Caso Legal 1', case_type: 'civil', status: 'active', created_by: SEED_DATA.ADMIN_LEGAL_ID, assigned_to: SEED_DATA.CLIENT_ASSIGNED_ID },
       { id: SEED_DATA.CASE_INM_ID, organization_id: SEED_DATA.ORG_INM_ID, title: 'Propiedad 1', case_type: 'venta', status: 'active', created_by: SEED_DATA.ADMIN_INM_ID, assigned_to: null },
     ]), 'cases');
 

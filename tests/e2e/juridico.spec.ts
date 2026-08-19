@@ -1,5 +1,12 @@
 import { test, expect } from '@playwright/test';
 import { randomUUID } from 'crypto';
+import { createClient } from '@supabase/supabase-js';
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'http://127.0.0.1:54321';
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+const serviceClient = createClient(supabaseUrl, supabaseServiceKey, {
+  auth: { autoRefreshToken: false, persistSession: false },
+});
 
 test.describe.serial('Centinela IA - Flujo Jurídico E2E Obligatorio', () => {
   let caseUrl = '';
@@ -12,11 +19,14 @@ test.describe.serial('Centinela IA - Flujo Jurídico E2E Obligatorio', () => {
 
   // Playwright serial mode uses a new page per test by default, so we'll share one page context
   let page: any;
+  let context: any;
   test.beforeAll(async ({ browser }) => {
-    page = await browser.newPage();
+    context = await browser.newContext();
+    page = await context.newPage();
   });
   test.afterAll(async () => {
     await page.close();
+    await context.close();
   });
 
   test('01. login', async () => {
@@ -29,7 +39,31 @@ test.describe.serial('Centinela IA - Flujo Jurídico E2E Obligatorio', () => {
   });
 
   test('02. roles y auditoría (verificaciones básicas de sesión)', async () => {
+    // Current user is admin.legal@test.com
     await expect(page.locator('h1')).toContainText('Dashboard');
+    await page.goto('/usuarios');
+    await expect(page.locator('h1')).toContainText('Usuarios'); // Admin has access
+
+    // Log out
+    await page.goto('/logout');
+    await expect(page).toHaveURL(/\/login/);
+
+    // Log in as employee
+    await page.fill('[data-testid="login-email"]', 'emp.legal@test.com');
+    await page.fill('[data-testid="login-password"]', process.env.TEST_USER_PASSWORD || 'password123');
+    await page.click('[data-testid="login-submit"]');
+    await expect(page).toHaveURL(/\/dashboard/);
+
+    // Employee tries to access /usuarios
+    await page.goto('/usuarios');
+    await expect(page.locator('h1').or(page.locator('body'))).not.toContainText('Invitar usuario');
+
+    // Log out and log back in as admin for the rest of the suite
+    await page.goto('/logout');
+    await page.fill('[data-testid="login-email"]', process.env.TEST_USER_EMAIL || 'admin.legal@test.com');
+    await page.fill('[data-testid="login-password"]', process.env.TEST_USER_PASSWORD || 'password123');
+    await page.click('[data-testid="login-submit"]');
+    await expect(page).toHaveURL(/\/dashboard/);
   });
 
   test('03. expediente', async () => {
@@ -69,13 +103,29 @@ test.describe.serial('Centinela IA - Flujo Jurídico E2E Obligatorio', () => {
   test('05. invalid', async () => {
     await page.goto('/documentos/subir');
     await page.selectOption('[data-testid="upload-case"]', { value: caseId });
+
+    // We get initial counts
+    const { count: docsCountBefore } = await serviceClient.from('documents').select('*', { count: 'exact', head: true });
+    // And storage
+    const { data: storageBefore } = await serviceClient.storage.from('documents').list(`${process.env.TEST_ORG_ID || '11111111-1111-1111-1111-111111111111'}/${caseId}`);
+    const storageCountBefore = storageBefore?.length || 0;
+
+    // We send an invalid file format
     await page.setInputFiles('[data-testid="upload-file-input"]', [
       { name: 'invalido.txt', mimeType: 'text/plain', buffer: Buffer.from('No soy un PDF') }
     ]);
-    // The UI should prevent this locally, but we'll try to submit or it will show error
-    // If it filters by accept, we can't select it. Let's assume it bypasses or is caught.
-    // If caught by frontend, upload-submit is disabled or hidden.
-    // We'll skip deep invalid here and test server rejection with manipulation later.
+
+    // We submit
+    await page.click('[data-testid="upload-submit"]');
+    await expect(page.locator('[data-testid="upload-error-count"]')).toBeVisible({ timeout: 15000 });
+
+    // Verify 0 rows and 0 storage objects created
+    const { count: docsCountAfter } = await serviceClient.from('documents').select('*', { count: 'exact', head: true });
+    expect(docsCountAfter).toBe(docsCountBefore);
+
+    const { data: storageAfter } = await serviceClient.storage.from('documents').list(`${process.env.TEST_ORG_ID || '11111111-1111-1111-1111-111111111111'}/${caseId}`);
+    const storageCountAfter = storageAfter?.length || 0;
+    expect(storageCountAfter).toBe(storageCountBefore);
   });
 
   test('06. duplicate y partial failure', async () => {
@@ -96,9 +146,32 @@ test.describe.serial('Centinela IA - Flujo Jurídico E2E Obligatorio', () => {
   });
 
   test('07. retry', async () => {
-    // Tested implicitly if an error occurs, but we can't easily force network error here.
-    // We will ensure the retry button exists when an error is mocked or partial failure.
-    // We'll leave the block to satisfy the suite requirement.
+    // Force a failure by uploading a PDF that lacks magic bytes, but wait, retry is for transient errors or duplicate?
+    // Wait, the prompt says: "El test retry debe provocar un fallo controlado, pulsar retry y verificar success."
+    // We can do this by mocking the endpoint to fail once, or simulating a network issue using playwright route
+    await page.route('**/api/documents/upload*', async (route: any) => {
+      // Fail the first time
+      if (!route.request().url().includes('mocked')) {
+        await route.fulfill({ status: 500, body: 'Internal Server Error' });
+      } else {
+        await route.continue();
+      }
+    }, { times: 1 });
+
+    await page.goto('/documentos/subir');
+    await page.selectOption('[data-testid="upload-case"]', { value: caseId });
+    await page.setInputFiles('[data-testid="upload-file-input"]', [
+      { name: `retry.pdf`, mimeType: 'application/pdf', buffer: Buffer.from('%PDF-1.4 Retry Me') }
+    ]);
+    await page.click('[data-testid="upload-submit"]');
+
+    // Should fail and show error count
+    await expect(page.locator('[data-testid="upload-error-count"]')).toBeVisible({ timeout: 15000 });
+
+    // Un-route and mock URL to allow next to pass if needed, but 'times: 1' means it will only apply once!
+    // Now click retry
+    await page.click('button:has-text("Reintentar fallidos")'); // Adjust selector as needed, but standard is text
+    await expect(page.locator('[data-testid="upload-success-count"]')).toBeVisible({ timeout: 15000 });
   });
 
   test('08. request manipulado (magic bytes)', async () => {
@@ -199,8 +272,17 @@ test.describe.serial('Centinela IA - Flujo Jurídico E2E Obligatorio', () => {
   });
 
   test('15. cleanup', async () => {
-    // Delete the case to keep it clean
-    await page.goto(caseUrl);
-    // Cleanup steps
+    // Delete documents
+    await serviceClient.from('documents').delete().eq('case_id', caseId);
+    // Delete agenda items
+    await serviceClient.from('agenda_plazos').delete().eq('case_id', caseId);
+    // Delete case
+    await serviceClient.from('cases').delete().eq('id', caseId);
+
+    // Verify
+    const { count: docsCount } = await serviceClient.from('documents').select('*', { count: 'exact', head: true }).eq('case_id', caseId);
+    expect(docsCount).toBe(0);
+    const { count: casesCount } = await serviceClient.from('cases').select('*', { count: 'exact', head: true }).eq('id', caseId);
+    expect(casesCount).toBe(0);
   });
 });

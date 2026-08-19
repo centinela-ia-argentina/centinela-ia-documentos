@@ -83,6 +83,9 @@ export async function uploadDocument(formData: FormData) {
   }
 
   const buffer = Buffer.from(await file.arrayBuffer());
+  if (!validateFileContent(file.type, buffer)) {
+    redirect('/documentos/subir?error=invalid_file_content');
+  }
   const fileHash = crypto.createHash('sha256').update(buffer).digest('hex');
 
   let existingQuery = supabase
@@ -192,6 +195,24 @@ const MAGIC_BYTES: Record<string, string[]> = {
   'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['504b0304'],
 };
 
+export function validateFileContent(fileType: string, buffer: Buffer): boolean {
+  const hex = buffer.toString('hex', 0, 4).toLowerCase();
+  const expectedMagic = MAGIC_BYTES[fileType];
+  if (!expectedMagic || !expectedMagic.some(magic => hex.startsWith(magic))) {
+    return false;
+  }
+
+  // Para DOCX/XLSX, comprobar estructura ZIP adicionalmente
+  if (fileType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
+    return buffer.includes('[Content_Types].xml') && buffer.includes('word/');
+  }
+  if (fileType === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet') {
+    return buffer.includes('[Content_Types].xml') && buffer.includes('xl/');
+  }
+
+  return true;
+}
+
 export async function uploadSingleDocumentAsync(formData: FormData): Promise<UploadResult> {
   try {
     const { user, profile } = await getUserProfile();
@@ -215,10 +236,8 @@ export async function uploadSingleDocumentAsync(formData: FormData): Promise<Upl
 
     const buffer = Buffer.from(await file.arrayBuffer());
 
-    // Validate Magic Bytes
-    const hex = buffer.toString('hex', 0, 4).toLowerCase();
-    const expectedMagic = MAGIC_BYTES[file.type];
-    if (!expectedMagic || !expectedMagic.some(magic => hex.startsWith(magic))) {
+    // Validate Magic Bytes and Structure
+    if (!validateFileContent(file.type, buffer)) {
       return { status: 'error', error: 'invalid_file_content' };
     }
 
