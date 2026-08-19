@@ -42,28 +42,8 @@ jobs:
       - name: Install dependencies
         run: npm ci
       - uses: supabase/setup-cli@v1
-      - name: Start local Supabase
-        run: supabase start
-      - name: Apply Migrations
-        run: supabase db reset --local
-      - name: Extract Supabase Keys and Map Env Vars
-        run: |
-          supabase status -o env > /tmp/supabase.env
-          set -a
-          source /tmp/supabase.env
-          set +a
-
-          : "${API_URL:?Missing API_URL}"
-          : "${ANON_KEY:?Missing ANON_KEY}"
-          : "${SERVICE_ROLE_KEY:?Missing SERVICE_ROLE_KEY}"
-
-          {
-            echo "NEXT_PUBLIC_SUPABASE_URL=$API_URL"
-            echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=$ANON_KEY"
-            echo "SUPABASE_SERVICE_ROLE_KEY=$SERVICE_ROLE_KEY"
-          } >> "$GITHUB_ENV"
-      - name: Run Seed Script
-        run: npx tsx tests/setup/seed-supabase.ts
+      - name: Setup Supabase and Seed
+        run: bash scripts/ci-setup.sh
       - name: Run Security Tests
         env:
           ALLOW_DESTRUCTIVE_TESTS: true
@@ -83,26 +63,8 @@ jobs:
       - name: Install dependencies
         run: npm ci
       - uses: supabase/setup-cli@v1
-      - name: Start local Supabase
-        run: supabase start
-      - name: Apply Migrations
-        run: supabase db reset --local
-      - name: Extract Supabase Keys and Map Env Vars
-        run: |
-          supabase status -o env > /tmp/supabase.env
-          set -a
-          source /tmp/supabase.env
-          set +a
-
-          : "${API_URL:?Missing API_URL}"
-          : "${ANON_KEY:?Missing ANON_KEY}"
-          : "${SERVICE_ROLE_KEY:?Missing SERVICE_ROLE_KEY}"
-
-          {
-            echo "NEXT_PUBLIC_SUPABASE_URL=$API_URL"
-            echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=$ANON_KEY"
-            echo "SUPABASE_SERVICE_ROLE_KEY=$SERVICE_ROLE_KEY"
-          } >> "$GITHUB_ENV"
+      - name: Setup Supabase and Seed
+        run: bash scripts/ci-setup.sh
       - name: Install Playwright Browsers
         run: npx playwright install --with-deps
       - name: Start Next.js and Run E2E
@@ -115,7 +77,6 @@ jobs:
           npm run build
           npm run start &
           npx wait-on http://127.0.0.1:3000
-          npx tsx tests/setup/seed-supabase.ts
           npm run test:e2e
       - uses: actions/upload-artifact@v4
         if: always()
@@ -123,3 +84,6 @@ jobs:
           name: playwright-report
           path: playwright-report/
           retention-days: 30
+      - name: Stop Supabase
+        if: always()
+        run: supabase stop

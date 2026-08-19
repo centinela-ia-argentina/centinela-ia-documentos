@@ -15,22 +15,24 @@ REVOKE EXECUTE ON ALL ROUTINES IN SCHEMA public FROM authenticated;
 DO $$
 BEGIN
   IF to_regprocedure('public.match_case_document_chunks(uuid, vector, double precision, integer)') IS NULL THEN RAISE EXCEPTION 'Function match_case_document_chunks not found'; END IF;
-  IF to_regprocedure('public.registrar_escritura_atomica(jsonb)') IS NULL THEN RAISE EXCEPTION 'Function registrar_escritura_atomica not found'; END IF;
-  IF to_regprocedure('public.platform_create_organization_with_admin_invitation(text, text, text, text, text)') IS NULL THEN RAISE EXCEPTION 'Function platform_create_organization_with_admin_invitation not found'; END IF;
+  IF to_regprocedure('public.platform_create_organization_with_admin_invitation(text, text, uuid, uuid, timestamptz)') IS NULL THEN RAISE EXCEPTION 'Function platform_create_organization_with_admin_invitation not found'; END IF;
   IF to_regprocedure('public.current_user_organization_id()') IS NULL THEN RAISE EXCEPTION 'Function current_user_organization_id not found'; END IF;
   IF to_regprocedure('public.current_user_role()') IS NULL THEN RAISE EXCEPTION 'Function current_user_role not found'; END IF;
+  IF to_regprocedure('public.current_user_is_active()') IS NULL THEN RAISE EXCEPTION 'Function current_user_is_active not found'; END IF;
+  IF to_regprocedure('public.is_org_admin()') IS NULL THEN RAISE EXCEPTION 'Function is_org_admin not found'; END IF;
   IF to_regprocedure('public.set_updated_at()') IS NULL THEN RAISE EXCEPTION 'Function set_updated_at not found'; END IF;
   IF to_regprocedure('public.protect_profile_security_fields()') IS NULL THEN RAISE EXCEPTION 'Function protect_profile_security_fields not found'; END IF;
-  IF to_regprocedure('public.prevent_derivations_mutation()') IS NULL THEN RAISE EXCEPTION 'Function prevent_derivations_mutation not found'; END IF;
+  IF to_regprocedure('public.normalize_agenda_title(text)') IS NULL THEN RAISE EXCEPTION 'Function normalize_agenda_title not found'; END IF;
 END $$;
 
 GRANT EXECUTE ON FUNCTION public.match_case_document_chunks(uuid, vector, double precision, integer) TO authenticated, service_role;
-GRANT EXECUTE ON FUNCTION public.registrar_escritura_atomica(jsonb) TO authenticated, service_role;
-GRANT EXECUTE ON FUNCTION public.platform_create_organization_with_admin_invitation(text, text, text, text, text) TO service_role;
+GRANT EXECUTE ON FUNCTION public.platform_create_organization_with_admin_invitation(text, text, uuid, uuid, timestamptz) TO service_role;
 GRANT EXECUTE ON FUNCTION public.current_user_organization_id() TO authenticated, service_role;
 GRANT EXECUTE ON FUNCTION public.current_user_role() TO authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.current_user_is_active() TO authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.is_org_admin() TO authenticated, service_role;
 GRANT EXECUTE ON FUNCTION public.set_updated_at() TO authenticated, service_role;
 GRANT EXECUTE ON FUNCTION public.protect_profile_security_fields() TO authenticated, service_role;
-GRANT EXECUTE ON FUNCTION public.prevent_derivations_mutation() TO authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.normalize_agenda_title(text) TO authenticated, service_role;
 
 COMMIT;
