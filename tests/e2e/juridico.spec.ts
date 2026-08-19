@@ -146,32 +146,33 @@ test.describe.serial('Centinela IA - Flujo Jurídico E2E Obligatorio', () => {
   });
 
   test('07. retry', async () => {
-    // Force a failure by uploading a PDF that lacks magic bytes, but wait, retry is for transient errors or duplicate?
-    // Wait, the prompt says: "El test retry debe provocar un fallo controlado, pulsar retry y verificar success."
-    // We can do this by mocking the endpoint to fail once, or simulating a network issue using playwright route
-    await page.route('**/api/documents/upload*', async (route: any) => {
-      // Fail the first time
-      if (!route.request().url().includes('mocked')) {
-        await route.fulfill({ status: 500, body: 'Internal Server Error' });
-      } else {
-        await route.continue();
-      }
-    }, { times: 1 });
+    // Add cookie to trigger server-side mock failure
+    await context.addCookies([{ name: 'x-test-fail-upload', value: '1', domain: 'localhost', path: '/' }]);
 
     await page.goto('/documentos/subir');
     await page.selectOption('[data-testid="upload-case"]', { value: caseId });
     await page.setInputFiles('[data-testid="upload-file-input"]', [
       { name: `retry.pdf`, mimeType: 'application/pdf', buffer: Buffer.from('%PDF-1.4 Retry Me') }
     ]);
+
+    const { count: docsCountBefore } = await serviceClient.from('documents').select('*', { count: 'exact', head: true });
+
     await page.click('[data-testid="upload-submit"]');
 
     // Should fail and show error count
     await expect(page.locator('[data-testid="upload-error-count"]')).toBeVisible({ timeout: 15000 });
 
-    // Un-route and mock URL to allow next to pass if needed, but 'times: 1' means it will only apply once!
+    // Verify no row created yet
+    const { count: docsCountMiddle } = await serviceClient.from('documents').select('*', { count: 'exact', head: true });
+    expect(docsCountMiddle).toBe(docsCountBefore);
+
     // Now click retry
-    await page.click('button:has-text("Reintentar fallidos")'); // Adjust selector as needed, but standard is text
+    await page.click('button:has-text("Reintentar fallidos")');
     await expect(page.locator('[data-testid="upload-success-count"]')).toBeVisible({ timeout: 15000 });
+
+    // Verify 1 row created
+    const { count: docsCountAfter } = await serviceClient.from('documents').select('*', { count: 'exact', head: true });
+    expect(docsCountAfter).toBe((docsCountBefore || 0) + 1);
   });
 
   test('08. request manipulado (magic bytes)', async () => {
@@ -272,17 +273,36 @@ test.describe.serial('Centinela IA - Flujo Jurídico E2E Obligatorio', () => {
   });
 
   test('15. cleanup', async () => {
-    // Delete documents
+    // 1. Obtener file_paths de todos los documentos creados
+    const { data: docs } = await serviceClient.from('documents').select('id, file_path').eq('case_id', caseId);
+
+    // 2. Eliminar Storage Objects
+    if (docs && docs.length > 0) {
+      const paths = docs.map(d => d.file_path);
+      await serviceClient.storage.from('documents').remove(paths);
+
+      const docIds = docs.map(d => d.id);
+      // Eliminar dependencias
+      await serviceClient.from('document_chunks').delete().in('document_id', docIds);
+      await serviceClient.from('ai_outputs').delete().in('document_id', docIds);
+      await serviceClient.from('checklist_items').update({ document_id: null }).in('document_id', docIds);
+    }
+
+    // 3. Eliminar metadata
     await serviceClient.from('documents').delete().eq('case_id', caseId);
-    // Delete agenda items
     await serviceClient.from('agenda_plazos').delete().eq('case_id', caseId);
-    // Delete case
     await serviceClient.from('cases').delete().eq('id', caseId);
 
-    // Verify
+    // 4. Afirmar cero filas y cero storage
     const { count: docsCount } = await serviceClient.from('documents').select('*', { count: 'exact', head: true }).eq('case_id', caseId);
     expect(docsCount).toBe(0);
     const { count: casesCount } = await serviceClient.from('cases').select('*', { count: 'exact', head: true }).eq('id', caseId);
     expect(casesCount).toBe(0);
+    const { count: agendaCount } = await serviceClient.from('agenda_plazos').select('*', { count: 'exact', head: true }).eq('case_id', caseId);
+    expect(agendaCount).toBe(0);
+
+    const orgId = process.env.TEST_ORG_ID || '11111111-1111-1111-1111-111111111111';
+    const { data: storageAfter } = await serviceClient.storage.from('documents').list(`${orgId}/${caseId}`);
+    expect(storageAfter?.length || 0).toBe(0);
   });
 });

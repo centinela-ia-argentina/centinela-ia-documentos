@@ -40,9 +40,4 @@ DROP INDEX IF EXISTS agenda_plazos_unique_event_idx;
 -- User said: "Verificá expresamente que la migración principal no: - elimine la columna hora"
 -- In rollback, usually we drop new columns. But maybe we keep it to not lose data. I will leave it).
 
--- 5. Restore GRANTS
-GRANT ALL ON ALL TABLES IN SCHEMA public TO anon;
-GRANT TRUNCATE, TRIGGER, REFERENCES ON ALL TABLES IN SCHEMA public TO authenticated;
-GRANT EXECUTE ON FUNCTION platform_create_organization_with_admin_invitation TO public, anon, authenticated;
-
 COMMIT;

@@ -31,6 +31,14 @@ BEGIN
     SELECT COUNT(*) INTO bad_rows FROM public.ai_outputs ao JOIN public.cases c ON ao.case_id = c.id WHERE ao.organization_id != c.organization_id;
     IF bad_rows > 0 THEN RAISE EXCEPTION 'Preflight failed: % ai_outputs belong to cases from different organizations', bad_rows; END IF;
 
+    -- case_events -> cases
+    SELECT COUNT(*) INTO bad_rows FROM public.case_events ce JOIN public.cases c ON ce.case_id = c.id WHERE ce.organization_id != c.organization_id;
+    IF bad_rows > 0 THEN RAISE EXCEPTION 'Preflight failed: % case_events belong to cases from different organizations', bad_rows; END IF;
+
+    -- reports -> cases
+    SELECT COUNT(*) INTO bad_rows FROM public.reports r JOIN public.cases c ON r.case_id = c.id WHERE r.organization_id != c.organization_id;
+    IF bad_rows > 0 THEN RAISE EXCEPTION 'Preflight failed: % reports belong to cases from different organizations', bad_rows; END IF;
+
     -- ai_outputs -> documents
     SELECT COUNT(*) INTO bad_rows FROM public.ai_outputs ao JOIN public.documents d ON ao.document_id = d.id WHERE ao.organization_id != d.organization_id;
     IF bad_rows > 0 THEN RAISE EXCEPTION 'Preflight failed: % ai_outputs belong to documents from different organizations', bad_rows; END IF;
@@ -73,7 +81,7 @@ ALTER TABLE public.checklists ADD CONSTRAINT checklists_id_org_key UNIQUE (id, o
 -- Apply composite FKs. Use ON DELETE CASCADE ONLY when logically coupled lifecycle.
 ALTER TABLE public.cases DROP CONSTRAINT IF EXISTS cases_property_fk;
 ALTER TABLE public.cases ADD CONSTRAINT cases_property_fk
-FOREIGN KEY (property_id, organization_id) REFERENCES public.properties(id, organization_id) ON DELETE SET NULL;
+FOREIGN KEY (property_id, organization_id) REFERENCES public.properties(id, organization_id) ON DELETE SET NULL (property_id);
 
 ALTER TABLE public.documents DROP CONSTRAINT IF EXISTS doc_org_match_case;
 ALTER TABLE public.documents ADD CONSTRAINT doc_org_match_case
@@ -105,7 +113,15 @@ FOREIGN KEY (checklist_id, organization_id) REFERENCES public.checklists(id, org
 
 ALTER TABLE public.checklist_items DROP CONSTRAINT IF EXISTS checklist_items_org_match_doc;
 ALTER TABLE public.checklist_items ADD CONSTRAINT checklist_items_org_match_doc
-FOREIGN KEY (document_id, organization_id) REFERENCES public.documents(id, organization_id) ON DELETE SET NULL;
+FOREIGN KEY (document_id, organization_id) REFERENCES public.documents(id, organization_id) ON DELETE SET NULL (document_id);
+
+ALTER TABLE public.case_events DROP CONSTRAINT IF EXISTS case_events_case_fk;
+ALTER TABLE public.case_events ADD CONSTRAINT case_events_case_fk
+FOREIGN KEY (case_id, organization_id) REFERENCES public.cases(id, organization_id) ON DELETE CASCADE;
+
+ALTER TABLE public.reports DROP CONSTRAINT IF EXISTS reports_case_fk;
+ALTER TABLE public.reports ADD CONSTRAINT reports_case_fk
+FOREIGN KEY (case_id, organization_id) REFERENCES public.cases(id, organization_id) ON DELETE CASCADE;
 
 
 -- ------------------------------------------------------------------------------
