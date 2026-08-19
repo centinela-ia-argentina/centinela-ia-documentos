@@ -75,7 +75,34 @@ if [[ -n "${GITHUB_ENV:-}" ]]; then
   } >> "$GITHUB_ENV"
 fi
 
-echo "9. Running seed..."
+echo "9. Validating document_chunks schema before seed..."
+psql "$DB_URL" -v ON_ERROR_STOP=1 -c "
+SELECT column_name, data_type, is_nullable
+FROM information_schema.columns
+WHERE table_schema = 'public'
+  AND table_name = 'document_chunks'
+ORDER BY ordinal_position;
+"
+
+psql "$DB_URL" -v ON_ERROR_STOP=1 -c "
+DO \$\$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'document_chunks'
+      AND column_name = 'organization_id'
+  ) THEN
+    RAISE EXCEPTION 'document_chunks.organization_id is missing!';
+  END IF;
+END \$\$;
+"
+
+echo "10. Reloading PostgREST schema cache..."
+psql "$DB_URL" -v ON_ERROR_STOP=1 -c "NOTIFY pgrst, 'reload schema';"
+sleep 2 # deterministic minimal wait for schema reload
+
+echo "11. Running seed..."
 npx tsx tests/setup/seed-supabase.ts
 
 echo "CI Setup completed."

@@ -48,11 +48,24 @@ for value in "$API_URL" "$DB_URL"; do
   fi
 done
 
+echo "3.5 Resolving local database container for pg_dump..."
+DB_CONTAINER="$(docker ps --filter 'name=supabase_db_' --filter 'status=running' --format '{{.ID}}' | head -n 1)"
+
+if [[ -z "$DB_CONTAINER" ]]; then
+  echo "ERROR: Local Supabase database container not found. Cannot run pg_dump 17."
+  exit 1
+fi
+
+echo "PostgreSQL Server Version:"
+psql "$DB_URL" -t -c "SELECT version();" | xargs
+echo "pg_dump Version (inside container):"
+docker exec -i "$DB_CONTAINER" pg_dump --version
+
 echo "4. Applying BASELINE..."
 psql "$DB_URL" -v ON_ERROR_STOP=1 -f supabase/ci/baseline.sql
 
 echo "5. Generating INITIAL SNAPSHOTS..."
-pg_dump "$DB_URL" -s -n public > initial_schema.sql
+docker exec -i "$DB_CONTAINER" pg_dump -U postgres -d postgres -s -n public > initial_schema.sql
 grep -v '^--' initial_schema.sql | grep -v '^[[:space:]]*$' > initial_schema_normalized.sql
 
 psql "$DB_URL" -c "SELECT id, name, public, file_size_limit, allowed_mime_types FROM storage.buckets ORDER BY id;" > initial_storage.txt
@@ -98,7 +111,7 @@ if [ -d "supabase/rollbacks" ] && [ "$(ls -A supabase/rollbacks)" ]; then
 fi
 
 echo "10. Generating FINAL SNAPSHOTS..."
-pg_dump "$DB_URL" -s -n public > final_schema.sql
+docker exec -i "$DB_CONTAINER" pg_dump -U postgres -d postgres -s -n public > final_schema.sql
 grep -v '^--' final_schema.sql | grep -v '^[[:space:]]*$' > final_schema_normalized.sql
 
 psql "$DB_URL" -c "SELECT id, name, public, file_size_limit, allowed_mime_types FROM storage.buckets ORDER BY id;" > final_storage.txt
