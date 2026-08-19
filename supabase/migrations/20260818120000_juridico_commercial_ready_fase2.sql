@@ -320,6 +320,10 @@ VALUES (
   file_size_limit = 52428800,
   allowed_mime_types = ARRAY['application/pdf', 'image/jpeg', 'image/png', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'];
 
+DROP POLICY IF EXISTS "storage_select_policy" ON storage.objects;
+DROP POLICY IF EXISTS "storage_insert_policy" ON storage.objects;
+DROP POLICY IF EXISTS "storage_delete_policy" ON storage.objects;
+
 DROP POLICY IF EXISTS "documents_select" ON storage.objects;
 DROP POLICY IF EXISTS "documents_insert" ON storage.objects;
 DROP POLICY IF EXISTS "documents_update" ON storage.objects;

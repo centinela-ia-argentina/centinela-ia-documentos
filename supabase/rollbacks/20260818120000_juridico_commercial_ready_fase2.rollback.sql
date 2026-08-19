@@ -16,6 +16,10 @@ DROP POLICY IF EXISTS "documents_insert" ON storage.objects;
 DROP POLICY IF EXISTS "documents_update" ON storage.objects;
 DROP POLICY IF EXISTS "documents_delete" ON storage.objects;
 
+DROP POLICY IF EXISTS "storage_select_policy" ON storage.objects;
+DROP POLICY IF EXISTS "storage_insert_policy" ON storage.objects;
+DROP POLICY IF EXISTS "storage_delete_policy" ON storage.objects;
+
 CREATE POLICY "storage_select_policy" ON storage.objects FOR SELECT USING (bucket_id = 'documents' AND (auth.uid() IS NOT NULL));
 CREATE POLICY "storage_insert_policy" ON storage.objects FOR INSERT WITH CHECK (bucket_id = 'documents' AND (auth.uid() IS NOT NULL));
 CREATE POLICY "storage_delete_policy" ON storage.objects FOR DELETE USING (bucket_id = 'documents' AND (auth.uid() IS NOT NULL));
