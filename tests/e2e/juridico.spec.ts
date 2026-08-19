@@ -38,7 +38,7 @@ test.describe.serial('Centinela IA - Flujo Jurídico E2E Obligatorio', () => {
     await expect(page).toHaveURL(/\/dashboard/);
   });
 
-  test('02. roles y auditoría (verificaciones básicas de sesión)', async () => {
+  test('02. roles y auditoría (verificaciones básicas de sesión)', async ({ browser }) => {
     // Current user is admin.legal@test.com
     await expect(page).toHaveURL(/\/dashboard/);
     const dashboardTitle = page.locator('[data-testid="dashboard-title"]');
@@ -50,26 +50,47 @@ test.describe.serial('Centinela IA - Flujo Jurídico E2E Obligatorio', () => {
     await expect(usersPageTitle).toBeVisible({ timeout: 15000 });
     await expect(usersPageTitle).toContainText('Control de usuarios y accesos');
 
-    // Log out
-    await page.goto('/logout');
-    await expect(page).toHaveURL(/\/login/);
+    // Create a temporary isolated context for employee
+    const employeeContext = await browser.newContext();
+    const employeePage = await employeeContext.newPage();
 
-    // Log in as employee
-    await page.fill('[data-testid="login-email"]', 'emp.legal@test.com');
-    await page.fill('[data-testid="login-password"]', process.env.TEST_USER_PASSWORD || 'password123');
-    await page.click('[data-testid="login-submit"]');
-    await expect(page).toHaveURL(/\/dashboard/);
+    try {
+      await employeePage.goto('/login');
 
-    // Employee tries to access /usuarios
-    await page.goto('/usuarios');
-    await expect(page).toHaveURL(/\/acceso-denegado/);
+      await employeePage.fill(
+        '[data-testid="login-email"]',
+        'emp.legal@test.com'
+      );
 
-    // Log out and log back in as admin for the rest of the suite
-    await page.goto('/logout');
-    await page.fill('[data-testid="login-email"]', process.env.TEST_USER_EMAIL || 'admin.legal@test.com');
-    await page.fill('[data-testid="login-password"]', process.env.TEST_USER_PASSWORD || 'password123');
-    await page.click('[data-testid="login-submit"]');
-    await expect(page).toHaveURL(/\/dashboard/);
+      await employeePage.fill(
+        '[data-testid="login-password"]',
+        process.env.TEST_USER_PASSWORD || 'password123'
+      );
+
+      await employeePage.click(
+        '[data-testid="login-submit"]'
+      );
+
+      await expect(employeePage).toHaveURL(
+        /\/dashboard/
+      );
+
+      const employeeDashboardTitle = employeePage.locator(
+        '[data-testid="dashboard-title"]'
+      );
+
+      await expect(employeeDashboardTitle).toBeVisible({
+        timeout: 15000,
+      });
+
+      await employeePage.goto('/usuarios');
+
+      await expect(employeePage).toHaveURL(
+        /\/acceso-denegado(?:\?motivo=rol)?/
+      );
+    } finally {
+      await employeeContext.close();
+    }
   });
 
   test('03. expediente', async () => {

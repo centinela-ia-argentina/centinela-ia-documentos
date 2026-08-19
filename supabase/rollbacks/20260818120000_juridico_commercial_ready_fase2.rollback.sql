@@ -112,5 +112,6 @@ ALTER TABLE public.checklists DROP CONSTRAINT IF EXISTS checklists_id_org_key;
 -- Rollback: drop index.
 -- Motivo: restore baseline indexes.
 DROP INDEX IF EXISTS agenda_plazos_unique_event_idx;
+DROP FUNCTION IF EXISTS public.normalize_agenda_title(text);
 
 COMMIT;
