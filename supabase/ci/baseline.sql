@@ -7,76 +7,7 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 CREATE EXTENSION IF NOT EXISTS "vector" WITH SCHEMA public;
 
--- 2. CONTEXT FUNCTIONS (Required for RLS before policies)
-CREATE OR REPLACE FUNCTION public.current_user_organization_id()
-RETURNS uuid
-LANGUAGE sql SECURITY DEFINER SET search_path = public
-AS $$
-  SELECT organization_id FROM public.profiles WHERE id = auth.uid();
-$$;
 
-CREATE OR REPLACE FUNCTION public.current_user_role()
-RETURNS text
-LANGUAGE sql SECURITY DEFINER SET search_path = public
-AS $$
-  SELECT role FROM public.profiles WHERE id = auth.uid();
-$$;
-
-CREATE OR REPLACE FUNCTION public.current_user_is_active()
-RETURNS boolean
-LANGUAGE sql SECURITY DEFINER SET search_path = public
-AS $$
-  SELECT status = 'active' FROM public.profiles WHERE id = auth.uid();
-$$;
-
-CREATE OR REPLACE FUNCTION public.is_org_admin()
-RETURNS boolean
-LANGUAGE sql SECURITY DEFINER SET search_path = public
-AS $$
-  SELECT role = 'admin' FROM public.profiles WHERE id = auth.uid();
-$$;
-
-CREATE OR REPLACE FUNCTION public.set_updated_at()
-RETURNS trigger
-LANGUAGE plpgsql
-AS $$
-BEGIN
-  NEW.updated_at = now();
-  RETURN NEW;
-END;
-$$;
-
-CREATE OR REPLACE FUNCTION public.protect_profile_security_fields()
-RETURNS trigger
-LANGUAGE plpgsql
-SECURITY DEFINER SET search_path = public
-AS $$
-BEGIN
-  IF auth.role() = 'service_role' THEN
-    RETURN NEW;
-  END IF;
-
-  IF NEW.organization_id IS DISTINCT FROM OLD.organization_id THEN
-    RAISE EXCEPTION 'organization_id no puede modificarse';
-  END IF;
-
-  IF NEW.role IS DISTINCT FROM OLD.role THEN
-    IF OLD.id = auth.uid() THEN
-      RAISE EXCEPTION 'Un usuario no puede modificar su propio rol';
-    END IF;
-
-    IF NOT public.is_org_admin() THEN
-      RAISE EXCEPTION 'Solo un administrador puede modificar roles';
-    END IF;
-
-    IF NEW.role = 'admin' THEN
-      RAISE EXCEPTION 'Solo el dueno de plataforma puede crear Administradores';
-    END IF;
-  END IF;
-
-  RETURN NEW;
-END;
-$$;
 
 -- 3. TABLES & COLUMNS
 CREATE TABLE public.organizations (
@@ -299,6 +230,77 @@ CREATE TABLE public.user_invitations (
     created_at timestamptz NOT NULL DEFAULT now(),
     updated_at timestamptz NOT NULL DEFAULT now()
 );
+
+-- 3.5 CONTEXT FUNCTIONS (Required for RLS before policies)
+CREATE OR REPLACE FUNCTION public.current_user_organization_id()
+RETURNS uuid
+LANGUAGE sql SECURITY DEFINER SET search_path = public
+AS $$
+  SELECT organization_id FROM public.profiles WHERE id = auth.uid();
+$$;
+
+CREATE OR REPLACE FUNCTION public.current_user_role()
+RETURNS text
+LANGUAGE sql SECURITY DEFINER SET search_path = public
+AS $$
+  SELECT role FROM public.profiles WHERE id = auth.uid();
+$$;
+
+CREATE OR REPLACE FUNCTION public.current_user_is_active()
+RETURNS boolean
+LANGUAGE sql SECURITY DEFINER SET search_path = public
+AS $$
+  SELECT status = 'active' FROM public.profiles WHERE id = auth.uid();
+$$;
+
+CREATE OR REPLACE FUNCTION public.is_org_admin()
+RETURNS boolean
+LANGUAGE sql SECURITY DEFINER SET search_path = public
+AS $$
+  SELECT role = 'admin' FROM public.profiles WHERE id = auth.uid();
+$$;
+
+CREATE OR REPLACE FUNCTION public.set_updated_at()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  NEW.updated_at = now();
+  RETURN NEW;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION public.protect_profile_security_fields()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER SET search_path = public
+AS $$
+BEGIN
+  IF auth.role() = 'service_role' THEN
+    RETURN NEW;
+  END IF;
+
+  IF NEW.organization_id IS DISTINCT FROM OLD.organization_id THEN
+    RAISE EXCEPTION 'organization_id no puede modificarse';
+  END IF;
+
+  IF NEW.role IS DISTINCT FROM OLD.role THEN
+    IF OLD.id = auth.uid() THEN
+      RAISE EXCEPTION 'Un usuario no puede modificar su propio rol';
+    END IF;
+
+    IF NOT public.is_org_admin() THEN
+      RAISE EXCEPTION 'Solo un administrador puede modificar roles';
+    END IF;
+
+    IF NEW.role = 'admin' THEN
+      RAISE EXCEPTION 'Solo el dueno de plataforma puede crear Administradores';
+    END IF;
+  END IF;
+
+  RETURN NEW;
+END;
+$$;
 
 CREATE OR REPLACE FUNCTION public.platform_create_organization_with_admin_invitation(
   organization_name text,

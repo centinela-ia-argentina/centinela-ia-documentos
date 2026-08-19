@@ -87,3 +87,32 @@ jobs:
       - name: Stop Supabase
         if: always()
         run: supabase stop
+
+  migration-tests:
+    name: Migration & Rollback Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+      - name: Install dependencies
+        run: npm ci
+      - uses: supabase/setup-cli@v1
+      - name: Run Migration and Rollback Script
+        run: bash scripts/test-migrations.sh
+      - name: Upload Migration Snapshots
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: migration-rollback-report
+          path: |
+            initial_*.sql
+            initial_*.txt
+            final_*.sql
+            final_*.txt
+            *_diff.txt
+          retention-days: 30
+      - name: Stop Supabase
+        if: always()
+        run: supabase stop

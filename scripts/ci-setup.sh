@@ -27,22 +27,34 @@ echo "3. Starting Supabase without migrations..."
 npx supabase start
 
 echo "4. Obtaining local credentials..."
-# Extract configuration via supabase status
-STATUS=$(npx supabase status -o env)
+SUPABASE_ENV_FILE="$(mktemp)"
+npx supabase status -o env > "$SUPABASE_ENV_FILE"
 
-export NEXT_PUBLIC_SUPABASE_URL=$(echo "$STATUS" | grep "API_URL=" | cut -d'=' -f2)
-export NEXT_PUBLIC_SUPABASE_ANON_KEY=$(echo "$STATUS" | grep "ANON_KEY=" | cut -d'=' -f2)
-export SUPABASE_SERVICE_ROLE_KEY=$(echo "$STATUS" | grep "SERVICE_ROLE_KEY=" | cut -d'=' -f2)
-DB_URL=$(echo "$STATUS" | grep "DB_URL=" | cut -d'=' -f2)
+set -a
+source "$SUPABASE_ENV_FILE"
+set +a
 
-if [[ -z "$NEXT_PUBLIC_SUPABASE_URL" || "$NEXT_PUBLIC_SUPABASE_URL" == *"supabase.co"* ]]; then
-  echo "Error: Invalid NEXT_PUBLIC_SUPABASE_URL."
-  exit 1
-fi
-if [[ -z "$DB_URL" || "$DB_URL" == *"supabase.co"* ]]; then
-  echo "Error: Invalid DB_URL."
-  exit 1
-fi
+rm -f "$SUPABASE_ENV_FILE"
+
+export NEXT_PUBLIC_SUPABASE_URL="$API_URL"
+export NEXT_PUBLIC_SUPABASE_ANON_KEY="$ANON_KEY"
+export SUPABASE_SERVICE_ROLE_KEY="$SERVICE_ROLE_KEY"
+
+: "${API_URL:?Missing API_URL}"
+: "${DB_URL:?Missing DB_URL}"
+: "${ANON_KEY:?Missing ANON_KEY}"
+: "${SERVICE_ROLE_KEY:?Missing SERVICE_ROLE_KEY}"
+
+for value in "$API_URL" "$DB_URL"; do
+  if [[ "$value" == *"supabase.co"* ]]; then
+    echo "ERROR: Remote Supabase endpoint detected in $value"
+    exit 1
+  fi
+  if [[ "$value" != *"127.0.0.1"* && "$value" != *"localhost"* ]]; then
+    echo "ERROR: Connection URL does not point to loopback/local: $value"
+    exit 1
+  fi
+done
 
 echo "5. Loading baseline..."
 psql "$DB_URL" -v ON_ERROR_STOP=1 -f supabase/ci/baseline.sql
@@ -56,9 +68,11 @@ npx supabase migration up
 
 echo "8. Exporting variables to GitHub Actions..."
 if [[ -n "${GITHUB_ENV:-}" ]]; then
-  echo "NEXT_PUBLIC_SUPABASE_URL=$NEXT_PUBLIC_SUPABASE_URL" >> $GITHUB_ENV
-  echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=$NEXT_PUBLIC_SUPABASE_ANON_KEY" >> $GITHUB_ENV
-  echo "SUPABASE_SERVICE_ROLE_KEY=$SUPABASE_SERVICE_ROLE_KEY" >> $GITHUB_ENV
+  {
+    echo "NEXT_PUBLIC_SUPABASE_URL=$NEXT_PUBLIC_SUPABASE_URL"
+    echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=$NEXT_PUBLIC_SUPABASE_ANON_KEY"
+    echo "SUPABASE_SERVICE_ROLE_KEY=$SUPABASE_SERVICE_ROLE_KEY"
+  } >> "$GITHUB_ENV"
 fi
 
 echo "9. Running seed..."

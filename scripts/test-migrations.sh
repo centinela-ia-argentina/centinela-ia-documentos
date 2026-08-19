@@ -25,47 +25,124 @@ echo "2. Starting clean instance..."
 npx supabase stop || true
 npx supabase start
 
-STATUS=$(npx supabase status -o env)
-DB_URL=$(echo "$STATUS" | grep "DB_URL=" | cut -d'=' -f2)
+echo "3. Obtaining local credentials securely..."
+SUPABASE_ENV_FILE="$(mktemp)"
+npx supabase status -o env > "$SUPABASE_ENV_FILE"
 
-if [[ -z "$DB_URL" || "$DB_URL" == *"supabase.co"* ]]; then
-  echo "Error: Must run against a local instance."
-  exit 1
-fi
+set -a
+source "$SUPABASE_ENV_FILE"
+set +a
+rm -f "$SUPABASE_ENV_FILE"
 
-echo "3. Applying BASELINE..."
+: "${API_URL:?Missing API_URL}"
+: "${DB_URL:?Missing DB_URL}"
+
+for value in "$API_URL" "$DB_URL"; do
+  if [[ "$value" == *"supabase.co"* ]]; then
+    echo "ERROR: Remote Supabase endpoint detected in $value"
+    exit 1
+  fi
+  if [[ "$value" != *"127.0.0.1"* && "$value" != *"localhost"* ]]; then
+    echo "ERROR: Connection URL does not point to loopback/local: $value"
+    exit 1
+  fi
+done
+
+echo "4. Applying BASELINE..."
 psql "$DB_URL" -v ON_ERROR_STOP=1 -f supabase/ci/baseline.sql
 
-echo "4. Generating INITIAL DUMP..."
+echo "5. Generating INITIAL SNAPSHOTS..."
 pg_dump "$DB_URL" -s -n public > initial_schema.sql
 grep -v '^--' initial_schema.sql | grep -v '^[[:space:]]*$' > initial_schema_normalized.sql
 
-echo "5. Restoring migrations directory..."
+psql "$DB_URL" -c "SELECT id, name, public, file_size_limit, allowed_mime_types FROM storage.buckets ORDER BY id;" > initial_storage.txt
+psql "$DB_URL" -c "SELECT schemaname, tablename, policyname, roles, cmd, qual, with_check FROM pg_policies WHERE schemaname IN ('public', 'storage') ORDER BY schemaname, tablename, policyname;" > initial_policies.txt
+psql "$DB_URL" -c "SELECT grantee, table_schema, table_name, privilege_type FROM information_schema.role_table_grants WHERE table_schema IN ('public', 'storage') ORDER BY grantee, table_schema, table_name, privilege_type;" > initial_grants.txt
+psql "$DB_URL" -c "SELECT proname, pg_get_function_identity_arguments(oid) FROM pg_proc JOIN pg_namespace ON pg_proc.pronamespace = pg_namespace.oid WHERE nspname = 'public' ORDER BY proname;" > initial_functions.txt
+
+echo "6. Restoring migrations directory..."
 trap_restore
 trap - EXIT
 
-echo "6. Applying migrations UP..."
-npx supabase migration up
+echo "7. Verifying Rollbacks exist for Migrations..."
+MIGRATION_COUNT=0
+if [ -d "supabase/migrations" ] && [ "$(ls -A supabase/migrations)" ]; then
+  for migration in supabase/migrations/*.sql; do
+    basename=$(basename "$migration" .sql)
+    if [ ! -f "supabase/rollbacks/${basename}.rollback.sql" ]; then
+      echo "ERROR: Missing rollback for migration ${basename}. Reversibility must be guaranteed."
+      exit 1
+    fi
+    MIGRATION_COUNT=$((MIGRATION_COUNT + 1))
+  done
+fi
 
-echo "7. Applying rollbacks REVERSE ORDER..."
-ROLLBACKS=$(ls supabase/rollbacks/*.rollback.sql | sort -r)
+echo "8. Applying migrations UP (Local)..."
+npx supabase migration up --local
 
-for rollback in $ROLLBACKS; do
-  echo "Rolling back $rollback ..."
-  psql "$DB_URL" -v ON_ERROR_STOP=1 -f "$rollback"
-done
+echo "8.b Verifying migrations applied..."
+APPLIED_COUNT=$(psql "$DB_URL" -t -c "SELECT count(*) FROM supabase_migrations.schema_migrations;" | tr -d ' ')
+if [ "$APPLIED_COUNT" -lt "$MIGRATION_COUNT" ]; then
+  echo "ERROR: Expected $MIGRATION_COUNT migrations applied, but found $APPLIED_COUNT"
+  exit 1
+fi
+echo "SUCCESS: All $MIGRATION_COUNT migrations applied."
 
-echo "8. Generating FINAL DUMP..."
+echo "9. Applying rollbacks REVERSE ORDER..."
+if [ -d "supabase/rollbacks" ] && [ "$(ls -A supabase/rollbacks)" ]; then
+  ROLLBACKS=$(ls supabase/rollbacks/*.rollback.sql | sort -r)
+  for rollback in $ROLLBACKS; do
+    echo "Rolling back $rollback ..."
+    psql "$DB_URL" -v ON_ERROR_STOP=1 -f "$rollback"
+  done
+fi
+
+echo "10. Generating FINAL SNAPSHOTS..."
 pg_dump "$DB_URL" -s -n public > final_schema.sql
 grep -v '^--' final_schema.sql | grep -v '^[[:space:]]*$' > final_schema_normalized.sql
 
-echo "9. Comparing DUMPS..."
-if diff -u initial_schema_normalized.sql final_schema_normalized.sql > schema_diff.txt; then
-  echo "SUCCESS: Rollback perfectly restored the baseline."
-  rm initial_schema.sql initial_schema_normalized.sql final_schema.sql final_schema_normalized.sql schema_diff.txt
-  exit 0
-else
+psql "$DB_URL" -c "SELECT id, name, public, file_size_limit, allowed_mime_types FROM storage.buckets ORDER BY id;" > final_storage.txt
+psql "$DB_URL" -c "SELECT schemaname, tablename, policyname, roles, cmd, qual, with_check FROM pg_policies WHERE schemaname IN ('public', 'storage') ORDER BY schemaname, tablename, policyname;" > final_policies.txt
+psql "$DB_URL" -c "SELECT grantee, table_schema, table_name, privilege_type FROM information_schema.role_table_grants WHERE table_schema IN ('public', 'storage') ORDER BY grantee, table_schema, table_name, privilege_type;" > final_grants.txt
+psql "$DB_URL" -c "SELECT proname, pg_get_function_identity_arguments(oid) FROM pg_proc JOIN pg_namespace ON pg_proc.pronamespace = pg_namespace.oid WHERE nspname = 'public' ORDER BY proname;" > final_functions.txt
+
+echo "11. Comparing DUMPS..."
+ERRORS=0
+
+if ! diff -u initial_schema_normalized.sql final_schema_normalized.sql > schema_diff.txt; then
   echo "ERROR: Schema differs after rollbacks!"
   cat schema_diff.txt
+  ERRORS=1
+fi
+
+if ! diff -u initial_storage.txt final_storage.txt > storage_diff.txt; then
+  echo "ERROR: Storage differs after rollbacks!"
+  cat storage_diff.txt
+  ERRORS=1
+fi
+
+if ! diff -u initial_policies.txt final_policies.txt > policies_diff.txt; then
+  echo "ERROR: Policies differ after rollbacks!"
+  cat policies_diff.txt
+  ERRORS=1
+fi
+
+if ! diff -u initial_grants.txt final_grants.txt > grants_diff.txt; then
+  echo "ERROR: Grants differ after rollbacks!"
+  cat grants_diff.txt
+  ERRORS=1
+fi
+
+if ! diff -u initial_functions.txt final_functions.txt > functions_diff.txt; then
+  echo "ERROR: Functions differ after rollbacks!"
+  cat functions_diff.txt
+  ERRORS=1
+fi
+
+if [ "$ERRORS" -eq 1 ]; then
+  echo "FAILURE: Instance state was not completely restored."
   exit 1
+else
+  echo "SUCCESS: Rollbacks perfectly restored the baseline."
+  exit 0
 fi
