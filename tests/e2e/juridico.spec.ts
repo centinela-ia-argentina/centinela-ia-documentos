@@ -206,8 +206,11 @@ test.describe.serial('Centinela IA - Flujo Jurídico E2E Obligatorio', () => {
   });
 
   test('07. retry', async () => {
-    // Add cookie to trigger server-side mock failure
-    await context.addCookies([{ name: 'x-test-fail-upload', value: '1', domain: '127.0.0.1', path: '/' }]);
+    // Add cookie to trigger server-side mock failure (compatible con 127.0.0.1 y localhost)
+    await context.addCookies([
+      { name: 'x-test-fail-upload', value: '1', domain: '127.0.0.1', path: '/' },
+      { name: 'x-test-fail-upload', value: '1', domain: 'localhost', path: '/' }
+    ]);
 
     await page.goto('/documentos/subir');
     await page.selectOption('[data-testid="upload-case"]', { value: caseId });
