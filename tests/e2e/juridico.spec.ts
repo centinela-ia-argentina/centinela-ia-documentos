@@ -207,7 +207,7 @@ test.describe.serial('Centinela IA - Flujo Jurídico E2E Obligatorio', () => {
 
   test('07. retry', async () => {
     // Add cookie to trigger server-side mock failure
-    await context.addCookies([{ name: 'x-test-fail-upload', value: '1', domain: 'localhost', path: '/' }]);
+    await context.addCookies([{ name: 'x-test-fail-upload', value: '1', domain: '127.0.0.1', path: '/' }]);
 
     await page.goto('/documentos/subir');
     await page.selectOption('[data-testid="upload-case"]', { value: caseId });
@@ -227,7 +227,7 @@ test.describe.serial('Centinela IA - Flujo Jurídico E2E Obligatorio', () => {
     expect(docsCountMiddle).toBe(docsCountBefore);
 
     // Now click retry
-    await page.click('button:has-text("Reintentar fallidos")');
+    await page.click('button:has-text("Reintentar")');
     await expect(page.locator('[data-testid="upload-success-count"]')).toBeVisible({ timeout: 15000 });
 
     // Verify 1 row created
