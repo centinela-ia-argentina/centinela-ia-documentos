@@ -98,7 +98,10 @@ test.describe.serial('Centinela IA - Flujo Jurídico E2E Obligatorio', () => {
     const caseTitle = `Expediente E2E ${Date.now()}`;
     await page.fill('[data-testid="case-title"]', caseTitle);
     await page.fill('[data-testid="case-client"]', 'Cliente E2E');
-    await page.selectOption('[data-testid="case-type"]', 'sucesion');
+    const caseTypeSelect = page.locator('[data-testid="case-type"]');
+    await expect(caseTypeSelect).toBeVisible({ timeout: 15000 });
+    await caseTypeSelect.selectOption({ label: 'Sucesión' });
+    await expect(caseTypeSelect).toHaveValue('Sucesión');
     await page.click('[data-testid="case-submit"]');
 
     await expect(page).toHaveURL(/\/expedientes\/.+/);

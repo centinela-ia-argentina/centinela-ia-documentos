@@ -114,4 +114,16 @@ ALTER TABLE public.checklists DROP CONSTRAINT IF EXISTS checklists_id_org_key;
 DROP INDEX IF EXISTS agenda_plazos_unique_event_idx;
 DROP FUNCTION IF EXISTS public.normalize_agenda_title(text);
 
+REVOKE EXECUTE ON ALL ROUTINES IN SCHEMA public FROM PUBLIC;
+REVOKE EXECUTE ON ALL ROUTINES IN SCHEMA public FROM anon;
+REVOKE EXECUTE ON ALL ROUTINES IN SCHEMA public FROM authenticated;
+
+GRANT EXECUTE ON FUNCTION public.current_user_organization_id() TO authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.current_user_role() TO authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.current_user_is_active() TO authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.is_org_admin() TO authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.set_updated_at() TO authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.protect_profile_security_fields() TO authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.platform_create_organization_with_admin_invitation(text, text, uuid, uuid, timestamptz) TO service_role;
+
 COMMIT;

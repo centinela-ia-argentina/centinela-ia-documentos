@@ -66,7 +66,7 @@ psql "$DB_URL" -v ON_ERROR_STOP=1 -f supabase/ci/baseline.sql
 
 echo "5. Generating INITIAL SNAPSHOTS..."
 docker exec -i "$DB_CONTAINER" pg_dump -U postgres -d postgres -s -n public > initial_schema.sql
-grep -v '^--' initial_schema.sql | grep -v '^[[:space:]]*$' > initial_schema_normalized.sql
+grep -v '^--' initial_schema.sql | grep -Ev '^\\(un)?restrict[[:space:]]' | grep -v '^[[:space:]]*$' > initial_schema_normalized.sql
 
 psql "$DB_URL" -c "SELECT id, name, public, file_size_limit, allowed_mime_types FROM storage.buckets ORDER BY id;" > initial_storage.txt
 psql "$DB_URL" -c "SELECT schemaname, tablename, policyname, roles, cmd, qual, with_check FROM pg_policies WHERE schemaname IN ('public', 'storage') ORDER BY schemaname, tablename, policyname;" > initial_policies.txt
@@ -112,7 +112,7 @@ fi
 
 echo "10. Generating FINAL SNAPSHOTS..."
 docker exec -i "$DB_CONTAINER" pg_dump -U postgres -d postgres -s -n public > final_schema.sql
-grep -v '^--' final_schema.sql | grep -v '^[[:space:]]*$' > final_schema_normalized.sql
+grep -v '^--' final_schema.sql | grep -Ev '^\\(un)?restrict[[:space:]]' | grep -v '^[[:space:]]*$' > final_schema_normalized.sql
 
 psql "$DB_URL" -c "SELECT id, name, public, file_size_limit, allowed_mime_types FROM storage.buckets ORDER BY id;" > final_storage.txt
 psql "$DB_URL" -c "SELECT schemaname, tablename, policyname, roles, cmd, qual, with_check FROM pg_policies WHERE schemaname IN ('public', 'storage') ORDER BY schemaname, tablename, policyname;" > final_policies.txt
