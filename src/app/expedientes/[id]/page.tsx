@@ -256,7 +256,8 @@ export default async function CaseDetailPage({ params, searchParams }: CaseDetai
       .select('id, checklist_id, title, status, document_id, notes, created_at, documents(id, file_name)')
       .eq('checklist_id', caseChecklist.id)
       .eq('organization_id', profile.organization_id)
-      .order('created_at', { ascending: true });
+      .order('created_at', { ascending: true })
+      .order('id', { ascending: true });
 
     if (error) {
       console.error('Error fetching checklist items:', error);
