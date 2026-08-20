@@ -249,16 +249,21 @@ export default async function CaseDetailPage({ params, searchParams }: CaseDetai
     .eq('organization_id', profile.organization_id)
     .maybeSingle();
 
-  const { data: checklistItemsData } = caseChecklist
-    ? await supabase
-        .from('checklist_items')
-        .select(
-          'id, checklist_id, title, status, document_id, notes, created_at, documents(id, file_name)'
-        )
-        .eq('checklist_id', caseChecklist.id)
-        .eq('organization_id', profile.organization_id)
-        .order('created_at', { ascending: true })
-    : { data: [] };
+  let checklistItemsData: any[] = [];
+  if (caseChecklist) {
+    const { data, error } = await supabase
+      .from('checklist_items')
+      .select('id, checklist_id, title, status, document_id, notes, created_at, documents(id, file_name)')
+      .eq('checklist_id', caseChecklist.id)
+      .eq('organization_id', profile.organization_id)
+      .order('created_at', { ascending: true });
+
+    if (error) {
+      console.error('Error fetching checklist items:', error);
+      throw new Error('Ocurrió un error al cargar el checklist. Por favor, intente nuevamente.');
+    }
+    checklistItemsData = data || [];
+  }
 
   const { data: caseDocumentsData } = await supabase
     .from('documents')

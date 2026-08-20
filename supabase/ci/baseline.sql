@@ -137,6 +137,7 @@ CREATE TABLE public.checklist_items (
     title text NOT NULL,
     status text NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'received', 'reviewed', 'not_required')),
     requirement_type text,
+    notes text,
     created_at timestamptz NOT NULL DEFAULT now(),
     updated_at timestamptz NOT NULL DEFAULT now()
 );
