@@ -154,6 +154,7 @@ async function createCaseChecklist(input: {
   if (newItems.length > 0) {
     const { error: itemsError } = await supabase.from('checklist_items').insert(
       newItems.map((title) => ({
+        organization_id: input.organizationId,
         checklist_id: checklistId,
         title,
         status: 'pending',
@@ -565,7 +566,7 @@ export async function addChecklistItem(formData: FormData) {
   if (checklistId) {
     const { error } = await supabase
       .from('checklist_items')
-      .insert({ checklist_id: checklistId, title, status: 'pending' });
+      .insert({ organization_id: profile.organization_id, checklist_id: checklistId, title, status: 'pending' });
 
     if (!error) {
       await createAuditLog({

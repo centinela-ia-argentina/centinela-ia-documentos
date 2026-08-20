@@ -65,12 +65,48 @@ echo "4. Applying BASELINE..."
 psql "$DB_URL" -v ON_ERROR_STOP=1 -f supabase/ci/baseline.sql
 
 echo "5. Generating INITIAL SNAPSHOTS..."
-docker exec -i "$DB_CONTAINER" pg_dump -U postgres -d postgres -s -n public > initial_schema.sql
+docker exec -i "$DB_CONTAINER" pg_dump -U postgres -d postgres -s -n public --no-acl > initial_schema.sql
 grep -v '^--' initial_schema.sql | grep -Ev '^\\(un)?restrict[[:space:]]' | grep -v '^[[:space:]]*$' > initial_schema_normalized.sql
 
 psql "$DB_URL" -c "SELECT id, name, public, file_size_limit, allowed_mime_types FROM storage.buckets ORDER BY id;" > initial_storage.txt
 psql "$DB_URL" -c "SELECT schemaname, tablename, policyname, roles, cmd, qual, with_check FROM pg_policies WHERE schemaname IN ('public', 'storage') ORDER BY schemaname, tablename, policyname;" > initial_policies.txt
-psql "$DB_URL" -c "SELECT grantee, table_schema, table_name, privilege_type FROM information_schema.role_table_grants WHERE table_schema IN ('public', 'storage') ORDER BY grantee, table_schema, table_name, privilege_type;" > initial_grants.txt
+psql "$DB_URL" -c "
+SELECT
+  object_type,
+  schema_name,
+  object_name,
+  object_identity,
+  grantee,
+  privilege_type
+FROM (
+  SELECT
+    'TABLE'::text AS object_type,
+    table_schema::text AS schema_name,
+    table_name::text AS object_name,
+    ''::text AS object_identity,
+    grantee::text AS grantee,
+    privilege_type::text AS privilege_type
+  FROM information_schema.role_table_grants
+  WHERE table_schema IN ('public', 'storage')
+  UNION ALL
+  SELECT
+    'ROUTINE'::text AS object_type,
+    routine_schema::text AS schema_name,
+    routine_name::text AS object_name,
+    specific_name::text AS object_identity,
+    grantee::text AS grantee,
+    privilege_type::text AS privilege_type
+  FROM information_schema.routine_privileges
+  WHERE routine_schema = 'public'
+) grants_snapshot
+ORDER BY
+  object_type,
+  schema_name,
+  object_name,
+  object_identity,
+  grantee,
+  privilege_type;
+" > initial_grants.txt
 psql "$DB_URL" -c "SELECT p.proname, pg_get_function_identity_arguments(p.oid) FROM pg_catalog.pg_proc AS p JOIN pg_catalog.pg_namespace AS n ON p.pronamespace = n.oid WHERE n.nspname = 'public' ORDER BY p.proname, pg_get_function_identity_arguments(p.oid);" > initial_functions.txt
 
 echo "6. Restoring migrations directory..."
@@ -111,12 +147,48 @@ if [ -d "supabase/rollbacks" ] && [ "$(ls -A supabase/rollbacks)" ]; then
 fi
 
 echo "10. Generating FINAL SNAPSHOTS..."
-docker exec -i "$DB_CONTAINER" pg_dump -U postgres -d postgres -s -n public > final_schema.sql
+docker exec -i "$DB_CONTAINER" pg_dump -U postgres -d postgres -s -n public --no-acl > final_schema.sql
 grep -v '^--' final_schema.sql | grep -Ev '^\\(un)?restrict[[:space:]]' | grep -v '^[[:space:]]*$' > final_schema_normalized.sql
 
 psql "$DB_URL" -c "SELECT id, name, public, file_size_limit, allowed_mime_types FROM storage.buckets ORDER BY id;" > final_storage.txt
 psql "$DB_URL" -c "SELECT schemaname, tablename, policyname, roles, cmd, qual, with_check FROM pg_policies WHERE schemaname IN ('public', 'storage') ORDER BY schemaname, tablename, policyname;" > final_policies.txt
-psql "$DB_URL" -c "SELECT grantee, table_schema, table_name, privilege_type FROM information_schema.role_table_grants WHERE table_schema IN ('public', 'storage') ORDER BY grantee, table_schema, table_name, privilege_type;" > final_grants.txt
+psql "$DB_URL" -c "
+SELECT
+  object_type,
+  schema_name,
+  object_name,
+  object_identity,
+  grantee,
+  privilege_type
+FROM (
+  SELECT
+    'TABLE'::text AS object_type,
+    table_schema::text AS schema_name,
+    table_name::text AS object_name,
+    ''::text AS object_identity,
+    grantee::text AS grantee,
+    privilege_type::text AS privilege_type
+  FROM information_schema.role_table_grants
+  WHERE table_schema IN ('public', 'storage')
+  UNION ALL
+  SELECT
+    'ROUTINE'::text AS object_type,
+    routine_schema::text AS schema_name,
+    routine_name::text AS object_name,
+    specific_name::text AS object_identity,
+    grantee::text AS grantee,
+    privilege_type::text AS privilege_type
+  FROM information_schema.routine_privileges
+  WHERE routine_schema = 'public'
+) grants_snapshot
+ORDER BY
+  object_type,
+  schema_name,
+  object_name,
+  object_identity,
+  grantee,
+  privilege_type;
+" > final_grants.txt
 psql "$DB_URL" -c "SELECT p.proname, pg_get_function_identity_arguments(p.oid) FROM pg_catalog.pg_proc AS p JOIN pg_catalog.pg_namespace AS n ON p.pronamespace = n.oid WHERE n.nspname = 'public' ORDER BY p.proname, pg_get_function_identity_arguments(p.oid);" > final_functions.txt
 
 echo "11. Comparing DUMPS..."

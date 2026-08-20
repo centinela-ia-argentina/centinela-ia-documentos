@@ -105,10 +105,35 @@ test.describe.serial('Centinela IA - Flujo Jurídico E2E Obligatorio', () => {
     await page.click('[data-testid="case-submit"]');
 
     await expect(page).toHaveURL(/\/expedientes\/.+/);
-    await expect(page.locator('h1')).toContainText(caseTitle);
+    const caseDetailTitle = page.locator('[data-testid="case-detail-title"]');
+    await expect(caseDetailTitle).toBeVisible({ timeout: 15000 });
+    await expect(caseDetailTitle).toHaveText(caseTitle);
     caseUrl = page.url();
     caseId = caseUrl.split('/').pop() || '';
     expect(caseId).toBeTruthy();
+
+    // Verify automatic checklist creation
+    const { data: createdChecklist, error: checklistError } = await serviceClient
+      .from('checklists')
+      .select('id, organization_id, case_id, template_type')
+      .eq('case_id', caseId)
+      .maybeSingle();
+
+    expect(checklistError).toBeNull();
+    expect(createdChecklist).not.toBeNull();
+    expect(createdChecklist?.template_type).toBe('Sucesión');
+
+    const { data: createdItems, error: itemsError } = await serviceClient
+      .from('checklist_items')
+      .select('id, organization_id, checklist_id')
+      .eq('checklist_id', createdChecklist!.id);
+
+    expect(itemsError).toBeNull();
+    expect(createdItems?.length).toBeGreaterThan(0);
+
+    for (const item of createdItems ?? []) {
+      expect(item.organization_id).toBe(createdChecklist!.organization_id);
+    }
   });
 
   test('04. 15 uploads (concurrencia y exactamente 15 success)', async () => {

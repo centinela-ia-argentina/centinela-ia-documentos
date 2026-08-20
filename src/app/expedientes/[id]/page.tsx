@@ -584,7 +584,10 @@ export default async function CaseDetailPage({ params, searchParams }: CaseDetai
             {terms.detalleEyebrow}
           </p>
 
-          <h2 className="mt-2 font-display text-3xl font-semibold tracking-tight text-gradient">
+          <h2
+            data-testid="case-detail-title"
+            className="mt-2 font-display text-3xl font-semibold tracking-tight text-gradient"
+          >
             {displayText(caseRecord.title, terms.itemSinTitulo)}
           </h2>
 

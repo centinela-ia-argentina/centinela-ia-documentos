@@ -123,6 +123,7 @@ CREATE TABLE public.checklists (
     organization_id uuid NOT NULL REFERENCES public.organizations(id) ON DELETE CASCADE,
     case_id uuid REFERENCES public.cases(id) ON DELETE CASCADE,
     name text NOT NULL,
+    template_type text,
     created_at timestamptz NOT NULL DEFAULT now(),
     updated_at timestamptz NOT NULL DEFAULT now()
 );
