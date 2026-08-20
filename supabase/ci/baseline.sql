@@ -101,6 +101,7 @@ CREATE TABLE public.documents (
     sensitivity_level text DEFAULT 'medium',
     uploaded_by uuid REFERENCES public.profiles(id) ON DELETE SET NULL,
     expires_at timestamptz,
+    archived_at timestamptz,
     created_at timestamptz NOT NULL DEFAULT now(),
     updated_at timestamptz NOT NULL DEFAULT now()
 );
