@@ -102,6 +102,7 @@ ALTER TABLE public.reports DROP CONSTRAINT IF EXISTS reports_case_id_fkey;
 ALTER TABLE public.reports ADD CONSTRAINT reports_case_id_fkey FOREIGN KEY (case_id) REFERENCES public.cases(id) ON DELETE CASCADE;
 
 -- Drop the UNIQUE composite keys added by 120000
+ALTER TABLE public.organizations DROP CONSTRAINT IF EXISTS organizations_id_key;
 ALTER TABLE public.properties DROP CONSTRAINT IF EXISTS properties_id_org_key;
 ALTER TABLE public.cases DROP CONSTRAINT IF EXISTS cases_id_org_key;
 ALTER TABLE public.documents DROP CONSTRAINT IF EXISTS documents_id_org_key;

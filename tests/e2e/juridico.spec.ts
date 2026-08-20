@@ -173,9 +173,11 @@ test.describe.serial('Centinela IA - Flujo Jurídico E2E Obligatorio', () => {
       { name: 'invalido.txt', mimeType: 'text/plain', buffer: Buffer.from('No soy un PDF') }
     ]);
 
-    // We submit
-    await page.click('[data-testid="upload-submit"]');
-    await expect(page.locator('[data-testid="upload-error-count"]')).toBeVisible({ timeout: 15000 });
+    // Verify button is disabled and text
+    const uploadSubmit = page.locator('[data-testid="upload-submit"]');
+    await expect(uploadSubmit).toBeVisible({ timeout: 15000 });
+    await expect(uploadSubmit).toBeDisabled();
+    await expect(uploadSubmit).toContainText('Subir 0 documentos');
 
     // Verify 0 rows and 0 storage objects created
     const { count: docsCountAfter } = await serviceClient.from('documents').select('*', { count: 'exact', head: true });

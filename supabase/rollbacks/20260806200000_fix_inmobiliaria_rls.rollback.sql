@@ -10,9 +10,7 @@ LANGUAGE sql
 SECURITY DEFINER
 SET search_path = public
 AS $$
-  SELECT organization_id
-  FROM public.profiles
-  WHERE id = auth.uid();
+  SELECT organization_id FROM public.profiles WHERE id = auth.uid();
 $$;
 
 CREATE OR REPLACE FUNCTION public.current_user_role()
@@ -21,9 +19,7 @@ LANGUAGE sql
 SECURITY DEFINER
 SET search_path = public
 AS $$
-  SELECT role
-  FROM public.profiles
-  WHERE id = auth.uid();
+  SELECT role FROM public.profiles WHERE id = auth.uid();
 $$;
 
 -- 2. Eliminar políticas granulares por rol
