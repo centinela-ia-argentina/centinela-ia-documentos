@@ -258,7 +258,7 @@ test.describe.serial('Centinela IA - Flujo Jurídico E2E Obligatorio', () => {
   });
 
   test('10. checklist pending -> received -> reviewed y not_required', async () => {
-    await page.goto(caseUrl);
+    await page.goto(`${caseUrl}?tab=checklist`);
     // Click toggle to received
     const toggleBtn = page.locator('[data-testid="checklist-toggle-0"]').first();
     await toggleBtn.click();
@@ -326,7 +326,7 @@ test.describe.serial('Centinela IA - Flujo Jurídico E2E Obligatorio', () => {
   });
 
   test('14. RAG y guardrails', async () => {
-    await page.goto(caseUrl);
+    await page.goto(`${caseUrl}?tab=documentos`);
     // Need to wait for RAG component to load
     await expect(page.locator('[data-testid="rag-input"]')).toBeVisible();
     await page.fill('[data-testid="rag-input"]', '¿Qué dice el documento?');
