@@ -242,14 +242,23 @@ export default async function CaseDetailPage({ params, searchParams }: CaseDetai
     getMetadataValue(caseRecord.metadata, field.key)
   );
 
-  const { data: checklistItemsData } = await supabase
-    .from('checklist_items')
-    .select(
-      'id, checklist_id, title, status, document_id, notes, created_at, documents(id, file_name), checklists!inner(case_id, organization_id)'
-    )
-    .eq('checklists.case_id', caseRecord.id)
-    .eq('checklists.organization_id', profile.organization_id)
-    .order('created_at', { ascending: true });
+  const { data: caseChecklist } = await supabase
+    .from('checklists')
+    .select('id')
+    .eq('case_id', caseRecord.id)
+    .eq('organization_id', profile.organization_id)
+    .maybeSingle();
+
+  const { data: checklistItemsData } = caseChecklist
+    ? await supabase
+        .from('checklist_items')
+        .select(
+          'id, checklist_id, title, status, document_id, notes, created_at, documents(id, file_name)'
+        )
+        .eq('checklist_id', caseChecklist.id)
+        .eq('organization_id', profile.organization_id)
+        .order('created_at', { ascending: true })
+    : { data: [] };
 
   const { data: caseDocumentsData } = await supabase
     .from('documents')

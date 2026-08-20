@@ -360,10 +360,9 @@ export async function toggleChecklistItem(formData: FormData) {
 
   const { data: checklistItem, error: itemError } = await supabase
     .from('checklist_items')
-    .select('id, status, checklists!inner(id, case_id, organization_id)')
+    .select('id, status, checklist_id')
     .eq('id', itemId)
-    .eq('checklists.case_id', caseId)
-    .eq('checklists.organization_id', profile.organization_id)
+    .eq('organization_id', profile.organization_id)
     .maybeSingle();
 
   if (itemError || !checklistItem) {
@@ -415,10 +414,9 @@ export async function linkChecklistItemDocument(formData: FormData) {
 
   const { data: checklistItem, error: itemError } = await supabase
     .from('checklist_items')
-    .select('id, title, document_id, checklists!inner(id, case_id, organization_id)')
+    .select('id, title, document_id, checklist_id')
     .eq('id', itemId)
-    .eq('checklists.case_id', caseId)
-    .eq('checklists.organization_id', profile.organization_id)
+    .eq('organization_id', profile.organization_id)
     .maybeSingle();
 
   if (itemError || !checklistItem) {
@@ -491,10 +489,9 @@ export async function toggleChecklistItemNotRequired(formData: FormData) {
 
   const { data: checklistItem, error: itemError } = await supabase
     .from('checklist_items')
-    .select('id, status, checklists!inner(id, case_id, organization_id)')
+    .select('id, status, checklist_id')
     .eq('id', itemId)
-    .eq('checklists.case_id', caseId)
-    .eq('checklists.organization_id', profile.organization_id)
+    .eq('organization_id', profile.organization_id)
     .maybeSingle();
 
   if (itemError || !checklistItem) {
@@ -601,10 +598,9 @@ export async function removeChecklistItem(formData: FormData) {
 
   const { data: checklistItem, error: itemError } = await supabase
     .from('checklist_items')
-    .select('id, checklists!inner(id, case_id, organization_id)')
+    .select('id, checklist_id')
     .eq('id', itemId)
-    .eq('checklists.case_id', caseId)
-    .eq('checklists.organization_id', profile.organization_id)
+    .eq('organization_id', profile.organization_id)
     .maybeSingle();
 
   if (itemError || !checklistItem) {
