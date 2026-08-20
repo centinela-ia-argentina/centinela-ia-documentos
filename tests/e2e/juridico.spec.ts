@@ -139,7 +139,10 @@ test.describe.serial('Centinela IA - Flujo Jurídico E2E Obligatorio', () => {
   test('04. 15 uploads (concurrencia y exactamente 15 success)', async () => {
     await page.goto('/documentos/subir');
     await page.selectOption('[data-testid="upload-case"]', { value: caseId });
-    await page.selectOption('[data-testid="upload-type"]', 'DNI');
+    const uploadTypeSelect = page.locator('[data-testid="upload-type"]');
+    await expect(uploadTypeSelect).toBeVisible({ timeout: 15000 });
+    await uploadTypeSelect.selectOption({ label: 'Prueba documental' });
+    await expect(uploadTypeSelect).toHaveValue('Prueba documental');
     await page.selectOption('[data-testid="upload-sensitivity"]', 'low');
 
     const filePayloads = Array.from({ length: 15 }).map((_, i) => ({

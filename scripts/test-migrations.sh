@@ -91,13 +91,14 @@ FROM (
   UNION ALL
   SELECT
     'ROUTINE'::text AS object_type,
-    routine_schema::text AS schema_name,
-    routine_name::text AS object_name,
-    specific_name::text AS object_identity,
-    grantee::text AS grantee,
-    privilege_type::text AS privilege_type
-  FROM information_schema.routine_privileges
-  WHERE routine_schema = 'public'
+    r.routine_schema::text AS schema_name,
+    r.routine_name::text AS object_name,
+    pg_catalog.pg_get_function_identity_arguments(p.oid)::text AS object_identity,
+    r.grantee::text AS grantee,
+    r.privilege_type::text AS privilege_type
+  FROM information_schema.routine_privileges r
+  JOIN pg_catalog.pg_proc p ON r.specific_name = p.proname || '_' || p.oid
+  WHERE r.routine_schema = 'public'
 ) grants_snapshot
 ORDER BY
   object_type,
@@ -173,13 +174,14 @@ FROM (
   UNION ALL
   SELECT
     'ROUTINE'::text AS object_type,
-    routine_schema::text AS schema_name,
-    routine_name::text AS object_name,
-    specific_name::text AS object_identity,
-    grantee::text AS grantee,
-    privilege_type::text AS privilege_type
-  FROM information_schema.routine_privileges
-  WHERE routine_schema = 'public'
+    r.routine_schema::text AS schema_name,
+    r.routine_name::text AS object_name,
+    pg_catalog.pg_get_function_identity_arguments(p.oid)::text AS object_identity,
+    r.grantee::text AS grantee,
+    r.privilege_type::text AS privilege_type
+  FROM information_schema.routine_privileges r
+  JOIN pg_catalog.pg_proc p ON r.specific_name = p.proname || '_' || p.oid
+  WHERE r.routine_schema = 'public'
 ) grants_snapshot
 ORDER BY
   object_type,
