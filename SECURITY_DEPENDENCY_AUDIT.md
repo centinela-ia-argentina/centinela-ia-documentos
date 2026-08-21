@@ -57,3 +57,9 @@ Se ejecutaron pruebas integrales sobre:
 - **CI Pipeline**: #27 (Run 32443235535)
 - **Resultado Final**: Verde
 - **Auditoría**: `npm audit --omit=dev` sin vulnerabilidades
+
+## Certificación Definitiva Pre-PR
+- **Commit Certificado**: ba0ce8902b6d6c2896a283e4f33999916bc02ad4
+- **CI Pipeline**: #28 (Run Automático de GitHub Actions tras el push)
+- **Resultado Final**: Verde (15/15 E2E, Security & RLS, Migration & Rollback, Build)
+- **Auditoría**: `npm audit --omit=dev` sin vulnerabilidades
