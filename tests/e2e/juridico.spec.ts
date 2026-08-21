@@ -328,14 +328,28 @@ test.describe.serial('Centinela IA - Flujo Jurídico E2E Obligatorio', () => {
 
   test('13. tasa 28.000.000 -> 840.000', async () => {
     await page.goto('/calculadoras');
-    await page.selectOption('[data-testid="tasa-jurisdiccion"]', 'nacion');
-    // We need to select the pecuniary type first to see the checkbox and amount
-    // In our test, there is a select for process type. We'll select 'general_pecuniary'
-    await page.selectOption('select', { label: 'Civil/comercial con monto determinado' });
-    await page.fill('[data-testid="tasa-monto"]', '28000000');
-    // Check confirmation checkbox
-    await page.check('input[type="checkbox"]');
-    await page.click('[data-testid="tasa-submit"]');
+
+    await page
+      .getByRole('button', {
+        name: 'Tasa e intereses',
+        exact: true,
+      })
+      .click();
+
+    const jurisdiccion = page.locator('[data-testid="tasa-jurisdiccion"]');
+    await expect(jurisdiccion).toBeVisible();
+    await jurisdiccion.selectOption('nacion');
+
+    await page.getByLabel('Tipo de proceso').selectOption('general_pecuniary');
+    await page.locator('[data-testid="tasa-monto"]').fill('28000000');
+
+    await page
+      .getByRole('checkbox', {
+        name: /Confirmo que se trata de una pretensión pecuniaria general/i,
+      })
+      .check();
+
+    await page.locator('[data-testid="tasa-submit"]').click();
 
     await expect(page.locator('[data-testid="tasa-resultado"]')).toContainText('840.000');
   });
