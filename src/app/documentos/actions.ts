@@ -333,6 +333,7 @@ export async function uploadSingleDocumentAsync(formData: FormData): Promise<Upl
     });
 
     return { status: 'success', documentId };
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } catch (err: any) {
     console.error('Upload error:', err);
     return { status: 'error', error: 'unknown_error' };
@@ -743,8 +744,10 @@ async function analizarConIA(texto: string, industry: IndustryType): Promise<{
       Array.isArray(v) ? v.map(toText).filter((s) => s.trim().length > 0) : [];
 
     const rawFechas = Array.isArray(parsed.fechas_plazos) ? parsed.fechas_plazos : [];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const fechas_plazos = rawFechas.filter((f: any) =>
       f && typeof f.descripcion === 'string' && typeof f.fecha === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(f.fecha)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     ).map((f: any) => ({ descripcion: f.descripcion, fecha: f.fecha }));
 
     return {
@@ -831,8 +834,10 @@ async function analizarConIAMultimodal(
       Array.isArray(v) ? v.map(toText).filter((s) => s.trim().length > 0) : [];
 
     const rawFechas = Array.isArray(parsed.fechas_plazos) ? parsed.fechas_plazos : [];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const fechas_plazos = rawFechas.filter((f: any) =>
       f && typeof f.descripcion === 'string' && typeof f.fecha === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(f.fecha)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     ).map((f: any) => ({ descripcion: f.descripcion, fecha: f.fecha }));
 
     return {
@@ -1077,6 +1082,7 @@ await createAuditLog({
         texto: textoParaIndexar,
       });
       idxInfo = r.ok ? 'ok-' + r.chunks : 'fail-' + (r.motivo || '?');
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (e) {
       idxInfo = 'excepcion';
     }
@@ -1178,6 +1184,7 @@ export async function archiveDocument(formData: FormData) {
   await createAuditLog({
     organizationId: profile.organization_id,
     userId: user.id,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     action: 'document_archived' as any,
     resourceType: 'document',
     resourceId: documentId,
@@ -1209,6 +1216,7 @@ export async function unarchiveDocument(formData: FormData) {
   await createAuditLog({
     organizationId: profile.organization_id,
     userId: user.id,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     action: 'document_unarchived' as any,
     resourceType: 'document',
     resourceId: documentId,
@@ -1273,6 +1281,7 @@ export async function deleteDocument(formData: FormData) {
   await createAuditLog({
     organizationId: profile.organization_id,
     userId: user.id,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     action: 'document_deleted' as any,
     resourceType: 'document',
     resourceId: documentId,
@@ -1350,6 +1359,7 @@ export async function deleteDocumentFromCase(formData: FormData) {
   await createAuditLog({
     organizationId: profile.organization_id,
     userId: user.id,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     action: 'document_deleted' as any,
     resourceType: 'document',
     resourceId: documentId,

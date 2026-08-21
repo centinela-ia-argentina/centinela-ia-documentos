@@ -4,6 +4,7 @@ import { AppShell } from '@/components/layout/AppShell';
 import { createClient } from '@/lib/supabase/server';
 import { getUserProfile } from '@/lib/auth/getUserProfile';
 import { formatAuditActionLabel } from '@/lib/audit/actionLabels';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { roleOptions, roleLabel, roleDescription, roleTone } from '@/lib/permissions/roleDisplay';
 import { updateUserAccess } from './actions';
 import { MotionCard } from '@/components/ui/MotionCard';

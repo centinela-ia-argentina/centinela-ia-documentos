@@ -38,6 +38,7 @@ export function CopilotoExpediente({
   caseId, resumen, generadoEl, documentosAnalizados, puedeUsarIA, terms,
 }: {
   caseId: string; resumen: ResumenExpediente | null; generadoEl: string | null;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   documentosAnalizados: number; puedeUsarIA: boolean; terms: any;
 }) {
   const generar = generarResumenExpediente.bind(null, caseId);

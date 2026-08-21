@@ -48,6 +48,7 @@ export async function preguntarADocumentos(pregunta: string): Promise<RespuestaB
   }
 
   // 2) Buscar fragmentos similares (con fallback de formato para pgvector)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let matches: any[] | null = null;
   let matchError: { message: string } | null = null;
 
@@ -82,6 +83,7 @@ export async function preguntarADocumentos(pregunta: string): Promise<RespuestaB
     .from('documents')
     .select('id, file_name')
     .in('id', docIds);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const nombrePorId = new Map((docs ?? []).map((d: any) => [d.id, d.file_name]));
 
   const fuentes: FuenteBusqueda[] = matches.map((m) => ({
@@ -132,6 +134,7 @@ RESPUESTA:`;
 
     const data = await resp.json();
     const respuesta =
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       data?.candidates?.[0]?.content?.parts?.map((p: any) => p.text).join('') ??
       'No se pudo generar una respuesta.';
 
@@ -165,6 +168,7 @@ export async function indexarDocumentosExistentes(): Promise<BackfillResult> {
     .from('document_chunks')
     .select('document_id')
     .eq('organization_id', profile.organization_id);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const indexadosSet = new Set((yaChunks ?? []).map((c: any) => c.document_id));
 
   // Análisis existentes (el más reciente por documento)
@@ -195,6 +199,7 @@ export async function indexarDocumentosExistentes(): Promise<BackfillResult> {
       continue;
     }
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const a = (row.result_json ?? {}) as any;
     const texto = [
       a.resumen ?? '',

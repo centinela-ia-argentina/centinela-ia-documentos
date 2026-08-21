@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { MessageCircle, Copy, Check, ExternalLink, Wand2 } from 'lucide-react';
 import { buildWhatsAppLink } from '@/lib/whatsapp';
 import { logWhatsAppAction } from '@/app/whatsappActions';

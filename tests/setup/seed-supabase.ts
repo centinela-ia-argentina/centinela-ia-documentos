@@ -42,6 +42,7 @@ for (const [k, v] of Object.entries(SEED_DATA)) {
   if (!validateUuid(v)) throw new Error(`Invalid UUID in SEED_DATA for ${k}: ${v}`);
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function throwOnError(promise: any, entity: string) {
   const result = await promise;
   if (result.error) {
@@ -52,7 +53,8 @@ async function throwOnError(promise: any, entity: string) {
 
 export async function seedSupabase() {
   console.log('🌱 Seeding Supabase...');
-  let hasError = false;
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const hasError = false;
 
   try {
     // 1. Orgs

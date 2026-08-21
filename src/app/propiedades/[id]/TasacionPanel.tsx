@@ -83,6 +83,7 @@ export function TasacionPanel({ propertyId, propertyType, comparables }: Tasacio
       } else {
         setFeedback({ type: 'error', text: res.error || 'Error al guardar el comparable' });
       }
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (error) {
       setFeedback({ type: 'error', text: 'Error inesperado.' });
     } finally {

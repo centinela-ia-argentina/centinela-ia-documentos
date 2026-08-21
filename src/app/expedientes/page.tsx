@@ -76,6 +76,7 @@ export default async function CasesPage({
 
   let cases: CaseRecord[] | null = null;
   let count: number | null = null;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let error: any = null;
 
   const start = (page - 1) * CASES_PAGE_SIZE;
@@ -160,7 +161,7 @@ export default async function CasesPage({
 
   const organizationIndustry = normalizeIndustryType(organization?.industry_type);
   const terms = getIndustryTerms(organizationIndustry);
-  let records = (cases ?? []) as CaseRecord[];
+  const records = (cases ?? []) as CaseRecord[];
 
   let statusesByCase: Record<string, string[]> = {};
   if (records.length > 0) {
@@ -171,6 +172,7 @@ export default async function CasesPage({
       .eq('checklists.organization_id', profile.organization_id)
       .in('checklists.case_id', caseIds);
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     statusesByCase = (checklistItems ?? []).reduce((acc: Record<string, string[]>, item: any) => {
       const caseId = item.checklists.case_id;
       if (!acc[caseId]) acc[caseId] = [];

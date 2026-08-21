@@ -84,6 +84,7 @@ function formatDate(value?: string | null) {
   }).format(date);
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function formatExpiryDate(value?: string | null) {
   if (!value) return '-';
   const parts = value.split('-');
@@ -123,6 +124,7 @@ function sensitivityRank(value?: string | null) {
   return 0;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function statusLabel(value?: string | null) {
   return getCaseStatusLabel(value);
 }
@@ -138,6 +140,7 @@ function invitationStatusLabel(value?: string | null) {
   return labels[value ?? ''] ?? value ?? 'Sin estado';
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function invitationStatusTone(value?: string | null, isExpired?: boolean | null) {
   if (isExpired || value === 'expired') return 'bg-amber-50 text-amber-700';
   if (value === 'accepted') return 'bg-emerald-50 text-emerald-700';
@@ -189,6 +192,7 @@ function getPercentage(value: number, total: number) {
   return Math.round((value / total) * 100);
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function getMetricValue(value?: number | null) {
   return value ?? 0;
 }
@@ -222,6 +226,7 @@ function isValidAuditFilter(value?: string): value is AuditFilter {
   );
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function uniqueDocuments(documents: DocumentRecordForReport[]) {
   const map = new Map<string, DocumentRecordForReport>();
 

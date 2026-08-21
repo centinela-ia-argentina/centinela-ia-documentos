@@ -17,13 +17,21 @@ const serviceClient = createClient(supabaseUrl, supabaseServiceKey, {
 });
 
 describe('Pruebas de Seguridad y RLS con JWT Reales y Restricciones', () => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let adminALegal: any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let employeeALegal: any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let auditorALegal: any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let clientALegal: any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let clientAUnassigned: any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let inactiveALegal: any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let adminBInm: any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let anonClient: any;
   const embedding = Array(768).fill(0.01);
 
@@ -137,6 +145,7 @@ describe('Pruebas de Seguridad y RLS con JWT Reales y Restricciones', () => {
 
   it('6. RPC match_case_document_chunks autorizado y denegado cruzado', async () => {
     // Admin A autorizado (debe retornar data o vacío, sin error de permisos o firma)
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { error: rpcA, data: dataA } = await adminALegal.rpc('match_case_document_chunks', {
       p_case_id: SEED_DATA.CASE_LEGAL_ID,
       p_query_embedding: JSON.stringify(embedding),

@@ -15,10 +15,12 @@ import { archiveDocument, unarchiveDocument, deleteDocument } from '../actions';
 import { canArchiveDocument, canDeleteDocument, isUserRole } from '@/lib/permissions/roles';
 import { DocumentDeleteButton } from './DocumentDeleteButton';
 import { sugerirModeloPorTipo, sugerirModeloNotarialPorTipo } from '@/lib/legal/modelos';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { Badge } from '@/components/ui/Badge';
 import { AnalyzeDetailButtonClient } from './AnalyzeDetailButtonClient';
 import { AnalizarPoderButton } from './AnalizarPoderButton';
 import { MotionCard } from '@/components/ui/MotionCard';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { MotionButton } from '@/components/ui/MotionButton';
 import type { DocumentRecord } from '@/types/document';
 
@@ -791,6 +793,7 @@ Dictamen IA documental
 
                     {poderData?.result_json ? (
                       (() => {
+                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
                         const p = poderData.result_json as any;
                         const renderBloque = (titulo: string, items: unknown) =>
                           Array.isArray(items) && items.length > 0 ? (

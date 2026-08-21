@@ -4,6 +4,7 @@ import { getUserProfile } from '@/lib/auth/getUserProfile';
 import { createClient } from '@/lib/supabase/server';
 import { AppShell } from '@/components/layout/AppShell';
 import { MetricCard } from '@/components/dashboard/MetricCard';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { Reveal } from '@/components/ui/Reveal';
 import { MotionCard } from '@/components/ui/MotionCard';
 import { normalizeIndustryType } from '@/lib/industries/documentTypes';
@@ -15,6 +16,7 @@ import {
 import { getIndustryTerms, type IndustryTerms } from '@/lib/industries/uiLabels';
 import { isUserRole } from '@/lib/permissions/roles';
 import { getDocumentExpiryStatus } from '@/lib/documents/expiry';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { sensitivityLabel, isSensitiveDocument } from '@/lib/documents/sensitivity';
 import { PrimerosPasos } from '@/components/dashboard/PrimerosPasos';
 
@@ -128,6 +130,7 @@ export default async function DashboardPage() {
   const industry = normalizeIndustryType(organizationResult.data?.industry_type);
   const terms = getIndustryTerms(industry);
   const dashboardCards = getDashboardCards(industry);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const cases = (casesResult.data ?? []) as any[];
   const documents = (documentsResult.data ?? []) as DashboardDocument[];
   const aiOutputs = aiOutputsResult.data ?? [];

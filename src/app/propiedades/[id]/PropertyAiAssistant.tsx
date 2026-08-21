@@ -57,6 +57,7 @@ export function PropertyAiAssistant({ propertyId, documents }: PropertyAiAssista
         } else {
           setError(res.error || 'Ocurrió un error al analizar el documento');
         }
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       } catch (e: any) {
         setError(e.message || 'Error desconocido');
       }

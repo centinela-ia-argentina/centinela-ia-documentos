@@ -12,13 +12,16 @@ test.describe.serial('Centinela IA - Flujo Jurídico E2E Obligatorio', () => {
   let caseUrl = '';
   let caseId = '';
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   test.beforeAll(async ({ browser }) => {
     // We could do global login here, but since 'login' is a suite itself, we'll do it in the first test
     // and let playwright reuse the page across tests using a serial mode page instance.
   });
 
   // Playwright serial mode uses a new page per test by default, so we'll share one page context
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let page: any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let context: any;
   test.beforeAll(async ({ browser }) => {
     context = await browser.newContext();

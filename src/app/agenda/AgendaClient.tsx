@@ -142,6 +142,7 @@ export function AgendaClient({ eventos, cases, industry, puedeGuardar = true }: 
           <div className="space-y-4">
             <label className="block">
               <span className="mb-1 block text-xs font-semibold text-slate-400">Categoría</span>
+              {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */} @typescript-eslint/no-explicit-any
               <select value={nuevoTipo} onChange={(e) => setNuevoTipo(e.target.value as any)} className="w-full rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2 text-sm text-white outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400" data-testid="agenda-categoria">
                 {industry === 'legal' && <option value="plazo">Plazo / Audiencia</option>}
                 <option value="evento">Recordatorio</option>

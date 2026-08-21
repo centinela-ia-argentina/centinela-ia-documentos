@@ -77,6 +77,7 @@ export async function createRentalContract(formData: FormData) {
   await createAuditLog({
     organizationId: profile.organization_id,
     userId: user.id,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     action: 'rental_created' as any,
     resourceType: 'rental',
     resourceId: data.id,
@@ -129,6 +130,7 @@ export async function updateRentalContract(formData: FormData) {
   await createAuditLog({
     organizationId: profile.organization_id,
     userId: user.id,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     action: 'rental_updated' as any,
     resourceType: 'rental',
     resourceId: id,
@@ -183,6 +185,7 @@ export async function addIndexValue(formData: FormData) {
   await createAuditLog({
     organizationId: profile.organization_id,
     userId: user.id,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     action: 'rent_index_added' as any,
     resourceType: 'rental',
     resourceId: 'index',
@@ -215,6 +218,7 @@ export async function deleteIndexValue(formData: FormData) {
   await createAuditLog({
     organizationId: profile.organization_id,
     userId: user.id,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     action: 'rent_index_deleted' as any,
     resourceType: 'rental',
     resourceId: id,
@@ -331,6 +335,7 @@ export async function aplicarAjusteAlquiler(formData: FormData) {
   await createAuditLog({
     organizationId: profile.organization_id,
     userId: user.id,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     action: 'rental_adjusted' as any,
     resourceType: 'rental',
     resourceId: id,

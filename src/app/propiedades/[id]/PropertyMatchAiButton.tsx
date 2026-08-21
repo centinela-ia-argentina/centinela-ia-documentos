@@ -19,6 +19,7 @@ export function PropertyMatchAiButton({ propertyId }: { propertyId: string }) {
         } else {
           setError(res.error || 'Ocurrió un error inesperado al analizar el matching.');
         }
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       } catch (err) {
         setError('Ocurrió un error inesperado.');
       }

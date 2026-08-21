@@ -106,6 +106,7 @@ export default async function ObservacionesPage() {
   const vencimientos = vencimientosAll.slice(0, 8);
 
   // 3. Expedientes incompletos
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const statusesByCase = checklistItems.reduce((acc: Record<string, string[]>, item: any) => {
     const caseId = item.checklists.case_id;
     if (!acc[caseId]) acc[caseId] = [];

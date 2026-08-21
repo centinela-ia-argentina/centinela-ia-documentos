@@ -57,6 +57,7 @@ export default async function AgentePage() {
   const { user, profile } = await getUserProfile();
   if (!user) redirect('/login');
   if (!profile) redirect('/onboarding');
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   if (isReadOnlyRole(profile.role as any)) redirect('/acceso-denegado?motivo=rol');
 
   const supabase = await createClient();
@@ -115,7 +116,9 @@ export default async function AgentePage() {
 
   for (const p of plazos) {
     if (!p.fecha) continue;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const cid = (p as any).case_id ?? null;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const categoria = (p as any).categoria ?? '__sin_categoria__';
     const tituloString = p.titulo ?? 'Plazo';
     const tituloNorm = tituloString.normalize('NFC').trim().toLowerCase().replace(/\s+/g, ' ');

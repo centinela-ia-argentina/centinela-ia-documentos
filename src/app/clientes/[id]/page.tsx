@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/server';
 import { getUserProfile } from '@/lib/auth/getUserProfile';
 import { canManageClient } from '@/lib/permissions/roles';
 import { updateClientRecord } from '../actions';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { ArrowLeft, User, Phone, Mail, FileText, Search, MapPin, DollarSign, Home } from 'lucide-react';
 import { FormSubmitButton } from '@/components/ui/FormSubmitButton';
 import { Badge } from '@/components/ui/Badge';

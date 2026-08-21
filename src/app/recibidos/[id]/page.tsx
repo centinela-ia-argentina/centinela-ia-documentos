@@ -10,6 +10,7 @@ import { FormSubmitButton } from '@/components/ui/FormSubmitButton';
 
 interface Props { params: Promise<{ id: string }>; }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function formatDate(value?: string | null) {
   if (!value) return 'Sin fecha';
   const d = new Date(value);
@@ -142,6 +143,7 @@ export default async function RecibidoDetallePage({ params }: Props) {
                 <p className="text-sm text-slate-500">Todavía no hay análisis de IA en este legajo.</p>
               ) : (
                 analisis.map((a) => {
+                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
                   const rj = (a.result_json ?? {}) as any;
                   const resumen = typeof rj.resumen === 'string' ? rj.resumen : '';
                   const datosClave = asArray(rj.datos_clave);

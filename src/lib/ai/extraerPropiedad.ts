@@ -40,6 +40,7 @@ export async function extraerDatosPropiedadDeArchivo(
     .replace(/\s+/g, ' ')
     .slice(0, 18000);
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let bodyData: any;
 
   if (cleanText.trim().length >= 200) {
@@ -101,6 +102,7 @@ export async function extraerDatosPropiedadDeArchivo(
     const parsed = JSON.parse(raw);
     return {
       direccion: typeof parsed.direccion === 'string' && parsed.direccion ? parsed.direccion : null,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       tipo_propiedad: typeof parsed.tipo_propiedad === 'string' && parsed.tipo_propiedad ? parsed.tipo_propiedad as any : null,
       matricula: typeof parsed.matricula === 'string' && parsed.matricula ? parsed.matricula : null,
       superficie_total_m2: typeof parsed.superficie_total_m2 === 'number' ? parsed.superficie_total_m2 : null,

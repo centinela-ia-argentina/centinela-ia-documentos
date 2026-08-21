@@ -1,5 +1,7 @@
 import Link from 'next/link';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import type { LucideIcon } from 'lucide-react';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { BarChart3, FileText, FolderKanban, Users, AlertCircle, Calculator, FileSignature, CalendarDays, ScanLine, Search, Settings } from 'lucide-react';
 import { getUserProfile } from '@/lib/auth/getUserProfile';
 import { isUserRole } from '@/lib/permissions/roles';

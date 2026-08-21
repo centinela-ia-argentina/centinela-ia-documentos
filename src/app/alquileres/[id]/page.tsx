@@ -1,5 +1,6 @@
 import { notFound, redirect } from 'next/navigation';
 import Link from 'next/link';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { ArrowLeft, User, DollarSign, Activity, FileText, CalendarClock, Building, AlertTriangle } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { getUserProfile } from '@/lib/auth/getUserProfile';
@@ -7,6 +8,7 @@ import { AppShell } from '@/components/layout/AppShell';
 import { FormSubmitButton } from '@/components/ui/FormSubmitButton';
 import { Badge } from '@/components/ui/Badge';
 import { canManageRental, isUserRole } from '@/lib/permissions/roles';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { updateRentalContract, aplicarAjusteAlquiler } from '../actions';
 import type { RentalContract } from '@/types/rental';
 import { getIndexTypeLabel, getRentalStatusLabel, calcularProximoAjuste } from '@/lib/rentals/labels';

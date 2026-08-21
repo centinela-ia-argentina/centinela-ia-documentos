@@ -24,6 +24,7 @@ export async function PATCH(
     const body = await request.json();
     const publication_status = body.publication_status;
     
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     if (!VALID_STATUSES.includes(publication_status as any)) {
       return NextResponse.json({ ok: false, error: 'Estado de publicación inválido' }, { status: 400 });
     }
@@ -71,6 +72,7 @@ export async function PATCH(
     await createAuditLog({
       organizationId: profile.organization_id,
       userId: user.id,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       action: 'property_updated' as any,
       resourceType: 'property',
       resourceId: propertyId,

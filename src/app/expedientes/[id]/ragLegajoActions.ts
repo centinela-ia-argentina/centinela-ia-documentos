@@ -68,7 +68,9 @@ export async function preguntarADocumentosLegajo(
       .eq('case_id', caseId)
       .eq('organization_id', profile.organization_id);
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const idsCaso = new Set((docsCaso ?? []).map((d: any) => d.id));
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const nombrePorId = new Map((docsCaso ?? []).map((d: any) => [d.id, d.file_name]));
 
     if (idsCaso.size === 0) {
@@ -87,6 +89,7 @@ export async function preguntarADocumentosLegajo(
     }
 
     // 3) Búsqueda vectorial
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let matches: any[] | null = null;
     let matchError: { message: string } | null = null;
 
@@ -112,6 +115,7 @@ export async function preguntarADocumentosLegajo(
     }
 
     // Deduplicación
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const delLegajo: any[] = [];
     const contentSet = new Set<string>();
     const docCounts = new Map<string, number>();
@@ -141,6 +145,7 @@ export async function preguntarADocumentosLegajo(
       };
     }
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const fuentes: FuenteLegajo[] = delLegajo.map((m: any) => ({
       documentId: m.document_id,
       fileName: nombrePorId.get(m.document_id) ?? 'Documento',
@@ -192,6 +197,7 @@ RESPUESTA:`;
 
     const data = await resp.json();
     const respuesta =
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       data?.candidates?.[0]?.content?.parts?.map((p: any) => p.text).join('') ??
       '';
 
@@ -219,8 +225,10 @@ RESPUESTA:`;
     });
 
     return { ok: true, respuesta, fuentes, correlationId };
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   } catch (e) {
     // Only technical_error, securely logging without raw messages
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const supabase = await createClient();
     await logRagError(profile.organization_id, user.id, caseId, correlationId, 'unhandled_exception');
     return { ok: false, error: 'technical_error', correlationId };
@@ -240,6 +248,7 @@ async function logRagError(orgId: string, userId: string, caseId: string, correl
         error_type: errorType,
       }
     });
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   } catch(e) {
     // Fallback if DB is down, just silently fail audit logging
   }

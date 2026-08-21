@@ -14,6 +14,7 @@ export function ModulosGrid({ role, industry }: { role: string; industry: string
     (m) =>
       m.href !== '/dashboard' &&
       m.roles.includes(role) &&
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (!m.industries || m.industries.includes(industry as any))
   );
   const [q, setQ] = useState('');

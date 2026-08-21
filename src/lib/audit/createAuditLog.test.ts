@@ -18,6 +18,7 @@ describe('createAuditLog', () => {
     const mockFrom = vi.fn().mockReturnValue({ insert: mockInsert });
     vi.mocked(serverModule.createClient).mockResolvedValue({
       from: mockFrom,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } as any);
 
     const result = await createAuditLog({
@@ -37,6 +38,7 @@ describe('createAuditLog', () => {
     });
     vi.mocked(serverModule.createClient).mockResolvedValue({
       from: () => ({ insert: mockInsert }),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } as any);
 
     const result = await createAuditLog({
