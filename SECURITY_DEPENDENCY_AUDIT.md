@@ -59,7 +59,9 @@ Se ejecutaron pruebas integrales sobre:
 - **Auditoría**: `npm audit --omit=dev` sin vulnerabilidades
 
 ## Certificación Definitiva Pre-PR
-- **Commit Certificado**: ba0ce8902b6d6c2896a283e4f33999916bc02ad4
-- **CI Pipeline**: #28 (Run Automático de GitHub Actions tras el push)
-- **Resultado Final**: Verde (15/15 E2E, Security & RLS, Migration & Rollback, Build)
+- **Commit de corrección técnica**: ba0ce8902b6d6c2896a283e4f33999916bc02ad4
+- **CI Pipeline técnico**: #29 — Success
+- **HEAD validado**: 9a7821e32c752a42377c4506fc38a69485104158
+- **CI Pipeline del HEAD**: #30 — Success
+- **Resultado**: 15/15 E2E, Build, Security & RLS y Migration & Rollback en verde
 - **Auditoría**: `npm audit --omit=dev` sin vulnerabilidades
