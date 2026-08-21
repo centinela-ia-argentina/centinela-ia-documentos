@@ -270,45 +270,60 @@ test.describe.serial('Centinela IA - Flujo Jurídico E2E Obligatorio', () => {
   });
 
   test('11. Agenda 09:30 y otro horario', async () => {
+    const todayStr = new Date().toISOString().split('T')[0];
+    
     await page.goto('/agenda');
+    await page.getByRole('button', { name: 'Nuevo evento' }).click();
+    await expect(page.locator('[data-testid="agenda-titulo"]')).toBeVisible();
+
     await page.fill('[data-testid="agenda-titulo"]', 'Audiencia E2E ' + Date.now());
-    await page.fill('[data-testid="agenda-fecha"]', '2027-01-01');
+    await page.fill('[data-testid="agenda-fecha"]', todayStr);
     await page.fill('[data-testid="agenda-hora"]', '09:30');
-    await page.selectOption('[data-testid="agenda-categoria"]', 'Audiencia');
+    await page.selectOption('[data-testid="agenda-categoria"]', 'turno');
     await page.click('[data-testid="agenda-submit"]');
 
     await expect(page.locator('body')).toContainText('09:30');
 
     // Otro horario
+    await page.getByRole('button', { name: 'Nuevo evento' }).click();
+    await expect(page.locator('[data-testid="agenda-titulo"]')).toBeVisible();
+
     await page.fill('[data-testid="agenda-titulo"]', 'Reunión E2E ' + Date.now());
-    await page.fill('[data-testid="agenda-fecha"]', '2027-01-01');
+    await page.fill('[data-testid="agenda-fecha"]', todayStr);
     await page.fill('[data-testid="agenda-hora"]', '14:15');
-    await page.selectOption('[data-testid="agenda-categoria"]', 'Reunión');
+    await page.selectOption('[data-testid="agenda-categoria"]', 'evento');
     await page.click('[data-testid="agenda-submit"]');
 
     await expect(page.locator('body')).toContainText('14:15');
   });
 
   test('12. duplicado de Agenda', async () => {
+    const todayStr = new Date().toISOString().split('T')[0];
     const fixedTitle = 'Audiencia Dup ' + Date.now();
+    
     await page.goto('/agenda');
+    await page.getByRole('button', { name: 'Nuevo evento' }).click();
+    await expect(page.locator('[data-testid="agenda-titulo"]')).toBeVisible();
 
     await page.fill('[data-testid="agenda-titulo"]', fixedTitle);
-    await page.fill('[data-testid="agenda-fecha"]', '2027-02-02');
+    await page.fill('[data-testid="agenda-fecha"]', todayStr);
     await page.fill('[data-testid="agenda-hora"]', '10:00');
-    await page.selectOption('[data-testid="agenda-categoria"]', 'Vencimiento');
+    await page.selectOption('[data-testid="agenda-categoria"]', 'evento');
     await page.click('[data-testid="agenda-submit"]');
     await expect(page.locator('body')).toContainText(fixedTitle);
 
     // Attempt duplicate
+    await page.getByRole('button', { name: 'Nuevo evento' }).click();
+    await expect(page.locator('[data-testid="agenda-titulo"]')).toBeVisible();
+
     await page.fill('[data-testid="agenda-titulo"]', fixedTitle);
-    await page.fill('[data-testid="agenda-fecha"]', '2027-02-02');
+    await page.fill('[data-testid="agenda-fecha"]', todayStr);
     await page.fill('[data-testid="agenda-hora"]', '10:00');
-    await page.selectOption('[data-testid="agenda-categoria"]', 'Vencimiento');
+    await page.selectOption('[data-testid="agenda-categoria"]', 'evento');
     await page.click('[data-testid="agenda-submit"]');
 
     // Should show error or conflict
-    await expect(page.locator('body')).toContainText(/error|duplicado/i);
+    await expect(page.locator('body')).toContainText('Ya en agenda.');
   });
 
   test('13. tasa 28.000.000 -> 840.000', async () => {
