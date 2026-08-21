@@ -102,7 +102,7 @@ export function ConversorImagenes() {
 
   const descargarTodo = async () => {
     for (const item of items) {
-      // eslint-disable-next-line no-await-in-loop
+       
       await descargar(item);
     }
   };

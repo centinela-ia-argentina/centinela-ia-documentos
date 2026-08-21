@@ -270,7 +270,13 @@ test.describe.serial('Centinela IA - Flujo Jurídico E2E Obligatorio', () => {
   });
 
   test('11. Agenda 09:30 y otro horario', async () => {
-    const todayStr = new Date().toISOString().split('T')[0];
+    const formatter = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'America/Argentina/Buenos_Aires',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    });
+    const todayStr = formatter.format(new Date());
     
     await page.goto('/agenda');
     await page.getByRole('button', { name: 'Nuevo evento' }).click();
@@ -298,7 +304,13 @@ test.describe.serial('Centinela IA - Flujo Jurídico E2E Obligatorio', () => {
   });
 
   test('12. duplicado de Agenda', async () => {
-    const todayStr = new Date().toISOString().split('T')[0];
+    const formatter = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'America/Argentina/Buenos_Aires',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    });
+    const todayStr = formatter.format(new Date());
     const fixedTitle = 'Audiencia Dup ' + Date.now();
     
     await page.goto('/agenda');

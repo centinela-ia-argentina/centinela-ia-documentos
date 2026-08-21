@@ -335,7 +335,7 @@ export async function uploadSingleDocumentAsync(formData: FormData): Promise<Upl
     return { status: 'success', documentId };
   } catch (err: any) {
     console.error('Upload error:', err);
-    return { status: 'error', error: err.message || 'unknown_error' };
+    return { status: 'error', error: 'unknown_error' };
   }
 }
 
@@ -1340,10 +1340,11 @@ export async function deleteDocumentFromCase(formData: FormData) {
     .select('id');
 
   if (errorBorrado) {
-    redirect(`/expedientes/${caseId}?docdel=error:${encodeURIComponent(errorBorrado.message)}`);
+    console.error('deleteDocumentFromCase error:', errorBorrado);
+    redirect(`/expedientes/${caseId}?docdel=error`);
   }
   if (!filasBorradas || filasBorradas.length === 0) {
-    redirect(`/expedientes/${caseId}?docdel=cero-filas`);
+    redirect(`/expedientes/${caseId}?docdel=error`);
   }
 
   await createAuditLog({

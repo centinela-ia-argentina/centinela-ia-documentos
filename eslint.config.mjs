@@ -1,4 +1,7 @@
-export default [
+import nextConfig from "eslint-config-next/core-web-vitals";
+
+const config = [
+  ...nextConfig,
   {
     ignores: [
       ".next/**",
@@ -11,3 +14,5 @@ export default [
     ]
   }
 ];
+
+export default config;

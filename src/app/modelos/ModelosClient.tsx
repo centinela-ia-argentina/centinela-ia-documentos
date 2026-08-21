@@ -140,6 +140,7 @@ export function ModelosClient({
       grupos.set(m.categoria, arr);
     }
     return Array.from(grupos.entries());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [busqueda, provincia]);
 
   const variables = seleccionado ? extractVars(seleccionado.cuerpo) : [];

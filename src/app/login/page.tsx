@@ -31,6 +31,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
           className="mx-auto mb-4 mt-2 flex max-w-xs justify-center overflow-visible"
           aria-label="Volver al inicio de Centinela IA"
         >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src="/brand/centinela-logo-transparent.png"
             alt="Centinela IA"

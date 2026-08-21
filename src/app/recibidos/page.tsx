@@ -47,7 +47,7 @@ export default async function RecibidosPage() {
                     De: {d.from_organization_name} · {dateFormatter.format(new Date(d.created_at))}
                   </p>
                   {d.mensaje && (
-                    <p className="mt-3 text-sm text-slate-300">"{d.mensaje}"</p>
+                    <p className="mt-3 text-sm text-slate-300">&quot;{d.mensaje}&quot;</p>
                   )}
                   <div className="mt-5 flex items-center gap-2">
                     <form action={aceptarDerivacion}>
@@ -82,7 +82,7 @@ export default async function RecibidosPage() {
                     De: {d.from_organization_name} · {dateFormatter.format(new Date(d.created_at))}
                   </p>
                   {d.mensaje && (
-                    <p className="mt-3 text-sm text-slate-300">"{d.mensaje}"</p>
+                    <p className="mt-3 text-sm text-slate-300">&quot;{d.mensaje}&quot;</p>
                   )}
                   <div className="mt-5">
                     <Link

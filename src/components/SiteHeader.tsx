@@ -77,6 +77,7 @@ export function SiteHeader() {
           className="group flex min-w-0 items-center gap-3 justify-self-start"
           aria-label="Centinela IA - Ir al inicio"
         >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src="/isotipo.png"
             alt=""
