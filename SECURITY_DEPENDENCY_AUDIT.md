@@ -51,3 +51,9 @@ Se ejecutaron pruebas integrales sobre:
 - **Riesgos de Regresión Residuales**: Verificados en entornos de prueba con dependencias bloqueadas y tests locales en verde. Los parches aplicados se mantuvieron dentro del espectro semver menor/parche soportado nativamente por la base del código, no generando colisiones de peer-dependencies (como verificado vía `npm ls`).
 - **Validación Final CI**: El pipeline automatizado (Security, E2E y tests RLS) se ejecutará en GitHub Actions una vez emitido el push.
 - **Procedimiento de Rollback**: De ser necesario revertir, aplicar `git restore package.json package-lock.json && rm -rf node_modules && npm ci`.
+
+## Certificación Pre-PR
+- **Commit Certificado**: 822f46b3272100ba6776298eb3c338ee784aedf3
+- **CI Pipeline**: #27 (Run 32443235535)
+- **Resultado Final**: Verde
+- **Auditoría**: `npm audit --omit=dev` sin vulnerabilidades

@@ -214,11 +214,13 @@ export async function uploadSingleDocumentAsync(formData: FormData): Promise<Upl
     const buffer = Buffer.from(await file.arrayBuffer());
 
     // Deterministic test failure injection via cookie
-    const { cookies } = await import('next/headers');
-    const cookieStore = await cookies();
-    if (cookieStore.get('x-test-fail-upload')?.value === '1') {
-      cookieStore.delete('x-test-fail-upload');
-      return { status: 'error', error: 'mocked_network_failure' };
+    if (process.env.E2E_TEST_MODE === 'true') {
+      const { cookies } = await import('next/headers');
+      const cookieStore = await cookies();
+      if (cookieStore.get('x-test-fail-upload')?.value === '1') {
+        cookieStore.delete('x-test-fail-upload');
+        return { status: 'error', error: 'mocked_network_failure' };
+      }
     }
 
     // Validate Magic Bytes and Structure

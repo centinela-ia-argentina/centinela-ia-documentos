@@ -74,6 +74,7 @@ jobs:
           MOCK_AI: 'true'
           GEMINI_API_KEY: 'ci-mock-key'
           NODE_OPTIONS: '--require ./mock-ai.js'
+          E2E_TEST_MODE: 'true'
         run: |
           npm run build
           npm run test:e2e

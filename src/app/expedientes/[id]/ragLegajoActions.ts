@@ -82,7 +82,7 @@ export async function preguntarADocumentosLegajo(
     // 2) Embedding de la pregunta
     const emb = await generarEmbedding(texto);
     if ('error' in emb) {
-      await logRagError(supabase, profile.organization_id, user.id, caseId, correlationId, 'embedding_failed');
+      await logRagError(profile.organization_id, user.id, caseId, correlationId, 'embedding_failed');
       return { ok: false, error: 'technical_error', correlationId };
     }
 
@@ -107,7 +107,7 @@ export async function preguntarADocumentosLegajo(
     }
 
     if (matchError) {
-      await logRagError(supabase, profile.organization_id, user.id, caseId, correlationId, 'rpc_failed');
+      await logRagError(profile.organization_id, user.id, caseId, correlationId, 'rpc_failed');
       return { ok: false, error: 'technical_error', correlationId };
     }
 
@@ -161,7 +161,7 @@ RESPUESTA:`;
 
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
-      await logRagError(supabase, profile.organization_id, user.id, caseId, correlationId, 'missing_api_key');
+      await logRagError(profile.organization_id, user.id, caseId, correlationId, 'missing_api_key');
       return { ok: false, error: 'technical_error', correlationId };
     }
     const modelo = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
@@ -183,10 +183,10 @@ RESPUESTA:`;
 
     if (!resp.ok) {
       if (resp.status === 429) {
-        await logRagError(supabase, profile.organization_id, user.id, caseId, correlationId, 'rate_limit');
+        await logRagError(profile.organization_id, user.id, caseId, correlationId, 'rate_limit');
         return { ok: false, error: 'rate_limit', correlationId };
       }
-      await logRagError(supabase, profile.organization_id, user.id, caseId, correlationId, 'llm_network_error');
+      await logRagError(profile.organization_id, user.id, caseId, correlationId, 'llm_network_error');
       return { ok: false, error: 'technical_error', correlationId };
     }
 
@@ -196,51 +196,49 @@ RESPUESTA:`;
       '';
 
     if (!respuesta || data?.candidates?.[0]?.finishReason === 'SAFETY') {
-      await logRagError(supabase, profile.organization_id, user.id, caseId, correlationId, 'guardrail_triggered');
+      await logRagError(profile.organization_id, user.id, caseId, correlationId, 'guardrail_triggered');
       return { ok: false, error: 'guardrail', correlationId };
     }
 
     const promptHash = crypto.createHash('sha256').update(prompt).digest('hex');
 
-    await supabase.from('audit_logs').insert({
-      organization_id: profile.organization_id,
-      user_id: user.id,
+    await createAuditLog({
+      organizationId: profile.organization_id,
+      userId: user.id,
       action: 'AI_RAG_QUERY',
-      entity_type: 'case',
-      entity_id: caseId,
-      details: {
+      resourceType: 'case',
+      resourceId: caseId,
+      metadata: {
         correlation_id: correlationId,
         prompt_hash: promptHash,
         prompt_length: prompt.length,
         response_length: respuesta.length,
         chunks: fuentes.length,
         document_ids: Array.from(docCounts.keys())
-      },
-      ip_address: null
+      }
     });
 
     return { ok: true, respuesta, fuentes, correlationId };
   } catch (e) {
     // Only technical_error, securely logging without raw messages
     const supabase = await createClient();
-    await logRagError(supabase, profile.organization_id, user.id, caseId, correlationId, 'unhandled_exception');
+    await logRagError(profile.organization_id, user.id, caseId, correlationId, 'unhandled_exception');
     return { ok: false, error: 'technical_error', correlationId };
   }
 }
 
-async function logRagError(supabase: any, orgId: string, userId: string, caseId: string, correlationId: string, errorType: string) {
+async function logRagError(orgId: string, userId: string, caseId: string, correlationId: string, errorType: string) {
   try {
-    await supabase.from('audit_logs').insert({
-      organization_id: orgId,
-      user_id: userId,
+    await createAuditLog({
+      organizationId: orgId,
+      userId,
       action: 'AI_RAG_ERROR',
-      entity_type: 'case',
-      entity_id: caseId,
-      details: {
+      resourceType: 'case',
+      resourceId: caseId,
+      metadata: {
         correlation_id: correlationId,
         error_type: errorType,
-      },
-      ip_address: null
+      }
     });
   } catch(e) {
     // Fallback if DB is down, just silently fail audit logging

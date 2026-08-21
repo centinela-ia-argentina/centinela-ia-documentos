@@ -406,34 +406,32 @@ export async function preguntarAgente(input: {
     else if (res.motivo === 'invalid_response') errorState = 'guardrail';
     else if (res.motivo === 'sin_api_key') errorState = 'unavailable';
 
-    await supabase.from('audit_logs').insert({
-      organization_id: profile.organization_id,
-      user_id: user.id,
+    await createAuditLog({
+      organizationId: profile.organization_id,
+      userId: user.id,
       action: 'AI_AGENT_ERROR',
-      entity_type: 'case',
-      entity_id: input.caseId,
-      details: { correlation_id: correlationId, error: errorState, original_error: res.motivo },
-      ip_address: null
+      resourceType: 'case',
+      resourceId: input.caseId,
+      metadata: { correlation_id: correlationId, error: errorState, original_error: res.motivo }
     });
 
     return { ok: false, motivo: errorState, correlationId };
   }
 
   const promptHash = crypto.createHash('sha256').update(contextoLegajo + pregunta).digest('hex');
-  await supabase.from('audit_logs').insert({
-    organization_id: profile.organization_id,
-    user_id: user.id,
+  await createAuditLog({
+    organizationId: profile.organization_id,
+    userId: user.id,
     action: 'AI_AGENT_QUERY',
-    entity_type: 'case',
-    entity_id: input.caseId,
-    details: {
+    resourceType: 'case',
+    resourceId: input.caseId,
+    metadata: {
       correlation_id: crypto.randomUUID(),
       prompt_hash: promptHash,
       prompt_length: contextoLegajo.length + pregunta.length,
       response_length: res.respuesta.length,
       source_count: partes.length
-    },
-    ip_address: null
+    }
   });
   // Guardar la conversación en la memoria del legajo.
   // Si falla, no rompemos el chat: solo lo registramos en consola.
