@@ -14,7 +14,6 @@ export function UploadClient({
   documentTypes: string[];
   initialCaseId: string;
 }) {
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const router = useRouter();
   const MAX_FILE_SIZE_MB = 50;
   const [files, setFiles] = useState<{ id: string; file: File }[]>([]);
@@ -97,7 +96,6 @@ export function UploadClient({
       } else {
         setUploadStatus(prev => ({ ...prev, [id]: { status: 'error', error: res.error || 'Error' } }));
       }
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
       setUploadStatus(prev => ({ ...prev, [id]: { status: 'error', error: err.message || 'Error' } }));
     }
@@ -141,7 +139,6 @@ export function UploadClient({
         if (task) {
           try {
             await task();
-          // eslint-disable-next-line @typescript-eslint/no-unused-vars
           } catch (e) {}
         }
       }

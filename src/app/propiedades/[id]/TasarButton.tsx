@@ -22,7 +22,6 @@ export function TasarButton({ propertyId }: { propertyId: string }) {
         } else {
           setError(res.error || 'Ocurrió un error inesperado al tasar.');
         }
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       } catch (err) {
         setError('Ocurrió un error inesperado.');
       }

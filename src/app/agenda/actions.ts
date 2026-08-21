@@ -34,7 +34,6 @@ async function deduplicateAndInsert(input: {
     return { ok: false, motivo: 'error', mensaje: 'Faltan datos.' };
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   if (!canUpdateCase(profile.role as any)) {
     return { ok: false, motivo: 'no_auth', mensaje: 'No tenés permisos para esta acción.' };
   }
@@ -42,7 +41,6 @@ async function deduplicateAndInsert(input: {
   let horaValida: string | null = null;
   try {
     horaValida = validateTime(input.hora);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } catch (err: any) {
     return { ok: false, motivo: 'error', mensaje: err.message };
   }
@@ -85,7 +83,6 @@ async function deduplicateAndInsert(input: {
       await createAuditLog({
         organizationId: profile.organization_id,
         userId: user.id,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         action: 'agenda_event_duplicate_prevented' as any,
         resourceType: input.caseId ? 'case' : 'organization',
         resourceId: input.caseId || profile.organization_id,
@@ -111,7 +108,6 @@ async function deduplicateAndInsert(input: {
       await createAuditLog({
         organizationId: profile.organization_id,
         userId: user.id,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         action: 'agenda_event_duplicate_prevented' as any,
         resourceType: input.caseId ? 'case' : 'organization',
         resourceId: input.caseId || profile.organization_id,
@@ -125,7 +121,6 @@ async function deduplicateAndInsert(input: {
   await createAuditLog({
     organizationId: profile.organization_id,
     userId: user.id,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     action: 'agenda_event_created' as any,
     resourceType: input.caseId ? 'case' : 'organization',
     resourceId: input.caseId || profile.organization_id,

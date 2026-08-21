@@ -74,7 +74,6 @@ export function ComprimirPdf() {
 			// Fondo blanco (evita negro en zonas transparentes al pasar a JPEG)
 			ctx.fillStyle = '#ffffff';
 			ctx.fillRect(0, 0, canvas.width, canvas.height);
-			// eslint-disable-next-line @typescript-eslint/no-explicit-any
 			await page.render({ canvasContext: ctx, viewport: vp } as any).promise;
 
 			const img = canvas.toDataURL('image/jpeg', calidad);
@@ -102,7 +101,6 @@ export function ComprimirPdf() {
 		try {
 			const blob = await construirPdf();
 			setResultado({ blob, original: file.size, nuevo: blob.size });
-		// eslint-disable-next-line @typescript-eslint/no-unused-vars
 		} catch (e) {
 			setError('No se pudo comprimir. Verificá que sea un PDF válido y no esté protegido con contraseña.');
 		} finally {
@@ -130,7 +128,6 @@ export function ComprimirPdf() {
 			fd.append('file', nuevo);
 			fd.append('sensitivity_level', 'medium');
 			await uploadDocument(fd);
-		// eslint-disable-next-line @typescript-eslint/no-unused-vars
 		} catch (e) {
 			setError('No se pudo guardar en Documentos. Intentá de nuevo.');
 			setGuardando(false);

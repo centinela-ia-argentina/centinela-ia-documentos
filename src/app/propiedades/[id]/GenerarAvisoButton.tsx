@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useTransition } from 'react';
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { Bot, Sparkles, X, Copy, Check } from 'lucide-react';
 import { generarAvisoPropiedadIA } from '../actions';
 import { AiDisclaimer } from '@/lib/industries/disclaimers';
@@ -23,7 +22,6 @@ export function GenerarAvisoButton({ propertyId }: { propertyId: string }) {
         } else {
           setError(res.error || 'Ocurrió un error inesperado al generar el aviso.');
         }
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       } catch (err) {
         setError('Ocurrió un error inesperado.');
       }

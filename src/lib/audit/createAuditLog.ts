@@ -33,7 +33,6 @@ export async function createAuditLog(input: CreateAuditLogInput): Promise<{ ok: 
     }
 
     return { ok: true };
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } catch (err: any) {
     console.error('AuditLog unexpected error:', {
       code: err?.code || 'UNKNOWN',

@@ -84,16 +84,11 @@ export async function createProperty(formData: FormData) {
   if (error && (error.code === 'PGRST204' || (error.message && (error.message.includes('does not exist') || error.message.includes('Could not find') || error.message.includes('column'))))) {
      
     const { 
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       province, city, neighborhood, subzone, 
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       publication_status, publication_url_mercadolibre, 
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       publication_url_zonaprop, publication_url_argenprop, 
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       publication_url_other, publication_notes, 
       ...oldPropertyData 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } = propertyData as any;
     
     const retry = await supabase
@@ -113,7 +108,6 @@ export async function createProperty(formData: FormData) {
   await createAuditLog({
     organizationId: profile.organization_id,
     userId: user.id,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     action: 'property_created' as any,
     resourceType: 'property',
     resourceId: data.id,
@@ -203,7 +197,6 @@ Puntaje de Match: ${m.match.coincidencias}/${m.match.aplicables} criterios
   await createAuditLog({
     organizationId: profile.organization_id,
     userId: profile.id,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     action: 'property_match_ai' as any,
     resourceType: 'property',
     resourceId: propertyId,
@@ -251,7 +244,6 @@ export async function generarAvisoPropiedadIA(propertyId: string) {
   await createAuditLog({
     organizationId: profile.organization_id,
     userId: profile.id,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     action: 'property_ad_ai' as any,
     resourceType: 'property',
     resourceId: propertyId,
@@ -361,7 +353,6 @@ export async function tasarPropiedadConIA(propertyId: string) {
   await createAuditLog({
     organizationId: profile.organization_id,
     userId: profile.id,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     action: 'property_valuation_ai' as any,
     resourceType: 'property',
     resourceId: propertyId,
@@ -421,10 +412,8 @@ export async function updateProperty(formData: FormData) {
   if (error && (error.code === 'PGRST204' || (error.message && (error.message.includes('does not exist') || error.message.includes('Could not find') || error.message.includes('column'))))) {
      
     const { 
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       province, city, neighborhood, subzone, 
       ...oldPropertyData 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } = propertyData as any;
     
     const retry = await supabase
@@ -443,7 +432,6 @@ export async function updateProperty(formData: FormData) {
   await createAuditLog({
     organizationId: profile.organization_id,
     userId: user.id,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     action: 'property_updated' as any,
     resourceType: 'property',
     resourceId: propertyId,
@@ -512,7 +500,6 @@ export async function extraerDatosPropiedadIA(propertyId: string, documentId: st
   await createAuditLog({
     organizationId: profile.organization_id,
     userId: user.id,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     action: 'property_ai_extract' as any,
     resourceType: 'property',
     resourceId: propertyId,
@@ -534,12 +521,10 @@ export async function aplicarDatosIAPropiedad(formData: FormData) {
     redirect('/propiedades');
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const updatePayload: Record<string, any> = {
     updated_at: new Date().toISOString(),
   };
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const setIfPresent = (key: string, value: any) => {
     if (value !== null && value !== undefined && value !== '') {
       updatePayload[key] = value;
@@ -571,7 +556,6 @@ export async function aplicarDatosIAPropiedad(formData: FormData) {
     await createAuditLog({
       organizationId: profile.organization_id,
       userId: user.id,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       action: 'property_ai_autofill' as any,
       resourceType: 'property',
       resourceId: propertyId,
@@ -625,9 +609,7 @@ export async function crearComparable(formData: FormData) {
   await createAuditLog({
     organizationId: profile.organization_id,
     userId: user.id,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     action: 'comparable_created' as any,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     resourceType: 'property_comparables' as any,
     resourceId: data.id,
   });
@@ -658,9 +640,7 @@ export async function eliminarComparable(comparableId: string, propertyId?: stri
   await createAuditLog({
     organizationId: profile.organization_id,
     userId: user.id,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     action: 'comparable_deleted' as any,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     resourceType: 'property_comparables' as any,
     resourceId: comparableId,
   });

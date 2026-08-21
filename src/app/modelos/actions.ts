@@ -18,7 +18,6 @@ export async function redactarEscritoIA(input: {
 }): Promise<RedactarResult> {
   const { user, profile } = await getUserProfile();
   if (!user || !profile) return { ok: false, motivo: 'sin_permiso' };
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   if (!canUseAi(profile.role as any)) return { ok: false, motivo: 'sin_permiso' };
 
   const apiKey = process.env.GEMINI_API_KEY;
@@ -91,7 +90,6 @@ export async function redactarEscritoIA(input: {
     await createAuditLog({
       organizationId: profile.organization_id,
       userId: user.id,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       action: 'ai_model_generated' as any,
       resourceType: 'organization',
       resourceId: profile.organization_id,
@@ -123,7 +121,6 @@ export type RevisionResult =
 export async function revisarEscritoIA(input: { texto: string }): Promise<RevisionResult> {
   const { user, profile } = await getUserProfile();
   if (!user || !profile) return { ok: false, motivo: 'sin_permiso' };
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   if (!canUseAi(profile.role as any)) return { ok: false, motivo: 'sin_permiso' };
 
   const texto = input.texto?.trim();

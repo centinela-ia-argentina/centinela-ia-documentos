@@ -18,9 +18,7 @@ export async function logWhatsAppAction(resourceId: string, resourceType: 'prope
   await createAuditLog({
     organizationId: profile.organization_id,
     userId: user.id,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     action: action as any,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     resourceType: rt as any,
     resourceId: resourceId,
   });

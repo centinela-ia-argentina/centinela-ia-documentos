@@ -1,6 +1,5 @@
 'use client';
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { ExternalLink, Globe, Copy, Check, Info } from 'lucide-react';
 import { useState } from 'react';
 import type { PropertyRecord } from '@/types/property';
@@ -58,7 +57,6 @@ export function PublicacionAsistidaPanel({ property, canManage }: PublicacionAsi
       } else {
         setFeedback({ type: 'error', text: res.error || 'Error al guardar' });
       }
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (e) {
       setFeedback({ type: 'error', text: 'Error inesperado al guardar' });
     } finally {

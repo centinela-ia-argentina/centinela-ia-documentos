@@ -62,7 +62,6 @@ export function UnirPdf() {
 		setError(null);
 		try {
 			const bytes = await construirPdf();
-			// eslint-disable-next-line @typescript-eslint/no-explicit-any
 			const blob = new Blob([bytes as any], { type: 'application/pdf' });
 			const url = URL.createObjectURL(blob);
 			const a = document.createElement('a');
@@ -70,7 +69,6 @@ export function UnirPdf() {
 			a.download = 'documento-unido.pdf';
 			a.click();
 			URL.revokeObjectURL(url);
-		// eslint-disable-next-line @typescript-eslint/no-unused-vars
 		} catch (e) {
 			setError(
 				'No se pudo unir. Verificá que todos sean PDF válidos y no estén protegidos con contraseña.'
@@ -86,7 +84,6 @@ export function UnirPdf() {
 		setError(null);
 		try {
 			const bytes = await construirPdf();
-			// eslint-disable-next-line @typescript-eslint/no-explicit-any
 			const blob = new Blob([bytes as any], { type: 'application/pdf' });
 			const file = new File([blob], 'documento-unido.pdf', {
 				type: 'application/pdf',
@@ -95,7 +92,6 @@ export function UnirPdf() {
 			fd.append('file', file);
 			fd.append('sensitivity_level', 'medium');
 			await uploadDocument(fd);
-		// eslint-disable-next-line @typescript-eslint/no-unused-vars
 		} catch (e) {
 			setError('No se pudo guardar en Documentos. Intentá de nuevo.');
 			setGuardando(false);

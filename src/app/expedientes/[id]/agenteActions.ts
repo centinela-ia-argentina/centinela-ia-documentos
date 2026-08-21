@@ -58,7 +58,6 @@ export async function preguntarAgente(input: {
   const vencimientoPorDoc = new Map<string, string | null>();
   for (const d of documentos) {
     nombrePorDoc.set(d.id, d.file_name);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     vencimientoPorDoc.set(d.id, (d as any).expires_at ?? null);
   }
 
@@ -122,7 +121,6 @@ export async function preguntarAgente(input: {
       .from('checklist_items')
       .select('title, status, document_id')
       .in('checklist_id', checklistIdsCtx);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     checklistItemsCtx = (itemsData ?? []) as any;
   }
 
@@ -148,7 +146,6 @@ export async function preguntarAgente(input: {
     partes.push(camposRubro.join('\n'));
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const resumenJson = (resumenData?.result_json ?? null) as any;
   if (resumenJson) {
     partes.push('\nRESUMEN DEL EXPEDIENTE:');
@@ -162,7 +159,6 @@ export async function preguntarAgente(input: {
       partes.push(`Próximas acciones sugeridas: ${resumenJson.proximas_acciones.join('; ')}`);
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const cotejoJson = (cotejoData?.result_json ?? null) as any;
   if (cotejoJson) {
     partes.push('\nCOTEJO DE DOCUMENTOS:');
@@ -178,7 +174,6 @@ export async function preguntarAgente(input: {
   // Análisis de riesgo UIF/PLA ya generado para el legajo (si existe).
   // Se lo damos al agente para que NO proponga volver a analizar cuando ya hay
   // un análisis, y para que pueda decidir con criterio si corresponde un ROS.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const uifJson = (uifData?.result_json ?? null) as any;
   if (uifJson) {
     partes.push('\nANÁLISIS UIF / PLA (ya realizado por el sistema; usalo como VERDAD, no propongas volver a analizar salvo que el legajo haya cambiado):');
@@ -197,7 +192,6 @@ export async function preguntarAgente(input: {
   // Vencimientos cargados directamente en los documentos (certificados, etc.)
   const vencimientos: string[] = [];
   for (const d of documentos) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const v = (d as any).expires_at as string | null;
     if (v) vencimientos.push(`- ${d.file_name}: vence ${String(v).slice(0, 10)}`);
   }
@@ -223,7 +217,6 @@ export async function preguntarAgente(input: {
       .maybeSingle();
     const firmaIso = firmaData?.fecha ? String(firmaData.fecha).slice(0, 10) : null;
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const conVenc = documentos.filter((d) => (d as any).expires_at);
     if (conVenc.length > 0) {
       const diasEntre = (a: string, b: string) =>
@@ -231,7 +224,6 @@ export async function preguntarAgente(input: {
           (new Date(b + 'T00:00:00').getTime() - new Date(a + 'T00:00:00').getTime()) / 86400000
         );
       const lineas = conVenc.map((d) => {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const venceIso = String((d as any).expires_at).slice(0, 10);
         const dHoy = diasEntre(hoyIso, venceIso);
         let estado: string;
@@ -271,14 +263,10 @@ export async function preguntarAgente(input: {
     partes.push(
       eventos
         .map((e) => {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const f = String((e as any).event_date ?? '').slice(0, 10);
           const estado = f && f >= hoyIso ? 'PLAZO FUTURO' : 'ya pasó';
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const tipo = (e as any).event_type ?? 'otro';
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const titulo = (e as any).title ?? '';
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const desc = (e as any).description ? ` — ${(e as any).description}` : '';
           return `- ${f} [${estado}] (${tipo}) ${titulo}${desc}`;
         })
@@ -286,7 +274,6 @@ export async function preguntarAgente(input: {
     );
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const analisisPorDoc = new Map<string, any>();
   for (const o of analisisData ?? []) {
     if (o.document_id && !analisisPorDoc.has(o.document_id))
@@ -297,7 +284,6 @@ export async function preguntarAgente(input: {
     let i = 1;
     for (const [docId, rj] of analisisPorDoc.entries()) {
       const nombre = nombrePorDoc.get(docId) || 'documento';
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const r = (rj ?? {}) as any;
       const bloque = [`Documento ${i}: ${nombre} (${r.tipo_documental_detectado ?? 'tipo no detectado'})`];
       const venceDoc = vencimientoPorDoc.get(docId);
@@ -308,7 +294,6 @@ export async function preguntarAgente(input: {
       if (Array.isArray(r.clausulas_riesgos) && r.clausulas_riesgos.length) bloque.push(`Cláusulas/riesgos: ${r.clausulas_riesgos.join('; ')}`);
       if (Array.isArray(r.alertas) && r.alertas.length) bloque.push(`Alertas: ${r.alertas.join('; ')}`);
       if (Array.isArray(r.fechas_plazos) && r.fechas_plazos.length)
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         bloque.push(`Fechas/plazos: ${r.fechas_plazos.map((f: any) => `${f.descripcion ?? ''} (${f.fecha ?? ''})`).join('; ')}`);
       partes.push(bloque.join('\n'));
       i++;
@@ -345,7 +330,6 @@ export async function preguntarAgente(input: {
     if (idsCasoRag.size > 0) {
       const emb = await generarEmbedding(pregunta);
       if (!('error' in emb)) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         let matches: any[] | null = null;
         let matchError: { message: string } | null = null;
         ({ data: matches, error: matchError } = await supabase.rpc('match_case_document_chunks', {
@@ -362,7 +346,6 @@ export async function preguntarAgente(input: {
             p_match_count: 20,
           }));
         }
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const delLegajo: any[] = [];
         const contentSet = new Set<string>();
         for (const m of (matches ?? [])) {
@@ -378,7 +361,6 @@ export async function preguntarAgente(input: {
           );
           partes.push(
             delLegajo
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
               .map((m: any, i: number) => {
                 const nombre = nombrePorDoc.get(m.document_id) ?? 'documento';
                 return `[${i + 1}] (${nombre})\n${m.chunk_text}`;
@@ -498,7 +480,6 @@ export async function borrarConversacionAgente(input: {
   await createAuditLog({
     organizationId: profile.organization_id,
     userId: user.id,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     action: 'agent_memory_cleared' as any,
     resourceType: 'case',
     resourceId: input.caseId,
@@ -587,7 +568,6 @@ export async function ejecutarAccionAgenteInner(input: {
           mensaje:
             "No pude calcular la liquidación: faltan o son inválidos el ingreso, la edad o el % de incapacidad.",
         }
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const resultJson: any = {
           metodo,
           ingreso_mensual: Number(accion.ingresoMensual),
@@ -637,7 +617,6 @@ export async function ejecutarAccionAgenteInner(input: {
       const r = calcularVencimientoProcesal({
         fechaNotificacion: String(accion.fechaNotificacion ?? ''),
         diasHabiles: Number(accion.diasHabiles),
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         jurisdiccion: jurisdiccionStr as any,
         kmDistancia: Number(accion.kmDistancia) || 0,
       });
@@ -688,7 +667,6 @@ export async function ejecutarAccionAgenteInner(input: {
     case 'calcular_tasa_justicia': {
       if (!canUpdateCase(profile.role)) return { ok: false, mensaje: 'Sin permiso.' };
       const jurisdiccionStr = typeof accion.jurisdiccion === 'string' ? accion.jurisdiccion.trim() : '';
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const tipoProcesoStr = typeof accion.tipo_proceso === 'string' ? accion.tipo_proceso.trim() as any : undefined;
       const confirmacionBool = Boolean(accion.confirmacion);
       const montoVal = Number(accion.monto);
@@ -950,7 +928,6 @@ export async function diagnosticoLegajo(
 	try {
 		// Usá EXACTAMENTE el mismo patrón de auth/organización que ya usa
 		// `preguntarAgente` en este archivo (getUserProfile → orgId + rol).
-		// eslint-disable-next-line @typescript-eslint/no-unused-vars
 		const { user, profile } = await getUserProfile();
 		const orgId = profile?.organization_id;
 		if (!orgId || !profile?.role || !isUserRole(profile.role)) return { ok: false, alertas: [] };
@@ -1056,7 +1033,6 @@ export async function ejecutarAccionAgente(input: {
       await createAuditLog({
         organizationId: profile.organization_id,
         userId: user.id,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         action: 'agent_action_approved' as any,
         resourceType: 'case',
         resourceId: input.caseId,

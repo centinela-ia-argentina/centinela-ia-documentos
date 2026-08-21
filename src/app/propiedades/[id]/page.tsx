@@ -6,7 +6,6 @@ import { getUserProfile } from '@/lib/auth/getUserProfile';
 import { getPropertyStatusLabel, getPropertyTypeLabel } from '@/lib/properties/labels';
 import { canManageProperty, isUserRole, canUseAi } from '@/lib/permissions/roles';
 import { updateProperty } from '../actions';
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { ArrowLeft, Building2, MapPin, DollarSign, Home, Tag, Info, ScrollText, Users } from 'lucide-react';
 import { FormSubmitButton } from '@/components/ui/FormSubmitButton';
 import { PropertyAiAssistant } from './PropertyAiAssistant';
@@ -20,7 +19,6 @@ import { getDesiredPropertyTypeLabel, getOperationInterestLabel } from '@/lib/cl
 import { PropertyMatchAiButton } from './PropertyMatchAiButton';
 import { GenerarAvisoButton } from './GenerarAvisoButton';
 import { DescargarFichaPdfButton } from './DescargarFichaPdfButton';
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { TasarButton } from './TasarButton';
 import { TasacionPanel } from './TasacionPanel';
 import { PublicacionAsistidaPanel } from './PublicacionAsistidaPanel';
@@ -90,7 +88,6 @@ export default async function PropertyDetailPage({ params }: PropertyDetailPageP
     
   const comparables = comparablesData || [];
 
-  {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
   let sortedMatches: { item: ClientRecord; match: any }[] = [];
   if (record.status === 'disponible') {
     const { data: clientsData } = await supabase
@@ -537,10 +534,7 @@ export default async function PropertyDetailPage({ params }: PropertyDetailPageP
                       </div>
                       
                       {match.aplicables > 0 && (
-                         
                         <div className="mt-4 flex flex-wrap gap-2 pt-4 border-t border-white/5">
-                          { }
-                          {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
                           {match.criterios.filter((crit: any) => crit.aplica).map((crit: any) => (
                             <span 
                               key={crit.key} 

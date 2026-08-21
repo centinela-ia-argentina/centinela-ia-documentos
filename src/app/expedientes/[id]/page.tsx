@@ -16,7 +16,6 @@ import {
 import { AiDisclaimer } from '@/lib/industries/disclaimers';
 import { getIndustryTerms } from '@/lib/industries/uiLabels';
 import { summarizeChecklistStatuses } from '@/lib/checklist/progress';
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { getDocumentExpiryStatus, expiryStatusLabel, getExpiryBadgeStyles, getDaysUntilExpiry } from '@/lib/documents/expiry';
 import { sensitivityLabel } from '@/lib/documents/sensitivity';
 import { formatPlazoDate } from '@/lib/format/date';
@@ -30,7 +29,6 @@ import {
   removeChecklistItem,
   createCaseEvent,
   deleteCaseEvent,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   generarResumenExpediente,
   archiveCase,
   unarchiveCase,
@@ -47,7 +45,6 @@ import { MapPin } from 'lucide-react';
 import { DeleteCaseButton } from './DeleteCaseButton';
 import { CopilotoExpediente } from './CopilotoExpediente';
 import { AgenteChat } from './AgenteChat';
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { BotonAlChecklist } from './BotonAlChecklist';
 import { CotejoExpediente } from './CotejoExpediente';
 import { RedactarEscrituraButton } from './RedactarEscrituraButton';
@@ -62,7 +59,6 @@ import { RadarPlazos } from './RadarPlazos';
 import { Tabs } from '@/components/ui/Tabs';
 import { Badge } from '@/components/ui/Badge';
 import { MotionCard } from '@/components/ui/MotionCard';
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { MotionButton } from '@/components/ui/MotionButton';
 import type { CaseRecord } from '@/types/case';
 import { EliminarDocumentoButton } from './EliminarDocumentoButton';
@@ -253,7 +249,6 @@ export default async function CaseDetailPage({ params, searchParams }: CaseDetai
     .eq('organization_id', profile.organization_id)
     .maybeSingle();
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let checklistItemsData: any[] = [];
   if (caseChecklist) {
     const { data, error } = await supabase
@@ -311,9 +306,7 @@ export default async function CaseDetailPage({ params, searchParams }: CaseDetai
     []) as ChecklistDocumentOptionRecord[];
   const eventos = (caseEventsData ?? []) as CaseEventRecord[];
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let propertyRecord: any = null;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let allProperties: any[] = [];
   
   if (industry === 'inmobiliaria') {
@@ -545,13 +538,11 @@ export default async function CaseDetailPage({ params, searchParams }: CaseDetai
   }
 
   // 2) Fechas detectadas por la IA (último análisis por documento)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const analisisPorDoc = new Map<string, any>();
   for (const o of analisisData ?? []) {
     if (o.document_id && !analisisPorDoc.has(o.document_id)) analisisPorDoc.set(o.document_id, o.result_json);
   }
   for (const [docId, rj] of analisisPorDoc.entries()) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const fechas = Array.isArray((rj as any)?.fechas_plazos) ? (rj as any).fechas_plazos : [];
     for (const fp of fechas) {
       const f = String(fp?.fecha || '').slice(0, 10);
@@ -634,7 +625,6 @@ export default async function CaseDetailPage({ params, searchParams }: CaseDetai
                 {(industry === 'escribania' || industry === 'legal' || industry === 'inmobiliaria') && (
                     <CopilotoExpediente
                       caseId={caseRecord.id}
-                      // eslint-disable-next-line @typescript-eslint/no-explicit-any
                       resumen={(resumenData?.result_json as any) ?? null}
                       generadoEl={resumenData?.created_at ?? null}
                       documentosAnalizados={documentosAnalizados}
@@ -644,7 +634,6 @@ export default async function CaseDetailPage({ params, searchParams }: CaseDetai
                   )}
                   {industry === 'inmobiliaria' && (
                     <WhatsAppIntentBuilder
-                      // eslint-disable-next-line @typescript-eslint/no-explicit-any
                       phone={(caseRecord.metadata as any)?.phone || (caseRecord.metadata as any)?.telefono || null}
                       context="operation"
                       resourceId={caseRecord.id}
@@ -788,7 +777,6 @@ export default async function CaseDetailPage({ params, searchParams }: CaseDetai
                   <CotejoExpediente
                     caseId={caseRecord.id}
                     industry={industry}
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
                     cotejo={(cotejoData?.result_json as any) ?? null}
                     generadoEl={cotejoData?.created_at ?? null}
                     documentosAnalizados={documentosAnalizados}

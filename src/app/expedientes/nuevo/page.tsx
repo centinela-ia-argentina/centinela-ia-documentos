@@ -26,7 +26,6 @@ export default async function NewCasePage() {
   const caseStatuses = getCaseStatuses(industry);
   const caseTypes = getCaseTypes(industry);
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let properties: any[] = [];
   if (industry === 'inmobiliaria') {
     const { data } = await supabase

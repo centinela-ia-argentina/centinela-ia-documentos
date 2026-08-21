@@ -9,14 +9,11 @@ import { getDocumentExpiryStatus, expiryStatusLabel, getExpiryBadgeStyles, getDa
 import { sensitivityLabel } from '@/lib/documents/sensitivity';
 import { MetricCard } from '@/components/dashboard/MetricCard';
 import { Banner } from '@/components/ui/Banner';
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { Badge } from '@/components/ui/Badge';
 import { Reveal } from '@/components/ui/Reveal';
 import { MotionButton } from '@/components/ui/MotionButton';
 import { DocumentRowClient } from './DocumentRowClient';
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { analyzeDocument } from './actions';
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { AnalyzeButton } from './AnalyzeButton';
 import type { DocumentRecord } from '@/types/document';
 import { isUserRole, canArchiveDocument, canDeleteDocument } from '@/lib/permissions/roles';
@@ -300,7 +297,6 @@ export default async function DocumentsPage({
               const isAnalyzable = ['application/pdf', 'image/jpeg', 'image/png'].includes(item.file_mime_type ?? '');
 
               const expiryStatus = getDocumentExpiryStatus(item.expires_at);
-              // eslint-disable-next-line @typescript-eslint/no-unused-vars
               const expiryBadge = getExpiryBadgeStyles(expiryStatus);
               let expiryText = expiryStatusLabel(expiryStatus);
               if (expiryStatus === 'por_vencer') {

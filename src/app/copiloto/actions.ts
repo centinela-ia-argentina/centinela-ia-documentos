@@ -77,19 +77,16 @@ export async function preguntarCopiloto(pregunta: string) {
   const money = (v: number | null | undefined, cur: string | null | undefined) =>
     v != null ? `${cur === 'USD' ? 'u$s' : '$'}${Number(v).toLocaleString('es-AR')}` : 's/precio';
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const props = (propsRes.data || []) as any[];
   const propsTxt = props.length
     ? props.map((p, i) => `${i + 1}. ${p.name || 'Sin nombre'} — ${getPropertyTypeLabel(p.property_type)}, ${getPropertyStatusLabel(p.status)}, ${money(p.price, p.currency)}${p.rooms != null ? `, ${p.rooms} amb` : ''}${p.surface_total_m2 != null ? `, ${p.surface_total_m2} m²` : ''}${p.address ? `, ${p.address}` : ''}`).join('\n')
     : '(sin propiedades cargadas)';
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const clients = (clientsRes.data || []) as any[];
   const clientsTxt = clients.length
     ? clients.map((c, i) => `${i + 1}. ${c.name || 'Sin nombre'} — ${getClientTypeLabel(c.client_type)}, ${getClientStatusLabel(c.status)}, busca ${getDesiredPropertyTypeLabel(c.desired_property_type)}${c.operation_interest ? ` (${getOperationInterestLabel(c.operation_interest)})` : ''}${c.zone ? ` en ${c.zone}` : ''}, presupuesto ${money(c.budget_min, c.currency)}–${money(c.budget_max, c.currency)}${c.min_rooms != null ? `, ${c.min_rooms}+ amb` : ''}`).join('\n')
     : '(sin clientes cargados)';
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const cases = (casesRes.data || []) as any[];
   const casesTxt = cases.length
     ? cases.map((c, i) => `${i + 1}. ${c.title || 'Sin título'} — ${getCaseStatusLabel(c.status, 'inmobiliaria')}${c.case_type ? `, ${c.case_type}` : ''}${c.client_name ? `, cliente: ${c.client_name}` : ''}`).join('\n')

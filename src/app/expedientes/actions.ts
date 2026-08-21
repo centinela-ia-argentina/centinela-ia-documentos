@@ -733,7 +733,6 @@ export async function generarResumenExpediente(caseId: string) {
     .eq('output_type', 'document_analysis')
     .order('created_at', { ascending: false });
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const latestByDoc = new Map<string, any>();
   for (const o of outputsData ?? []) {
     if (o.document_id && !latestByDoc.has(o.document_id)) latestByDoc.set(o.document_id, o.result_json);
@@ -842,7 +841,6 @@ export async function cotejarExpediente(caseId: string) {
     .eq('output_type', 'document_analysis')
     .order('created_at', { ascending: false });
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const latestByDoc = new Map<string, any>();
   for (const o of outputsData ?? []) {
     if (o.document_id && !latestByDoc.has(o.document_id)) latestByDoc.set(o.document_id, o.result_json);
@@ -932,7 +930,6 @@ export async function redactarEscrituraExpediente(caseId: string) {
     .eq('output_type', 'document_analysis')
     .order('created_at', { ascending: false });
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const latestByDoc = new Map<string, any>();
   for (const o of outputsData ?? []) {
     if (o.document_id && !latestByDoc.has(o.document_id)) latestByDoc.set(o.document_id, o.result_json);
@@ -960,7 +957,6 @@ export async function redactarEscrituraExpediente(caseId: string) {
     .limit(1)
     .maybeSingle();
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const resumenGeneral = String((resumenData?.result_json as any)?.resumen_general || '');
   const metadata = (caseRecord.metadata || {}) as Record<string, string>;
 
@@ -1033,7 +1029,6 @@ export async function analizarUifExpediente(caseId: string) {
     .eq('output_type', 'document_analysis')
     .order('created_at', { ascending: false });
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const latestByDoc = new Map<string, any>();
   for (const o of outputsData ?? []) {
     if (o.document_id && !latestByDoc.has(o.document_id)) latestByDoc.set(o.document_id, o.result_json);
@@ -1061,7 +1056,6 @@ export async function analizarUifExpediente(caseId: string) {
     .limit(1)
     .maybeSingle();
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const resumenGeneral = String((resumenData?.result_json as any)?.resumen_general || '');
   const metadata = (caseRecord.metadata || {}) as Record<string, string>;
 
@@ -1120,7 +1114,6 @@ export async function archiveCase(formData: FormData) {
   await createAuditLog({
     organizationId: profile.organization_id,
     userId: user.id,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     action: 'case_archived' as any,
     resourceType: 'case',
     resourceId: caseId,
@@ -1163,7 +1156,6 @@ export async function unarchiveCase(formData: FormData) {
   await createAuditLog({
     organizationId: profile.organization_id,
     userId: user.id,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     action: 'case_unarchived' as any,
     resourceType: 'case',
     resourceId: caseId,
@@ -1259,7 +1251,6 @@ export async function deleteCase(formData: FormData) {
   await createAuditLog({
     organizationId: profile.organization_id,
     userId: user.id,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     action: 'case_deleted' as any,
     resourceType: 'case',
     resourceId: caseId,
@@ -1373,7 +1364,6 @@ export async function redactarAvisoExpediente(caseId: string) {
     .eq('output_type', 'document_analysis')
     .order('created_at', { ascending: false });
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const latestByDoc = new Map<string, any>();
   for (const o of outputsData ?? []) {
     if (o.document_id && !latestByDoc.has(o.document_id)) latestByDoc.set(o.document_id, o.result_json);
@@ -1401,7 +1391,6 @@ export async function redactarAvisoExpediente(caseId: string) {
     .limit(1)
     .maybeSingle();
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const resumenGeneral = String((resumenData?.result_json as any)?.resumen_general || '');
   const metadata = (caseRecord.metadata || {}) as Record<string, string>;
 
@@ -1431,7 +1420,6 @@ export async function redactarAvisoExpediente(caseId: string) {
   await createAuditLog({
     organizationId: profile.organization_id,
     userId: user.id,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     action: 'case_aviso_generated' as any,
     resourceType: 'case',
     resourceId: caseId,
@@ -1475,7 +1463,6 @@ export async function redactarBorradorInmobiliaria(caseId: string) {
     .eq('output_type', 'document_analysis')
     .order('created_at', { ascending: false });
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const latestByDoc = new Map<string, any>();
   for (const o of outputsData ?? []) {
     if (o.document_id && !latestByDoc.has(o.document_id)) latestByDoc.set(o.document_id, o.result_json);
@@ -1503,7 +1490,6 @@ export async function redactarBorradorInmobiliaria(caseId: string) {
     .limit(1)
     .maybeSingle();
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const resumenGeneral = String((resumenData?.result_json as any)?.resumen_general || '');
   const metadata = (caseRecord.metadata || {}) as Record<string, string>;
 
@@ -1534,7 +1520,6 @@ export async function redactarBorradorInmobiliaria(caseId: string) {
   await createAuditLog({
     organizationId: profile.organization_id,
     userId: user.id,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     action: 'case_borrador_inmo_generated' as any,
     resourceType: 'case',
     resourceId: caseId,
@@ -1600,7 +1585,6 @@ export async function autoMarcarChecklist(formData: FormData) {
   await createAuditLog({
     organizationId: profile.organization_id,
     userId: user.id,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     action: 'checklist_auto_matched' as any,
     resourceType: 'case',
     resourceId: caseId,
@@ -1666,7 +1650,6 @@ export async function calificarInquilinoExpediente(formData: FormData) {
     .eq('output_type', 'document_analysis')
     .order('created_at', { ascending: false });
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const latestByDoc = new Map<string, any>();
   for (const o of outputsData ?? []) {
     if (o.document_id && !latestByDoc.has(o.document_id)) latestByDoc.set(o.document_id, o.result_json);
@@ -1707,7 +1690,6 @@ export async function calificarInquilinoExpediente(formData: FormData) {
   await createAuditLog({
     organizationId: profile.organization_id,
     userId: user.id,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     action: 'prescore_generado' as any,
     resourceType: 'case',
     resourceId: caseId,

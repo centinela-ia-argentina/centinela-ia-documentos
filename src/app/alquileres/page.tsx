@@ -5,7 +5,6 @@ import { getUserProfile } from '@/lib/auth/getUserProfile';
 import { AppShell } from '@/components/layout/AppShell';
 import { canManageRental, isUserRole } from '@/lib/permissions/roles';
 import { normalizeIndustryType } from '@/lib/industries/documentTypes';
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { Plus, KeyRound, CalendarClock, Activity, TrendingUp } from 'lucide-react';
 import { Badge } from '@/components/ui/Badge';
 import { MotionCard } from '@/components/ui/MotionCard';
@@ -30,7 +29,6 @@ export default async function RentalsPage() {
     redirect('/dashboard');
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { data, error } = await supabase
     .from('rental_contracts')
     .select('*')
