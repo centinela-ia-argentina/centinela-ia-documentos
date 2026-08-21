@@ -72,6 +72,7 @@ jobs:
           TEST_USER_EMAIL: admin.legal@test.com
           TEST_USER_PASSWORD: password123
           MOCK_AI: 'true'
+          GEMINI_API_KEY: 'ci-mock-key'
           NODE_OPTIONS: '--require ./mock-ai.js'
         run: |
           npm run build
