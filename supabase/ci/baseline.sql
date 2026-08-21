@@ -188,6 +188,7 @@ CREATE TABLE public.agenda_plazos (
     titulo text NOT NULL,
     fecha date NOT NULL,
     hora time,
+    detalle text,
     categoria text NOT NULL,
     estado text NOT NULL DEFAULT 'Pendiente',
     created_by uuid REFERENCES public.profiles(id) ON DELETE SET NULL,
