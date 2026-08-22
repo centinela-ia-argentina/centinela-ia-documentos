@@ -390,7 +390,20 @@ CREATE POLICY "cases_org_all" ON public.cases FOR ALL USING (organization_id = p
 CREATE POLICY "documents_org_all" ON public.documents FOR ALL USING (organization_id = public.current_user_organization_id());
 CREATE POLICY "ai_outputs_org_all" ON public.ai_outputs FOR ALL USING (organization_id = public.current_user_organization_id());
 CREATE POLICY "checklists_org_all" ON public.checklists FOR ALL USING (organization_id = public.current_user_organization_id());
-CREATE POLICY "checklist_items_org_all" ON public.checklist_items FOR ALL USING (organization_id = public.current_user_organization_id());
+CREATE POLICY "checklist_items_select_by_role" ON public.checklist_items FOR SELECT TO authenticated USING (
+    public.current_user_is_active() 
+    AND organization_id = public.current_user_organization_id()
+);
+CREATE POLICY "checklist_items_insert_operator" ON public.checklist_items FOR INSERT TO authenticated WITH CHECK (
+    public.current_user_is_active() 
+    AND public.current_user_role() IN ('admin', 'employee')
+    AND organization_id = public.current_user_organization_id()
+);
+CREATE POLICY "checklist_items_update_operator" ON public.checklist_items FOR UPDATE TO authenticated USING (
+    public.current_user_is_active() 
+    AND public.current_user_role() IN ('admin', 'employee')
+    AND organization_id = public.current_user_organization_id()
+);
 CREATE POLICY "audit_logs_org_all" ON public.audit_logs FOR ALL USING (organization_id = public.current_user_organization_id());
 CREATE POLICY "reports_org_all" ON public.reports FOR ALL USING (organization_id = public.current_user_organization_id());
 CREATE POLICY "case_events_org_all" ON public.case_events FOR ALL USING (organization_id = public.current_user_organization_id());

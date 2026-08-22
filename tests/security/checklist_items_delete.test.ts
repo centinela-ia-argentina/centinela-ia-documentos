@@ -187,8 +187,26 @@ describe('Checklist Items DELETE RLS', () => {
   });
 
   it('11. anon no tiene privilegios de tabla en checklist_items', () => {
-    const res = execSync(`psql "${DB_URL}" -t -c "SELECT has_table_privilege('anon', 'public.checklist_items', 'SELECT, INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER');"`, { stdio: 'pipe' });
-    expect(res.toString().trim()).toBe('f');
+    const sel = execSync(`psql "${DB_URL}" -t -c "SELECT has_table_privilege('anon', 'public.checklist_items', 'SELECT');"`, { stdio: 'pipe' });
+    const ins = execSync(`psql "${DB_URL}" -t -c "SELECT has_table_privilege('anon', 'public.checklist_items', 'INSERT');"`, { stdio: 'pipe' });
+    const upd = execSync(`psql "${DB_URL}" -t -c "SELECT has_table_privilege('anon', 'public.checklist_items', 'UPDATE');"`, { stdio: 'pipe' });
+    const del = execSync(`psql "${DB_URL}" -t -c "SELECT has_table_privilege('anon', 'public.checklist_items', 'DELETE');"`, { stdio: 'pipe' });
+    const trun = execSync(`psql "${DB_URL}" -t -c "SELECT has_table_privilege('anon', 'public.checklist_items', 'TRUNCATE');"`, { stdio: 'pipe' });
+    const ref = execSync(`psql "${DB_URL}" -t -c "SELECT has_table_privilege('anon', 'public.checklist_items', 'REFERENCES');"`, { stdio: 'pipe' });
+    const trig = execSync(`psql "${DB_URL}" -t -c "SELECT has_table_privilege('anon', 'public.checklist_items', 'TRIGGER');"`, { stdio: 'pipe' });
+
+    expect(sel.toString().trim()).toBe('f');
+    expect(ins.toString().trim()).toBe('f');
+    expect(upd.toString().trim()).toBe('f');
+    expect(del.toString().trim()).toBe('f');
+    expect(trun.toString().trim()).toBe('f');
+    expect(ref.toString().trim()).toBe('f');
+    expect(trig.toString().trim()).toBe('f');
+  });
+
+  it('11.5. No existe ninguna politica FOR ALL en checklist_items', () => {
+    const res = execSync(`psql "${DB_URL}" -t -c "SELECT count(*) FROM pg_policies WHERE schemaname = 'public' AND tablename = 'checklist_items' AND cmd = 'ALL';"`, { stdio: 'pipe' });
+    expect(parseInt(res.toString().trim(), 10)).toBe(0);
   });
 
   it('12. authenticated conserva SELECT, INSERT, UPDATE y DELETE', () => {

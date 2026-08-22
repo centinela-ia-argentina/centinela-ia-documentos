@@ -1,5 +1,29 @@
 BEGIN;
 
+-- PREFLIGHT DEFENSIVO
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM pg_policies 
+    WHERE tablename = 'checklist_items' AND policyname = 'checklist_items_org_all'
+  ) THEN
+    RAISE EXCEPTION 'MIGRATION ABORTED: Legacy FOR ALL policy checklist_items_org_all still exists.';
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies 
+    WHERE tablename = 'checklist_items' AND policyname = 'checklist_items_select_by_role'
+  ) OR NOT EXISTS (
+    SELECT 1 FROM pg_policies 
+    WHERE tablename = 'checklist_items' AND policyname = 'checklist_items_insert_operator'
+  ) OR NOT EXISTS (
+    SELECT 1 FROM pg_policies 
+    WHERE tablename = 'checklist_items' AND policyname = 'checklist_items_update_operator'
+  ) THEN
+    RAISE EXCEPTION 'MIGRATION ABORTED: Missing required canonical policies (SELECT/INSERT/UPDATE) on checklist_items.';
+  END IF;
+END $$;
+
 -- 1. Normalizar grants de public.checklist_items
 -- Revocar todos los privilegios a anon (por seguridad)
 REVOKE ALL PRIVILEGES ON TABLE public.checklist_items FROM anon;
