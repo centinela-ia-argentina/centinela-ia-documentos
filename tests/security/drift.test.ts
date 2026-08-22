@@ -79,7 +79,12 @@ describe('Drift Repair: checklist_items.organization_id', () => {
   });
 
   it('1. Simular drift: eliminar organization_id de checklist_items y crear items', async () => {
-    // Para simular el drift (estado inicial legacy sin organization_id), eliminamos la columna CASCADE
+    // Para simular el drift (estado inicial legacy sin organization_id), primero eliminamos 
+    // cualquier rastro de reparaciones previas (trigger y funcion) si la base fue reutilizada.
+    runSql(`DROP TRIGGER IF EXISTS trg_check_checklist_item_org_drift_repair ON public.checklist_items;`);
+    runSql(`DROP FUNCTION IF EXISTS public.check_checklist_item_org_drift_repair();`);
+    
+    // Eliminamos la columna CASCADE
     // Esto elimina la poliza checklist_items_org_all y el constraint checklist_items_organization_id_fkey
     runSql(`ALTER TABLE public.checklist_items DROP COLUMN IF EXISTS organization_id CASCADE;`);
     
@@ -170,21 +175,10 @@ describe('Drift Repair: checklist_items.organization_id', () => {
     expect(hasColumn).toBe(false);
   });
 
-  it('7. Reaplicación y restauración completa de la base de prueba', async () => {
+  it('7. Reaplicación de la base de prueba', async () => {
     applyMigration();
     
-    // Restauración explícita (Option C) para no afectar la base de tests secuencial
-    // 1. Rollback final
-    applyRollback();
-    
-    // 2. Restaurar explícitamente todos los objetos eliminados por CASCADE
-    runSql(`ALTER TABLE public.checklist_items ADD COLUMN IF NOT EXISTS organization_id uuid;`);
-    runSql(`UPDATE public.checklist_items ci SET organization_id = c.organization_id FROM public.checklists c WHERE ci.checklist_id = c.id;`);
-    // Eliminar posibles basuras antes de NOT NULL
-    runSql(`DELETE FROM public.checklist_items WHERE organization_id IS NULL;`);
-    runSql(`ALTER TABLE public.checklist_items ALTER COLUMN organization_id SET NOT NULL;`);
-    
-    runSql(`ALTER TABLE public.checklist_items ADD CONSTRAINT checklist_items_organization_id_fkey FOREIGN KEY (organization_id) REFERENCES public.organizations(id) ON DELETE CASCADE;`);
-    runSql(`CREATE POLICY "checklist_items_org_all" ON public.checklist_items FOR ALL USING (organization_id = public.current_user_organization_id());`);
+    // Al finalizar, la instancia será descartada/reseteada completamente por el runner.
+    // No intentamos reconstruir parcialmente el baseline.
   });
 });

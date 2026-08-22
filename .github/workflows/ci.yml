@@ -48,6 +48,10 @@ jobs:
         env:
           ALLOW_DESTRUCTIVE_TESTS: true
         run: npm run test:security
+      - name: Run Drift Tests
+        env:
+          ALLOW_DESTRUCTIVE_TESTS: true
+        run: npm run test:drift
       - name: Stop Supabase
         if: always()
         run: supabase stop
