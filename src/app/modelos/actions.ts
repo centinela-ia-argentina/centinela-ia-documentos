@@ -1,6 +1,9 @@
 'use server';
 
 import { getUserProfile } from '@/lib/auth/getUserProfile';
+import { canUseAi } from '@/lib/permissions/roles';
+import { createAuditLog } from '@/lib/audit/createAuditLog';
+import { createClient } from '@/lib/supabase/server';
 
 export type RedactarResult =
   | { ok: true; texto: string }
@@ -15,6 +18,7 @@ export async function redactarEscritoIA(input: {
 }): Promise<RedactarResult> {
   const { user, profile } = await getUserProfile();
   if (!user || !profile) return { ok: false, motivo: 'sin_permiso' };
+  if (!canUseAi(profile.role as any)) return { ok: false, motivo: 'sin_permiso' };
 
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) return { ok: false, motivo: 'sin_key' };
@@ -82,6 +86,16 @@ export async function redactarEscritoIA(input: {
         .join('') ?? '';
 
     if (!texto.trim()) return { ok: false, motivo: 'error' };
+
+    await createAuditLog({
+      organizationId: profile.organization_id,
+      userId: user.id,
+      action: 'ai_model_generated' as any,
+      resourceType: 'organization',
+      resourceId: profile.organization_id,
+      metadata: { entity_id: input.titulo, details: { industria: input.industria } }
+    });
+
     return { ok: true, texto: texto.trim() };
   } catch (e) {
     console.error('Gemini fetch error:', e);
@@ -107,6 +121,7 @@ export type RevisionResult =
 export async function revisarEscritoIA(input: { texto: string }): Promise<RevisionResult> {
   const { user, profile } = await getUserProfile();
   if (!user || !profile) return { ok: false, motivo: 'sin_permiso' };
+  if (!canUseAi(profile.role as any)) return { ok: false, motivo: 'sin_permiso' };
 
   const texto = input.texto?.trim();
   if (!texto || texto.length < 40) return { ok: false, motivo: 'sin_texto' };
@@ -174,6 +189,17 @@ export async function revisarEscritoIA(input: { texto: string }): Promise<Revisi
           .map((c: { item?: unknown; ok?: unknown }) => ({ item: String(c?.item ?? ''), ok: Boolean(c?.ok) }))
           .filter((c: { item: string }) => c.item)
       : [];
+
+    const supabase = await createClient();
+    await supabase.from('audit_logs').insert({
+      organization_id: profile.organization_id,
+      user_id: user.id,
+      action: 'AI_ESCRITO_REVISADO',
+      entity_type: 'escrito',
+      entity_id: 'revision',
+      details: { longitud: texto.length, puntuacion: punt },
+      ip_address: null
+    });
 
     return {
       ok: true,

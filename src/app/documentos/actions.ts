@@ -4,12 +4,14 @@ import { randomUUID } from 'crypto';
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
-import { getUserProfile } from '@/lib/auth/getUserProfile';
 import { createAuditLog } from '@/lib/audit/createAuditLog';
+import crypto from 'crypto';
+import { getUserProfile } from '@/lib/auth/getUserProfile';
 import { indexarDocumento } from '@/lib/ai/indexarDocumento';
 import { analizarPoderConIA } from '@/lib/ai/poderes';
 import { normalizeIndustryType, type IndustryType } from '@/lib/industries/documentTypes';
 import { getAnalysisSystemPrompt } from '@/lib/industries/aiConfig';
+import { validateFileContent } from '@/lib/documents/fileValidation';
 import {
   canUploadDocument,
   canUseAi,
@@ -30,7 +32,8 @@ const ALLOWED_MIME_TYPES = [
   'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
 ];
 
-const MAX_FILE_SIZE = 20 * 1024 * 1024;
+const MAX_FILE_SIZE_MB = 50;
+const MAX_FILE_SIZE = MAX_FILE_SIZE_MB * 1024 * 1024;
 
 function sanitizeFileName(fileName: string) {
   return fileName.replace(/[^a-zA-Z0-9._-]/g, '_');
@@ -80,6 +83,26 @@ export async function uploadDocument(formData: FormData) {
     }
   }
 
+  const buffer = Buffer.from(await file.arrayBuffer());
+  if (!validateFileContent(file.type, buffer)) {
+    redirect('/documentos/subir?error=invalid_file_content');
+  }
+  const fileHash = crypto.createHash('sha256').update(buffer).digest('hex');
+
+  let existingQuery = supabase
+    .from('documents')
+    .select('id')
+    .eq('organization_id', profile.organization_id)
+    .eq('file_hash', fileHash);
+  if (caseId) existingQuery = existingQuery.eq('case_id', caseId);
+  else existingQuery = existingQuery.is('case_id', null);
+
+  const { data: existingDoc } = await existingQuery.single();
+
+  if (existingDoc) {
+    redirect('/documentos/subir?error=duplicate');
+  }
+
   const documentId = randomUUID();
   const safeFileName = sanitizeFileName(file.name);
   const storagePath = `${profile.organization_id}/${caseId || 'general'}/${documentId}/${safeFileName}`;
@@ -105,6 +128,7 @@ export async function uploadDocument(formData: FormData) {
     file_path: storagePath,
     file_mime_type: file.type,
     file_size: file.size,
+    file_hash: fileHash,
     document_type: documentType || null,
     sensitivity_level: sensitivityLevel,
     uploaded_by: user.id,
@@ -114,6 +138,23 @@ export async function uploadDocument(formData: FormData) {
   if (insertError) {
     console.error('Metadata error:', insertError);
     await supabase.storage.from('documents').remove([storagePath]);
+
+    if (insertError.code === '23505') {
+      let query = supabase
+        .from('documents')
+        .select('id')
+        .eq('organization_id', profile.organization_id)
+        .eq('file_hash', fileHash);
+      if (caseId) query = query.eq('case_id', caseId);
+      else query = query.is('case_id', null);
+
+      const { data: winner } = await query.single();
+
+      if (winner) {
+        redirect(`/documentos/subir?error=duplicate&existingDocumentId=${winner.id}`);
+      }
+    }
+
     redirect('/documentos/subir?error=metadata_failed');
   }
 
@@ -140,6 +181,162 @@ export async function uploadDocument(formData: FormData) {
   }
 
   redirect(`/documentos/${documentId}`);
+}
+
+export type UploadResult =
+  | { status: 'success'; documentId: string }
+  | { status: 'duplicate'; existingDocumentId: string; documentId?: string }
+  | { status: 'error'; error: string };
+
+
+
+export async function uploadSingleDocumentAsync(formData: FormData): Promise<UploadResult> {
+  try {
+    const { user, profile } = await getUserProfile();
+
+    if (!user || !profile) return { status: 'error', error: 'Sesión no válida.' };
+
+    if (!isUserRole(profile.role) || !canUploadDocument(profile.role)) {
+      return { status: 'error', error: 'Sin permiso para subir documentos.' };
+    }
+
+    const caseId = String(formData.get('case_id') || '');
+    const documentType = String(formData.get('document_type') || '');
+    const sensitivityLevel = String(formData.get('sensitivity_level') || 'medium');
+    const expiresAtForm = String(formData.get('expires_at') || '');
+    const expiresAt = expiresAtForm ? expiresAtForm : null;
+    const file = formData.get('file');
+
+    if (!(file instanceof File)) return { status: 'error', error: 'missing_file' };
+    if (!ALLOWED_MIME_TYPES.includes(file.type)) return { status: 'error', error: 'invalid_type' };
+    if (file.size > MAX_FILE_SIZE) return { status: 'error', error: 'file_too_large' };
+
+    const buffer = Buffer.from(await file.arrayBuffer());
+
+    // Deterministic test failure injection via cookie
+    if (process.env.E2E_TEST_MODE === 'true') {
+      const { cookies } = await import('next/headers');
+      const cookieStore = await cookies();
+      if (cookieStore.get('x-test-fail-upload')?.value === '1') {
+        cookieStore.delete('x-test-fail-upload');
+        return { status: 'error', error: 'mocked_network_failure' };
+      }
+    }
+
+    // Validate Magic Bytes and Structure
+    if (!validateFileContent(file.type, buffer)) {
+      return { status: 'error', error: 'invalid_file_content' };
+    }
+
+    const supabase = await createClient();
+
+    if (caseId) {
+      const { data: caseRecord } = await supabase
+        .from('cases')
+        .select('id')
+        .eq('id', caseId)
+        .eq('organization_id', profile.organization_id)
+        .single();
+
+      if (!caseRecord) return { status: 'error', error: 'invalid_case' };
+    }
+
+    const fileHash = crypto.createHash('sha256').update(buffer).digest('hex');
+
+    let existingQuery = supabase
+      .from('documents')
+      .select('id')
+      .eq('organization_id', profile.organization_id)
+      .eq('file_hash', fileHash);
+    if (caseId) existingQuery = existingQuery.eq('case_id', caseId);
+    else existingQuery = existingQuery.is('case_id', null);
+
+    const { data: existingDoc } = await existingQuery.single();
+
+    if (existingDoc) {
+      return { status: 'duplicate', existingDocumentId: existingDoc.id };
+    }
+
+    const documentId = randomUUID();
+    const safeFileName = sanitizeFileName(file.name);
+    const storagePath = `${profile.organization_id}/${caseId || 'general'}/${documentId}/${safeFileName}`;
+
+    // Reserva atómica de metadata antes de Storage
+    const { error: insertError } = await supabase.from('documents').insert({
+      id: documentId,
+      organization_id: profile.organization_id,
+      case_id: caseId || null,
+      file_name: file.name,
+      file_path: storagePath,
+      file_mime_type: file.type,
+      file_size: file.size,
+      file_hash: fileHash,
+      document_type: documentType || null,
+      sensitivity_level: sensitivityLevel,
+      uploaded_by: user.id,
+      expires_at: expiresAt,
+    });
+
+    if (insertError) {
+      console.error('Metadata error:', insertError);
+
+      if (insertError.code === '23505') {
+        let query = supabase
+          .from('documents')
+          .select('id')
+          .eq('organization_id', profile.organization_id)
+          .eq('file_hash', fileHash);
+        if (caseId) query = query.eq('case_id', caseId);
+        else query = query.is('case_id', null);
+
+        const { data: winner } = await query.single();
+
+        if (winner) {
+          return { status: 'duplicate', existingDocumentId: winner.id };
+        }
+      }
+
+      return { status: 'error', error: 'metadata_failed' };
+    }
+
+    const { error: uploadError } = await supabase.storage
+      .from('documents')
+      .upload(storagePath, file, {
+        cacheControl: '3600',
+        upsert: false,
+        contentType: file.type,
+      });
+
+    if (uploadError) {
+      console.error('Upload error:', uploadError);
+      // Mecanismo server-side restringido para limpiar el objeto huérfano en BD
+      const { createClient: createAdminClient } = await import('@supabase/supabase-js');
+      const adminClient = createAdminClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+      await adminClient.from('documents').delete().eq('id', documentId);
+      return { status: 'error', error: 'upload_failed' };
+    }
+
+    await createAuditLog({
+      organizationId: profile.organization_id,
+      userId: user.id,
+      action: 'document_uploaded',
+      resourceType: 'document',
+      resourceId: documentId,
+      metadata: {
+        file_name: file.name,
+        case_id: caseId || null,
+        document_type: documentType || null,
+        sensitivity_level: sensitivityLevel,
+        expires_at: expiresAt,
+        multi_upload: true,
+      },
+    });
+
+    return { status: 'success', documentId };
+  } catch (err: any) {
+    console.error('Upload error:', err);
+    return { status: 'error', error: 'unknown_error' };
+  }
 }
 
 function cleanExtractedText(text: string) {
@@ -546,7 +743,7 @@ async function analizarConIA(texto: string, industry: IndustryType): Promise<{
       Array.isArray(v) ? v.map(toText).filter((s) => s.trim().length > 0) : [];
 
     const rawFechas = Array.isArray(parsed.fechas_plazos) ? parsed.fechas_plazos : [];
-    const fechas_plazos = rawFechas.filter((f: any) => 
+    const fechas_plazos = rawFechas.filter((f: any) =>
       f && typeof f.descripcion === 'string' && typeof f.fecha === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(f.fecha)
     ).map((f: any) => ({ descripcion: f.descripcion, fecha: f.fecha }));
 
@@ -634,7 +831,7 @@ async function analizarConIAMultimodal(
       Array.isArray(v) ? v.map(toText).filter((s) => s.trim().length > 0) : [];
 
     const rawFechas = Array.isArray(parsed.fechas_plazos) ? parsed.fechas_plazos : [];
-    const fechas_plazos = rawFechas.filter((f: any) => 
+    const fechas_plazos = rawFechas.filter((f: any) =>
       f && typeof f.descripcion === 'string' && typeof f.fecha === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(f.fecha)
     ).map((f: any) => ({ descripcion: f.descripcion, fecha: f.fecha }));
 
@@ -1143,10 +1340,11 @@ export async function deleteDocumentFromCase(formData: FormData) {
     .select('id');
 
   if (errorBorrado) {
-    redirect(`/expedientes/${caseId}?docdel=error:${encodeURIComponent(errorBorrado.message)}`);
+    console.error('deleteDocumentFromCase error:', errorBorrado);
+    redirect(`/expedientes/${caseId}?docdel=error`);
   }
   if (!filasBorradas || filasBorradas.length === 0) {
-    redirect(`/expedientes/${caseId}?docdel=cero-filas`);
+    redirect(`/expedientes/${caseId}?docdel=error`);
   }
 
   await createAuditLog({

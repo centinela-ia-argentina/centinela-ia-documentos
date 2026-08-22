@@ -65,6 +65,7 @@ export default async function NewCasePage() {
               </label>
               <input
                 name="title"
+                data-testid="case-title"
                 required
                 placeholder="Compraventa — Cliente Pérez"
                 className="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none focus:ring-2 focus:ring-sky-400"
@@ -77,6 +78,7 @@ export default async function NewCasePage() {
               </label>
               <input
                 name="client_name"
+                data-testid="case-client"
                 placeholder="Nombre del cliente o empresa"
                 className="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none focus:ring-2 focus:ring-sky-400"
               />
@@ -88,6 +90,7 @@ export default async function NewCasePage() {
               </label>
               <select
                 name="case_type"
+                data-testid="case-type"
                 className="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none focus:ring-2 focus:ring-sky-400"
               >
                 {caseTypes.map((caseType) => (
@@ -173,7 +176,7 @@ export default async function NewCasePage() {
             ) : null}
           </div>
 
-          <button className="mt-6 rounded-2xl bg-slate-950 px-5 py-3 text-sm font-bold text-white hover:bg-slate-800">
+          <button type="submit" data-testid="case-submit" className="mt-6 rounded-2xl bg-slate-950 px-5 py-3 text-sm font-bold text-white hover:bg-slate-800">
             {`Crear ${terms.expedienteSingular.toLowerCase()}`}
           </button>
         </form>

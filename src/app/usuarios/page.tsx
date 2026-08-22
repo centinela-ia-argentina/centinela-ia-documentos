@@ -226,7 +226,10 @@ export default async function UsuariosPage({ searchParams }: UsuariosPageProps) 
             Usuarios
           </p>
 
-          <h2 className="mt-2 text-3xl font-bold text-white">
+          <h2
+            data-testid="users-page-title"
+            className="mt-2 text-3xl font-bold text-white"
+          >
             Control de usuarios y accesos
           </h2>
         </div>

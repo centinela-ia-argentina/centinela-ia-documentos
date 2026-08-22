@@ -6,7 +6,7 @@ import {
   getDocumentTypes,
   normalizeIndustryType,
 } from '@/lib/industries/documentTypes';
-import { uploadDocument } from '../actions';
+import { UploadClient } from './UploadClient';
 
 interface UploadDocumentPageProps {
   searchParams: Promise<{ case?: string; error?: string }>;
@@ -78,107 +78,11 @@ export default async function UploadDocumentPage({
           </div>
         ) : null}
 
-        <form
-          action={uploadDocument}
-          className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm"
-        >
-          <div className="grid gap-5">
-            <div>
-              <label className="text-sm font-semibold text-slate-700">
-                Expediente
-              </label>
-
-              <select
-                name="case_id"
-                defaultValue={selectedCaseId}
-                className="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none focus:ring-2 focus:ring-sky-400"
-              >
-                <option value="">Sin expediente / general</option>
-
-                {(cases ?? []).map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {item.title}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="text-sm font-semibold text-slate-700">
-                Tipo documental
-              </label>
-
-              <select
-                name="document_type"
-                className="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none focus:ring-2 focus:ring-sky-400"
-              >
-                <option value="">Sin Clasificar</option>
-                {documentTypes.map((documentType) => (
-                  <option key={documentType} value={documentType}>
-                    {documentType}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="text-sm font-semibold text-slate-700">
-                Nivel de sensibilidad
-              </label>
-
-              <select
-                name="sensitivity_level"
-                defaultValue="medium"
-                className="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none focus:ring-2 focus:ring-sky-400"
-              >
-                <option value="low">Bajo</option>
-                <option value="medium">Medio</option>
-                <option value="high">Alto</option>
-                <option value="critical">Crítico</option>
-              </select>
-            </div>
-
-
-
-            <div>
-              <label className="text-sm font-semibold text-slate-700">
-                Fecha de vencimiento
-              </label>
-
-              <input
-                name="expires_at"
-                type="date"
-                className="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none focus:ring-2 focus:ring-sky-400"
-              />
-              
-              <p className="mt-2 text-xs text-slate-500">
-                Opcional. Si el documento vence, indicá la fecha. Si no, dejalo vacío.
-              </p>
-            </div>
-
-            <div>
-              <label className="text-sm font-semibold text-slate-700">
-                Archivo
-              </label>
-
-              <input
-                name="file"
-                type="file"
-                required
-                accept=".pdf,.jpg,.jpeg,.png,.docx,.xlsx"
-                className="mt-2 w-full rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-sm outline-none focus:ring-2 focus:ring-sky-400"
-              />
-
-              <p className="mt-2 text-xs text-slate-500">
-                Formatos permitidos: PDF, JPG, PNG, DOCX y XLSX. Máximo 20 MB.
-              </p>
-            </div>
-          </div>
-
-          <button className="mt-6 rounded-2xl bg-slate-950 px-5 py-3 text-sm font-bold text-white hover:bg-slate-800">
-            Subir documento
-          </button>
-        </form>
+        <UploadClient
+          cases={cases ?? []}
+          documentTypes={documentTypes}
+          initialCaseId={selectedCaseId}
+        />
       </div>
     </AppShell>
   );

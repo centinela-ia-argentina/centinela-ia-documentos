@@ -6,6 +6,7 @@ export function AvisoPrivacidadIA({ contexto = 'esta función' }: { contexto?: s
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setVisible(localStorage.getItem('centinela_aviso_ia') !== 'ok');
   }, []);
 

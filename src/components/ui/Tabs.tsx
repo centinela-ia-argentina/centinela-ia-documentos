@@ -10,6 +10,7 @@ export function Tabs({ tabs, initial }: { tabs: Tab[]; initial?: string }) {
   useEffect(() => {
     const fromUrl = new URLSearchParams(window.location.search).get('tab');
     if (fromUrl && tabs.some((t) => t.id === fromUrl)) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setActive(fromUrl);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps

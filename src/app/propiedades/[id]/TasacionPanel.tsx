@@ -23,6 +23,7 @@ export function TasacionPanel({ propertyId, propertyType, comparables }: Tasacio
   const [feedback, setFeedback] = useState<{ type: 'error' | 'success'; text: string } | null>(null);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setMounted(true);
   }, []);
 

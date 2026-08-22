@@ -175,7 +175,7 @@ Para más información, contactanos.`;
               Hashtags
             </button>
           </div>
-          <p className="text-[10px] text-slate-500">O usá "Generar aviso con IA" para un texto publicitario más completo.</p>
+          <p className="text-[10px] text-slate-500">O usá &quot;Generar aviso con IA&quot; para un texto publicitario más completo.</p>
         </div>
 
         {canManage && (

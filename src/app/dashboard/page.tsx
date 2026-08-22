@@ -210,7 +210,10 @@ export default async function DashboardPage() {
     <AppShell>
       <MotionCard className="mb-8" index={0}>
         <p className="text-xs font-semibold uppercase tracking-widest text-cyan-400/80">INICIO</p>
-        <h1 className="mt-2 font-display text-3xl font-semibold tracking-tight text-white">
+        <h1
+          data-testid="dashboard-title"
+          className="mt-2 font-display text-3xl font-semibold tracking-tight text-white"
+        >
           Bienvenido, <span className="text-gradient">{profile.full_name}</span>
         </h1>
         <p className="mt-2 text-sm text-slate-400">

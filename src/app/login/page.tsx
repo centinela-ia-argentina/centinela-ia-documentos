@@ -31,6 +31,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
           className="mx-auto mb-4 mt-2 flex max-w-xs justify-center overflow-visible"
           aria-label="Volver al inicio de Centinela IA"
         >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src="/brand/centinela-logo-transparent.png"
             alt="Centinela IA"
@@ -62,6 +63,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
             <input
               name="email"
               type="email"
+              data-testid="login-email"
               required
               className="mt-2 w-full rounded-2xl border border-white/10 bg-[#071326]/80 px-4 py-3 text-white outline-none placeholder:text-slate-500 focus:border-[#29C5FF] focus:ring-2 focus:ring-sky-400"
               placeholder="usuario@empresa.com"
@@ -85,13 +87,18 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
             <input
               name="password"
               type="password"
+              data-testid="login-password"
               required
               className="mt-2 w-full rounded-2xl border border-white/10 bg-[#071326]/80 px-4 py-3 text-white outline-none placeholder:text-slate-500 focus:border-[#29C5FF] focus:ring-2 focus:ring-sky-400"
               placeholder="••••••••"
             />
           </div>
 
-          <button className="w-full rounded-2xl bg-[#1E9BF0] px-5 py-3 text-sm font-bold text-white shadow-[0_14px_34px_rgba(30,155,240,0.28)] transition-all hover:-translate-y-0.5 hover:bg-[#1485D6] focus:outline-none focus:ring-2 focus:ring-sky-400 focus:ring-offset-2 focus:ring-offset-[#0A1830]">
+          <button
+            type="submit"
+            data-testid="login-submit"
+            className="w-full rounded-2xl bg-[#1E9BF0] px-5 py-3 text-sm font-bold text-white shadow-[0_14px_34px_rgba(30,155,240,0.28)] transition-all hover:-translate-y-0.5 hover:bg-[#1485D6] focus:outline-none focus:ring-2 focus:ring-sky-400 focus:ring-offset-2 focus:ring-offset-[#0A1830]"
+          >
             Ingresar
           </button>
         </form>

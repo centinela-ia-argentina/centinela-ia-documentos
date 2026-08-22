@@ -13,13 +13,15 @@ import { generarEmbedding } from '@/lib/ai/embeddings';
 import { calcularIncapacidad } from "@/lib/legal/liquidacion";
 import { calcularVencimientoProcesal } from '@/lib/legal/plazos';
 import { calcularTasaJusticia } from '@/lib/legal/tasaJusticia';
+import { createAuditLog } from '@/lib/audit/createAuditLog';
+import crypto from 'crypto';
 
 export async function preguntarAgente(input: {
   caseId: string;
   historial: MensajeChat[];
   pregunta: string;
 }): Promise<
-  { ok: false; motivo: string } | { ok: true; respuesta: string; acciones: AccionPropuesta[] }
+  { ok: false; motivo: string; correlationId?: string } | { ok: true; respuesta: string; acciones: AccionPropuesta[] }
 > {
   const pregunta = (input.pregunta ?? '').trim();
   if (!pregunta) return { ok: false, motivo: 'Escribí una pregunta.' };
@@ -330,21 +332,29 @@ export async function preguntarAgente(input: {
       if (!('error' in emb)) {
         let matches: any[] | null = null;
         let matchError: { message: string } | null = null;
-        ({ data: matches, error: matchError } = await supabase.rpc('match_document_chunks', {
-          query_embedding: emb.values,
-          match_org: profile.organization_id,
-          match_count: 80,
+        ({ data: matches, error: matchError } = await supabase.rpc('match_case_document_chunks', {
+          p_case_id: input.caseId,
+          p_query_embedding: emb.values,
+          p_match_threshold: 0.1,
+          p_match_count: 20,
         }));
         if (matchError) {
-          ({ data: matches, error: matchError } = await supabase.rpc('match_document_chunks', {
-            query_embedding: JSON.stringify(emb.values),
-            match_org: profile.organization_id,
-            match_count: 80,
+          ({ data: matches, error: matchError } = await supabase.rpc('match_case_document_chunks', {
+            p_case_id: input.caseId,
+            p_query_embedding: JSON.stringify(emb.values),
+            p_match_threshold: 0.1,
+            p_match_count: 20,
           }));
         }
-        const delLegajo = (matches ?? [])
-          .filter((m: any) => idsCasoRag.has(m.document_id))
-          .slice(0, 20);
+        const delLegajo: any[] = [];
+        const contentSet = new Set<string>();
+        for (const m of (matches ?? [])) {
+          const c = (m.chunk_text || '').trim();
+          if (!contentSet.has(c)) {
+            contentSet.add(c);
+            delLegajo.push(m);
+          }
+        }
         if (delLegajo.length > 0) {
           partes.push(
             '\nFRAGMENTOS TEXTUALES RELEVANTES (extractos del texto real de los documentos para ESTA pregunta; citá el documento por su nombre entre paréntesis cuando los uses):'
@@ -353,7 +363,7 @@ export async function preguntarAgente(input: {
             delLegajo
               .map((m: any, i: number) => {
                 const nombre = nombrePorDoc.get(m.document_id) ?? 'documento';
-                return `[${i + 1}] (${nombre})\n${m.content}`;
+                return `[${i + 1}] (${nombre})\n${m.chunk_text}`;
               })
               .join('\n\n')
           );
@@ -381,22 +391,48 @@ export async function preguntarAgente(input: {
         .slice(-12)
     : [];
 
-  const res = await responderAgenteLegajo({ 
-    industry, 
-    contextoLegajo, 
-    historial, 
+  const res = await responderAgenteLegajo({
+    industry,
+    contextoLegajo,
+    historial,
     pregunta,
     documentEvidenceState
   });
-  
+
   if (!res.ok) {
-    let motivo = 'No pude generar una respuesta. Probá de nuevo.';
-    if (res.motivo === 'sin_api_key') motivo = 'La IA no está configurada (falta la API key).';
-    else if (res.motivo === 'invalid_request') motivo = 'No pude completar el análisis de inconsistencias con la información disponible. No generé conclusiones ni acciones.';
-    else if (res.motivo === 'rate_limit') motivo = 'El servicio de análisis está temporalmente ocupado. No se generaron conclusiones ni acciones. Intentá nuevamente en unos minutos.';
-    else if (res.motivo === 'invalid_response') motivo = 'No pude validar el resultado del análisis. No generé conclusiones ni acciones.';
-    return { ok: false, motivo };
+    const correlationId = crypto.randomUUID();
+    let errorState = 'technical_error';
+    if (res.motivo === 'rate_limit') errorState = 'rate_limit';
+    else if (res.motivo === 'invalid_response') errorState = 'guardrail';
+    else if (res.motivo === 'sin_api_key') errorState = 'unavailable';
+
+    await createAuditLog({
+      organizationId: profile.organization_id,
+      userId: user.id,
+      action: 'AI_AGENT_ERROR',
+      resourceType: 'case',
+      resourceId: input.caseId,
+      metadata: { correlation_id: correlationId, error: errorState, original_error: res.motivo }
+    });
+
+    return { ok: false, motivo: errorState, correlationId };
   }
+
+  const promptHash = crypto.createHash('sha256').update(contextoLegajo + pregunta).digest('hex');
+  await createAuditLog({
+    organizationId: profile.organization_id,
+    userId: user.id,
+    action: 'AI_AGENT_QUERY',
+    resourceType: 'case',
+    resourceId: input.caseId,
+    metadata: {
+      correlation_id: crypto.randomUUID(),
+      prompt_hash: promptHash,
+      prompt_length: contextoLegajo.length + pregunta.length,
+      response_length: res.respuesta.length,
+      source_count: partes.length
+    }
+  });
   // Guardar la conversación en la memoria del legajo.
   // Si falla, no rompemos el chat: solo lo registramos en consola.
   try {
@@ -440,12 +476,23 @@ export async function borrarConversacionAgente(input: {
     console.error('Agente borrar conversación error:', error);
     return { ok: false, motivo: 'No se pudo borrar la conversación.' };
   }
+
+  await createAuditLog({
+    organizationId: profile.organization_id,
+    userId: user.id,
+    action: 'agent_memory_cleared' as any,
+    resourceType: 'case',
+    resourceId: input.caseId,
+    metadata: { info: 'Conversación de IA eliminada' },
+  });
+
+  revalidatePath(`/expedientes/${input.caseId}`);
   return { ok: true };
 }
 
 // Ejecuta una acción aprobada por el usuario sobre un legajo concreto.
 // Valida permisos y organización antes de tocar la base.
-export async function ejecutarAccionAgente(input: {
+export async function ejecutarAccionAgenteInner(input: {
   caseId: string;
   accion: AccionPropuesta;
 }): Promise<{ ok: boolean; mensaje: string }> {
@@ -631,8 +678,8 @@ export async function ejecutarAccionAgente(input: {
       if (!Number.isFinite(montoVal) || montoVal <= 0) return { ok: false, mensaje: 'El monto debe ser numérico y mayor a cero.' };
       if (accion.moneda === 'USD') return { ok: false, mensaje: 'La moneda debe ser ARS. Para moneda extranjera indique la base imponible en pesos.' };
 
-      const r = calcularTasaJusticia({ 
-        monto: montoVal, 
+      const r = calcularTasaJusticia({
+        monto: montoVal,
         jurisdiccion: jurisdiccionStr,
         tipo_proceso: tipoProcesoStr,
         confirmacion: confirmacionBool
@@ -641,10 +688,10 @@ export async function ejecutarAccionAgente(input: {
       const { error } = await supabase.from('ai_outputs').insert({
         output_type: 'case_tasa_justicia',
         content: `${accion.titulo} — tasa $${r.tasa}`,
-        result_json: { 
-          titulo: accion.titulo, 
-          base: r.base, 
-          porcentaje: r.porcentaje, 
+        result_json: {
+          titulo: accion.titulo,
+          base: r.base,
+          porcentaje: r.porcentaje,
           tasa: r.tasa,
           jurisdiccion: r.jurisdiccion,
           fuente_nombre: r.fuente_nombre,
@@ -973,4 +1020,25 @@ export async function diagnosticoLegajo(
 	} catch {
 		return { ok: false, alertas: [] };
 	}
+}
+
+export async function ejecutarAccionAgente(input: {
+  caseId: string;
+  accion: AccionPropuesta;
+}): Promise<{ ok: boolean; mensaje: string }> {
+  const result = await ejecutarAccionAgenteInner(input);
+  if (result.ok) {
+    const { user, profile } = await getUserProfile();
+    if (user && profile) {
+      await createAuditLog({
+        organizationId: profile.organization_id,
+        userId: user.id,
+        action: 'agent_action_approved' as any,
+        resourceType: 'case',
+        resourceId: input.caseId,
+        metadata: { action_tipo: input.accion.tipo, title: input.accion.titulo },
+      });
+    }
+  }
+  return result;
 }
