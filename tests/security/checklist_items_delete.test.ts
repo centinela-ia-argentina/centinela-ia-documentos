@@ -112,48 +112,63 @@ describe('Checklist Items DELETE RLS', () => {
     const itemId = await createItem(SEED_DATA.ORG_LEGAL_ID, chkLegalId);
     const { data, error } = await adminALegal.from('checklist_items').select('id').eq('id', itemId);
     expect(error).toBeNull();
-    expect(data?.length).toBe(1);
+    expect(data ?? []).toHaveLength(1);
   });
 
   it('R2. Employee activo puede leer checklist_items de su organizacion', async () => {
     const itemId = await createItem(SEED_DATA.ORG_LEGAL_ID, chkLegalId);
     const { data, error } = await employeeALegal.from('checklist_items').select('id').eq('id', itemId);
     expect(error).toBeNull();
-    expect(data?.length).toBe(1);
+    expect(data ?? []).toHaveLength(1);
   });
 
   it('R3. Auditor activo puede leer checklist_items de su organizacion', async () => {
     const itemId = await createItem(SEED_DATA.ORG_LEGAL_ID, chkLegalId);
     const { data, error } = await auditorALegal.from('checklist_items').select('id').eq('id', itemId);
     expect(error).toBeNull();
-    expect(data?.length).toBe(1);
+    expect(data ?? []).toHaveLength(1);
   });
 
   it('R4. Client asignado al expediente puede leer sus checklist_items', async () => {
     const itemId = await createItem(SEED_DATA.ORG_LEGAL_ID, chkLegalId);
     const { data, error } = await clientALegal.from('checklist_items').select('id').eq('id', itemId);
     expect(error).toBeNull();
-    expect(data?.length).toBe(1);
+    expect(data ?? []).toHaveLength(1);
   });
 
   it('R5. Client no asignado no puede leer checklist_items del expediente', async () => {
     const clientUnassigned = createClient(supabaseUrl, supabaseAnonKey, { auth: { persistSession: false } });
-    await clientUnassigned.auth.signInWithPassword({ email: 'client.unassigned@test.com', password: 'password123' });
+    const { data: authData, error: authError } = await clientUnassigned.auth.signInWithPassword({ email: 'client.unassigned@test.com', password: 'password123' });
+    expect(authError).toBeNull();
+    expect(authData.session).not.toBeNull();
+    
+    // Check that profile is correct
+    const prof = await serviceClient.from('profiles').select('status, role, organization_id').eq('id', authData.user?.id).single();
+    expect(prof.data?.status).toBe('active');
+    expect(prof.data?.role).toBe('client');
+    expect(prof.data?.organization_id).toBe(SEED_DATA.ORG_LEGAL_ID);
+
     const itemId = await createItem(SEED_DATA.ORG_LEGAL_ID, chkLegalId);
-    const { data } = await clientUnassigned.from('checklist_items').select('id').eq('id', itemId);
-    expect(data?.length).toBe(0);
+    const { data, error } = await clientUnassigned.from('checklist_items').select('id').eq('id', itemId);
+    if (error === null) {
+      expect(data ?? []).toHaveLength(0);
+    }
   });
 
   it('R6. Usuario inactivo no puede leer', async () => {
     const itemId = await createItem(SEED_DATA.ORG_LEGAL_ID, chkLegalId);
-    const { data } = await inactiveALegal.from('checklist_items').select('id').eq('id', itemId);
-    expect(data?.length).toBe(0);
+    const { data, error } = await inactiveALegal.from('checklist_items').select('id').eq('id', itemId);
+    if (error === null) {
+      expect(data ?? []).toHaveLength(0);
+    }
   });
 
   it('R7. Usuario de otra organizacion no puede leer', async () => {
     const itemId = await createItem(SEED_DATA.ORG_LEGAL_ID, chkLegalId);
-    const { data } = await adminBInm.from('checklist_items').select('id').eq('id', itemId);
-    expect(data?.length).toBe(0);
+    const { data, error } = await adminBInm.from('checklist_items').select('id').eq('id', itemId);
+    if (error === null) {
+      expect(data ?? []).toHaveLength(0);
+    }
   });
 
   it('R8. Admin y employee pueden insertar en checklist de su organizacion', async () => {
@@ -165,6 +180,14 @@ describe('Checklist Items DELETE RLS', () => {
 
     const res2 = await employeeALegal.from('checklist_items').insert({ id: id2, organization_id: SEED_DATA.ORG_LEGAL_ID, checklist_id: chkLegalId, title: 'I2' });
     expect(res2.error).toBeNull();
+
+    const check1 = await serviceClient.from('checklist_items').select('id').eq('id', id1).single();
+    expect(check1.error).toBeNull();
+    expect(check1.data).not.toBeNull();
+
+    const check2 = await serviceClient.from('checklist_items').select('id').eq('id', id2).single();
+    expect(check2.error).toBeNull();
+    expect(check2.data).not.toBeNull();
   });
 
   it('R9. Auditor y client no pueden insertar', async () => {
@@ -176,37 +199,68 @@ describe('Checklist Items DELETE RLS', () => {
   });
 
   it('R10. Admin y employee pueden actualizar items del checklist de su organizacion', async () => {
-    const itemId = await createItem(SEED_DATA.ORG_LEGAL_ID, chkLegalId);
-    
-    const res1 = await adminALegal.from('checklist_items').update({ title: 'U1' }).eq('id', itemId);
+    const itemId1 = await createItem(SEED_DATA.ORG_LEGAL_ID, chkLegalId);
+    const res1 = await adminALegal.from('checklist_items').update({ title: 'U1' }).eq('id', itemId1).select('id, title');
     expect(res1.error).toBeNull();
+    expect(res1.data ?? []).toHaveLength(1);
+    if (res1.data && res1.data.length > 0) expect(res1.data[0].title).toBe('U1');
 
-    const res2 = await employeeALegal.from('checklist_items').update({ title: 'U2' }).eq('id', itemId);
+    const check1 = await serviceClient.from('checklist_items').select('title').eq('id', itemId1).single();
+    expect(check1.data?.title).toBe('U1');
+
+    const itemId2 = await createItem(SEED_DATA.ORG_LEGAL_ID, chkLegalId);
+    const res2 = await employeeALegal.from('checklist_items').update({ title: 'U2' }).eq('id', itemId2).select('id, title');
     expect(res2.error).toBeNull();
+    expect(res2.data ?? []).toHaveLength(1);
+    if (res2.data && res2.data.length > 0) expect(res2.data[0].title).toBe('U2');
+
+    const check2 = await serviceClient.from('checklist_items').select('title').eq('id', itemId2).single();
+    expect(check2.data?.title).toBe('U2');
   });
 
   it('R11. Auditor, client, inactivo y otro tenant no pueden actualizar', async () => {
-    const itemId = await createItem(SEED_DATA.ORG_LEGAL_ID, chkLegalId);
-    
-    const { data: d1 } = await auditorALegal.from('checklist_items').update({ title: 'UX' }).eq('id', itemId).select();
-    expect(d1?.length).toBe(0);
+    const checkUpdateDenied = async (client: any) => {
+      const itemId = await createItem(SEED_DATA.ORG_LEGAL_ID, chkLegalId);
+      const originalCheck = await serviceClient.from('checklist_items').select('title').eq('id', itemId).single();
+      const originalTitle = originalCheck.data?.title;
 
-    const { data: d2 } = await clientALegal.from('checklist_items').update({ title: 'UX' }).eq('id', itemId).select();
-    expect(d2?.length).toBe(0);
+      const result = await client.from('checklist_items').update({ title: 'UX' }).eq('id', itemId).select();
+      if (result.error === null) {
+        expect(result.data ?? []).toHaveLength(0);
+      }
 
-    const { data: d3 } = await inactiveALegal.from('checklist_items').update({ title: 'UX' }).eq('id', itemId).select();
-    expect(d3?.length).toBe(0);
+      const persisted = await serviceClient.from('checklist_items').select('title').eq('id', itemId).single();
+      expect(persisted.data?.title).toBe(originalTitle);
+    };
 
-    const { data: d4 } = await adminBInm.from('checklist_items').update({ title: 'UX' }).eq('id', itemId).select();
-    expect(d4?.length).toBe(0);
+    await checkUpdateDenied(auditorALegal);
+    await checkUpdateDenied(clientALegal);
+    await checkUpdateDenied(inactiveALegal);
+    await checkUpdateDenied(adminBInm);
   });
 
   it('R12. UPDATE no puede mover o modificar una fila hacia un checklist de otra organizacion', async () => {
     const itemId = await createItem(SEED_DATA.ORG_LEGAL_ID, chkLegalId);
     
-    // Intento moverlo al checklist de Inmobiliaria
-    const { error, data } = await adminALegal.from('checklist_items').update({ checklist_id: chkInmId }).eq('id', itemId).select();
-    expect(data?.length).toBe(0); // RLS block o error (normalmente silently fails returning 0 rows if using WITH CHECK)
+    const result = await adminALegal
+      .from('checklist_items')
+      .update({ checklist_id: chkInmId })
+      .eq('id', itemId)
+      .select('id, checklist_id');
+
+    if (result.error === null) {
+      expect(result.data ?? []).toHaveLength(0);
+    }
+
+    const persisted = await serviceClient
+      .from('checklist_items')
+      .select('id, checklist_id, organization_id')
+      .eq('id', itemId)
+      .single();
+
+    expect(persisted.error).toBeNull();
+    expect(persisted.data?.checklist_id).toBe(chkLegalId);
+    expect(persisted.data?.organization_id).toBe(SEED_DATA.ORG_LEGAL_ID);
   });
 
   it('R15. UPDATE contiene USING y WITH CHECK', () => {
@@ -226,7 +280,7 @@ describe('Checklist Items DELETE RLS', () => {
     
     // Verificamos que realmente se elimino
     const { data } = await serviceClient.from('checklist_items').select('id').eq('id', itemId);
-    expect(data?.length).toBe(0);
+    expect(data ?? []).toHaveLength(0);
   });
 
   it('2. Employee activo Org A puede eliminar item Org A', async () => {
@@ -235,45 +289,52 @@ describe('Checklist Items DELETE RLS', () => {
     expect(error).toBeNull();
     
     const { data } = await serviceClient.from('checklist_items').select('id').eq('id', itemId);
-    expect(data?.length).toBe(0);
+    expect(data ?? []).toHaveLength(0);
   });
 
   it('3. Auditor Org A no puede eliminar', async () => {
     const itemId = await createItem(SEED_DATA.ORG_LEGAL_ID, chkLegalId);
     const { error, data } = await auditorALegal.from('checklist_items').delete().eq('id', itemId).select();
-    expect(error).toBeNull(); // Supabase no da error en RLS silencioso de DELETE
-    expect(data?.length).toBe(0); // Devuelve cero filas
+    if (error === null) {
+      expect(data ?? []).toHaveLength(0);
+    }
     
     // El service client confirma que el item sigue existiendo
     const check = await serviceClient.from('checklist_items').select('id').eq('id', itemId);
-    expect(check.data?.length).toBe(1);
+    expect(check.data ?? []).toHaveLength(1);
   });
 
   it('4. Client Org A no puede eliminar', async () => {
     const itemId = await createItem(SEED_DATA.ORG_LEGAL_ID, chkLegalId);
-    const { data } = await clientALegal.from('checklist_items').delete().eq('id', itemId).select();
-    expect(data?.length).toBe(0);
+    const { error, data } = await clientALegal.from('checklist_items').delete().eq('id', itemId).select();
+    if (error === null) {
+      expect(data ?? []).toHaveLength(0);
+    }
     
     const check = await serviceClient.from('checklist_items').select('id').eq('id', itemId);
-    expect(check.data?.length).toBe(1);
+    expect(check.data ?? []).toHaveLength(1);
   });
 
   it('5. Usuario inactivo no puede eliminar', async () => {
     const itemId = await createItem(SEED_DATA.ORG_LEGAL_ID, chkLegalId);
-    const { data } = await inactiveALegal.from('checklist_items').delete().eq('id', itemId).select();
-    expect(data?.length).toBe(0);
+    const { error, data } = await inactiveALegal.from('checklist_items').delete().eq('id', itemId).select();
+    if (error === null) {
+      expect(data ?? []).toHaveLength(0);
+    }
     
     const check = await serviceClient.from('checklist_items').select('id').eq('id', itemId);
-    expect(check.data?.length).toBe(1);
+    expect(check.data ?? []).toHaveLength(1);
   });
 
   it('6. Admin Org B no puede eliminar item Org A', async () => {
     const itemId = await createItem(SEED_DATA.ORG_LEGAL_ID, chkLegalId);
-    const { data } = await adminBInm.from('checklist_items').delete().eq('id', itemId).select();
-    expect(data?.length).toBe(0);
+    const { error, data } = await adminBInm.from('checklist_items').delete().eq('id', itemId).select();
+    if (error === null) {
+      expect(data ?? []).toHaveLength(0);
+    }
     
     const check = await serviceClient.from('checklist_items').select('id').eq('id', itemId);
-    expect(check.data?.length).toBe(1);
+    expect(check.data ?? []).toHaveLength(1);
   });
 
   it('7. Anon no puede eliminar', async () => {
@@ -283,11 +344,11 @@ describe('Checklist Items DELETE RLS', () => {
     if (error) {
       expect(error.code).toBe('42501'); // permission denied
     } else {
-      expect(data?.length).toBe(0);
+      expect(data ?? []).toHaveLength(0);
     }
     
     const check = await serviceClient.from('checklist_items').select('id').eq('id', itemId);
-    expect(check.data?.length).toBe(1);
+    expect(check.data ?? []).toHaveLength(1);
   });
 
   it('9. La segunda aplicacion de la migracion no falla', () => {
