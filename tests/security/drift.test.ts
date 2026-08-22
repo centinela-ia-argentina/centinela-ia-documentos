@@ -48,28 +48,52 @@ describe('Drift Repair: checklist_items.organization_id', () => {
   beforeAll(async () => {
     // Seed basic data for tests
     const orgRes1 = await supabase.from('organizations').insert({ name: 'Drift Org 1', plan: 'starter' }).select('id').single();
-    if (orgRes1.data) orgId1 = orgRes1.data.id;
+    if (orgRes1.error || !orgRes1.data?.id) throw new Error(`Drift seed organizations failed: ${orgRes1.error?.message ?? 'missing id'}`);
+    orgId1 = orgRes1.data.id;
     
     const orgRes2 = await supabase.from('organizations').insert({ name: 'Drift Org 2', plan: 'starter' }).select('id').single();
-    if (orgRes2.data) orgId2 = orgRes2.data.id;
+    if (orgRes2.error || !orgRes2.data?.id) throw new Error(`Drift seed organizations failed: ${orgRes2.error?.message ?? 'missing id'}`);
+    orgId2 = orgRes2.data.id;
 
     const caseRes1 = await supabase.from('cases').insert({ organization_id: orgId1, title: 'C1', client_name: 'CLI', case_type: 'generic' }).select('id').single();
-    if (caseRes1.data) caseId1 = caseRes1.data.id;
+    if (caseRes1.error || !caseRes1.data?.id) throw new Error(`Drift seed cases failed: ${caseRes1.error?.message ?? 'missing id'}`);
+    caseId1 = caseRes1.data.id;
     
     const caseRes2 = await supabase.from('cases').insert({ organization_id: orgId2, title: 'C2', client_name: 'CLI', case_type: 'generic' }).select('id').single();
-    if (caseRes2.data) caseId2 = caseRes2.data.id;
+    if (caseRes2.error || !caseRes2.data?.id) throw new Error(`Drift seed cases failed: ${caseRes2.error?.message ?? 'missing id'}`);
+    caseId2 = caseRes2.data.id;
 
-    const docRes1 = await supabase.from('documents').insert({ organization_id: orgId1, case_id: caseId1, file_name: 'D1' }).select('id').single();
-    if (docRes1.data) docId1 = docRes1.data.id;
+    const docRes1 = await supabase.from('documents').insert({ 
+      organization_id: orgId1, 
+      case_id: caseId1, 
+      file_name: 'D1.pdf',
+      file_path: `${orgId1}/drift/D1.pdf`,
+      file_mime_type: 'application/pdf'
+    }).select('id').single();
+    if (docRes1.error || !docRes1.data?.id) throw new Error(`Drift seed documents failed: ${docRes1.error?.message ?? 'missing id'}`);
+    docId1 = docRes1.data.id;
 
-    const docRes2 = await supabase.from('documents').insert({ organization_id: orgId2, case_id: caseId2, file_name: 'D2' }).select('id').single();
-    if (docRes2.data) docId2 = docRes2.data.id;
+    const docRes2 = await supabase.from('documents').insert({ 
+      organization_id: orgId2, 
+      case_id: caseId2, 
+      file_name: 'D2.pdf',
+      file_path: `${orgId2}/drift/D2.pdf`,
+      file_mime_type: 'application/pdf'
+    }).select('id').single();
+    if (docRes2.error || !docRes2.data?.id) throw new Error(`Drift seed documents failed: ${docRes2.error?.message ?? 'missing id'}`);
+    docId2 = docRes2.data.id;
 
     const chkRes1 = await supabase.from('checklists').insert({ organization_id: orgId1, case_id: caseId1, name: 'CHK1' }).select('id').single();
-    if (chkRes1.data) chkId1 = chkRes1.data.id;
+    if (chkRes1.error || !chkRes1.data?.id) throw new Error(`Drift seed checklists failed: ${chkRes1.error?.message ?? 'missing id'}`);
+    chkId1 = chkRes1.data.id;
     
     const chkRes2 = await supabase.from('checklists').insert({ organization_id: orgId2, case_id: caseId2, name: 'CHK2' }).select('id').single();
-    if (chkRes2.data) chkId2 = chkRes2.data.id;
+    if (chkRes2.error || !chkRes2.data?.id) throw new Error(`Drift seed checklists failed: ${chkRes2.error?.message ?? 'missing id'}`);
+    chkId2 = chkRes2.data.id;
+
+    if (!orgId1 || !orgId2 || !caseId1 || !caseId2 || !chkId1 || !chkId2 || !docId1 || !docId2) {
+      throw new Error('Seed values are undefined before tests begin.');
+    }
   });
 
   afterAll(async () => {
@@ -101,48 +125,44 @@ describe('Drift Repair: checklist_items.organization_id', () => {
     expect(hasColumn).toBe(false);
   });
 
-  it('2. Aplicar migración: backfill completo, constraints y triggers', async () => {
+  it('2. Aplicación y backfill completo', async () => {
     applyMigration();
     
-    const { data, error } = await supabase.from('checklist_items').select('organization_id, checklist_id').in('checklist_id', [chkId1, chkId2]);
-    expect(error).toBeNull();
-    expect(data?.length).toBe(2);
-    
-    const item1 = data!.find(d => d.checklist_id === chkId1);
-    const item2 = data!.find(d => d.checklist_id === chkId2);
-    
-    expect(item1?.organization_id).toBe(orgId1);
-    expect(item2?.organization_id).toBe(orgId2);
+    const result1 = execSync(`psql "${DB_URL}" -t -c "SELECT organization_id FROM public.checklist_items WHERE checklist_id = '${chkId1}' LIMIT 1;"`, { stdio: 'pipe' });
+    expect(result1.toString().trim()).toBe(orgId1);
+
+    const result2 = execSync(`psql "${DB_URL}" -t -c "SELECT organization_id FROM public.checklist_items WHERE checklist_id = '${chkId2}' LIMIT 1;"`, { stdio: 'pipe' });
+    expect(result2.toString().trim()).toBe(orgId2);
   });
 
   it('3. Rechazo de cruces de organización (Trigger)', async () => {
     // Rechazo organización incompatible
-    const { error: err1 } = await supabase.from('checklist_items').insert({
-      checklist_id: chkId1,
-      organization_id: orgId2,
-      title: 'Invalid Org'
-    });
-    expect(err1).not.toBeNull();
-    expect(err1?.message).toContain('must match checklist organization_id');
+    let err1 = false;
+    try {
+      runSql(`INSERT INTO public.checklist_items (checklist_id, title, organization_id) VALUES ('${chkId1}', 'Invalid Org', '${orgId2}');`);
+    } catch (e: any) {
+      err1 = true;
+      expect(e.message).toContain('must match checklist organization_id');
+    }
+    expect(err1).toBe(true);
 
     // Rechazo documento de otra organización
-    const { error: err2 } = await supabase.from('checklist_items').insert({
-      checklist_id: chkId1,
-      organization_id: orgId1,
-      document_id: docId2,
-      title: 'Invalid Doc'
-    });
-    expect(err2).not.toBeNull();
-    expect(err2?.message).toContain('document organization_id');
+    let err2 = false;
+    try {
+      runSql(`INSERT INTO public.checklist_items (checklist_id, title, document_id, organization_id) VALUES ('${chkId1}', 'Invalid Doc', '${docId2}', '${orgId1}');`);
+    } catch (e: any) {
+      err2 = true;
+      expect(e.message).toContain('document organization_id');
+    }
+    expect(err2).toBe(true);
   });
   
   it('4. Herencia cuando organization_id es NULL', async () => {
     // La app puede enviar el payload sin organization_id
     runSql(`INSERT INTO public.checklist_items (checklist_id, title) VALUES ('${chkId1}', 'Inherit test');`);
     
-    const { data, error } = await supabase.from('checklist_items').select('organization_id').eq('title', 'Inherit test').single();
-    expect(error).toBeNull();
-    expect(data?.organization_id).toBe(orgId1);
+    const result = execSync(`psql "${DB_URL}" -t -c "SELECT organization_id FROM public.checklist_items WHERE title = 'Inherit test' LIMIT 1;"`, { stdio: 'pipe' });
+    expect(result.toString().trim()).toBe(orgId1);
   });
 
   it('5. Idempotencia y existencia de un único trigger', async () => {
@@ -178,7 +198,10 @@ describe('Drift Repair: checklist_items.organization_id', () => {
   it('7. Reaplicación de la base de prueba', async () => {
     applyMigration();
     
+    // Verificamos reaplicación exitosa
+    const result = execSync(`psql "${DB_URL}" -t -c "SELECT organization_id FROM public.checklist_items WHERE checklist_id = '${chkId1}' LIMIT 1;"`, { stdio: 'pipe' });
+    expect(result.toString().trim()).toBe(orgId1);
+
     // Al finalizar, la instancia será descartada/reseteada completamente por el runner.
-    // No intentamos reconstruir parcialmente el baseline.
   });
 });
