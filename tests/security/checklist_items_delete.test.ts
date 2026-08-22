@@ -106,6 +106,119 @@ describe('Checklist Items DELETE RLS', () => {
     expect(() => applyMigration()).not.toThrow();
   });
 
+  // --- REGRESSION TESTS (BASELINE POLICIES) ---
+
+  it('R1. Admin activo puede leer checklist_items de su organizacion', async () => {
+    const itemId = await createItem(SEED_DATA.ORG_LEGAL_ID, chkLegalId);
+    const { data, error } = await adminALegal.from('checklist_items').select('id').eq('id', itemId);
+    expect(error).toBeNull();
+    expect(data?.length).toBe(1);
+  });
+
+  it('R2. Employee activo puede leer checklist_items de su organizacion', async () => {
+    const itemId = await createItem(SEED_DATA.ORG_LEGAL_ID, chkLegalId);
+    const { data, error } = await employeeALegal.from('checklist_items').select('id').eq('id', itemId);
+    expect(error).toBeNull();
+    expect(data?.length).toBe(1);
+  });
+
+  it('R3. Auditor activo puede leer checklist_items de su organizacion', async () => {
+    const itemId = await createItem(SEED_DATA.ORG_LEGAL_ID, chkLegalId);
+    const { data, error } = await auditorALegal.from('checklist_items').select('id').eq('id', itemId);
+    expect(error).toBeNull();
+    expect(data?.length).toBe(1);
+  });
+
+  it('R4. Client asignado al expediente puede leer sus checklist_items', async () => {
+    const itemId = await createItem(SEED_DATA.ORG_LEGAL_ID, chkLegalId);
+    const { data, error } = await clientALegal.from('checklist_items').select('id').eq('id', itemId);
+    expect(error).toBeNull();
+    expect(data?.length).toBe(1);
+  });
+
+  it('R5. Client no asignado no puede leer checklist_items del expediente', async () => {
+    const clientUnassigned = createClient(supabaseUrl, supabaseAnonKey, { auth: { persistSession: false } });
+    await clientUnassigned.auth.signInWithPassword({ email: 'client.unassigned@test.com', password: 'password123' });
+    const itemId = await createItem(SEED_DATA.ORG_LEGAL_ID, chkLegalId);
+    const { data } = await clientUnassigned.from('checklist_items').select('id').eq('id', itemId);
+    expect(data?.length).toBe(0);
+  });
+
+  it('R6. Usuario inactivo no puede leer', async () => {
+    const itemId = await createItem(SEED_DATA.ORG_LEGAL_ID, chkLegalId);
+    const { data } = await inactiveALegal.from('checklist_items').select('id').eq('id', itemId);
+    expect(data?.length).toBe(0);
+  });
+
+  it('R7. Usuario de otra organizacion no puede leer', async () => {
+    const itemId = await createItem(SEED_DATA.ORG_LEGAL_ID, chkLegalId);
+    const { data } = await adminBInm.from('checklist_items').select('id').eq('id', itemId);
+    expect(data?.length).toBe(0);
+  });
+
+  it('R8. Admin y employee pueden insertar en checklist de su organizacion', async () => {
+    const id1 = randomUUID();
+    const id2 = randomUUID();
+    
+    const res1 = await adminALegal.from('checklist_items').insert({ id: id1, organization_id: SEED_DATA.ORG_LEGAL_ID, checklist_id: chkLegalId, title: 'I1' });
+    expect(res1.error).toBeNull();
+
+    const res2 = await employeeALegal.from('checklist_items').insert({ id: id2, organization_id: SEED_DATA.ORG_LEGAL_ID, checklist_id: chkLegalId, title: 'I2' });
+    expect(res2.error).toBeNull();
+  });
+
+  it('R9. Auditor y client no pueden insertar', async () => {
+    const res1 = await auditorALegal.from('checklist_items').insert({ organization_id: SEED_DATA.ORG_LEGAL_ID, checklist_id: chkLegalId, title: 'IX' });
+    expect(res1.error).not.toBeNull();
+
+    const res2 = await clientALegal.from('checklist_items').insert({ organization_id: SEED_DATA.ORG_LEGAL_ID, checklist_id: chkLegalId, title: 'IY' });
+    expect(res2.error).not.toBeNull();
+  });
+
+  it('R10. Admin y employee pueden actualizar items del checklist de su organizacion', async () => {
+    const itemId = await createItem(SEED_DATA.ORG_LEGAL_ID, chkLegalId);
+    
+    const res1 = await adminALegal.from('checklist_items').update({ title: 'U1' }).eq('id', itemId);
+    expect(res1.error).toBeNull();
+
+    const res2 = await employeeALegal.from('checklist_items').update({ title: 'U2' }).eq('id', itemId);
+    expect(res2.error).toBeNull();
+  });
+
+  it('R11. Auditor, client, inactivo y otro tenant no pueden actualizar', async () => {
+    const itemId = await createItem(SEED_DATA.ORG_LEGAL_ID, chkLegalId);
+    
+    const { data: d1 } = await auditorALegal.from('checklist_items').update({ title: 'UX' }).eq('id', itemId).select();
+    expect(d1?.length).toBe(0);
+
+    const { data: d2 } = await clientALegal.from('checklist_items').update({ title: 'UX' }).eq('id', itemId).select();
+    expect(d2?.length).toBe(0);
+
+    const { data: d3 } = await inactiveALegal.from('checklist_items').update({ title: 'UX' }).eq('id', itemId).select();
+    expect(d3?.length).toBe(0);
+
+    const { data: d4 } = await adminBInm.from('checklist_items').update({ title: 'UX' }).eq('id', itemId).select();
+    expect(d4?.length).toBe(0);
+  });
+
+  it('R12. UPDATE no puede mover o modificar una fila hacia un checklist de otra organizacion', async () => {
+    const itemId = await createItem(SEED_DATA.ORG_LEGAL_ID, chkLegalId);
+    
+    // Intento moverlo al checklist de Inmobiliaria
+    const { error, data } = await adminALegal.from('checklist_items').update({ checklist_id: chkInmId }).eq('id', itemId).select();
+    expect(data?.length).toBe(0); // RLS block o error (normalmente silently fails returning 0 rows if using WITH CHECK)
+  });
+
+  it('R15. UPDATE contiene USING y WITH CHECK', () => {
+    const usingRes = execSync(`psql "${DB_URL}" -t -c "SELECT qual FROM pg_policies WHERE schemaname = 'public' AND tablename = 'checklist_items' AND policyname = 'checklist_items_update_operator';"`, { stdio: 'pipe' });
+    const checkRes = execSync(`psql "${DB_URL}" -t -c "SELECT with_check FROM pg_policies WHERE schemaname = 'public' AND tablename = 'checklist_items' AND policyname = 'checklist_items_update_operator';"`, { stdio: 'pipe' });
+    
+    expect(usingRes.toString().trim().length).toBeGreaterThan(0);
+    expect(checkRes.toString().trim().length).toBeGreaterThan(0);
+  });
+
+  // --- DELETE TESTS ---
+
   it('1. Admin activo Org A puede eliminar item Org A', async () => {
     const itemId = await createItem(SEED_DATA.ORG_LEGAL_ID, chkLegalId);
     const { error } = await adminALegal.from('checklist_items').delete().eq('id', itemId);

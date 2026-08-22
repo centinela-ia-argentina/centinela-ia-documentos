@@ -5,22 +5,43 @@ DO $$
 BEGIN
   IF EXISTS (
     SELECT 1 FROM pg_policies 
-    WHERE tablename = 'checklist_items' AND policyname = 'checklist_items_org_all'
+    WHERE schemaname = 'public' AND tablename = 'checklist_items' AND policyname = 'checklist_items_org_all'
   ) THEN
     RAISE EXCEPTION 'MIGRATION ABORTED: Legacy FOR ALL policy checklist_items_org_all still exists.';
   END IF;
 
   IF NOT EXISTS (
     SELECT 1 FROM pg_policies 
-    WHERE tablename = 'checklist_items' AND policyname = 'checklist_items_select_by_role'
+    WHERE schemaname = 'public' 
+      AND tablename = 'checklist_items' 
+      AND policyname = 'checklist_items_select_by_role'
+      AND cmd = 'SELECT'
+      AND permissive = 'PERMISSIVE'
+      AND roles = ARRAY['authenticated']::name[]
+      AND qual IS NOT NULL
+      AND with_check IS NULL
   ) OR NOT EXISTS (
     SELECT 1 FROM pg_policies 
-    WHERE tablename = 'checklist_items' AND policyname = 'checklist_items_insert_operator'
+    WHERE schemaname = 'public' 
+      AND tablename = 'checklist_items' 
+      AND policyname = 'checklist_items_insert_operator'
+      AND cmd = 'INSERT'
+      AND permissive = 'PERMISSIVE'
+      AND roles = ARRAY['authenticated']::name[]
+      AND qual IS NULL
+      AND with_check IS NOT NULL
   ) OR NOT EXISTS (
     SELECT 1 FROM pg_policies 
-    WHERE tablename = 'checklist_items' AND policyname = 'checklist_items_update_operator'
+    WHERE schemaname = 'public' 
+      AND tablename = 'checklist_items' 
+      AND policyname = 'checklist_items_update_operator'
+      AND cmd = 'UPDATE'
+      AND permissive = 'PERMISSIVE'
+      AND roles = ARRAY['authenticated']::name[]
+      AND qual IS NOT NULL
+      AND with_check IS NOT NULL
   ) THEN
-    RAISE EXCEPTION 'MIGRATION ABORTED: Missing required canonical policies (SELECT/INSERT/UPDATE) on checklist_items.';
+    RAISE EXCEPTION 'MIGRATION ABORTED: Missing required canonical policies (SELECT/INSERT/UPDATE) on checklist_items or they do not match the expected metadata.';
   END IF;
 END $$;
 
