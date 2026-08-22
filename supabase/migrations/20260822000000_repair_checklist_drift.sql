@@ -48,7 +48,7 @@ BEGIN
 END $$;
 
 -- 8. Add function and trigger to guarantee future INSERT/UPDATE consistency
-CREATE FUNCTION public.check_checklist_item_org_drift_repair()
+CREATE OR REPLACE FUNCTION public.check_checklist_item_org_drift_repair()
 RETURNS trigger
 LANGUAGE plpgsql
 SECURITY DEFINER
@@ -83,6 +83,7 @@ $$;
 -- Revoke direct execution privileges
 REVOKE EXECUTE ON FUNCTION public.check_checklist_item_org_drift_repair() FROM PUBLIC, anon, authenticated;
 
+DROP TRIGGER IF EXISTS trg_check_checklist_item_org_drift_repair ON public.checklist_items;
 CREATE TRIGGER trg_check_checklist_item_org_drift_repair
   BEFORE INSERT OR UPDATE ON public.checklist_items
   FOR EACH ROW

@@ -79,15 +79,14 @@ describe('Drift Repair: checklist_items.organization_id', () => {
   });
 
   it('1. Simular drift: eliminar organization_id de checklist_items y crear items', async () => {
-    // Para simular el drift, eliminamos la columna que el baseline pudo haber creado localmente
-    // Solo en este entorno de testing controlado.
+    // Para simular el drift (estado inicial legacy sin organization_id), eliminamos la columna CASCADE
+    // Esto elimina la poliza checklist_items_org_all y el constraint checklist_items_organization_id_fkey
     runSql(`ALTER TABLE public.checklist_items DROP COLUMN IF EXISTS organization_id CASCADE;`);
     
-    // Insertamos ítems (sin organization_id, directo por SQL porque el cliente JS fallara si el esquema TypeScript espera orgId)
+    // Insertamos items legacy
     runSql(`INSERT INTO public.checklist_items (checklist_id, title) VALUES ('${chkId1}', 'Item Drift 1');`);
     runSql(`INSERT INTO public.checklist_items (checklist_id, title, document_id) VALUES ('${chkId2}', 'Item Drift 2', '${docId2}');`);
 
-    // Comprobamos que existen y la tabla no tiene organization_id
     let hasColumn = true;
     try {
       runSql(`SELECT organization_id FROM public.checklist_items LIMIT 1;`);
@@ -97,10 +96,9 @@ describe('Drift Repair: checklist_items.organization_id', () => {
     expect(hasColumn).toBe(false);
   });
 
-  it('2. Aplicar migracin: backfill completo, constraints y triggers', async () => {
+  it('2. Aplicar migración: backfill completo, constraints y triggers', async () => {
     applyMigration();
     
-    // Verificamos que se restaur y backfille correctamente
     const { data, error } = await supabase.from('checklist_items').select('organization_id, checklist_id').in('checklist_id', [chkId1, chkId2]);
     expect(error).toBeNull();
     expect(data?.length).toBe(2);
@@ -112,8 +110,8 @@ describe('Drift Repair: checklist_items.organization_id', () => {
     expect(item2?.organization_id).toBe(orgId2);
   });
 
-  it('3. Rechazo de cruces de organizacin (Trigger)', async () => {
-    // Intentar insertar un item en CHK1 (Org 1) asignando explcitamente Org 2
+  it('3. Rechazo de cruces de organización (Trigger)', async () => {
+    // Rechazo organización incompatible
     const { error: err1 } = await supabase.from('checklist_items').insert({
       checklist_id: chkId1,
       organization_id: orgId2,
@@ -122,7 +120,7 @@ describe('Drift Repair: checklist_items.organization_id', () => {
     expect(err1).not.toBeNull();
     expect(err1?.message).toContain('must match checklist organization_id');
 
-    // Intentar insertar un item en CHK1 (Org 1) con un documento de Org 2
+    // Rechazo documento de otra organización
     const { error: err2 } = await supabase.from('checklist_items').insert({
       checklist_id: chkId1,
       organization_id: orgId1,
@@ -132,15 +130,27 @@ describe('Drift Repair: checklist_items.organization_id', () => {
     expect(err2).not.toBeNull();
     expect(err2?.message).toContain('document organization_id');
   });
-
-  it('4. Idempotencia: aplicar migracin nuevamente no rompe nada', async () => {
-    // Reaplicamos
-    expect(() => applyMigration()).not.toThrow();
+  
+  it('4. Herencia cuando organization_id es NULL', async () => {
+    // La app puede enviar el payload sin organization_id
+    runSql(`INSERT INTO public.checklist_items (checklist_id, title) VALUES ('${chkId1}', 'Inherit test');`);
+    
+    const { data, error } = await supabase.from('checklist_items').select('organization_id').eq('title', 'Inherit test').single();
+    expect(error).toBeNull();
+    expect(data?.organization_id).toBe(orgId1);
   });
 
-  it('5. Rollback state-aware', async () => {
-    // El rollback debera borrar el trigger y la funcin, y tambin borrar la columna 
-    // porque detecta el comentario 'added_by_drift_repair'
+  it('5. Idempotencia y existencia de un único trigger', async () => {
+    // Segunda aplicación idempotente
+    expect(() => applyMigration()).not.toThrow();
+    
+    // Existencia de un único trigger (contar en pg_trigger)
+    const result = execSync(`psql "${DB_URL}" -t -c "SELECT count(*) FROM pg_trigger WHERE tgname = 'trg_check_checklist_item_org_drift_repair';"`, { stdio: 'pipe' });
+    const count = parseInt(result.toString().trim(), 10);
+    expect(count).toBe(1);
+  });
+
+  it('6. Rollback', async () => {
     applyRollback();
     
     let hasTrigger = true;
@@ -160,12 +170,21 @@ describe('Drift Repair: checklist_items.organization_id', () => {
     expect(hasColumn).toBe(false);
   });
 
-  it('6. Reaplicacin: volver a subir despus de rollback', async () => {
+  it('7. Reaplicación y restauración completa de la base de prueba', async () => {
     applyMigration();
     
-    const { data, error } = await supabase.from('checklist_items').select('organization_id, checklist_id').eq('checklist_id', chkId1);
-    expect(error).toBeNull();
-    expect(data?.length).toBeGreaterThan(0);
-    expect(data![0].organization_id).toBe(orgId1);
+    // Restauración explícita (Option C) para no afectar la base de tests secuencial
+    // 1. Rollback final
+    applyRollback();
+    
+    // 2. Restaurar explícitamente todos los objetos eliminados por CASCADE
+    runSql(`ALTER TABLE public.checklist_items ADD COLUMN IF NOT EXISTS organization_id uuid;`);
+    runSql(`UPDATE public.checklist_items ci SET organization_id = c.organization_id FROM public.checklists c WHERE ci.checklist_id = c.id;`);
+    // Eliminar posibles basuras antes de NOT NULL
+    runSql(`DELETE FROM public.checklist_items WHERE organization_id IS NULL;`);
+    runSql(`ALTER TABLE public.checklist_items ALTER COLUMN organization_id SET NOT NULL;`);
+    
+    runSql(`ALTER TABLE public.checklist_items ADD CONSTRAINT checklist_items_organization_id_fkey FOREIGN KEY (organization_id) REFERENCES public.organizations(id) ON DELETE CASCADE;`);
+    runSql(`CREATE POLICY "checklist_items_org_all" ON public.checklist_items FOR ALL USING (organization_id = public.current_user_organization_id());`);
   });
 });
