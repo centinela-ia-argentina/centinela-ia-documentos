@@ -101,10 +101,12 @@ export function PreguntarDocumentos({
           value={pregunta}
           onChange={(e) => setPregunta(e.target.value)}
           placeholder="Ej: ¿Quién es el titular del inmueble? ¿Hay hipoteca?"
+          data-testid="rag-input"
           className="flex-1 rounded-lg border border-slate-700 bg-slate-950/60 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 transition focus:border-cyan-500 focus:shadow-[0_0_14px_rgba(34,211,238,0.15)] focus:outline-none"
         />
         <button
           type="submit"
+          data-testid="rag-submit"
           disabled={cargando || !pregunta.trim()}
           className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-cyan-600 to-cyan-500 px-3.5 py-2 text-sm font-semibold text-white shadow-lg shadow-cyan-900/30 transition hover:from-cyan-500 hover:to-cyan-400 active:scale-95 disabled:opacity-60"
         >
@@ -143,7 +145,7 @@ export function PreguntarDocumentos({
                 <Sparkles className="h-4 w-4" />
               </span>
               <div className="flex-1 space-y-3">
-                <div className="rounded-2xl rounded-tl-sm border border-cyan-500/20 bg-slate-900/70 px-4 py-3 text-sm text-slate-100 shadow-lg shadow-cyan-950/20">
+                <div className="rounded-2xl rounded-tl-sm border border-cyan-500/20 bg-slate-900/70 px-4 py-3 text-sm text-slate-100 shadow-lg shadow-cyan-950/20" data-testid="rag-response">
                   <RespuestaConCitas texto={respuesta} />
                 </div>
 

@@ -140,6 +140,7 @@ export function ModelosClient({
       grupos.set(m.categoria, arr);
     }
     return Array.from(grupos.entries());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [busqueda, provincia]);
 
   const variables = seleccionado ? extractVars(seleccionado.cuerpo) : [];
@@ -370,17 +371,31 @@ export function ModelosClient({
                   </div>
                 )}
                 {variables.length === 0 && <p className="text-sm text-slate-500">Este modelo no tiene campos para completar.</p>}
-                {variables.map((key) => (
-                  <label key={key} className="block">
-                    <span className="mb-1 block text-xs font-semibold text-slate-400">{humanize(key)}</span>
-                    <input
-                      value={valores[key] ?? ''}
-                      onChange={(e) => setValores((prev) => ({ ...prev, [key]: e.target.value }))}
-                      placeholder={`Completar ${humanize(key).toLowerCase()}`}
-                      className="w-full rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2 text-sm text-white outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400"
-                    />
-                  </label>
-                ))}
+                {variables.map((key) => {
+                  const datosBase = expedienteId ? expedientes.find(e => e.id === expedienteId) : null;
+                  const extracted = datosBase ? datosDeExpediente(datosBase) : {};
+                  const isPreloaded = !!extracted[key];
+                  const hasValue = !!valores[key];
+
+                  return (
+                    <label key={key} className="block relative">
+                      <div className="flex justify-between items-end mb-1">
+                        <span className="block text-xs font-semibold text-slate-400">{humanize(key)}</span>
+                        {isPreloaded ? (
+                          <span className="text-[10px] font-medium text-emerald-400 bg-emerald-400/10 px-1.5 py-0.5 rounded">Precargado</span>
+                        ) : !hasValue ? (
+                          <span className="text-[10px] font-medium text-amber-400 bg-amber-400/10 px-1.5 py-0.5 rounded">Faltante</span>
+                        ) : null}
+                      </div>
+                      <input
+                        value={valores[key] ?? ''}
+                        onChange={(e) => setValores((prev) => ({ ...prev, [key]: e.target.value }))}
+                        placeholder={`Completar ${humanize(key).toLowerCase()}`}
+                        className="w-full rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2 text-sm text-white outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400"
+                      />
+                    </label>
+                  );
+                })}
 
                 <div className="mt-4 rounded-xl border border-brandviolet/20 bg-brandviolet/10 p-3">
                   <label className="flex items-center gap-2 text-xs font-semibold text-brandviolet">

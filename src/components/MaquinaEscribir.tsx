@@ -14,6 +14,7 @@ export function MaquinaEscribir({
 	const [mostrado, setMostrado] = useState('');
 
 	useEffect(() => {
+		// eslint-disable-next-line react-hooks/set-state-in-effect
 		setMostrado('');
 		let i = 0;
 		const id = setInterval(() => {

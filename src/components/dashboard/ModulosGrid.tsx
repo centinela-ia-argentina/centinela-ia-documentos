@@ -22,6 +22,7 @@ export function ModulosGrid({ role, industry }: { role: string; industry: string
   const label = (m: NavItem) => getNavItemLabel(m, industry as IndustryType);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setMounted(true);
     const stored = localStorage.getItem('centinela_fav_modulos');
     if (stored) {

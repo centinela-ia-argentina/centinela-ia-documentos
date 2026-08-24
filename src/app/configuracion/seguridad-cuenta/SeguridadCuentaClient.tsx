@@ -21,6 +21,7 @@ export function SeguridadCuentaClient() {
     setEstado(verificado ? 'activo' : 'inactivo');
   }
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps, react-hooks/set-state-in-effect
   useEffect(() => { refrescar(); }, []);
 
   async function activar() {
@@ -116,6 +117,7 @@ export function SeguridadCuentaClient() {
               Escaneá el QR con Google Authenticator o Authy y escribí el código de 6 dígitos.
             </p>
             <div className="rounded-xl bg-white p-2 w-fit">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={qr} alt="Código QR 2FA" width={180} height={180} />
             </div>
             {secret && (

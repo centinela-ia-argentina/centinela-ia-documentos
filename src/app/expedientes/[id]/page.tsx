@@ -242,14 +242,29 @@ export default async function CaseDetailPage({ params, searchParams }: CaseDetai
     getMetadataValue(caseRecord.metadata, field.key)
   );
 
-  const { data: checklistItemsData } = await supabase
-    .from('checklist_items')
-    .select(
-      'id, checklist_id, title, status, document_id, notes, created_at, documents(id, file_name), checklists!inner(case_id, organization_id)'
-    )
-    .eq('checklists.case_id', caseRecord.id)
-    .eq('checklists.organization_id', profile.organization_id)
-    .order('created_at', { ascending: true });
+  const { data: caseChecklist } = await supabase
+    .from('checklists')
+    .select('id')
+    .eq('case_id', caseRecord.id)
+    .eq('organization_id', profile.organization_id)
+    .maybeSingle();
+
+  let checklistItemsData: any[] = [];
+  if (caseChecklist) {
+    const { data, error } = await supabase
+      .from('checklist_items')
+      .select('id, checklist_id, title, status, document_id, notes, created_at, documents(id, file_name)')
+      .eq('checklist_id', caseChecklist.id)
+      .eq('organization_id', profile.organization_id)
+      .order('created_at', { ascending: true })
+      .order('id', { ascending: true });
+
+    if (error) {
+      console.error('Error fetching checklist items:', error);
+      throw new Error('Ocurrió un error al cargar el checklist. Por favor, intente nuevamente.');
+    }
+    checklistItemsData = data || [];
+  }
 
   const { data: caseDocumentsData } = await supabase
     .from('documents')
@@ -269,6 +284,7 @@ export default async function CaseDetailPage({ params, searchParams }: CaseDetai
     .from('documents')
     .select('id, file_name, case_id, created_at')
     .eq('organization_id', profile.organization_id)
+    .eq('case_id', caseRecord.id)
     .order('created_at', { ascending: false });
 
   const { data: caseEventsData } = await supabase
@@ -583,7 +599,10 @@ export default async function CaseDetailPage({ params, searchParams }: CaseDetai
             {terms.detalleEyebrow}
           </p>
 
-          <h2 className="mt-2 font-display text-3xl font-semibold tracking-tight text-gradient">
+          <h2
+            data-testid="case-detail-title"
+            className="mt-2 font-display text-3xl font-semibold tracking-tight text-gradient"
+          >
             {displayText(caseRecord.title, terms.itemSinTitulo)}
           </h2>
 
@@ -1451,6 +1470,17 @@ export default async function CaseDetailPage({ params, searchParams }: CaseDetai
               Lista sugerida. Marcá lo que no aplica o agregá lo que necesites.
             </p>
 
+            {sp.checklist_document === 'linked' && (
+              <div role="status" aria-live="polite" data-testid="checklist-document-feedback" className="mt-3 rounded-xl bg-emerald-900/20 border border-emerald-500/30 px-3 py-2 text-sm text-emerald-400 font-medium">
+                Documento vinculado correctamente.
+              </div>
+            )}
+            {sp.checklist_document === 'unlinked' && (
+              <div role="status" aria-live="polite" data-testid="checklist-document-feedback" className="mt-3 rounded-xl bg-emerald-900/20 border border-emerald-500/30 px-3 py-2 text-sm text-emerald-400 font-medium">
+                Documento desvinculado correctamente.
+              </div>
+            )}
+
             {checklistItems.length === 0 && (
               <p className="mt-5 text-sm text-slate-400">
                 Aún no hay ítems en este checklist.
@@ -1513,7 +1543,7 @@ export default async function CaseDetailPage({ params, searchParams }: CaseDetai
                 </div>
 
                 <div className="mt-5 space-y-3">
-                  {checklistItems.map((item) => {
+                  {checklistItems.map((item, idx) => {
                     const isDone = item.status === 'received' || item.status === 'reviewed';
                     const isMissing = item.status === 'pending' || item.status === 'rejected';
                     const isNotRequired = item.status === 'not_required';
@@ -1535,6 +1565,7 @@ export default async function CaseDetailPage({ params, searchParams }: CaseDetai
                             <input type="hidden" name="current_status" value={item.status} />
                             <button
                               type="submit"
+                              data-testid={`checklist-toggle-${idx}`}
                               aria-label={isDone ? 'Marcar como pendiente' : 'Marcar como recibido'}
                               className={`flex h-5 w-5 items-center justify-center rounded-md border text-xs font-bold ${
                                 isDone
@@ -1589,9 +1620,13 @@ export default async function CaseDetailPage({ params, searchParams }: CaseDetai
                     ) : null}
 
                     {!isNotRequired && (
-                      <details className="group">
-                        <summary className="list-none cursor-pointer text-xs font-semibold uppercase tracking-wide text-slate-400 hover:text-slate-600 select-none outline-none">
-                          Vincular documento
+                      <details className="group mt-2">
+                        <summary 
+                          className="list-none cursor-pointer inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold tracking-wide text-slate-600 transition-colors hover:bg-slate-100 hover:border-slate-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 select-none"
+                          data-testid={`checklist-link-toggle-${idx}`}
+                        >
+                          <span>📎</span>
+                          <span>{item.document_id ? 'Cambiar documento vinculado' : 'Vincular documento'}</span>
                         </summary>
                         <form
                           action={linkChecklistItemDocument}

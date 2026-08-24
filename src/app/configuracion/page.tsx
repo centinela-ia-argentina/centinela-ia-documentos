@@ -111,6 +111,7 @@ export default async function ConfiguracionPage({ searchParams }: ConfiguracionP
           <div className="mb-8 flex items-center gap-6 rounded-xl border border-white/10 bg-white/[0.02] p-4">
             <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white/[0.05] border border-white/10">
               {org?.logo_url ? (
+                /* eslint-disable-next-line @next/next/no-img-element */
                 <img src={org.logo_url} alt="Logo" className="h-full w-full object-cover" />
               ) : (
                 <Building2 size={24} className="text-slate-400" />
