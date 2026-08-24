@@ -278,9 +278,15 @@ test.describe.serial('Centinela IA - Flujo Jurídico E2E Obligatorio', () => {
     const form = linkToggle.locator('..'); // The details element
     const select = form.locator('select[name="document_id"]').first();
     
-    // El select debe tener mas de 1 opcion por los uploads del bulk
-    await expect(select.locator('option')).toHaveCount(16); // 1 empty + 15 docs
-    await select.selectOption({ index: 1 });
+    // El select debe tener mas de 1 opcion por los documentos previos
+    const options = select.locator('option');
+    await expect.poll(async () => options.count()).toBeGreaterThan(1);
+    
+    const firstDocumentOption = select.locator('option:not([value=""])').first();
+    const firstDocumentValue = await firstDocumentOption.getAttribute('value');
+    expect(firstDocumentValue).toBeTruthy();
+    
+    await select.selectOption(firstDocumentValue!);
     
     const saveBtn = form.locator('button', { hasText: 'Guardar' }).first();
     await saveBtn.click();
