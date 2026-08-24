@@ -269,6 +269,45 @@ test.describe.serial('Centinela IA - Flujo Jurídico E2E Obligatorio', () => {
     await expect(page.locator('body')).toContainText('Revisado');
   });
 
+  test('10.5. checklist document link', async () => {
+    await page.goto(`${caseUrl}?tab=checklist`);
+    const linkToggle = page.locator('[data-testid="checklist-link-toggle-0"]').first();
+    await expect(linkToggle).toContainText('Vincular documento');
+    await linkToggle.click();
+
+    const form = linkToggle.locator('..'); // The details element
+    const select = form.locator('select[name="document_id"]').first();
+    
+    // El select debe tener mas de 1 opcion por los uploads del bulk
+    await expect(select.locator('option')).toHaveCount(16); // 1 empty + 15 docs
+    await select.selectOption({ index: 1 });
+    
+    const saveBtn = form.locator('button', { hasText: 'Guardar' }).first();
+    await saveBtn.click();
+
+    await expect(page).toHaveURL(/checklist_document=linked/);
+    await expect(page.locator('[data-testid="checklist-document-feedback"]')).toContainText('Documento vinculado correctamente');
+    await expect(linkToggle).toContainText('Cambiar documento vinculado');
+    await expect(page.locator('p:has-text("Vinculado:")').first()).toBeVisible();
+
+    await page.reload();
+    await expect(linkToggle).toContainText('Cambiar documento vinculado');
+    await expect(page.locator('p:has-text("Vinculado:")').first()).toBeVisible();
+
+    await linkToggle.click();
+    await select.selectOption({ value: '' });
+    await saveBtn.click();
+
+    await expect(page).toHaveURL(/checklist_document=unlinked/);
+    await expect(page.locator('[data-testid="checklist-document-feedback"]')).toContainText('Documento desvinculado correctamente');
+    await expect(linkToggle).toContainText('Vincular documento');
+    await expect(page.locator('p:has-text("Vinculado:")')).toBeHidden();
+    
+    await page.reload();
+    await expect(linkToggle).toContainText('Vincular documento');
+    await expect(page.locator('p:has-text("Vinculado:")')).toBeHidden();
+  });
+
   test('11. Agenda 09:30 y otro horario', async () => {
     const formatter = new Intl.DateTimeFormat('en-CA', {
       timeZone: 'America/Argentina/Buenos_Aires',

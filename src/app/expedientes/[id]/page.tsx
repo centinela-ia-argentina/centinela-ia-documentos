@@ -1470,6 +1470,17 @@ export default async function CaseDetailPage({ params, searchParams }: CaseDetai
               Lista sugerida. Marcá lo que no aplica o agregá lo que necesites.
             </p>
 
+            {sp.checklist_document === 'linked' && (
+              <div role="status" aria-live="polite" data-testid="checklist-document-feedback" className="mt-3 rounded-xl bg-emerald-900/20 border border-emerald-500/30 px-3 py-2 text-sm text-emerald-400 font-medium">
+                Documento vinculado correctamente.
+              </div>
+            )}
+            {sp.checklist_document === 'unlinked' && (
+              <div role="status" aria-live="polite" data-testid="checklist-document-feedback" className="mt-3 rounded-xl bg-emerald-900/20 border border-emerald-500/30 px-3 py-2 text-sm text-emerald-400 font-medium">
+                Documento desvinculado correctamente.
+              </div>
+            )}
+
             {checklistItems.length === 0 && (
               <p className="mt-5 text-sm text-slate-400">
                 Aún no hay ítems en este checklist.
@@ -1609,9 +1620,13 @@ export default async function CaseDetailPage({ params, searchParams }: CaseDetai
                     ) : null}
 
                     {!isNotRequired && (
-                      <details className="group">
-                        <summary className="list-none cursor-pointer text-xs font-semibold uppercase tracking-wide text-slate-400 hover:text-slate-600 select-none outline-none">
-                          Vincular documento
+                      <details className="group mt-2">
+                        <summary 
+                          className="list-none cursor-pointer inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold tracking-wide text-slate-600 transition-colors hover:bg-slate-100 hover:border-slate-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 select-none"
+                          data-testid={`checklist-link-toggle-${idx}`}
+                        >
+                          <span>📎</span>
+                          <span>{item.document_id ? 'Cambiar documento vinculado' : 'Vincular documento'}</span>
                         </summary>
                         <form
                           action={linkChecklistItemDocument}

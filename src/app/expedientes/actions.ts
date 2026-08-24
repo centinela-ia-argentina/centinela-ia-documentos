@@ -459,6 +459,8 @@ export async function linkChecklistItemDocument(formData: FormData) {
 
   if (error) {
     console.error('Checklist item document link error:', error);
+    revalidatePath(`/expedientes/${caseId}`);
+    return;
   } else {
     await createAuditLog({
       organizationId: profile.organization_id,
@@ -476,6 +478,12 @@ export async function linkChecklistItemDocument(formData: FormData) {
   }
 
   revalidatePath(`/expedientes/${caseId}`);
+
+  if (linkedDocumentId) {
+    redirect(`/expedientes/${caseId}?tab=checklist&checklist_document=linked`);
+  } else {
+    redirect(`/expedientes/${caseId}?tab=checklist&checklist_document=unlinked`);
+  }
 }
 
 export async function toggleChecklistItemNotRequired(formData: FormData) {
