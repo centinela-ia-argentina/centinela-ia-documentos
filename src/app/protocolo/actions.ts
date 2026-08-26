@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { getUserProfile } from '@/lib/auth/getUserProfile';
-import { canUpdateCase, isUserRole } from '@/lib/permissions/roles';
+import { canUpdateCase, isUserRole, canDeleteDocument } from '@/lib/permissions/roles';
 
 export type RegistrarEscrituraResult =
   | { ok: true; numero: number }
@@ -21,7 +21,7 @@ export async function registrarEscritura(input: {
   anio?: number;
 }): Promise<RegistrarEscrituraResult> {
   const { user, profile } = await getUserProfile();
-  if (!user || !profile) return { ok: false, motivo: 'no_auth' };
+  if (!user || !profile || profile.status !== 'active') return { ok: false, motivo: 'no_auth' };
   if (!isUserRole(profile.role) || !canUpdateCase(profile.role)) return { ok: false, motivo: 'sin_permiso' };
 
   const fecha = input.fechaOtorgamiento?.trim();
@@ -64,8 +64,8 @@ export async function registrarEscritura(input: {
 
 export async function eliminarEscritura(id: string): Promise<{ ok: boolean }> {
   const { user, profile } = await getUserProfile();
-  if (!user || !profile) return { ok: false };
-  if (!isUserRole(profile.role) || !canUpdateCase(profile.role)) return { ok: false };
+  if (!user || !profile || profile.status !== 'active') return { ok: false };
+  if (!isUserRole(profile.role) || !canDeleteDocument(profile.role)) return { ok: false };
 
   const supabase = await createClient();
   const { error } = await supabase
@@ -74,6 +74,11 @@ export async function eliminarEscritura(id: string): Promise<{ ok: boolean }> {
     .eq('id', id)
     .eq('organization_id', profile.organization_id);
 
+  if (error) {
+    console.error('Error deleting escritura:', error);
+    return { ok: false };
+  }
+
   revalidatePath('/protocolo');
-  return { ok: !error };
+  return { ok: true };
 }
