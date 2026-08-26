@@ -11,7 +11,7 @@ import { indexarDocumento } from '@/lib/ai/indexarDocumento';
 import { analizarPoderConIA } from '@/lib/ai/poderes';
 import { normalizeIndustryType, type IndustryType } from '@/lib/industries/documentTypes';
 import { getAnalysisSystemPrompt } from '@/lib/industries/aiConfig';
-import { validateFileContent } from '@/lib/documents/fileValidation';
+import { validateFileContent, MAGIC_BYTES } from '@/lib/documents/fileValidation';
 import {
   canUploadDocument,
   canUseAi,
@@ -208,10 +208,25 @@ export async function uploadSingleDocumentAsync(formData: FormData): Promise<Upl
     const file = formData.get('file');
 
     if (!(file instanceof File)) return { status: 'error', error: 'missing_file' };
-    if (!ALLOWED_MIME_TYPES.includes(file.type)) return { status: 'error', error: 'invalid_type' };
-    if (file.size > MAX_FILE_SIZE) return { status: 'error', error: 'file_too_large' };
 
     const buffer = Buffer.from(await file.arrayBuffer());
+    let fileType = file.type;
+
+    if (!fileType) {
+      const hex = buffer.toString('hex', 0, 4).toLowerCase();
+      if (MAGIC_BYTES['application/pdf'].some(magic => hex.startsWith(magic))) {
+        fileType = 'application/pdf';
+      } else if (MAGIC_BYTES['image/jpeg'].some(magic => hex.startsWith(magic))) {
+        fileType = 'image/jpeg';
+      } else if (MAGIC_BYTES['image/png'].some(magic => hex.startsWith(magic))) {
+        fileType = 'image/png';
+      } else {
+        return { status: 'error', error: 'invalid_type' };
+      }
+    }
+
+    if (!ALLOWED_MIME_TYPES.includes(fileType)) return { status: 'error', error: 'invalid_type' };
+    if (file.size > MAX_FILE_SIZE) return { status: 'error', error: 'file_too_large' };
 
     // Deterministic test failure injection via cookie
     if (process.env.E2E_TEST_MODE === 'true') {
@@ -224,7 +239,7 @@ export async function uploadSingleDocumentAsync(formData: FormData): Promise<Upl
     }
 
     // Validate Magic Bytes and Structure
-    if (!validateFileContent(file.type, buffer)) {
+    if (!validateFileContent(fileType, buffer)) {
       return { status: 'error', error: 'invalid_file_content' };
     }
 
@@ -236,7 +251,7 @@ export async function uploadSingleDocumentAsync(formData: FormData): Promise<Upl
         .select('id')
         .eq('id', caseId)
         .eq('organization_id', profile.organization_id)
-        .single();
+        .maybeSingle();
 
       if (!caseRecord) return { status: 'error', error: 'invalid_case' };
     }
@@ -251,7 +266,7 @@ export async function uploadSingleDocumentAsync(formData: FormData): Promise<Upl
     if (caseId) existingQuery = existingQuery.eq('case_id', caseId);
     else existingQuery = existingQuery.is('case_id', null);
 
-    const { data: existingDoc } = await existingQuery.single();
+    const { data: existingDoc } = await existingQuery.maybeSingle();
 
     if (existingDoc) {
       return { status: 'duplicate', existingDocumentId: existingDoc.id };
@@ -268,17 +283,22 @@ export async function uploadSingleDocumentAsync(formData: FormData): Promise<Upl
       case_id: caseId || null,
       file_name: file.name,
       file_path: storagePath,
-      file_mime_type: file.type,
-      file_size: file.size,
+      file_mime_type: fileType,
+      file_size: buffer.byteLength,
       file_hash: fileHash,
       document_type: documentType || null,
       sensitivity_level: sensitivityLevel,
-      uploaded_by: user.id,
+      uploaded_by: profile.id || user.id,
       expires_at: expiresAt,
     });
 
     if (insertError) {
-      console.error('Metadata error:', insertError);
+      console.error('Metadata error:', {
+        code: insertError.code,
+        message: insertError.message,
+        details: insertError.details,
+        hint: insertError.hint
+      });
 
       if (insertError.code === '23505') {
         let query = supabase
@@ -289,14 +309,14 @@ export async function uploadSingleDocumentAsync(formData: FormData): Promise<Upl
         if (caseId) query = query.eq('case_id', caseId);
         else query = query.is('case_id', null);
 
-        const { data: winner } = await query.single();
+        const { data: winner } = await query.maybeSingle();
 
         if (winner) {
           return { status: 'duplicate', existingDocumentId: winner.id };
         }
       }
 
-      return { status: 'error', error: 'metadata_failed' };
+      return { status: 'error', error: `metadata_failed:${insertError.code || 'unknown'}:${insertError.message || ''}` };
     }
 
     const { error: uploadError } = await supabase.storage
@@ -304,7 +324,7 @@ export async function uploadSingleDocumentAsync(formData: FormData): Promise<Upl
       .upload(storagePath, file, {
         cacheControl: '3600',
         upsert: false,
-        contentType: file.type,
+        contentType: fileType,
       });
 
     if (uploadError) {
