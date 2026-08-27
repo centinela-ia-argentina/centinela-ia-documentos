@@ -7,6 +7,7 @@ import { formatAuditActionLabel, formatResourceTypeLabel } from '@/lib/audit/act
 import { normalizeIndustryType, industryLabels } from '@/lib/industries/documentTypes';
 import { getCaseStatusLabel, isCaseActive, caseStatusesByIndustry, TERMINAL_CASE_STATUSES } from '@/lib/industries/caseConfig';
 import { getIndustryTerms, type IndustryTerms } from '@/lib/industries/uiLabels';
+import { esPlazoRadar } from '@/lib/plazos/plazos';
 import { getDocumentExpiryStatus } from '@/lib/documents/expiry';
 import { MotionCard } from '@/components/ui/MotionCard';
 
@@ -443,7 +444,7 @@ if (
         .order('created_at', { ascending: false }),
       supabase
         .from('documents')
-        .select('id')
+        .select('id, expires_at, sensitivity_level')
         .eq('organization_id', profile.organization_id)
         .order('created_at', { ascending: false }),
       supabase
@@ -551,15 +552,8 @@ if (
     }
   });
 
-  const PATRONES_FECHA_EMISION = [
-    /\bemisio[nó]\b/i,
-    /\bexpedici[oó]n\b/i,
-    /fecha\s+de\s+(?:celebraci[oó]n|otorgamiento|firma|boleto|escritura|t[ií]tulo)/i,
-    /t[ií]tulo antecedente/i,
-    /^fecha(?: del)? boleto/i,
-    /nacimiento/i,
-    /nacid[oa]s?/i,
-  ];
+  // Importar desde plazos.ts esPlazoRadar si es posible, pero estamos en el mismo modulo.
+  // Wait, I can just import it at the top of the file.
 
   documents.forEach((doc) => {
     let effectiveExpiry = doc.expires_at;
@@ -567,10 +561,7 @@ if (
     if (!effectiveExpiry) {
       const ia = aiOutputByDoc.get(doc.id);
       if (ia && Array.isArray(ia.fechas_plazos)) {
-        const radarPlazos = ia.fechas_plazos.filter((fp: any) => {
-          const desc = fp.descripcion || '';
-          return !PATRONES_FECHA_EMISION.some(re => re.test(desc));
-        });
+        const radarPlazos = ia.fechas_plazos.filter((fp: any) => esPlazoRadar(fp.descripcion || ''));
         if (radarPlazos.length > 0 && radarPlazos[0].fecha) {
           effectiveExpiry = String(radarPlazos[0].fecha).slice(0, 10);
         }

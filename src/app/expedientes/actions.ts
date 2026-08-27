@@ -341,6 +341,7 @@ export async function updateCaseStatus(formData: FormData) {
   revalidatePath('/dashboard');
   revalidatePath('/expedientes');
   revalidatePath(`/expedientes/${caseId}`);
+  revalidatePath('/documentos');
   redirect(`/expedientes/${caseId}`);
 }
 

@@ -15,6 +15,8 @@ const PATRONES_FECHA_EMISION = [
   /fecha\s+de\s+(?:celebraci[oó]n|otorgamiento|firma|boleto|escritura|t[ií]tulo)/i,
   /t[ií]tulo antecedente/i,
   /^fecha(?: del)? boleto/i,
+  /\b(?:boleto|escritura)\b/i,
+  /\b(?:certificado\s+)?(?:catastral|dominio|inhibiciones?)\b/i,
 ];
 
 /** Devuelve true si la descripción corresponde a una fecha de nacimiento. */
@@ -39,7 +41,13 @@ export function esPlazoAccionable(plazo?: {
 
 /** Un plazo entra al Radar (vencimientos, plazos) si es accionable y NO es de emisión. */
 export function esPlazoRadar(titulo: string): boolean {
+  if (!titulo) return false;
   if (esFechaNacimiento(titulo)) return false;
+  if (/\b(?:vencimiento|vence|vigencia|plazo|tentativa)\b/i.test(titulo)) return true;
   if (esFechaEmision(titulo)) return false;
+  
+  // By default, if it's just the name of a document without "vencimiento" or "vigencia", it's probably its emission date.
+  if (/\b(?:boleto|escritura|catastral|dominio|inhibiciones?)\b/i.test(titulo)) return false;
+  
   return true;
 }

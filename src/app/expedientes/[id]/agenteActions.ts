@@ -1012,7 +1012,7 @@ export async function diagnosticoLegajo(
 				(i) => !['received', 'reviewed', 'not_required'].includes(i.status)
 			).length;
 			if (total > 0 && pendientes > 0) {
-				alertas.push(`Checklist: ${pendientes} de ${total} ítem(s) pendiente(s).`);
+				alertas.push(`Checklist: ${pendientes} de ${total} ítems pendientes.`);
 			}
 		}
 

@@ -160,6 +160,17 @@ export function UploadClient({
   const errorCount = Object.values(uploadStatus).filter(s => s.status === 'error').length;
   const duplicateCount = Object.values(uploadStatus).filter(s => s.status === 'duplicate').length;
 
+  useEffect(() => {
+    if (totalFiles > 0 && !isUploading && successCount === totalFiles && errorCount === 0) {
+      router.refresh();
+      if (caseId) {
+        router.push(`/expedientes/${caseId}?tab=documentos`);
+      } else {
+        router.push('/documentos');
+      }
+    }
+  }, [isUploading, totalFiles, successCount, errorCount, caseId, router]);
+
   return (
     <div className="space-y-6">
       {totalFiles > 0 && (successCount > 0 || errorCount > 0 || duplicateCount > 0) && !isUploading && (

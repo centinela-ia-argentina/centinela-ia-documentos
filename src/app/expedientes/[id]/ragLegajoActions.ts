@@ -51,7 +51,7 @@ export async function preguntarADocumentosLegajo(
       .eq('organization_id', profile.organization_id)
       .maybeSingle();
 
-    if (!caseData) return { ok: false, error: 'unavailable', correlationId };
+    if (!caseData) return { ok: false, error: 'El legajo no está disponible.', correlationId };
 
     // Rubro (define el tono del prompt: notarial / inmobiliario / jurídico)
     const { data: orgData } = await supabase
@@ -83,7 +83,7 @@ export async function preguntarADocumentosLegajo(
     const emb = await generarEmbedding(texto);
     if ('error' in emb) {
       await logRagError(profile.organization_id, user.id, caseId, correlationId, 'embedding_failed');
-      return { ok: false, error: 'technical_error', correlationId };
+      return { ok: false, error: 'No pude consultar los documentos. Reintentá.', correlationId };
     }
 
     // 3) Búsqueda vectorial

@@ -1061,20 +1061,19 @@ const updateFields: any = {
 };
 
 if (!documentRecord.expires_at && analysis.fechas_plazos && analysis.fechas_plazos.length > 0) {
-  // Use esPlazoRadar logic locally to avoid import issues, or just basic check
-  const PATRONES_FECHA_EMISION = [
-    /\bemisio[nó]\b/i,
-    /\bexpedici[oó]n\b/i,
-    /fecha\s+de\s+(?:celebraci[oó]n|otorgamiento|firma|boleto|escritura|t[ií]tulo)/i,
-    /t[ií]tulo antecedente/i,
-    /^fecha(?: del)? boleto/i,
-    /nacimiento/i,
-    /nacid[oa]s?/i,
-  ];
-  const radarPlazos = analysis.fechas_plazos.filter((fp: any) => {
-    const desc = fp.descripcion || '';
-    return !PATRONES_FECHA_EMISION.some(re => re.test(desc));
-  });
+  // We use regex locally instead of importing to avoid circular dependencies or similar if any.
+  // Actually, let's just use esPlazoRadar.
+  // We need to import it. Or I'll inline the logic.
+  const isRadar = (titulo: string) => {
+    if (!titulo) return false;
+    if (/\b(?:vencimiento|vence|vigencia|plazo|tentativa)\b/i.test(titulo)) return true;
+    if (/\bemisio[nó]\b|\bexpedici[oó]n\b|fecha\s+de\s+(?:celebraci[oó]n|otorgamiento|firma|boleto|escritura|t[ií]tulo)|t[ií]tulo antecedente|^fecha(?: del)? boleto/i.test(titulo)) return false;
+    if (/\b(?:boleto|escritura|catastral|dominio|inhibiciones?)\b/i.test(titulo)) return false;
+    if (/nacimiento|nacid[oa]s?|fecha\s+de\s+nac|f\.?\s*nac\b/i.test(titulo)) return false;
+    return true;
+  };
+
+  const radarPlazos = analysis.fechas_plazos.filter((fp: any) => isRadar(fp.descripcion || ''));
   if (radarPlazos.length > 0 && radarPlazos[0].fecha) {
     updateFields.expires_at = String(radarPlazos[0].fecha).slice(0, 10);
   }
