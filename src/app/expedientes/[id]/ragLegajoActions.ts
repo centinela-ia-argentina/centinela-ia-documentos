@@ -88,7 +88,7 @@ export async function preguntarADocumentosLegajo(
 
     // 3) Búsqueda vectorial
     let matches: any[] | null = null;
-    let matchError: { message: string } | null = null;
+    let matchError: any = null;
 
     ({ data: matches, error: matchError } = await supabase.rpc('match_case_document_chunks', {
       p_case_id: caseId,
@@ -107,8 +107,9 @@ export async function preguntarADocumentosLegajo(
     }
 
     if (matchError) {
+      console.error('RAG RPC Error:', matchError);
       await logRagError(profile.organization_id, user.id, caseId, correlationId, 'rpc_failed');
-      return { ok: false, error: 'technical_error', correlationId };
+      return { ok: false, error: 'No pude consultar los documentos. Reintentá.', correlationId };
     }
 
     // Deduplicación
@@ -162,7 +163,7 @@ RESPUESTA:`;
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
       await logRagError(profile.organization_id, user.id, caseId, correlationId, 'missing_api_key');
-      return { ok: false, error: 'technical_error', correlationId };
+      return { ok: false, error: 'No pude consultar los documentos. Reintentá.', correlationId };
     }
     const modelo = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
 
@@ -184,10 +185,11 @@ RESPUESTA:`;
     if (!resp.ok) {
       if (resp.status === 429) {
         await logRagError(profile.organization_id, user.id, caseId, correlationId, 'rate_limit');
-        return { ok: false, error: 'rate_limit', correlationId };
+        return { ok: false, error: 'Demasiadas consultas a la vez. Reintentá en un minuto.', correlationId };
       }
+      console.error('RAG LLM Fetch error:', resp.status, await resp.text());
       await logRagError(profile.organization_id, user.id, caseId, correlationId, 'llm_network_error');
-      return { ok: false, error: 'technical_error', correlationId };
+      return { ok: false, error: 'No pude consultar los documentos. Reintentá.', correlationId };
     }
 
     const data = await resp.json();
@@ -197,7 +199,7 @@ RESPUESTA:`;
 
     if (!respuesta || data?.candidates?.[0]?.finishReason === 'SAFETY') {
       await logRagError(profile.organization_id, user.id, caseId, correlationId, 'guardrail_triggered');
-      return { ok: false, error: 'guardrail', correlationId };
+      return { ok: false, error: 'No pude generar una respuesta segura.', correlationId };
     }
 
     const promptHash = crypto.createHash('sha256').update(prompt).digest('hex');
@@ -220,10 +222,10 @@ RESPUESTA:`;
 
     return { ok: true, respuesta, fuentes, correlationId };
   } catch (e) {
-    // Only technical_error, securely logging without raw messages
+    console.error('RAG Unhandled Error:', e);
     const supabase = await createClient();
     await logRagError(profile.organization_id, user.id, caseId, correlationId, 'unhandled_exception');
-    return { ok: false, error: 'technical_error', correlationId };
+    return { ok: false, error: 'No pude consultar los documentos. Reintentá.', correlationId };
   }
 }
 

@@ -43,7 +43,7 @@ export async function redactarEscrituraConIA(input: {
     '  "datos_faltantes": ["datos que faltan y hay que completar antes de otorgar"],',
     '  "advertencias": ["riesgos, certificados vencidos o puntos a revisar"]',
     '}',
-    'Reglas CRÍTICAS: NO inventes datos, montos, fechas, nombres, DNI/CUIT, matrículas ni artículos. Donde falte un dato, escribí un marcador entre corchetes como [COMPLETAR: dato]. Basate SOLO en la información aportada. Este es un BORRADOR de trabajo que el escribano debe revisar y completar; no es un instrumento definitivo.',
+    'Reglas CRÍTICAS: NO inventes datos, nombres, DNI/CUIT, matrículas ni montos. SI el dato se encuentra en el legajo o en los "DOCUMENTOS ANALIZADOS", DEBÉS COMPLETARLO en la escritura (usá los DNI, nombres, inmuebles, fechas y montos extraídos). SÓLO usá un marcador entre corchetes como [COMPLETAR: dato] cuando la información realmente falte. Basate SOLO en la información aportada. Este es un BORRADOR de trabajo que el escribano debe revisar y completar; no es un instrumento definitivo.',
     '',
     `LEGAJO: ${input.titulo}`,
     `Tipo de acto: ${input.tipoActo || '-'}`,

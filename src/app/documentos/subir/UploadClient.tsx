@@ -165,12 +165,30 @@ export function UploadClient({
       {totalFiles > 0 && (successCount > 0 || errorCount > 0 || duplicateCount > 0) && !isUploading && (
         <div className="bg-slate-50 border border-slate-200 rounded-2xl p-6" data-testid="upload-summary">
           <h3 className="font-semibold text-slate-800 mb-2">Resumen de Subida</h3>
-          <ul className="text-sm text-slate-600 space-y-1">
+          <ul className="text-sm text-slate-600 space-y-1 mb-4">
             <li>Total procesados: {totalFiles}</li>
             <li className="text-emerald-600 font-medium" data-testid="upload-success-count">Completados con éxito: {successCount}</li>
             {errorCount > 0 && <li className="text-rose-600 font-medium" data-testid="upload-error-count">Errores: {errorCount}</li>}
             {duplicateCount > 0 && <li className="text-amber-600 font-medium" data-testid="upload-duplicate-count">Duplicados omitidos: {duplicateCount}</li>}
           </ul>
+          {successCount > 0 && (
+            <div className="pt-2">
+              <button
+                onClick={(e) => {
+                  e.preventDefault();
+                  router.refresh();
+                  if (caseId) {
+                    router.push(`/expedientes/${caseId}?tab=documentos`);
+                  } else {
+                    router.push('/documentos');
+                  }
+                }}
+                className="w-full sm:w-auto px-4 py-2 bg-slate-900 text-white rounded-lg text-sm font-medium hover:bg-slate-800 transition-colors"
+              >
+                {caseId ? 'Ver en el legajo' : 'Ver documentos'}
+              </button>
+            </div>
+          )}
         </div>
       )}
 

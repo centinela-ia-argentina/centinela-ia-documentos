@@ -2246,7 +2246,11 @@ export function sugerirModeloNotarialPorTipo(tipo?: string): ModeloEscrito | nul
   } else if (t.includes('autorizaci') || t.includes('viaje')) {
     id = 'notarial-autorizacion-viaje-menor';
   } else if (t.includes('poder')) {
-    id = 'notarial-poder-general-amplio';
+    if (t.includes('especial')) {
+      id = 'notarial-poder-especial';
+    } else {
+      id = 'notarial-poder-general-amplio';
+    }
   } else if (t.includes('certificaci') || t.includes('firma')) {
     id = 'notarial-certificacion-firmas';
   } else if (t.includes('acta')) {

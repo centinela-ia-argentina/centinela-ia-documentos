@@ -12,6 +12,7 @@ import {
 import {
   getDocumentTypeLabel,
   normalizeIndustryType,
+  getDocumentTypes,
 } from '@/lib/industries/documentTypes';
 import { AiDisclaimer } from '@/lib/industries/disclaimers';
 import { getIndustryTerms } from '@/lib/industries/uiLabels';
@@ -56,6 +57,7 @@ import type { PreScoreInquilino } from '@/lib/ai/preScore';
 import { CronologiaExpediente } from './CronologiaExpediente';
 import { DerivarEscribania } from './DerivarEscribania';
 import { RadarPlazos } from './RadarPlazos';
+import { AutoMatchTrigger } from './AutoMatchTrigger';
 import { Tabs } from '@/components/ui/Tabs';
 import { Badge } from '@/components/ui/Badge';
 import { MotionCard } from '@/components/ui/MotionCard';
@@ -498,6 +500,10 @@ export default async function CaseDetailPage({ params, searchParams }: CaseDetai
     .order('created_at', { ascending: false });
 
   const documentosAnalizados = new Set((analisisData ?? []).map((o) => o.document_id).filter(Boolean)).size;
+  
+  const extractedPartes = Array.from(new Set((analisisData ?? []).flatMap(a => (a.result_json as any)?.datos_relevantes || []).filter(s => typeof s === 'string' && (s.startsWith('Parte:') || s.includes('DNI') || s.includes('CUIT') || s.includes('CUIL'))))).join('; ');
+  const extractedResumenes = (analisisData ?? []).map(a => (a.result_json as any)?.resumen).filter(Boolean).join('\n');
+
   const puedeUsarIA = canUseAi(profile.role);
 
   // Memoria de conversación del Agente IA en este legajo (historial persistido).
@@ -835,10 +841,10 @@ export default async function CaseDetailPage({ params, searchParams }: CaseDetai
                             analisis={analisisUif}
                             legajo={{
                               titulo: caseRecord.title || '',
-                              comparecientes: (caseRecord.metadata?.comparecientes as string) || caseRecord.client_name || '',
+                              comparecientes: ((caseRecord.metadata?.comparecientes as string) || caseRecord.client_name || '') + (extractedPartes ? ` | Extraídos de IA: ${extractedPartes}` : ''),
                               tipoActo: (caseRecord.metadata?.tipo_acto as string) || caseRecord.case_type || '',
                               fecha: (caseRecord.metadata?.fecha_otorgamiento as string) || '',
-                              resumen: '',
+                              resumen: extractedResumenes || '',
                             }}
                           />
                         )}
@@ -1465,6 +1471,7 @@ export default async function CaseDetailPage({ params, searchParams }: CaseDetai
           <MotionCard index={0}>
             <h3 className="font-display text-lg font-semibold text-white">
               Checklist documental
+              <AutoMatchTrigger caseId={caseRecord.id} isComplete={checklistProgress.isComplete} />
             </h3>
             <p className="mt-1 text-sm text-slate-400">
               Lista sugerida. Marcá lo que no aplica o agregá lo que necesites.

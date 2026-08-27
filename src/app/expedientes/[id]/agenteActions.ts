@@ -312,7 +312,7 @@ export async function preguntarAgente(input: {
           const nombreDoc = it.document_id ? (nombrePorDoc.get(it.document_id) ?? 'documento') : null;
           const marca = nombreDoc
             ? `YA VINCULADO: ${nombreDoc}`
-            : ['completed', 'done', 'not_applicable', 'no_aplica', 'not_required'].includes(it.status)
+            : ['received', 'reviewed', 'not_required'].includes(it.status)
               ? 'resuelto / no aplica'
               : 'PENDIENTE (sin documento)';
           return `- ${it.title} [${marca}]`;
@@ -1009,7 +1009,7 @@ export async function diagnosticoLegajo(
 			// NOTA: si tus estados de checklist usan otros valores, alineá esta
 			// condición con la MISMA lógica de "Sugeridos X/Y" del listado de legajos.
 			const pendientes = (items ?? []).filter(
-				(i) => !['completed', 'done', 'not_applicable', 'no_aplica'].includes(i.status)
+				(i) => !['received', 'reviewed', 'not_required'].includes(i.status)
 			).length;
 			if (total > 0 && pendientes > 0) {
 				alertas.push(`Checklist: ${pendientes} de ${total} ítem(s) pendiente(s).`);

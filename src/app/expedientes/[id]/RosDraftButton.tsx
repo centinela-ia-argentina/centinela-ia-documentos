@@ -66,12 +66,25 @@ export function RosDraftButton({
         <p class="foot">Generado el ${new Date().toLocaleString('es-AR')} · Centinela IA · Borrador sujeto a revisión profesional.</p>
       </body></html>`;
 
-    const win = window.open('', '_blank');
-    if (!win) { alert('Permití las ventanas emergentes para exportar el ROS.'); return; }
-    win.document.write(html);
-    win.document.close();
-    win.focus();
-    setTimeout(() => win.print(), 300);
+    const iframe = document.createElement('iframe');
+    iframe.style.display = 'none';
+    document.body.appendChild(iframe);
+    if (!iframe.contentDocument) return;
+    
+    iframe.contentDocument.write(html);
+    iframe.contentDocument.close();
+
+    const originalTitle = document.title;
+    document.title = `Borrador_ROS_${legajo.titulo.replace(/[^a-z0-9]/gi, '_')}`;
+
+    setTimeout(() => {
+      if (iframe.contentWindow) {
+        iframe.contentWindow.focus();
+        iframe.contentWindow.print();
+      }
+      document.title = originalTitle;
+      setTimeout(() => document.body.removeChild(iframe), 2000);
+    }, 500);
   };
 
   return (

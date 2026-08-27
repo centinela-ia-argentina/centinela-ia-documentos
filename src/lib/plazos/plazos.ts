@@ -9,16 +9,37 @@ const PATRONES_FECHA_INFORMATIVA = [
   /f\.?\s*nac\b/i,
 ];
 
+const PATRONES_FECHA_EMISION = [
+  /\bemisio[nó]\b/i,
+  /\bexpedici[oó]n\b/i,
+  /fecha\s+de\s+(?:celebraci[oó]n|otorgamiento|firma|boleto|escritura|t[ií]tulo)/i,
+  /t[ií]tulo antecedente/i,
+  /^fecha(?: del)? boleto/i,
+];
+
 /** Devuelve true si la descripción corresponde a una fecha de nacimiento. */
 export function esFechaNacimiento(descripcion?: string | null): boolean {
   if (!descripcion) return false;
   return PATRONES_FECHA_INFORMATIVA.some((re) => re.test(descripcion));
 }
 
-/** Un plazo es "accionable" si NO es una fecha meramente informativa. */
+/** Devuelve true si la descripción corresponde a una fecha de emisión/otorgamiento pasada. */
+export function esFechaEmision(descripcion?: string | null): boolean {
+  if (!descripcion) return false;
+  return PATRONES_FECHA_EMISION.some((re) => re.test(descripcion));
+}
+
+/** Un plazo es "accionable" (para la cronología) si NO es una fecha meramente informativa. */
 export function esPlazoAccionable(plazo?: {
   descripcion?: string | null;
   fecha?: string | null;
 }): boolean {
   return !esFechaNacimiento(plazo?.descripcion);
+}
+
+/** Un plazo entra al Radar (vencimientos, plazos) si es accionable y NO es de emisión. */
+export function esPlazoRadar(titulo: string): boolean {
+  if (esFechaNacimiento(titulo)) return false;
+  if (esFechaEmision(titulo)) return false;
+  return true;
 }

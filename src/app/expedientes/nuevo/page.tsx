@@ -67,7 +67,7 @@ export default async function NewCasePage() {
                 name="title"
                 data-testid="case-title"
                 required
-                placeholder="Compraventa — Cliente Pérez"
+                placeholder={terms.placeholderTitle}
                 className="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none focus:ring-2 focus:ring-sky-400"
               />
             </div>
@@ -79,7 +79,7 @@ export default async function NewCasePage() {
               <input
                 name="client_name"
                 data-testid="case-client"
-                placeholder="Nombre del cliente o empresa"
+                placeholder={terms.placeholderClient}
                 className="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none focus:ring-2 focus:ring-sky-400"
               />
             </div>

@@ -71,7 +71,7 @@ export type IndustryTerms = {
   // --- Radar de plazos / vigencias ---
   radarTitulo: string;
   radarSubtitulo: string;
-  // --- Observaciones / Operacional ---
+  // --- Observaciones / Fechas ---
   observacionesSubtitulo: string;
   observacionesIncompletosCard: string;
   observacionesIncompletosTitulo: string;
@@ -79,11 +79,12 @@ export type IndustryTerms = {
   observacionesPlazosTitulo: string;
   observacionesPlazosDesc: string;
   observacionesPlazosVacio: string;
-  // --- Dashboard helper ---
   dashboardActivesHelper: string;
   dashboardPlazosHelper: string;
-  // --- Reportes ---
   reportesSubtitulo: string;
+  // --- Placeholders ---
+  placeholderTitle: string;
+  placeholderClient: string;
 };
 
 const defaultTerms: IndustryTerms = {
@@ -119,11 +120,13 @@ const defaultTerms: IndustryTerms = {
   observacionesPlazosDesc: 'Casos con fechas próximas o vencidas.',
   observacionesPlazosVacio: 'No hay fechas próximas para mostrar.',
   dashboardActivesHelper: 'Registros actualmente en curso',
-  dashboardPlazosHelper: 'Fechas clave próximas o vencidas',
+  dashboardPlazosHelper: 'Fechas clave, audiencias y vencimientos',
   reportesSubtitulo: 'Análisis y visión de conjunto: métricas, actividad y auditoría para leer el panorama general de la organización.',
+  placeholderTitle: 'Ej. Demanda — Cliente Pérez',
+  placeholderClient: 'Nombre del cliente o empresa',
 };
 
-const termsByIndustry: Partial<Record<IndustryType, IndustryTerms>> = {
+const termsByIndustry: Partial<Record<IndustryType, Partial<IndustryTerms>>> = {
   escribania: {
     expedienteSingular: 'Legajo',
     expedientePlural: 'Legajos',
@@ -158,7 +161,9 @@ const termsByIndustry: Partial<Record<IndustryType, IndustryTerms>> = {
     observacionesPlazosVacio: 'Sin fechas próximas.',
     dashboardActivesHelper: 'Legajos actualmente en preparación o curso',
     dashboardPlazosHelper: 'Fechas clave y vencimientos',
-    reportesSubtitulo: 'Análisis y visión de conjunto: métricas, actividad notarial y auditoría para leer el panorama general de la escribanía.',
+    reportesSubtitulo: 'Análisis y visión de conjunto: métricas, actividad y auditoría del registro notarial.',
+    placeholderTitle: 'Ej. Escritura Compraventa Pérez c/ Gómez',
+    placeholderClient: 'Ej. Juan Pérez (Vendedor) y Ana Gómez (Compradora)',
   },
   inmobiliaria: {
     expedienteSingular: 'Operación',
@@ -235,7 +240,7 @@ const termsByIndustry: Partial<Record<IndustryType, IndustryTerms>> = {
 };
 
 export function getIndustryTerms(industry: IndustryType): IndustryTerms {
-  return termsByIndustry[industry] ?? defaultTerms;
+  return { ...defaultTerms, ...termsByIndustry[industry] };
 }
 
 export type AgendaLabels = {

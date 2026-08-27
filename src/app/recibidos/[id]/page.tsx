@@ -4,6 +4,7 @@ import { AppShell } from '@/components/layout/AppShell';
 import { createClient } from '@/lib/supabase/server';
 import { getUserProfile } from '@/lib/auth/getUserProfile';
 import { getDocumentTypeLabel } from '@/lib/industries/documentTypes';
+import { getIndustryTerms } from '@/lib/industries/uiLabels';
 import { sensitivityLabel } from '@/lib/documents/sensitivity';
 import { agregarObservacion, subirDocumentoDerivado } from '../actions';
 import { FormSubmitButton } from '@/components/ui/FormSubmitButton';
@@ -14,7 +15,7 @@ function formatDate(value?: string | null) {
   if (!value) return 'Sin fecha';
   const d = new Date(value);
   if (Number.isNaN(d.getTime())) return 'Sin fecha';
-  return new Intl.DateTimeFormat('es-AR', { dateStyle: 'short', timeStyle: 'short' }).format(d);
+  return new Intl.DateTimeFormat('es-AR', { dateStyle: 'short', timeStyle: 'short', timeZone: 'America/Buenos_Aires' }).format(d);
 }
 
 function asArray(v: unknown): string[] {
@@ -31,6 +32,15 @@ export default async function RecibidoDetallePage({ params }: Props) {
   if (!profile) redirect('/onboarding');
 
   const supabase = await createClient();
+
+  const { data: orgData } = await supabase
+    .from('organizations')
+    .select('industry_type')
+    .eq('id', profile.organization_id)
+    .single();
+
+  const organizationIndustry = orgData?.industry_type || 'general';
+  const terms = getIndustryTerms(organizationIndustry as any);
 
   // La derivacion: la RLS ya solo me deja ver las dirigidas a mi organizacion.
   const { data: derivacion } = await supabase
@@ -75,8 +85,8 @@ export default async function RecibidoDetallePage({ params }: Props) {
 
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-cyan-400">Legajo derivado</p>
-            <h1 className="text-2xl font-semibold text-white">{legajo?.title || derivacion.case_title || 'Legajo'}</h1>
+            <p className="text-xs font-semibold uppercase tracking-wide text-cyan-400">{terms.expedienteSingular} derivado</p>
+            <h1 className="text-2xl font-semibold text-white">{legajo?.title || derivacion.case_title || terms.itemSinTitulo}</h1>
             <p className="mt-1 text-sm text-slate-400">
               De: {derivacion.from_organization_name || 'Organización'} · Cliente: {legajo?.client_name || 'Sin cliente'}
             </p>
@@ -86,12 +96,12 @@ export default async function RecibidoDetallePage({ params }: Props) {
 
         {!legajo ? (
           <div className="rounded-2xl border border-white/10 bg-white/5 p-6 text-sm text-slate-400">
-            No se pudo cargar el legajo. Puede que la derivación haya sido revocada.
+            No se pudo cargar el {terms.expedienteSingular.toLowerCase()}. Puede que la derivación haya sido revocada.
           </div>
         ) : (
           <>
             <div className="rounded-2xl border border-white/10 bg-white/5 p-6 space-y-3">
-              <h2 className="text-sm font-semibold text-white">Datos del legajo</h2>
+              <h2 className="text-sm font-semibold text-white">Datos del {terms.expedienteSingular.toLowerCase()}</h2>
               <div className="grid gap-3 sm:grid-cols-2">
                 <div><p className="text-xs uppercase tracking-wide text-slate-500">Tipo</p><p className="text-sm text-slate-200">{legajo.case_type || 'Sin definir'}</p></div>
                 <div><p className="text-xs uppercase tracking-wide text-slate-500">Estado</p><p className="text-sm text-slate-200">{legajo.status || 'Sin definir'}</p></div>
@@ -102,7 +112,7 @@ export default async function RecibidoDetallePage({ params }: Props) {
             <div className="rounded-2xl border border-white/10 bg-white/5 p-6 space-y-3">
               <h2 className="text-sm font-semibold text-white">Documentos ({documentos.length})</h2>
               {documentos.length === 0 ? (
-                <p className="text-sm text-slate-500">Este legajo no tiene documentos.</p>
+                <p className="text-sm text-slate-500">Este {terms.expedienteSingular.toLowerCase()} no tiene documentos.</p>
               ) : (
                 <ul className="space-y-2">
                   {documentos.map((d) => (
@@ -129,17 +139,17 @@ export default async function RecibidoDetallePage({ params }: Props) {
                   accept="application/pdf,image/jpeg,image/png"
                   className="text-sm text-slate-300 file:mr-3 file:rounded-lg file:border-0 file:bg-white/10 file:px-3 file:py-1.5 file:text-white"
                 />
-                <FormSubmitButton label="Subir documento al legajo" loadingLabel="Subiendo..." />
+                <FormSubmitButton label={`Subir documento al ${terms.expedienteSingular.toLowerCase()}`} loadingLabel="Subiendo..." />
               </form>
               <p className="mt-2 text-xs text-slate-500">
-                Podés aportar documentos (PDF, JPG o PNG) al legajo compartido. También los verá la organización que te lo derivó.
+                Podés aportar documentos (PDF, JPG o PNG) al {terms.expedienteSingular.toLowerCase()} compartido. También los verá la organización que te lo derivó.
               </p>
             </div>
 
             <div className="rounded-2xl border border-white/10 bg-white/5 p-6 space-y-3">
               <h2 className="text-sm font-semibold text-white">Análisis IA ({analisis.length})</h2>
               {analisis.length === 0 ? (
-                <p className="text-sm text-slate-500">Todavía no hay análisis de IA en este legajo.</p>
+                <p className="text-sm text-slate-500">Todavía no hay análisis de IA en este {terms.expedienteSingular.toLowerCase()}.</p>
               ) : (
                 analisis.map((a) => {
                   const rj = (a.result_json ?? {}) as any;
@@ -161,9 +171,9 @@ export default async function RecibidoDetallePage({ params }: Props) {
             </div>
 
             <section className="rounded-2xl border border-white/10 bg-white/5 p-5">
-              <h2 className="text-lg font-semibold text-white">Observaciones de la escribanía</h2>
+              <h2 className="text-lg font-semibold text-white">Observaciones {organizationIndustry === 'escribania' ? 'de la escribanía' : 'de la organización'}</h2>
               <p className="mt-1 text-sm text-slate-400">
-                Dejá notas sobre este legajo. Las verá la organización que te lo derivó.
+                Dejá notas sobre este {terms.expedienteSingular.toLowerCase()}. Las verá la organización que te lo derivó.
               </p>
 
               <ul className="mt-4 space-y-3">
@@ -171,7 +181,7 @@ export default async function RecibidoDetallePage({ params }: Props) {
                   <li key={o.id} className="rounded-xl border border-white/10 bg-white/5 p-3">
                     <p className="whitespace-pre-wrap text-sm text-white">{o.body}</p>
                     <p className="mt-1 text-xs text-slate-500">
-                      {o.author_org_name ?? 'Escribanía'} · {new Date(o.created_at).toLocaleString('es-AR')}
+                      {o.author_org_name ?? (organizationIndustry === 'escribania' ? 'Escribanía' : 'Organización')} · {new Date(o.created_at).toLocaleString('es-AR', { timeZone: 'America/Buenos_Aires' })}
                     </p>
                   </li>
                 ))}

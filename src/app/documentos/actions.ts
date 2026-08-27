@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { createAuditLog } from '@/lib/audit/createAuditLog';
+import { autoMarcarChecklist } from '@/app/expedientes/actions';
 import crypto from 'crypto';
 import { getUserProfile } from '@/lib/auth/getUserProfile';
 import { indexarDocumento } from '@/lib/ai/indexarDocumento';
@@ -351,6 +352,16 @@ export async function uploadSingleDocumentAsync(formData: FormData): Promise<Upl
         multi_upload: true,
       },
     });
+
+    revalidatePath('/dashboard');
+    revalidatePath('/documentos');
+    if (caseId) {
+      revalidatePath(`/expedientes/${caseId}`);
+      // Auto-match checklist after upload
+      const form = new FormData();
+      form.append('case_id', caseId);
+      autoMarcarChecklist(form).catch(console.error);
+    }
 
     return { status: 'success', documentId };
   } catch (err: any) {
@@ -1009,8 +1020,8 @@ export async function analyzeDocument(formData: FormData) {
         : ['Sin alertas detectadas por la IA.'],
       proximas_acciones: ia.proximas_acciones,
       fechas_plazos: ia.fechas_plazos ?? [],
-      texto_extraido_preview: extractedText.slice(0, 1200),
-      caracteres_extraidos: extractedText.length,
+      texto_extraido_preview: (extractedText || ia.transcripcion || '').slice(0, 1200),
+      caracteres_extraidos: extractedText.length || (ia.transcripcion ? ia.transcripcion.length : 0),
     };
   } else {
     analysis = {
@@ -1044,12 +1055,34 @@ if (aiInsertError) {
   redirect(`/documentos/${documentId}?error=ai_save_failed`);
 }
 
+const updateFields: any = {
+  document_type: typeToSave,
+  sensitivity_level: sensitivityToSave,
+};
+
+if (!documentRecord.expires_at && analysis.fechas_plazos && analysis.fechas_plazos.length > 0) {
+  // Use esPlazoRadar logic locally to avoid import issues, or just basic check
+  const PATRONES_FECHA_EMISION = [
+    /\bemisio[nó]\b/i,
+    /\bexpedici[oó]n\b/i,
+    /fecha\s+de\s+(?:celebraci[oó]n|otorgamiento|firma|boleto|escritura|t[ií]tulo)/i,
+    /t[ií]tulo antecedente/i,
+    /^fecha(?: del)? boleto/i,
+    /nacimiento/i,
+    /nacid[oa]s?/i,
+  ];
+  const radarPlazos = analysis.fechas_plazos.filter((fp: any) => {
+    const desc = fp.descripcion || '';
+    return !PATRONES_FECHA_EMISION.some(re => re.test(desc));
+  });
+  if (radarPlazos.length > 0 && radarPlazos[0].fecha) {
+    updateFields.expires_at = String(radarPlazos[0].fecha).slice(0, 10);
+  }
+}
+
 const { error: documentUpdateError } = await supabase
   .from('documents')
-  .update({
-    document_type: typeToSave,
-    sensitivity_level: sensitivityToSave,
-  })
+  .update(updateFields)
   .eq('id', documentRecord.id)
   .eq('organization_id', profile.organization_id);
 
@@ -1174,7 +1207,7 @@ export async function analizarPoderEstatuto(formData: FormData) {
     created_by: user.id,
   });
 
-  redirect(`/documentos/${documentId}`);
+  redirect(`/documentos/${documentId}#poder`);
 }
 
 export async function archiveDocument(formData: FormData) {

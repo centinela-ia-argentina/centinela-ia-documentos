@@ -44,7 +44,7 @@ export async function redactarBorradorInmobiliariaConIA(input: {
     '  "datos_faltantes": ["datos que faltan y hay que completar antes de firmar"],',
     '  "advertencias": ["riesgos, faltantes o puntos a revisar con un profesional"]',
     '}',
-    'Reglas CRÍTICAS: NO inventes datos, montos, fechas, nombres, DNI/CUIT ni matrículas. Donde falte un dato, escribí un marcador entre corchetes como [COMPLETAR: dato]. Basate SOLO en la información aportada. Este es un BORRADOR de trabajo orientativo que un profesional debe revisar y completar; no reemplaza asesoramiento legal ni escritura pública.',
+    'Reglas CRÍTICAS: USÁ EXHAUSTIVAMENTE los datos de los DOCUMENTOS ANALIZADOS y la OPERACIÓN (DNI, CUIT, nombres, fechas, montos, direcciones, etc.) para completar el documento en lugar de dejar espacios en blanco. Si la información ESTÁ en el contexto, LLENALA; NO pongas [COMPLETAR]. SOLO si el dato no figura en ninguna parte del contexto aportado, poné un marcador como [COMPLETAR: dato]. NO inventes datos que no estén. Este es un BORRADOR de trabajo orientativo que un profesional debe revisar y completar; no reemplaza asesoramiento legal ni escritura pública.',
     '',
     `OPERACIÓN: ${input.titulo}`,
     `Documento a redactar: ${input.tipoDocumento || '-'}`,

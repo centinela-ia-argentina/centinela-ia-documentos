@@ -341,6 +341,7 @@ export async function updateCaseStatus(formData: FormData) {
   revalidatePath('/dashboard');
   revalidatePath('/expedientes');
   revalidatePath(`/expedientes/${caseId}`);
+  redirect(`/expedientes/${caseId}`);
 }
 
 // Imported from helpers.ts
@@ -836,7 +837,7 @@ export async function cotejarExpediente(caseId: string) {
 
   const { data: docsData } = await supabase
     .from('documents')
-    .select('id, file_name, document_type')
+    .select('id, file_name, document_type, expires_at')
     .eq('case_id', caseId)
     .eq('organization_id', profile.organization_id);
   const docs = docsData ?? [];
@@ -856,16 +857,20 @@ export async function cotejarExpediente(caseId: string) {
 
   const documentos = docs.map((d) => {
     const r = latestByDoc.get(d.id) || {};
+    const fechas = Array.isArray(r.fechas_plazos) 
+      ? r.fechas_plazos.map((f: any) => `${f.descripcion}: ${f.fecha}`) 
+      : [];
+    if (d.expires_at) fechas.push(`Vencimiento registrado en sistema: ${d.expires_at}`);
+    
     return {
       nombre: d.file_name,
       tipo: String(r.tipo_documental_detectado || d.document_type || 'Documento'),
       resumen: String(r.resumen || 'Sin análisis de IA todavía.'),
       alertas: Array.isArray(r.alertas) ? r.alertas.map(String) : [],
-      datos: Array.isArray(r.datos_clave)
-        ? r.datos_clave.map(String)
-        : Array.isArray(r.datos_relevantes)
-          ? r.datos_relevantes.map(String)
-          : [],
+      datos: [
+        ...(Array.isArray(r.datos_clave) ? r.datos_clave.map(String) : (Array.isArray(r.datos_relevantes) ? r.datos_relevantes.map(String) : [])),
+        ...fechas
+      ],
     };
   });
 

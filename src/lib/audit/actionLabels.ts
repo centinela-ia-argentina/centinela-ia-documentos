@@ -38,11 +38,18 @@ const auditActionLabels: Record<string, string> = {
   invitation_accepted_account_created: 'Invitación aceptada y cuenta creada',
 };
 
-export function formatAuditActionLabel(action?: string | null): string {
+export function formatAuditActionLabel(action?: string | null, terms?: IndustryTerms): string {
   if (!action) return 'Evento sin acción';
 
-  const label = auditActionLabels[action];
-  if (label) return label;
+  let label = auditActionLabels[action];
+  
+  if (label) {
+    if (terms && terms.expedienteSingular.toLowerCase() !== 'expediente') {
+      label = label.replace(/Expediente/g, terms.expedienteSingular);
+      label = label.replace(/expediente/g, terms.expedienteSingular.toLowerCase());
+    }
+    return label;
+  }
 
   return action
     .replace(/[-_]+/g, ' ')
