@@ -66,7 +66,7 @@ export function RosDraftButton({
         <h2>7. Documentación de respaldo</h2>
         <p class="muted">[COMPLETAR: detalle de la documentación adjunta al reporte]</p>
 
-        <p class="foot">Generado el ${new Date().toLocaleString('es-AR')} · Centinela IA · Borrador sujeto a revisión profesional.</p>
+        <p class="foot">Generado el ${new Date().toLocaleString('es-AR', { timeZone: 'America/Buenos_Aires', hour12: false })} · Centinela IA · Borrador sujeto a revisión profesional.</p>
       </body></html>`;
 
     const iframe = document.createElement('iframe');
