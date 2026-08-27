@@ -836,18 +836,27 @@ export default async function CaseDetailPage({ params, searchParams }: CaseDetai
                     <div className="flex items-center justify-between gap-3">
                       <h3 className="flex items-center gap-2 text-sm font-semibold text-white">🛡️ Análisis UIF / PLA (IA)</h3>
                       <div className="flex flex-wrap items-center gap-2">
-                        {analisisUif && (
-                          <RosDraftButton
-                            analisis={analisisUif}
-                            legajo={{
-                              titulo: caseRecord.title || '',
-                              comparecientes: ((caseRecord.metadata?.comparecientes as string) || caseRecord.client_name || '') + (extractedPartes ? ` | Extraídos de IA: ${extractedPartes}` : ''),
-                              tipoActo: (caseRecord.metadata?.tipo_acto as string) || caseRecord.case_type || '',
-                              fecha: (caseRecord.metadata?.fecha_otorgamiento as string) || '',
-                              resumen: extractedResumenes || '',
-                            }}
-                          />
-                        )}
+                        {analisisUif && (() => {
+                          const dump = JSON.stringify((analisisData ?? []).map(a => a.result_json)) + JSON.stringify(resumenData?.result_json);
+                          const m1 = dump.match(/(?:precio|monto|valor|venta)[^\d]*(USD|ARS|\$)\s*([\d\.,]+)/i);
+                          const montoExtraido = m1 ? `${m1[1].replace('$', 'USD')} ${m1[2]}`.trim() : undefined;
+                          const m2 = dump.match(/(?:fecha\s*(?:de\s*)?boleto|boleto)[^\d]*?(\d{2}\/\d{2}\/\d{4})/i);
+                          const fechaBoletoExtraida = m2 ? m2[1] : undefined;
+                          return (
+                            <RosDraftButton
+                              analisis={analisisUif}
+                              legajo={{
+                                titulo: caseRecord.title || '',
+                                comparecientes: ((caseRecord.metadata?.comparecientes as string) || caseRecord.client_name || '') + (extractedPartes ? ` | Extraídos de IA: ${extractedPartes}` : ''),
+                                tipoActo: (caseRecord.metadata?.tipo_acto as string) || caseRecord.case_type || '',
+                                fecha: (caseRecord.metadata?.fecha_otorgamiento as string) || '',
+                                resumen: extractedResumenes || '',
+                                monto: montoExtraido,
+                                fechaBoleto: fechaBoletoExtraida
+                              }}
+                            />
+                          );
+                        })()}
                         <AnalizarUifButton caseId={caseRecord.id} yaGenerada={!!analisisUif} />
                       </div>
                     </div>

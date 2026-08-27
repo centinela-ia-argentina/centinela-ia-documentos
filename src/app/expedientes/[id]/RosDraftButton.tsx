@@ -10,12 +10,14 @@ export function RosDraftButton({
   legajo,
 }: {
   analisis: AnalisisUIF;
-  legajo: { titulo: string; comparecientes: string; tipoActo: string; fecha: string; resumen: string };
+  legajo: { titulo: string; comparecientes: string; tipoActo: string; fecha: string; resumen: string; monto?: string; fechaBoleto?: string };
 }) {
   const exportar = () => {
     const li = (arr: string[]) =>
       arr.length ? `<ul>${arr.map((x) => `<li>${esc(x)}</li>`).join('')}</ul>` : '<p class="muted">[COMPLETAR]</p>';
     const fecha = legajo.fecha ? esc(legajo.fecha.split('-').reverse().join('/')) : '[COMPLETAR: fecha]';
+    const monto = legajo.monto ? esc(legajo.monto) : '[COMPLETAR]';
+    const fechaBoleto = legajo.fechaBoleto ? esc(legajo.fechaBoleto) : '[COMPLETAR]';
 
     const html = `<!doctype html><html lang="es"><head><meta charset="utf-8" />
       <title>Borrador ROS - ${esc(legajo.titulo || 'Legajo')}</title>
@@ -40,8 +42,8 @@ export function RosDraftButton({
         <p>Escribano/a: [COMPLETAR: nombre y apellido]<br/>Registro notarial N°: [COMPLETAR]<br/>CUIT: [COMPLETAR]<br/>Domicilio: [COMPLETAR]</p>
 
         <h2>2. Operación reportada</h2>
-        <p>Legajo: ${esc(legajo.titulo || '[COMPLETAR]')}<br/>Tipo de acto: ${esc(legajo.tipoActo || '[COMPLETAR]')}<br/>Fecha: ${fecha}<br/>Monto y Valuación: [COMPLETAR: Extraer del análisis si existe, ej. USD 185.000 / ARS 48.500.000, o dejar en blanco]</p>
-        <p>Fecha de boleto / operación: [COMPLETAR: Extraer del análisis si existe, ej. 10/06/2026, o dejar en blanco]</p>
+        <p>Legajo: ${esc(legajo.titulo || '[COMPLETAR]')}<br/>Tipo de acto: ${esc(legajo.tipoActo || '[COMPLETAR]')}<br/>Fecha: ${fecha}<br/>Monto y Valuación: ${monto}</p>
+        <p>Fecha de boleto / operación: ${fechaBoleto}</p>
 
         <h2>3. Personas intervinientes</h2>
         <p>Comparecientes: ${esc(legajo.comparecientes || '[COMPLETAR]')}</p>

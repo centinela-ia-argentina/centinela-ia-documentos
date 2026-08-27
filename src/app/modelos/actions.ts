@@ -219,3 +219,78 @@ export async function revisarEscritoIA(input: { texto: string }): Promise<Revisi
     return { ok: false, motivo: 'error' };
   }
 }
+
+export async function extraerDatosParaModelo(caseId: string): Promise<Record<string, string>> {
+  const { user, profile } = await getUserProfile();
+  if (!user || !profile) return {};
+
+  const supabase = await createClient();
+  const { data: aiData } = await supabase
+    .from('ai_outputs')
+    .select('result_json')
+    .eq('case_id', caseId)
+    .eq('organization_id', profile.organization_id)
+    .order('created_at', { ascending: false });
+
+  if (!aiData || aiData.length === 0) return {};
+
+  const rawJson = aiData.map(d => JSON.stringify(d.result_json)).join('\n');
+  // Trim to avoid hitting limits
+  const chunk = rawJson.substring(0, 15000);
+
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) return {};
+
+  const prompt = [
+    'Extraé la siguiente información de los análisis provistos (documentos analizados del expediente).',
+    'Devolvé SOLO un JSON válido con estas claves exactas si las encontrás. Si no está la información exacta, dejá el valor vacío "". NO inventes datos.',
+    '{',
+    '  "vendedor": "",',
+    '  "dni_vendedor": "",',
+    '  "cuit_vendedor": "",',
+    '  "comprador": "",',
+    '  "dni_comprador": "",',
+    '  "cuit_comprador": "",',
+    '  "ubicacion_inmueble": "",',
+    '  "nomenclatura_catastral": "",',
+    '  "matricula": "",',
+    '  "superficie": "",',
+    '  "precio": "",',
+    '  "monto": "",',
+    '  "titulo_antecedente": "",',
+    '  "fecha_boleto": "",',
+    '  "ciudad": ""',
+    '}',
+    '',
+    'ANÁLISIS:',
+    chunk
+  ].join('\n');
+
+  try {
+    const resp = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: { temperature: 0, responseMimeType: 'application/json' },
+        }),
+      }
+    );
+    if (!resp.ok) return {};
+    const data = await resp.json();
+    const raw = data?.candidates?.[0]?.content?.parts?.[0]?.text ?? '{}';
+    const parsed = JSON.parse(raw);
+    const result: Record<string, string> = {};
+    for (const [k, v] of Object.entries(parsed)) {
+      if (typeof v === 'string' && v.trim() !== '') {
+        result[k] = v.trim();
+      }
+    }
+    return result;
+  } catch (e) {
+    console.error('Error extrayendo datos:', e);
+    return {};
+  }
+}
