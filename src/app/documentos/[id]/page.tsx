@@ -813,8 +813,7 @@ Dictamen IA documental
                   (document.document_type?.toLowerCase().includes('poder') ||
                    document.document_type?.toLowerCase().includes('estatuto') ||
                    aiResult?.tipo_documental_detectado?.toLowerCase().includes('poder') ||
-                   aiResult?.tipo_documental_detectado?.toLowerCase().includes('estatuto') ||
-                   !!poderData) && (
+                   aiResult?.tipo_documental_detectado?.toLowerCase().includes('estatuto')) && (
                   <div id="poder" className="scroll-mt-6 rounded-3xl border border-white/10 bg-white/[0.02] p-6 mb-4">
                     <div className="flex items-start justify-between gap-4">
                       <div>
@@ -888,10 +887,11 @@ Dictamen IA documental
                 )}
 
                 {(() => {
+                  const tipoParaSugerir = document.document_type || aiResult?.tipo_documental_detectado;
                   const modeloSugerido =
                     industria === 'escribania'
-                      ? sugerirModeloNotarialPorTipo(aiResult?.tipo_documental_detectado)
-                      : sugerirModeloPorTipo(aiResult?.tipo_documental_detectado);
+                      ? sugerirModeloNotarialPorTipo(tipoParaSugerir)
+                      : sugerirModeloPorTipo(tipoParaSugerir);
                   if (!modeloSugerido) return null;
                   return (
                     <div className="mt-4 rounded-2xl border border-violet-500/20 bg-violet-900/20 p-4">

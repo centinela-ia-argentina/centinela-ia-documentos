@@ -137,7 +137,7 @@ export async function cotejarDocumentosConIA(input: {
     ' "coincidencias": ["datos que coinciden correctamente entre documentos"],',
     ' "discrepancias": ["diferencias o contradicciones entre documentos, indicando qué documento y qué dato"],',
     ' "faltantes": ["documentos o datos que faltarían para completar el acto"],',
-    ' "alertas_vigencia": ["certificados vencidos o próximos a vencer, con la fecha si surge"]',
+    ' "alertas_vigencia": ["certificados vencidos, próximos a vencer o vigentes (incluyendo SIEMPRE explícitamente la vigencia de inhibiciones, dominio y catastral con su fecha exacta, ej: 01/11/2026)"]',
     '}',
     'Reglas: NO inventes datos. Si algo no surge de la información aportada, devolvé un array vacío. Basate SOLO en lo aportado. Respondé en español rioplatense.',
     '',
