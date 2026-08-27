@@ -1567,7 +1567,7 @@ export async function autoMarcarChecklist(formData: FormData) {
     .select('id, title, status, document_id')
     .eq('checklist_id', checklist.id);
   const itemsCandidatos = (items ?? []).filter(
-    (it) => it.status === 'pending' && !it.document_id
+    (it) => (it.status === 'pending' && !it.document_id) || (it.status === 'received' && it.document_id)
   );
   if (itemsCandidatos.length === 0) {
     revalidatePath(`/expedientes/${caseId}`);
@@ -1587,14 +1587,33 @@ export async function autoMarcarChecklist(formData: FormData) {
     }))
   );
   let marcados = 0;
+  let desvinculados = 0;
   for (const item of itemsCandidatos) {
     const sugerencia = sugerencias.get(item.title);
-    if (!sugerencia) continue;
-    const { error } = await supabase
-      .from('checklist_items')
-      .update({ document_id: sugerencia.documentId, status: 'received' })
-      .eq('id', item.id);
-    if (!error) marcados += 1;
+    
+    if (item.status === 'received' && item.document_id) {
+      if (!sugerencia) {
+        const { error } = await supabase
+          .from('checklist_items')
+          .update({ document_id: null, status: 'pending' })
+          .eq('id', item.id);
+        if (!error) desvinculados += 1;
+      } else if (sugerencia.documentId !== item.document_id) {
+        const { error } = await supabase
+          .from('checklist_items')
+          .update({ document_id: sugerencia.documentId, status: 'received' })
+          .eq('id', item.id);
+        if (!error) marcados += 1;
+      }
+    } else if (item.status === 'pending' && !item.document_id) {
+      if (sugerencia) {
+        const { error } = await supabase
+          .from('checklist_items')
+          .update({ document_id: sugerencia.documentId, status: 'received' })
+          .eq('id', item.id);
+        if (!error) marcados += 1;
+      }
+    }
   }
   await createAuditLog({
     organizationId: profile.organization_id,
@@ -1602,7 +1621,7 @@ export async function autoMarcarChecklist(formData: FormData) {
     action: 'checklist_auto_matched' as any,
     resourceType: 'case',
     resourceId: caseId,
-    metadata: { auto_marcados: marcados, evaluados: itemsCandidatos.length },
+    metadata: { auto_marcados: marcados, desvinculados, evaluados: itemsCandidatos.length },
   });
   revalidatePath(`/expedientes/${caseId}`);
 }
