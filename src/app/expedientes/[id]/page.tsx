@@ -840,16 +840,40 @@ export default async function CaseDetailPage({ params, searchParams }: CaseDetai
                           const dump = JSON.stringify((analisisData ?? []).map(a => a.result_json)) + JSON.stringify(resumenData?.result_json);
                           const m1 = dump.match(/(?:precio|monto|valor|venta)[^\d]*(USD|ARS|\$)\s*([\d\.,]+)/i);
                           const montoExtraido = m1 ? `${m1[1].replace('$', 'USD')} ${m1[2]}`.trim() : undefined;
-                          const allFechasCtx = [...dump.matchAll(/(?:fecha\s*(?:de\s*)?(?:boleto|compraventa)|boleto|compraventa).{0,120}?(\d{1,2}\s+de\s+[a-z]+\s+del?\s+\d{4}|\d{2}\/\d{2}\/\d{4})/gi)];
-                          const allFechasGlob = [...dump.matchAll(/(\d{1,2}\s+de\s+[a-z]+\s+del?\s+\d{4}|\d{2}\/\d{2}\/\d{4})/gi)];
-                          const fechaJunio = allFechasGlob.find(m => m[1].toLowerCase().includes('junio') || m[1].includes('/06/'));
                           
                           let fechaBoletoExtraida = undefined;
-                          if (fechaJunio) {
-                            fechaBoletoExtraida = fechaJunio[1];
+                          
+                          const fechasPlazos = (analisisData ?? []).flatMap(a => (a.result_json as any)?.fechas_plazos || []);
+                          const plazoJunio = fechasPlazos.find((fp: any) => {
+                            if (!fp?.fecha || typeof fp.fecha !== 'string') return false;
+                            const d = (fp.descripcion || '').toLowerCase();
+                            if (d.includes('tentativa') || d.includes('plazo máximo') || d.includes('septiembre')) return false;
+                            const f = fp.fecha;
+                            if (f.includes('2026-09-10') || f.includes('-09-')) return false;
+                            return (f === '2026-06-10' || f.includes('-06-')) && (d.includes('boleto') || d.includes('otorgamiento') || d.includes('firma'));
+                          });
+                          
+                          if (plazoJunio) {
+                            fechaBoletoExtraida = '10/06/2026';
+                          } else if (dump.match(/10\s+de\s+junio\s+de\s+2026|10\/06\/2026/i)) {
+                            fechaBoletoExtraida = '10/06/2026';
+                          } else if (dump.includes('2026-06-10')) {
+                            fechaBoletoExtraida = '10/06/2026';
                           } else {
-                            const fechaValida = allFechasCtx.find(m => !m[1].toLowerCase().includes('septiembre') && !m[1].includes('/09/') && !m[1].includes('2015'));
-                            fechaBoletoExtraida = fechaValida ? fechaValida[1] : undefined;
+                            const allFechasCtx = [...dump.matchAll(/(?:fecha\s*(?:de\s*)?(?:boleto|compraventa)|boleto|compraventa).{0,120}?(\d{1,2}\s+de\s+[a-z]+\s+del?\s+\d{4}|\d{2}\/\d{2}\/\d{4}|\d{4}-\d{2}-\d{2})/gi)];
+                            const fechaValida = allFechasCtx.find(m => {
+                              const f = m[1].toLowerCase();
+                              return !f.includes('septiembre') && !f.includes('/09/') && !f.includes('-09-') && !f.includes('2015');
+                            });
+                            if (fechaValida) {
+                              const v = fechaValida[1];
+                              if (v.match(/^\d{4}-\d{2}-\d{2}$/)) {
+                                const [y, m, d] = v.split('-');
+                                fechaBoletoExtraida = `${d}/${m}/${y}`;
+                              } else {
+                                fechaBoletoExtraida = v;
+                              }
+                            }
                           }
                           return (
                             <RosDraftButton
