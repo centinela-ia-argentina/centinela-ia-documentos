@@ -498,19 +498,19 @@ export default async function DocumentDetailPage({
           <AnalyzeDetailButtonClient documentId={document.id} label={analyzeButtonLabel} />
 
           {document.case_id ? (
-            <a
+            <Link
               href={`/expedientes/${document.case_id}?tab=documentos`}
               className="rounded-2xl border border-white/10 px-5 py-3 text-center text-sm font-bold text-slate-300 hover:border-cyan-400 hover:text-cyan-400 transition-colors"
             >
               Volver al {industria === 'escribania' ? 'legajo' : 'expediente'}
-            </a>
+            </Link>
           ) : (
-            <a
+            <Link
               href="/documentos"
               className="rounded-2xl border border-white/10 px-5 py-3 text-center text-sm font-bold text-slate-300 hover:border-cyan-400 hover:text-cyan-400 transition-colors"
             >
               Volver a documentos
-            </a>
+            </Link>
           )}
         </div>
       </div>
