@@ -7,7 +7,7 @@ import { MODELOS, type ModeloEscrito } from '@/lib/legal/modelos';
 import { Reveal } from '@/components/ui/Reveal';
 import { MotionCard } from '@/components/ui/MotionCard';
 import { MotionButton } from '@/components/ui/MotionButton';
-import { redactarEscritoIA } from './actions';
+import { redactarEscritoIA, extraerDatosParaModelo } from './actions';
 import { AiDisclaimer } from '@/lib/industries/disclaimers';
 
 export type ExpedienteLite = {
@@ -185,10 +185,20 @@ export function ModelosClient({
     setAvisoIA(null);
   };
 
-  const aplicarExpediente = (id: string) => {
+  const aplicarExpediente = async (id: string) => {
     setExpedienteId(id);
     const exp = expedientes.find((e) => e.id === id);
-    setValores((prev) => (exp ? { ...prev, ...datosDeExpediente(exp) } : prev));
+    if (!exp) return;
+    setValores((prev) => ({ ...prev, ...datosDeExpediente(exp) }));
+
+    const extr = await extraerDatosParaModelo(id);
+    setValores((prev) => {
+      const next = { ...prev };
+      for (const [k, v] of Object.entries(extr)) {
+        if (v) next[k] = v;
+      }
+      return next;
+    });
   };
 
   const volver = () => {

@@ -10,12 +10,14 @@ export function RosDraftButton({
   legajo,
 }: {
   analisis: AnalisisUIF;
-  legajo: { titulo: string; comparecientes: string; tipoActo: string; fecha: string; resumen: string };
+  legajo: { titulo: string; comparecientes: string; tipoActo: string; fecha: string; resumen: string; monto?: string; fechaBoleto?: string };
 }) {
   const exportar = () => {
     const li = (arr: string[]) =>
       arr.length ? `<ul>${arr.map((x) => `<li>${esc(x)}</li>`).join('')}</ul>` : '<p class="muted">[COMPLETAR]</p>';
     const fecha = legajo.fecha ? esc(legajo.fecha.split('-').reverse().join('/')) : '[COMPLETAR: fecha]';
+    const monto = legajo.monto ? esc(legajo.monto) : '[COMPLETAR]';
+    const fechaBoleto = legajo.fechaBoleto ? esc(legajo.fechaBoleto) : '[COMPLETAR]';
 
     const html = `<!doctype html><html lang="es"><head><meta charset="utf-8" />
       <title>Borrador ROS - ${esc(legajo.titulo || 'Legajo')}</title>
@@ -32,7 +34,7 @@ export function RosDraftButton({
         @media print { body { margin: 16mm; } }
       </style></head>
       <body>
-        <h1>Borrador — Reporte de Operación Sospechosa (ROS)</h1>
+        <h2>Borrador — Reporte de Operación Sospechosa (ROS)</h2>
         <p class="muted">Documento de trabajo generado por Centinela IA. Debe ser revisado, completado y presentado por el escribano ante la UIF a través del sistema oficial. No constituye una presentación válida por sí mismo.</p>
         <div class="aviso">Este borrador se basa en el análisis de riesgo del legajo. Verificá y completá todos los campos marcados como [COMPLETAR] antes de cualquier presentación.</div>
 
@@ -40,11 +42,12 @@ export function RosDraftButton({
         <p>Escribano/a: [COMPLETAR: nombre y apellido]<br/>Registro notarial N°: [COMPLETAR]<br/>CUIT: [COMPLETAR]<br/>Domicilio: [COMPLETAR]</p>
 
         <h2>2. Operación reportada</h2>
-        <p>Legajo: ${esc(legajo.titulo || '[COMPLETAR]')}<br/>Tipo de acto: ${esc(legajo.tipoActo || '[COMPLETAR]')}<br/>Fecha: ${fecha}<br/>Monto: [COMPLETAR: monto y moneda]</p>
+        <p>Legajo: ${esc(legajo.titulo || '[COMPLETAR]')}<br/>Tipo de acto: ${esc(legajo.tipoActo || '[COMPLETAR]')}<br/>Fecha: ${fecha}<br/>Monto y Valuación: ${monto}</p>
+        <p>Fecha de boleto / operación: ${fechaBoleto}</p>
 
         <h2>3. Personas intervinientes</h2>
         <p>Comparecientes: ${esc(legajo.comparecientes || '[COMPLETAR]')}</p>
-        <p class="muted">Completar por cada interviniente: DNI/CUIT, domicilio, actividad, carácter (por sí / en representación) y beneficiario final si corresponde.</p>
+        <p class="muted">Completar por cada interviniente: DNI/CUIT, domicilio, estado civil, actividad, carácter (por sí / en representación) y beneficiario final si corresponde (Extraer del análisis si existen).</p>
 
         <h2>4. Descripción de la operación</h2>
         <p>${legajo.resumen ? esc(legajo.resumen) : '[COMPLETAR: relato de los hechos y descripción de la operación]'}</p>
@@ -63,15 +66,30 @@ export function RosDraftButton({
         <h2>7. Documentación de respaldo</h2>
         <p class="muted">[COMPLETAR: detalle de la documentación adjunta al reporte]</p>
 
-        <p class="foot">Generado el ${new Date().toLocaleString('es-AR')} · Centinela IA · Borrador sujeto a revisión profesional.</p>
+        <p class="foot">Generado el ${new Date().toLocaleString('es-AR', { timeZone: 'America/Buenos_Aires', hour12: false })} · Centinela IA · Borrador sujeto a revisión profesional.</p>
       </body></html>`;
 
-    const win = window.open('', '_blank');
-    if (!win) { alert('Permití las ventanas emergentes para exportar el ROS.'); return; }
-    win.document.write(html);
-    win.document.close();
-    win.focus();
-    setTimeout(() => win.print(), 300);
+    const iframe = document.createElement('iframe');
+    iframe.style.display = 'none';
+    document.body.appendChild(iframe);
+    if (!iframe.contentDocument) return;
+    
+    iframe.contentDocument.write(html);
+    iframe.contentDocument.close();
+
+    const originalTitle = document.title;
+    const printTitle = `Borrador_ROS_${legajo.titulo.replace(/[^a-z0-9]/gi, '_')}`;
+    document.title = printTitle;
+
+    setTimeout(() => {
+      if (iframe.contentWindow && iframe.contentDocument) {
+        iframe.contentDocument.title = printTitle;
+        iframe.contentWindow.focus();
+        iframe.contentWindow.print();
+      }
+      document.title = originalTitle;
+      setTimeout(() => document.body.removeChild(iframe), 2000);
+    }, 500);
   };
 
   return (

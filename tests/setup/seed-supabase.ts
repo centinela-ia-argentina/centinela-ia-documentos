@@ -125,7 +125,8 @@ export async function seedSupabase() {
         id: SEED_DATA.CHUNK_ID,
         organization_id: SEED_DATA.ORG_LEGAL_ID,
         document_id: SEED_DATA.DOC_LEGAL_ID,
-        chunk_text: 'Este es un fragmento de prueba para RAG en caso legal.',
+        chunk_index: 0,
+        content: 'Este es un fragmento de prueba para RAG en caso legal.',
         embedding: Array(768).fill(0.01)
       }
     ]), 'chunks');

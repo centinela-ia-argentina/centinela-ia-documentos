@@ -435,7 +435,28 @@ export default async function DocumentDetailPage({
 
   const aiStatus = getDocumentAiStatus(aiHistory.length);
   
-  const expiryStatus = getDocumentExpiryStatus(document.expires_at);
+  const PATRONES_FECHA_EMISION = [
+    /\bemisio[nó]\b/i,
+    /\bexpedici[oó]n\b/i,
+    /fecha\s+de\s+(?:celebraci[oó]n|otorgamiento|firma|boleto|escritura|t[ií]tulo)/i,
+    /t[ií]tulo antecedente/i,
+    /^fecha(?: del)? boleto/i,
+    /nacimiento/i,
+    /nacid[oa]s?/i,
+  ];
+
+  let effectiveExpiry = document.expires_at;
+  if (!effectiveExpiry && aiResult && Array.isArray((aiResult as any).fechas_plazos)) {
+    const radarPlazos = (aiResult as any).fechas_plazos.filter((fp: any) => {
+      const desc = fp.descripcion || '';
+      return !PATRONES_FECHA_EMISION.some(re => re.test(desc));
+    });
+    if (radarPlazos.length > 0 && radarPlazos[0].fecha) {
+      effectiveExpiry = String(radarPlazos[0].fecha).slice(0, 10);
+    }
+  }
+
+  const expiryStatus = getDocumentExpiryStatus(effectiveExpiry);
   const expiryBadge = getExpiryBadgeStyles(expiryStatus);
 
   return (
@@ -476,12 +497,21 @@ export default async function DocumentDetailPage({
         <div className="flex flex-col gap-3 sm:flex-row">
           <AnalyzeDetailButtonClient documentId={document.id} label={analyzeButtonLabel} />
 
-          <Link
-            href="/documentos"
-            className="rounded-2xl border border-white/10 px-5 py-3 text-center text-sm font-bold text-slate-300 hover:border-cyan-400 hover:text-cyan-400 transition-colors"
-          >
-            Volver a documentos
-          </Link>
+          {document.case_id ? (
+            <Link
+              href={`/expedientes/${document.case_id}?tab=documentos`}
+              className="rounded-2xl border border-white/10 px-5 py-3 text-center text-sm font-bold text-slate-300 hover:border-cyan-400 hover:text-cyan-400 transition-colors"
+            >
+              Volver al {industria === 'escribania' ? 'legajo' : 'expediente'}
+            </Link>
+          ) : (
+            <Link
+              href="/documentos"
+              className="rounded-2xl border border-white/10 px-5 py-3 text-center text-sm font-bold text-slate-300 hover:border-cyan-400 hover:text-cyan-400 transition-colors"
+            >
+              Volver a documentos
+            </Link>
+          )}
         </div>
       </div>
 
@@ -557,12 +587,12 @@ export default async function DocumentDetailPage({
                   Vencimiento
                 </p>
                 <div className="mt-2 flex items-center gap-2">
-                  <p className="font-bold text-white">
-                    {formatExpiryDate(document.expires_at)}
-                  </p>
-                  {document.expires_at && (
-                    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold ${expiryBadge.className}`}>
-                      {expiryStatusLabel(expiryStatus)}
+                  <span className={`rounded-full border px-3 py-1 font-bold ${expiryBadge.className}`}>
+                    {formatExpiryDate(effectiveExpiry)}
+                  </span>
+                  {effectiveExpiry && (
+                    <span className="text-xs font-semibold text-slate-400">
+                      ({expiryStatus === 'vigente' ? 'Vigente' : expiryStatus === 'por_vencer' ? 'Por vencer' : 'Vencido'})
                     </span>
                   )}
                 </div>
@@ -583,7 +613,8 @@ export default async function DocumentDetailPage({
             </div>
           </MotionCard>
 
-          <MotionCard index={1} className={risk.className}>
+          {aiResult && (
+            <MotionCard index={1} className={risk.className}>
             <div className="flex items-start justify-between gap-4">
               <div>
                 <p className="text-xs font-bold uppercase tracking-[0.2em]">
@@ -622,6 +653,7 @@ Dictamen IA documental
               {risk.description}
             </p>
           </MotionCard>
+          )}
 
           <MotionCard index={2}>
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-cyan-400/80">
@@ -777,8 +809,12 @@ Dictamen IA documental
                   );
                 })()}
 
-                {industria === 'escribania' && (
-                  <div className="rounded-3xl border border-white/10 bg-white/[0.02] p-6 mb-4">
+                {industria === 'escribania' &&
+                  (document.document_type?.toLowerCase().includes('poder') ||
+                   document.document_type?.toLowerCase().includes('estatuto') ||
+                   aiResult?.tipo_documental_detectado?.toLowerCase().includes('poder') ||
+                   aiResult?.tipo_documental_detectado?.toLowerCase().includes('estatuto')) && (
+                  <div id="poder" className="scroll-mt-6 rounded-3xl border border-white/10 bg-white/[0.02] p-6 mb-4">
                     <div className="flex items-start justify-between gap-4">
                       <div>
                         <h2 className="text-lg font-semibold text-white">⚖️ Análisis de poder / estatuto</h2>
@@ -851,16 +887,17 @@ Dictamen IA documental
                 )}
 
                 {(() => {
+                  const tipoParaSugerir = document.document_type || aiResult?.tipo_documental_detectado;
                   const modeloSugerido =
                     industria === 'escribania'
-                      ? sugerirModeloNotarialPorTipo(aiResult?.tipo_documental_detectado)
-                      : sugerirModeloPorTipo(aiResult?.tipo_documental_detectado);
+                      ? sugerirModeloNotarialPorTipo(tipoParaSugerir)
+                      : sugerirModeloPorTipo(tipoParaSugerir);
                   if (!modeloSugerido) return null;
                   return (
                     <div className="mt-4 rounded-2xl border border-violet-500/20 bg-violet-900/20 p-4">
                       <div className="flex items-center gap-2 text-sm font-semibold text-violet-200">
                         <FileSignature className="h-4 w-4" />
-                        Escrito sugerido
+                        {industria === 'escribania' ? 'Instrumento sugerido' : 'Escrito sugerido'}
                       </div>
                       <p className="mt-1 text-sm text-violet-300">
                         Según el tipo detectado
@@ -874,7 +911,7 @@ Dictamen IA documental
                         className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-violet-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-violet-700"
                       >
                         <FileSignature className="h-4 w-4" />
-                        Redactar este escrito
+                        {industria === 'escribania' ? 'Redactar este instrumento' : 'Redactar este escrito'}
                       </Link>
                     </div>
                   );

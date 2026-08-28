@@ -341,6 +341,8 @@ export async function updateCaseStatus(formData: FormData) {
   revalidatePath('/dashboard');
   revalidatePath('/expedientes');
   revalidatePath(`/expedientes/${caseId}`);
+  revalidatePath('/documentos');
+  redirect(`/expedientes/${caseId}`);
 }
 
 // Imported from helpers.ts
@@ -836,7 +838,7 @@ export async function cotejarExpediente(caseId: string) {
 
   const { data: docsData } = await supabase
     .from('documents')
-    .select('id, file_name, document_type')
+    .select('id, file_name, document_type, expires_at')
     .eq('case_id', caseId)
     .eq('organization_id', profile.organization_id);
   const docs = docsData ?? [];
@@ -856,16 +858,20 @@ export async function cotejarExpediente(caseId: string) {
 
   const documentos = docs.map((d) => {
     const r = latestByDoc.get(d.id) || {};
+    const fechas = Array.isArray(r.fechas_plazos) 
+      ? r.fechas_plazos.map((f: any) => `${f.descripcion}: ${f.fecha}`) 
+      : [];
+    if (d.expires_at) fechas.push(`Vencimiento registrado en sistema: ${d.expires_at}`);
+    
     return {
       nombre: d.file_name,
       tipo: String(r.tipo_documental_detectado || d.document_type || 'Documento'),
       resumen: String(r.resumen || 'Sin análisis de IA todavía.'),
       alertas: Array.isArray(r.alertas) ? r.alertas.map(String) : [],
-      datos: Array.isArray(r.datos_clave)
-        ? r.datos_clave.map(String)
-        : Array.isArray(r.datos_relevantes)
-          ? r.datos_relevantes.map(String)
-          : [],
+      datos: [
+        ...(Array.isArray(r.datos_clave) ? r.datos_clave.map(String) : (Array.isArray(r.datos_relevantes) ? r.datos_relevantes.map(String) : [])),
+        ...fechas
+      ],
     };
   });
 
@@ -1561,7 +1567,7 @@ export async function autoMarcarChecklist(formData: FormData) {
     .select('id, title, status, document_id')
     .eq('checklist_id', checklist.id);
   const itemsCandidatos = (items ?? []).filter(
-    (it) => it.status === 'pending' && !it.document_id
+    (it) => (it.status === 'pending' && !it.document_id) || (it.status === 'received' && it.document_id)
   );
   if (itemsCandidatos.length === 0) {
     revalidatePath(`/expedientes/${caseId}`);
@@ -1581,14 +1587,33 @@ export async function autoMarcarChecklist(formData: FormData) {
     }))
   );
   let marcados = 0;
+  let desvinculados = 0;
   for (const item of itemsCandidatos) {
     const sugerencia = sugerencias.get(item.title);
-    if (!sugerencia) continue;
-    const { error } = await supabase
-      .from('checklist_items')
-      .update({ document_id: sugerencia.documentId, status: 'received' })
-      .eq('id', item.id);
-    if (!error) marcados += 1;
+    
+    if (item.status === 'received' && item.document_id) {
+      if (!sugerencia) {
+        const { error } = await supabase
+          .from('checklist_items')
+          .update({ document_id: null, status: 'pending' })
+          .eq('id', item.id);
+        if (!error) desvinculados += 1;
+      } else if (sugerencia.documentId !== item.document_id) {
+        const { error } = await supabase
+          .from('checklist_items')
+          .update({ document_id: sugerencia.documentId, status: 'received' })
+          .eq('id', item.id);
+        if (!error) marcados += 1;
+      }
+    } else if (item.status === 'pending' && !item.document_id) {
+      if (sugerencia) {
+        const { error } = await supabase
+          .from('checklist_items')
+          .update({ document_id: sugerencia.documentId, status: 'received' })
+          .eq('id', item.id);
+        if (!error) marcados += 1;
+      }
+    }
   }
   await createAuditLog({
     organizationId: profile.organization_id,
@@ -1596,7 +1621,7 @@ export async function autoMarcarChecklist(formData: FormData) {
     action: 'checklist_auto_matched' as any,
     resourceType: 'case',
     resourceId: caseId,
-    metadata: { auto_marcados: marcados, evaluados: itemsCandidatos.length },
+    metadata: { auto_marcados: marcados, desvinculados, evaluados: itemsCandidatos.length },
   });
   revalidatePath(`/expedientes/${caseId}`);
 }

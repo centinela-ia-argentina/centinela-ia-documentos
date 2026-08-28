@@ -207,7 +207,8 @@ CREATE TABLE public.document_chunks (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     organization_id uuid NOT NULL REFERENCES public.organizations(id) ON DELETE CASCADE,
     document_id uuid NOT NULL REFERENCES public.documents(id) ON DELETE CASCADE,
-    chunk_text text NOT NULL,
+    chunk_index integer NOT NULL DEFAULT 0,
+    content text NOT NULL,
     embedding vector(768) NOT NULL,
     created_at timestamptz NOT NULL DEFAULT now()
 );

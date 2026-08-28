@@ -130,14 +130,14 @@ export async function cotejarDocumentosConIA(input: {
 
   const promptNotarial = [
     'Sos un escribano argentino experto en estudio de títulos y control de documentación registral. Vas a COTEJAR (cruzar) los documentos ya analizados de un mismo legajo para verificar si son coherentes entre sí antes de otorgar un acto.',
-    'Compará especialmente: identidad y datos de las partes/comparecientes (nombres, DNI/CUIT), datos del inmueble (nomenclatura catastral, matrícula, superficie, ubicación), montos y precios, y vigencia de certificados (dominio, inhibiciones, libre deuda).',
+    'Compará especialmente: identidad y datos de las partes/comparecientes (nombres, DNI/CUIT), datos del inmueble (nomenclatura catastral, matrícula, superficie, ubicación), montos y precios, y vigencia de certificados (dominio, inhibiciones, libre deuda). Evaluá rigurosamente la validez temporal usando las fechas de vencimiento aportadas ("Vencimiento registrado en sistema") y las fechas extraídas. Recordá que certificados de dominio/inhibiciones suelen vencer a los 15, 30 o 90 días (según jurisdicción).',
     'Respondé SOLO un objeto JSON válido (sin texto adicional) con esta forma exacta:',
     '{',
     ' "veredicto": "1-2 oraciones con el estado general del cotejo (coherente / con observaciones / con discrepancias serias)",',
     ' "coincidencias": ["datos que coinciden correctamente entre documentos"],',
     ' "discrepancias": ["diferencias o contradicciones entre documentos, indicando qué documento y qué dato"],',
     ' "faltantes": ["documentos o datos que faltarían para completar el acto"],',
-    ' "alertas_vigencia": ["certificados vencidos o próximos a vencer, con la fecha si surge"]',
+    ' "alertas_vigencia": ["certificados vencidos, próximos a vencer o vigentes (incluyendo SIEMPRE explícitamente la vigencia de inhibiciones, dominio y catastral con su fecha exacta, ej: 01/11/2026)"]',
     '}',
     'Reglas: NO inventes datos. Si algo no surge de la información aportada, devolvé un array vacío. Basate SOLO en lo aportado. Respondé en español rioplatense.',
     '',

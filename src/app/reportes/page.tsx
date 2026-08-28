@@ -7,6 +7,7 @@ import { formatAuditActionLabel, formatResourceTypeLabel } from '@/lib/audit/act
 import { normalizeIndustryType, industryLabels } from '@/lib/industries/documentTypes';
 import { getCaseStatusLabel, isCaseActive, caseStatusesByIndustry, TERMINAL_CASE_STATUSES } from '@/lib/industries/caseConfig';
 import { getIndustryTerms, type IndustryTerms } from '@/lib/industries/uiLabels';
+import { esPlazoRadar } from '@/lib/plazos/plazos';
 import { getDocumentExpiryStatus } from '@/lib/documents/expiry';
 import { MotionCard } from '@/components/ui/MotionCard';
 
@@ -81,6 +82,7 @@ function formatDate(value?: string | null) {
   return new Intl.DateTimeFormat('es-AR', {
     dateStyle: 'short',
     timeStyle: 'short',
+    timeZone: 'America/Buenos_Aires',
   }).format(date);
 }
 
@@ -442,12 +444,12 @@ if (
         .order('created_at', { ascending: false }),
       supabase
         .from('documents')
-        .select('id')
+        .select('id, expires_at, sensitivity_level')
         .eq('organization_id', profile.organization_id)
         .order('created_at', { ascending: false }),
       supabase
         .from('ai_outputs')
-        .select('document_id')
+        .select('document_id, result_json')
         .eq('organization_id', profile.organization_id)
         .eq('output_type', 'document_analysis')
         .order('created_at', { ascending: false })
@@ -473,7 +475,7 @@ if (
         .order('created_at', { ascending: false }),
       supabase
         .from('ai_outputs')
-        .select('document_id')
+        .select('document_id, result_json')
         .eq('organization_id', profile.organization_id)
         .eq('output_type', 'document_analysis')
         .order('created_at', { ascending: false })
@@ -543,12 +545,34 @@ if (
   let vencidos = 0;
   let sinVencimiento = 0;
 
+  const aiOutputByDoc = new Map<string, any>();
+  aiOutputs.forEach((o) => {
+    if (o.document_id && !aiOutputByDoc.has(o.document_id)) {
+      aiOutputByDoc.set(o.document_id, o.result_json);
+    }
+  });
+
+  // Importar desde plazos.ts esPlazoRadar si es posible, pero estamos en el mismo modulo.
+  // Wait, I can just import it at the top of the file.
+
   documents.forEach((doc) => {
-    if (!doc.expires_at) {
+    let effectiveExpiry = doc.expires_at;
+
+    if (!effectiveExpiry) {
+      const ia = aiOutputByDoc.get(doc.id);
+      if (ia && Array.isArray(ia.fechas_plazos)) {
+        const radarPlazos = ia.fechas_plazos.filter((fp: any) => esPlazoRadar(fp.descripcion || ''));
+        if (radarPlazos.length > 0 && radarPlazos[0].fecha) {
+          effectiveExpiry = String(radarPlazos[0].fecha).slice(0, 10);
+        }
+      }
+    }
+
+    if (!effectiveExpiry) {
       sinVencimiento++;
       return;
     }
-    const status = getDocumentExpiryStatus(doc.expires_at);
+    const status = getDocumentExpiryStatus(effectiveExpiry);
     if (status === 'vigente') vigentes++;
     else if (status === 'por_vencer') porVencer++;
     else if (status === 'vencido') vencidos++;
@@ -1090,7 +1114,7 @@ if (
                             log.action
                           )}`}
                         />
-                        {formatAuditActionLabel(log.action)}
+                        {formatAuditActionLabel(log.action, terms)}
                       </span>
 
                     </td>

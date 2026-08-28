@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { uploadSingleDocumentAsync } from '../actions';
 import { UploadCloud, X, Loader2, FileIcon, CheckCircle2, AlertCircle } from 'lucide-react';
@@ -67,11 +67,12 @@ export function UploadClient({
     });
   };
 
-  const removeFile = (index: number) => {
-    setFiles(prev => {
-      const newFiles = [...prev];
-      newFiles.splice(index, 1);
-      return newFiles;
+  const removeFile = (id: string) => {
+    setFiles(prev => prev.filter(f => f.id !== id));
+    setUploadStatus(prev => {
+      const next = { ...prev };
+      delete next[id];
+      return next;
     });
   };
 
@@ -159,17 +160,46 @@ export function UploadClient({
   const errorCount = Object.values(uploadStatus).filter(s => s.status === 'error').length;
   const duplicateCount = Object.values(uploadStatus).filter(s => s.status === 'duplicate').length;
 
+  useEffect(() => {
+    if (totalFiles > 0 && !isUploading && successCount === totalFiles && errorCount === 0) {
+      router.refresh();
+      if (caseId) {
+        router.push(`/expedientes/${caseId}?tab=documentos`);
+      } else {
+        router.push('/documentos');
+      }
+    }
+  }, [isUploading, totalFiles, successCount, errorCount, caseId, router]);
+
   return (
     <div className="space-y-6">
       {totalFiles > 0 && (successCount > 0 || errorCount > 0 || duplicateCount > 0) && !isUploading && (
         <div className="bg-slate-50 border border-slate-200 rounded-2xl p-6" data-testid="upload-summary">
           <h3 className="font-semibold text-slate-800 mb-2">Resumen de Subida</h3>
-          <ul className="text-sm text-slate-600 space-y-1">
+          <ul className="text-sm text-slate-600 space-y-1 mb-4">
             <li>Total procesados: {totalFiles}</li>
             <li className="text-emerald-600 font-medium" data-testid="upload-success-count">Completados con éxito: {successCount}</li>
             {errorCount > 0 && <li className="text-rose-600 font-medium" data-testid="upload-error-count">Errores: {errorCount}</li>}
             {duplicateCount > 0 && <li className="text-amber-600 font-medium" data-testid="upload-duplicate-count">Duplicados omitidos: {duplicateCount}</li>}
           </ul>
+          {successCount > 0 && (
+            <div className="pt-2">
+              <button
+                onClick={(e) => {
+                  e.preventDefault();
+                  router.refresh();
+                  if (caseId) {
+                    router.push(`/expedientes/${caseId}?tab=documentos`);
+                  } else {
+                    router.push('/documentos');
+                  }
+                }}
+                className="w-full sm:w-auto px-4 py-2 bg-slate-900 text-white rounded-lg text-sm font-medium hover:bg-slate-800 transition-colors"
+              >
+                {caseId ? 'Ver en el legajo' : 'Ver documentos'}
+              </button>
+            </div>
+          )}
         </div>
       )}
 
@@ -262,7 +292,7 @@ export function UploadClient({
 
           {files.length > 0 && (
             <div className="mt-4 space-y-2">
-              {files.map((wf, index) => {
+              {files.map((wf) => {
                 const status = uploadStatus[wf.id]?.status || 'pending';
                 return (
                   <div key={wf.id} className="flex items-center justify-between p-3 bg-white border border-slate-200 rounded-xl">
@@ -270,7 +300,11 @@ export function UploadClient({
                       <FileIcon className="h-5 w-5 text-slate-400 shrink-0" />
                       <div className="truncate text-sm font-medium text-slate-700">
                         {wf.file.name}
-                        <div className="text-xs text-slate-400 font-normal">{(wf.file.size / 1024 / 1024).toFixed(2)} MB</div>
+                        <div className="text-xs text-slate-400 font-normal">
+                          {wf.file.size < 1024 * 1024 
+                            ? `${(wf.file.size / 1024).toFixed(2)} KB` 
+                            : `${(wf.file.size / 1024 / 1024).toFixed(2)} MB`}
+                        </div>
                       </div>
                     </div>
 
@@ -302,10 +336,10 @@ export function UploadClient({
                         </div>
                       )}
 
-                      {status === 'pending' && !isUploading && (
+                      {(status === 'pending' || status === 'error') && !isUploading && (
                         <button
                           type="button"
-                          onClick={(e) => { e.preventDefault(); removeFile(index); }}
+                          onClick={(e) => { e.preventDefault(); removeFile(wf.id); }}
                           className="p-1 text-slate-400 hover:text-rose-500 transition-colors"
                         >
                           <X className="h-4 w-4" />

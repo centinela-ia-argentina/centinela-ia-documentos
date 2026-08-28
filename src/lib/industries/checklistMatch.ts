@@ -40,7 +40,10 @@ const GRUPOS_SINONIMOS: string[][] = [
   ['boleto', 'compraventa', 'compra', 'venta'],
   ['titulo', 'dominio', 'propiedad'],
   ['escritura', 'traslativa', 'escrituracion'],
-  ['dni', 'documento', 'identidad', 'cuit', 'cuil', 'pasaporte'],
+  ['dni', 'identidad', 'pasaporte'],
+  ['cuit', 'cuil', 'cdi'],
+  ['coti'],
+  ['catastral', 'catastro', 'cedula'],
   ['libre', 'deuda', 'impuestos', 'municipal', 'expensas', 'abl', 'tasas'],
   ['tasacion', 'valuacion', 'valuatorio', 'valor'],
   ['garantia', 'garante', 'fianza', 'aval'],
@@ -49,7 +52,8 @@ const GRUPOS_SINONIMOS: string[][] = [
   ['inventario', 'mobiliario'],
   ['reserva', 'sena', 'senia'],
   ['plano', 'planos', 'mensura'],
-  ['fiscal', 'constancia', 'afip', 'inscripcion'],
+  ['afip', 'inscripcion'],
+  ['inhibicion', 'inhibiciones', 'anotaciones', 'personales'],
 ];
 
 function conceptosDe(texto: string): Set<number> {
@@ -67,6 +71,31 @@ export function puntuarCoincidencia(
   itemTitle: string,
   documento: DocumentoParaMatch
 ): number {
+  const textoDocRaw = `${documento.document_type ?? ''} ${documento.file_name ?? ''}`.toLowerCase();
+  const tituloNorm = itemTitle.toLowerCase();
+  
+  // Reglas de exclusión fuerte para evitar cruces (ej. COTI vs catastral)
+  if (tituloNorm.includes('coti') && !textoDocRaw.includes('coti')) {
+    return 0; // COTI solo matchea con algo que diga COTI
+  }
+  if ((tituloNorm.includes('cuit') || tituloNorm.includes('cuil') || tituloNorm.includes('cdi')) && 
+      (!textoDocRaw.includes('cuit') && !textoDocRaw.includes('cuil') && !textoDocRaw.includes('cdi'))) {
+    return 0; // CUIT/CUIL/CDI solo matchea si el doc lo menciona
+  }
+  if (tituloNorm.includes('catastral') && (textoDocRaw.includes('coti') || textoDocRaw.includes('cuit') || textoDocRaw.includes('cuil'))) {
+    return 0; // Catastral no puede ser un CUIT o COTI
+  }
+
+  let bonus = 0;
+  // DNI explícito
+  if (tituloNorm.includes('dni') && (textoDocRaw.includes('dni') || textoDocRaw.includes('documento nacional'))) {
+    bonus += 20;
+  }
+  // Catastral explícito
+  if (tituloNorm.includes('catastral') && textoDocRaw.includes('catastral')) {
+    bonus += 20;
+  }
+
   const textoDoc = `${documento.document_type ?? ''} ${documento.file_name ?? ''}`;
   const conceptosItem = conceptosDe(itemTitle);
   const conceptosDoc = conceptosDe(textoDoc);
@@ -81,7 +110,7 @@ export function puntuarCoincidencia(
     if (toksDoc.has(t)) solapados += 1;
   });
   // Concepto compartido pesa más que un simple token en común.
-  return compartidos * 2 + solapados;
+  return (compartidos * 2) + solapados + bonus;
 }
 
 export function sugerirCoincidencias(

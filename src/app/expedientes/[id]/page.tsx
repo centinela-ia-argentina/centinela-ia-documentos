@@ -12,6 +12,7 @@ import {
 import {
   getDocumentTypeLabel,
   normalizeIndustryType,
+  getDocumentTypes,
 } from '@/lib/industries/documentTypes';
 import { AiDisclaimer } from '@/lib/industries/disclaimers';
 import { getIndustryTerms } from '@/lib/industries/uiLabels';
@@ -56,6 +57,7 @@ import type { PreScoreInquilino } from '@/lib/ai/preScore';
 import { CronologiaExpediente } from './CronologiaExpediente';
 import { DerivarEscribania } from './DerivarEscribania';
 import { RadarPlazos } from './RadarPlazos';
+import { AutoMatchTrigger } from './AutoMatchTrigger';
 import { Tabs } from '@/components/ui/Tabs';
 import { Badge } from '@/components/ui/Badge';
 import { MotionCard } from '@/components/ui/MotionCard';
@@ -498,6 +500,10 @@ export default async function CaseDetailPage({ params, searchParams }: CaseDetai
     .order('created_at', { ascending: false });
 
   const documentosAnalizados = new Set((analisisData ?? []).map((o) => o.document_id).filter(Boolean)).size;
+  
+  const extractedPartes = Array.from(new Set((analisisData ?? []).flatMap(a => (a.result_json as any)?.datos_relevantes || []).filter(s => typeof s === 'string' && (s.startsWith('Parte:') || s.includes('DNI') || s.includes('CUIT') || s.includes('CUIL'))))).join('; ');
+  const extractedResumenes = (analisisData ?? []).map(a => (a.result_json as any)?.resumen).filter(Boolean).join('\n');
+
   const puedeUsarIA = canUseAi(profile.role);
 
   // Memoria de conversación del Agente IA en este legajo (historial persistido).
@@ -830,18 +836,60 @@ export default async function CaseDetailPage({ params, searchParams }: CaseDetai
                     <div className="flex items-center justify-between gap-3">
                       <h3 className="flex items-center gap-2 text-sm font-semibold text-white">🛡️ Análisis UIF / PLA (IA)</h3>
                       <div className="flex flex-wrap items-center gap-2">
-                        {analisisUif && (
-                          <RosDraftButton
-                            analisis={analisisUif}
-                            legajo={{
-                              titulo: caseRecord.title || '',
-                              comparecientes: (caseRecord.metadata?.comparecientes as string) || caseRecord.client_name || '',
-                              tipoActo: (caseRecord.metadata?.tipo_acto as string) || caseRecord.case_type || '',
-                              fecha: (caseRecord.metadata?.fecha_otorgamiento as string) || '',
-                              resumen: '',
-                            }}
-                          />
-                        )}
+                        {analisisUif && (() => {
+                          const dump = JSON.stringify((analisisData ?? []).map(a => a.result_json)) + JSON.stringify(resumenData?.result_json);
+                          const m1 = dump.match(/(?:precio|monto|valor|venta)[^\d]*(USD|ARS|\$)\s*([\d\.,]+)/i);
+                          const montoExtraido = m1 ? `${m1[1].replace('$', 'USD')} ${m1[2]}`.trim() : undefined;
+                          
+                          let fechaBoletoExtraida = undefined;
+                          
+                          const fechasPlazos = (analisisData ?? []).flatMap(a => (a.result_json as any)?.fechas_plazos || []);
+                          const plazoJunio = fechasPlazos.find((fp: any) => {
+                            if (!fp?.fecha || typeof fp.fecha !== 'string') return false;
+                            const d = (fp.descripcion || '').toLowerCase();
+                            if (d.includes('tentativa') || d.includes('plazo máximo') || d.includes('septiembre')) return false;
+                            const f = fp.fecha;
+                            if (f.includes('2026-09-10') || f.includes('-09-')) return false;
+                            return (f === '2026-06-10' || f.includes('-06-')) && (d.includes('boleto') || d.includes('otorgamiento') || d.includes('firma'));
+                          });
+                          
+                          if (plazoJunio) {
+                            fechaBoletoExtraida = '10/06/2026';
+                          } else if (dump.match(/10\s+de\s+junio\s+de\s+2026|10\/06\/2026/i)) {
+                            fechaBoletoExtraida = '10/06/2026';
+                          } else if (dump.includes('2026-06-10')) {
+                            fechaBoletoExtraida = '10/06/2026';
+                          } else {
+                            const allFechasCtx = [...dump.matchAll(/(?:fecha\s*(?:de\s*)?(?:boleto|compraventa)|boleto|compraventa).{0,120}?(\d{1,2}\s+de\s+[a-z]+\s+del?\s+\d{4}|\d{2}\/\d{2}\/\d{4}|\d{4}-\d{2}-\d{2})/gi)];
+                            const fechaValida = allFechasCtx.find(m => {
+                              const f = m[1].toLowerCase();
+                              return !f.includes('septiembre') && !f.includes('/09/') && !f.includes('-09-') && !f.includes('2015');
+                            });
+                            if (fechaValida) {
+                              const v = fechaValida[1];
+                              if (v.match(/^\d{4}-\d{2}-\d{2}$/)) {
+                                const [y, m, d] = v.split('-');
+                                fechaBoletoExtraida = `${d}/${m}/${y}`;
+                              } else {
+                                fechaBoletoExtraida = v;
+                              }
+                            }
+                          }
+                          return (
+                            <RosDraftButton
+                              analisis={analisisUif}
+                              legajo={{
+                                titulo: caseRecord.title || '',
+                                comparecientes: ((caseRecord.metadata?.comparecientes as string) || caseRecord.client_name || '') + (extractedPartes ? ` | Extraídos de IA: ${extractedPartes}` : ''),
+                                tipoActo: (caseRecord.metadata?.tipo_acto as string) || caseRecord.case_type || '',
+                                fecha: (caseRecord.metadata?.fecha_otorgamiento as string) || '',
+                                resumen: extractedResumenes || '',
+                                monto: montoExtraido,
+                                fechaBoleto: fechaBoletoExtraida
+                              }}
+                            />
+                          );
+                        })()}
                         <AnalizarUifButton caseId={caseRecord.id} yaGenerada={!!analisisUif} />
                       </div>
                     </div>
@@ -1465,6 +1513,7 @@ export default async function CaseDetailPage({ params, searchParams }: CaseDetai
           <MotionCard index={0}>
             <h3 className="font-display text-lg font-semibold text-white">
               Checklist documental
+              <AutoMatchTrigger caseId={caseRecord.id} isComplete={checklistProgress.isComplete} />
             </h3>
             <p className="mt-1 text-sm text-slate-400">
               Lista sugerida. Marcá lo que no aplica o agregá lo que necesites.

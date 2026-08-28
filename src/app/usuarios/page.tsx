@@ -8,6 +8,7 @@ import { roleOptions, roleLabel, roleDescription, roleTone } from '@/lib/permiss
 import { updateUserAccess } from './actions';
 import { MotionCard } from '@/components/ui/MotionCard';
 import { MotionButton } from '@/components/ui/MotionButton';
+import { getIndustryTerms } from '@/lib/industries/uiLabels';
 
 interface UsuariosPageProps {
   searchParams: Promise<{
@@ -56,6 +57,7 @@ function formatDate(value?: string | null) {
   return new Intl.DateTimeFormat('es-AR', {
     dateStyle: 'short',
     timeStyle: 'short',
+    timeZone: 'America/Buenos_Aires',
   }).format(date);
 }
 
@@ -153,22 +155,29 @@ export default async function UsuariosPage({ searchParams }: UsuariosPageProps) 
 
   const supabase = await createClient();
 
-  const [profilesResult, auditLogsResult] = await Promise.all([
+  const [profilesResult, auditLogsResult, orgResult] = await Promise.all([
     supabase
       .from('profiles')
       .select(
         'id, organization_id, full_name, email, role, status, last_login_at, created_at, updated_at'
       )
       .eq('organization_id', profile.organization_id)
-      .order('created_at', { ascending: true }),
-
+      .order('created_at', { ascending: false }),
     supabase
       .from('audit_logs')
       .select('id, user_id, action, resource_type, resource_id, metadata, created_at')
       .eq('organization_id', profile.organization_id)
       .order('created_at', { ascending: false })
       .limit(80),
+    supabase
+      .from('organizations')
+      .select('industry_type')
+      .eq('id', profile.organization_id)
+      .single()
   ]);
+
+  const organizationIndustry = orgResult.data?.industry_type || 'general';
+  const terms = getIndustryTerms(organizationIndustry as any);
 
   const users = (profilesResult.data ?? []) as ProfileRecord[];
   const auditLogs = (auditLogsResult.data ?? []) as AuditLogRecord[];
@@ -381,7 +390,7 @@ export default async function UsuariosPage({ searchParams }: UsuariosPageProps) 
 
                         <p className="mt-1 text-xs text-slate-400">
                           Último:{' '}
-                          {lastEvent ? formatAuditActionLabel(lastEvent.action) : 'Sin actividad'}
+                          {lastEvent ? formatAuditActionLabel(lastEvent.action, terms) : 'Sin actividad'}
                         </p>
                       </td>
 

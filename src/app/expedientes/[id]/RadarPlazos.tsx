@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { CalendarPlus, Check, Loader2 } from 'lucide-react';
 import { guardarPlazoDetectado } from '@/app/agenda/actions';
+import { esPlazoRadar } from '@/lib/plazos/plazos';
 import type { ItemCronologia } from './CronologiaExpediente';
 
 function diasDesdeHoy(iso: string): number {
@@ -62,7 +63,14 @@ export function RadarPlazos({
   const [estados, setEstados] = useState<Record<string, 'idle' | 'loading' | 'ok' | 'existing' | 'error'>>({});
 
   const plazos: PlazoRadar[] = items
-    .filter((it) => it.origen !== 'documento')
+    .filter((it) => {
+      if (it.origen === 'documento') return false;
+      
+      const texto = `${it.titulo} ${it.detalle || ''}`.toLowerCase();
+      if (texto.includes('emisión') || texto.includes('emision')) return false;
+
+      return esPlazoRadar(it.titulo) || (it.detalle && esPlazoRadar(it.detalle));
+    })
     .map((it) => ({ item: it, dias: diasDesdeHoy(it.fecha), nivel: nivelDe(diasDesdeHoy(it.fecha)) }))
     .filter((p): p is PlazoRadar => !Number.isNaN(p.dias) && p.nivel !== null)
     .sort((a, b) => a.dias - b.dias);
