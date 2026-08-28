@@ -16,11 +16,11 @@ export async function GET(
 
   const { data: derivacion } = await supabase
     .from('case_derivations')
-    .select('id, case_id, status')
+    .select('id, case_id, status, to_organization_id')
     .eq('id', id)
     .maybeSingle();
 
-  if (!derivacion || derivacion.status !== 'aceptada') {
+  if (!derivacion || derivacion.status !== 'aceptada' || derivacion.to_organization_id !== profile.organization_id) {
     return NextResponse.redirect(new URL('/recibidos', req.url));
   }
 

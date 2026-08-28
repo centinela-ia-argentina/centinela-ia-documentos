@@ -1307,6 +1307,7 @@ export async function derivarAEscribania(formData: FormData) {
     .maybeSingle();
 
   const { error } = await supabase.from('case_derivations').insert({
+    organization_id: profile.organization_id,
     case_id: caseId,
     from_organization_id: profile.organization_id,
     from_organization_name: org?.name ?? null,

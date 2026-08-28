@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { getUserProfile } from '@/lib/auth/getUserProfile';
 import { canUpdateCase, isUserRole, canDeleteDocument } from '@/lib/permissions/roles';
+import { createAuditLog } from '@/lib/audit/createAuditLog';
 
 export type RegistrarEscrituraResult =
   | { ok: true; numero: number }
@@ -29,6 +30,14 @@ export async function registrarEscritura(input: {
 
   const anio = input.anio ?? Number(fecha.slice(0, 4));
   const supabase = await createClient();
+
+  const { data: org } = await supabase
+    .from('organizations')
+    .select('industry_type')
+    .eq('id', profile.organization_id)
+    .maybeSingle();
+
+  if (!org || org.industry_type !== 'escribania') return { ok: false, motivo: 'sin_permiso', mensaje: 'Industria no autorizada.' };
 
   const { data: ultima } = await supabase
     .from('protocolo_escrituras')
@@ -58,6 +67,15 @@ export async function registrarEscritura(input: {
 
   if (error) return { ok: false, motivo: 'error', mensaje: error.message };
 
+  await createAuditLog({
+    organizationId: profile.organization_id,
+    userId: user.id,
+    action: 'crear_escritura',
+    resourceType: 'protocolo_escrituras',
+    resourceId: numero.toString(),
+    metadata: { anio, numero, case_id: input.caseId },
+  });
+
   revalidatePath('/protocolo');
   return { ok: true, numero };
 }
@@ -68,6 +86,15 @@ export async function eliminarEscritura(id: string): Promise<{ ok: boolean }> {
   if (!isUserRole(profile.role) || !canDeleteDocument(profile.role)) return { ok: false };
 
   const supabase = await createClient();
+
+  const { data: org } = await supabase
+    .from('organizations')
+    .select('industry_type')
+    .eq('id', profile.organization_id)
+    .maybeSingle();
+
+  if (!org || org.industry_type !== 'escribania') return { ok: false };
+
   const { error } = await supabase
     .from('protocolo_escrituras')
     .delete()
@@ -78,6 +105,15 @@ export async function eliminarEscritura(id: string): Promise<{ ok: boolean }> {
     console.error('Error deleting escritura:', error);
     return { ok: false };
   }
+
+  await createAuditLog({
+    organizationId: profile.organization_id,
+    userId: user.id,
+    action: 'eliminar_escritura',
+    resourceType: 'protocolo_escrituras',
+    resourceId: id,
+    metadata: {},
+  });
 
   revalidatePath('/protocolo');
   return { ok: true };

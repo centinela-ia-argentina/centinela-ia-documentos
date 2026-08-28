@@ -65,9 +65,25 @@ DROP POLICY IF EXISTS "rent_index_insert" ON public.rent_index_values;
 DROP POLICY IF EXISTS "rent_index_update" ON public.rent_index_values;
 DROP POLICY IF EXISTS "rent_index_delete" ON public.rent_index_values;
 
-ALTER TABLE public.properties DISABLE ROW LEVEL SECURITY;
-ALTER TABLE public.clients DISABLE ROW LEVEL SECURITY;
-ALTER TABLE public.rental_contracts DISABLE ROW LEVEL SECURITY;
-ALTER TABLE public.rent_index_values DISABLE ROW LEVEL SECURITY;
+-- En lugar de deshabilitar RLS, recreamos políticas amplias seguras (aislamiento org)
+CREATE POLICY "properties_select" ON public.properties FOR SELECT USING (organization_id = public.current_user_organization_id());
+CREATE POLICY "properties_insert" ON public.properties FOR INSERT WITH CHECK (organization_id = public.current_user_organization_id());
+CREATE POLICY "properties_update" ON public.properties FOR UPDATE USING (organization_id = public.current_user_organization_id()) WITH CHECK (organization_id = public.current_user_organization_id());
+CREATE POLICY "properties_delete" ON public.properties FOR DELETE USING (organization_id = public.current_user_organization_id());
+
+CREATE POLICY "clients_select" ON public.clients FOR SELECT USING (organization_id = public.current_user_organization_id());
+CREATE POLICY "clients_insert" ON public.clients FOR INSERT WITH CHECK (organization_id = public.current_user_organization_id());
+CREATE POLICY "clients_update" ON public.clients FOR UPDATE USING (organization_id = public.current_user_organization_id()) WITH CHECK (organization_id = public.current_user_organization_id());
+CREATE POLICY "clients_delete" ON public.clients FOR DELETE USING (organization_id = public.current_user_organization_id());
+
+CREATE POLICY "rental_select" ON public.rental_contracts FOR SELECT USING (organization_id = public.current_user_organization_id());
+CREATE POLICY "rental_insert" ON public.rental_contracts FOR INSERT WITH CHECK (organization_id = public.current_user_organization_id());
+CREATE POLICY "rental_update" ON public.rental_contracts FOR UPDATE USING (organization_id = public.current_user_organization_id()) WITH CHECK (organization_id = public.current_user_organization_id());
+CREATE POLICY "rental_delete" ON public.rental_contracts FOR DELETE USING (organization_id = public.current_user_organization_id());
+
+CREATE POLICY "rent_index_select" ON public.rent_index_values FOR SELECT USING (organization_id = public.current_user_organization_id());
+CREATE POLICY "rent_index_insert" ON public.rent_index_values FOR INSERT WITH CHECK (organization_id = public.current_user_organization_id());
+CREATE POLICY "rent_index_update" ON public.rent_index_values FOR UPDATE USING (organization_id = public.current_user_organization_id()) WITH CHECK (organization_id = public.current_user_organization_id());
+CREATE POLICY "rent_index_delete" ON public.rent_index_values FOR DELETE USING (organization_id = public.current_user_organization_id());
 
 commit;

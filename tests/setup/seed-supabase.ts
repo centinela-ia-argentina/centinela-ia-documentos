@@ -31,6 +31,8 @@ export const SEED_DATA = {
   CLIENT_UNASSIGNED_ID: 'c1b11111-1111-1111-1111-111111111111',
   INACTIVE_LEGAL_ID: '44444444-4444-4444-4444-444444444444',
   ADMIN_INM_ID: 'bbbb2222-2222-2222-2222-222222222222',
+  ORG_ESC_ID: '33333333-3333-3333-3333-333333333333',
+  ADMIN_ESC_ID: 'cccc3333-3333-3333-3333-333333333333',
   CASE_LEGAL_ID: 'cccc1111-1111-1111-1111-111111111111',
   CASE_INM_ID: 'dddd2222-2222-2222-2222-222222222222',
   DOC_LEGAL_ID: 'ddcc1111-1111-1111-1111-111111111111',
@@ -59,6 +61,7 @@ export async function seedSupabase() {
     await throwOnError(supabaseAdmin.from('organizations').upsert([
       { id: SEED_DATA.ORG_LEGAL_ID, name: 'Estudio Legal Test', industry_type: 'legal' },
       { id: SEED_DATA.ORG_INM_ID, name: 'Inmobiliaria Test', industry_type: 'inmobiliaria' },
+      { id: SEED_DATA.ORG_ESC_ID, name: 'Escribania Test', industry_type: 'escribania' },
     ]), 'organizations');
 
     // 2. Auth Users
@@ -69,7 +72,8 @@ export async function seedSupabase() {
       { id: SEED_DATA.CLIENT_ASSIGNED_ID, email: 'client.assigned@test.com' },
       { id: SEED_DATA.CLIENT_UNASSIGNED_ID, email: 'client.unassigned@test.com' },
       { id: SEED_DATA.INACTIVE_LEGAL_ID, email: 'inactive.legal@test.com' },
-      { id: SEED_DATA.ADMIN_INM_ID, email: 'admin.inm@test.com' }
+      { id: SEED_DATA.ADMIN_INM_ID, email: 'admin.inm@test.com' },
+      { id: SEED_DATA.ADMIN_ESC_ID, email: 'admin.esc@test.com' }
     ];
 
     for (const u of users) {
@@ -95,7 +99,8 @@ export async function seedSupabase() {
       { id: SEED_DATA.CLIENT_ASSIGNED_ID, organization_id: SEED_DATA.ORG_LEGAL_ID, email: 'client.assigned@test.com', role: 'client', status: 'active', full_name: 'Client Assigned' },
       { id: SEED_DATA.CLIENT_UNASSIGNED_ID, organization_id: SEED_DATA.ORG_LEGAL_ID, email: 'client.unassigned@test.com', role: 'client', status: 'active', full_name: 'Client Unassigned' },
       { id: SEED_DATA.INACTIVE_LEGAL_ID, organization_id: SEED_DATA.ORG_LEGAL_ID, email: 'inactive.legal@test.com', role: 'employee', status: 'inactive', full_name: 'Inactive Legal' },
-      { id: SEED_DATA.ADMIN_INM_ID, organization_id: SEED_DATA.ORG_INM_ID, email: 'admin.inm@test.com', role: 'admin', status: 'active', full_name: 'Admin Inm' }
+      { id: SEED_DATA.ADMIN_INM_ID, organization_id: SEED_DATA.ORG_INM_ID, email: 'admin.inm@test.com', role: 'admin', status: 'active', full_name: 'Admin Inm' },
+      { id: SEED_DATA.ADMIN_ESC_ID, organization_id: SEED_DATA.ORG_ESC_ID, email: 'admin.esc@test.com', role: 'admin', status: 'active', full_name: 'Admin Esc' }
     ]), 'profiles');
 
     // 4. Cases
