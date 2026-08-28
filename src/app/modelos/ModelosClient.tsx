@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { Document, Packer, Paragraph, TextRun } from 'docx';
 import { ArrowLeft, Copy, Check, Download, FileSignature, Search, FolderKanban, FileDown, Sparkles, Loader2 } from 'lucide-react';
 import { MODELOS, type ModeloEscrito } from '@/lib/legal/modelos';
@@ -100,6 +100,9 @@ export function ModelosClient({
   const [valores, setValores] = useState<Record<string, string>>(expInicial ? datosDeExpediente(expInicial) : {});
   const [copiado, setCopiado] = useState(false);
   const [expedienteId, setExpedienteId] = useState(expInicial?.id ?? '');
+  const [cargandoPrellenado, setCargandoPrellenado] = useState(false);
+  const [errorPrellenado, setErrorPrellenado] = useState<string | null>(null);
+  const solicitudPrellenadoRef = useRef(0);
   const [instruccion, setInstruccion] = useState('');
   const [textoIA, setTextoIA] = useState<string | null>(null);
   const [redactando, setRedactando] = useState(false);
@@ -186,19 +189,54 @@ export function ModelosClient({
   };
 
   const aplicarExpediente = async (id: string) => {
-    setExpedienteId(id);
-    const exp = expedientes.find((e) => e.id === id);
-    if (!exp) return;
-    setValores((prev) => ({ ...prev, ...datosDeExpediente(exp) }));
+    const solicitudActual = ++solicitudPrellenadoRef.current;
 
-    const extr = await extraerDatosParaModelo(id);
-    setValores((prev) => {
-      const next = { ...prev };
-      for (const [k, v] of Object.entries(extr)) {
-        if (v) next[k] = v;
+    setExpedienteId(id);
+    setErrorPrellenado(null);
+
+    if (!id) {
+      setCargandoPrellenado(false);
+      setValores({});
+      return;
+    }
+
+    const exp = expedientes.find((e) => e.id === id);
+
+    if (!exp) {
+      setCargandoPrellenado(false);
+      setValores({});
+      setErrorPrellenado('No pudimos encontrar el legajo seleccionado.');
+      return;
+    }
+
+    setValores(datosDeExpediente(exp));
+    setCargandoPrellenado(true);
+
+    try {
+      const extr = await extraerDatosParaModelo(id);
+
+      if (solicitudActual !== solicitudPrellenadoRef.current) return;
+
+      setValores((prev) => {
+        const next = { ...prev };
+
+        for (const [k, v] of Object.entries(extr)) {
+          if (v) next[k] = v;
+        }
+
+        return next;
+      });
+    } catch {
+      if (solicitudActual !== solicitudPrellenadoRef.current) return;
+
+      setErrorPrellenado(
+        'No pudimos completar los datos del legajo. Podés reintentar o continuar manualmente.'
+      );
+    } finally {
+      if (solicitudActual === solicitudPrellenadoRef.current) {
+        setCargandoPrellenado(false);
       }
-      return next;
-    });
+    }
   };
 
   const volver = () => {
@@ -355,7 +393,9 @@ export function ModelosClient({
                     <select
                       value={expedienteId}
                       onChange={(e) => aplicarExpediente(e.target.value)}
-                      className="mt-2 w-full rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2 text-sm text-white outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400"
+                      disabled={cargandoPrellenado}
+                      aria-busy={cargandoPrellenado}
+                      className="mt-2 w-full rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2 text-sm text-white outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400 disabled:cursor-wait disabled:opacity-60"
                     >
                       <option value="" className="text-slate-900">— Sin selección (completar a mano) —</option>
                       {expedientes.map((exp) => (
@@ -364,16 +404,57 @@ export function ModelosClient({
                         </option>
                       ))}
                     </select>
-                    {expedienteId ? (() => {
-                      const filledCount = variables.filter(key => valores[key] && valores[key].trim() !== '').length;
-                      if (filledCount === 0) {
-                        return <p className="mt-1.5 text-[11px] text-amber-400">No encontramos datos suficientes para prellenar este modelo. Podés completarlo manualmente.</p>;
-                      } else if (filledCount < variables.length) {
-                        return <p className="mt-1.5 text-[11px] text-emerald-400">Se completaron los datos disponibles. Revisá y completá los campos pendientes.</p>;
-                      } else {
-                        return <p className="mt-1.5 text-[11px] text-emerald-400">Se completaron todos los campos requeridos con éxito.</p>;
-                      }
-                    })() : (
+                    {expedienteId ? (
+                      cargandoPrellenado ? (
+                        <div
+                          className="mt-2 flex items-center gap-2 text-[11px] text-cyan-300"
+                          role="status"
+                          aria-live="polite"
+                        >
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          <span>
+                            Analizando los documentos del legajo y preparando el modelo… Esto puede demorar unos segundos.
+                          </span>
+                        </div>
+                      ) : errorPrellenado ? (
+                        <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-amber-400">
+                          <span>{errorPrellenado}</span>
+                          <button
+                            type="button"
+                            onClick={() => aplicarExpediente(expedienteId)}
+                            className="font-semibold underline hover:text-amber-300"
+                          >
+                            Reintentar
+                          </button>
+                        </div>
+                      ) : (() => {
+                        const filledCount = variables.filter(
+                          (key) => valores[key] && valores[key].trim() !== ''
+                        ).length;
+
+                        if (filledCount === 0) {
+                          return (
+                            <p className="mt-1.5 text-[11px] text-amber-400">
+                              No encontramos datos suficientes para prellenar este modelo. Podés completarlo manualmente.
+                            </p>
+                          );
+                        }
+
+                        if (filledCount < variables.length) {
+                          return (
+                            <p className="mt-1.5 text-[11px] text-emerald-400">
+                              Se completaron los datos disponibles. Revisá y completá los campos pendientes.
+                            </p>
+                          );
+                        }
+
+                        return (
+                          <p className="mt-1.5 text-[11px] text-emerald-400">
+                            Se completaron todos los campos requeridos con éxito.
+                          </p>
+                        );
+                      })()
+                    ) : (
                       <p className="mt-1.5 text-[11px] text-slate-400">
                         Completa carátula, parte y datos disponibles automáticamente. Podés editar todo abajo.
                       </p>
