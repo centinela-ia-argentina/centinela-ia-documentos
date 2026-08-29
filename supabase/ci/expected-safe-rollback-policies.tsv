@@ -1,0 +1,23 @@
+public	properties	properties_select	{authenticated,service_role}	SELECT	(organization_id = current_user_organization_id())		ADDED
+public	properties	properties_insert	{authenticated,service_role}	INSERT		(organization_id = current_user_organization_id())	ADDED
+public	properties	properties_update	{authenticated,service_role}	UPDATE	(organization_id = current_user_organization_id())	(organization_id = current_user_organization_id())	ADDED
+public	properties	properties_delete	{authenticated,service_role}	DELETE	(organization_id = current_user_organization_id())		ADDED
+public	clients	clients_select	{authenticated,service_role}	SELECT	(organization_id = current_user_organization_id())		ADDED
+public	clients	clients_insert	{authenticated,service_role}	INSERT		(organization_id = current_user_organization_id())	ADDED
+public	clients	clients_update	{authenticated,service_role}	UPDATE	(organization_id = current_user_organization_id())	(organization_id = current_user_organization_id())	ADDED
+public	clients	clients_delete	{authenticated,service_role}	DELETE	(organization_id = current_user_organization_id())		ADDED
+public	rental_contracts	rental_select	{authenticated,service_role}	SELECT	(organization_id = current_user_organization_id())		ADDED
+public	rental_contracts	rental_insert	{authenticated,service_role}	INSERT		(organization_id = current_user_organization_id())	ADDED
+public	rental_contracts	rental_update	{authenticated,service_role}	UPDATE	(organization_id = current_user_organization_id())	(organization_id = current_user_organization_id())	ADDED
+public	rental_contracts	rental_delete	{authenticated,service_role}	DELETE	(organization_id = current_user_organization_id())		ADDED
+public	rent_index_values	rent_index_select	{authenticated,service_role}	SELECT	(organization_id = current_user_organization_id())		ADDED
+public	rent_index_values	rent_index_insert	{authenticated,service_role}	INSERT		(organization_id = current_user_organization_id())	ADDED
+public	rent_index_values	rent_index_update	{authenticated,service_role}	UPDATE	(organization_id = current_user_organization_id())	(organization_id = current_user_organization_id())	ADDED
+public	rent_index_values	rent_index_delete	{authenticated,service_role}	DELETE	(organization_id = current_user_organization_id())		ADDED
+storage	objects	storage_select_policy	{public}	SELECT	(bucket_id = 'documents' AND (auth.uid() IS NOT NULL))		REMOVED
+storage	objects	storage_insert_policy	{public}	INSERT		(bucket_id = 'documents' AND (auth.uid() IS NOT NULL))	REMOVED
+storage	objects	storage_delete_policy	{public}	DELETE	(bucket_id = 'documents' AND (auth.uid() IS NOT NULL))		REMOVED
+storage	objects	documents_select	{public}	SELECT	(bucket_id = 'documents' AND (organization_id = current_user_organization_id()))		ADDED
+storage	objects	documents_insert	{public}	INSERT		(bucket_id = 'documents' AND (organization_id = current_user_organization_id()))	ADDED
+storage	objects	documents_update	{public}	UPDATE	(bucket_id = 'documents' AND (organization_id = current_user_organization_id()))	(bucket_id = 'documents' AND (organization_id = current_user_organization_id()))	ADDED
+storage	objects	documents_delete	{public}	DELETE	(bucket_id = 'documents' AND (organization_id = current_user_organization_id()))		ADDED

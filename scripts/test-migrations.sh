@@ -69,7 +69,7 @@ docker exec -i "$DB_CONTAINER" pg_dump -U postgres -d postgres -s -n public --no
 grep -v '^--' initial_schema.sql | grep -Ev '^\\(un)?restrict[[:space:]]' | grep -v '^[[:space:]]*$' > initial_schema_normalized.sql
 
 psql "$DB_URL" -c "SELECT id, name, public, file_size_limit, allowed_mime_types FROM storage.buckets ORDER BY id;" > initial_storage.txt
-psql "$DB_URL" -c "SELECT schemaname, tablename, policyname, roles, cmd, qual, with_check FROM pg_policies WHERE schemaname IN ('public', 'storage') ORDER BY schemaname, tablename, policyname;" > initial_policies.txt
+psql "$DB_URL" -A -t -c "SELECT schemaname, tablename, policyname, roles, cmd, qual, with_check FROM pg_policies WHERE schemaname IN ('public', 'storage') ORDER BY schemaname, tablename, policyname;" > initial_policies.txt
 psql "$DB_URL" -c "
 SELECT
   object_type,
@@ -152,7 +152,7 @@ docker exec -i "$DB_CONTAINER" pg_dump -U postgres -d postgres -s -n public --no
 grep -v '^--' final_schema.sql | grep -Ev '^\\(un)?restrict[[:space:]]' | grep -v '^[[:space:]]*$' > final_schema_normalized.sql
 
 psql "$DB_URL" -c "SELECT id, name, public, file_size_limit, allowed_mime_types FROM storage.buckets ORDER BY id;" > final_storage.txt
-psql "$DB_URL" -c "SELECT schemaname, tablename, policyname, roles, cmd, qual, with_check FROM pg_policies WHERE schemaname IN ('public', 'storage') ORDER BY schemaname, tablename, policyname;" > final_policies.txt
+psql "$DB_URL" -A -t -c "SELECT schemaname, tablename, policyname, roles, cmd, qual, with_check FROM pg_policies WHERE schemaname IN ('public', 'storage') ORDER BY schemaname, tablename, policyname;" > final_policies.txt
 psql "$DB_URL" -c "
 SELECT
   object_type,
@@ -220,23 +220,19 @@ if ! diff -u initial_storage.txt final_storage.txt > storage_diff.txt; then
 fi
 
 if ! diff -u initial_policies.txt final_policies.txt > policies_diff.txt; then
-  echo "Policies differ. Checking authorized security overrides..."
+  echo "Policies differ. Checking EXACT authorized security overrides against strict contract..."
   
-  # Filter out unified diff headers and context lines, keeping only additions (+) and deletions (-)
-  grep -E "^[+-]" policies_diff.txt | grep -vE "^(\+\+\+|---)" > actual_changes.txt || true
-
-  # Remove the authorized security overrides from the changes
-  # (The new secure policies added, and the old insecure policies removed)
-  grep -vE "^[+-]public\|(properties|clients|rental_contracts|rent_index_values)\|(properties|clients|rental|rent_index)_(select|insert|update|delete)" actual_changes.txt | \
-  grep -vE "^[+-]storage\|objects\|(storage_select_policy|storage_insert_policy|storage_delete_policy|documents_select|documents_insert|documents_update|documents_delete)" > clean_unauthorized.txt || true
-
-  if [ -s clean_unauthorized.txt ]; then
-    echo "ERROR: Unauthorized policy differences found!"
-    cat clean_unauthorized.txt
+  if ! node supabase/ci/verify-safe-rollback.js; then
+    echo "ERROR: Policies diff failed strict contract verification!"
+    cat policies_diff.txt
     ERRORS=1
-  else
-    echo "SUCCESS: Only authorized security policy overrides found (Storage and Inmobiliaria)."
   fi
+fi
+
+echo "12. Running strict SQL invariants..."
+if ! psql "$DB_URL" -v ON_ERROR_STOP=1 -f supabase/ci/verify_invariants.sql; then
+  echo "ERROR: SQL invariants violated post-rollback!"
+  ERRORS=1
 fi
 
 if ! diff -u initial_grants.txt final_grants.txt > grants_diff.txt; then
