@@ -71,7 +71,7 @@ function parseJsonLinesPolicies(filePath) {
       const cmd = obj.cmd;
       const qual = normalizeSql(obj.qual);
       const with_check = normalizeSql(obj.with_check);
-      const key = `${schemaname}|${tablename}|${policyname}`;
+      const key = `${schemaname}|${tablename}|${policyname}|${cmd}`;
       policies.set(key, { schemaname, tablename, policyname, roles, cmd, qual, with_check });
     } catch (e) {
       console.error(`ERROR parsing JSON line in ${filePath}:`, e);
@@ -80,12 +80,32 @@ function parseJsonLinesPolicies(filePath) {
   return policies;
 }
 
-function parseExpectedJsonArray(filePath) {
+function parseExpectedJsonLines(filePath) {
   if (!fs.existsSync(filePath)) return new Map();
-  const content = fs.readFileSync(filePath, 'utf-8');
-  const arr = JSON.parse(content);
+  const raw = fs.readFileSync(filePath, 'utf8').replace(/^\uFEFF/, '');
   const policies = new Map();
-  for (const obj of arr) {
+  const rows = raw
+    .split(/\r?\n/)
+    .map((line, index) => ({
+      line: index + 1,
+      value: line.trim(),
+    }))
+    .filter(({ value }) => value.length > 0)
+    .map(({ line, value }) => {
+      try {
+        return JSON.parse(value);
+      } catch (error) {
+        console.error(`ERROR: JSON Lines inválido en ${filePath}, línea ${line}: ${error.message}`);
+        process.exit(1);
+      }
+    });
+
+  if (rows.length !== 20) {
+    console.error(`ERROR: Contrato esperado inválido: se esperaban 20 policies y se encontraron ${rows.length}`);
+    process.exit(1);
+  }
+
+  for (const obj of rows) {
     const schemaname = obj.schemaname;
     const tablename = obj.tablename;
     const policyname = obj.policyname;
@@ -94,7 +114,13 @@ function parseExpectedJsonArray(filePath) {
     const cmd = obj.cmd;
     const qual = normalizeSql(obj.qual);
     const with_check = normalizeSql(obj.with_check);
-    const key = `${schemaname}|${tablename}|${policyname}`;
+    const key = `${schemaname}|${tablename}|${policyname}|${cmd}`;
+    
+    if (policies.has(key)) {
+      console.error(`ERROR: Clave duplicada en contrato esperado: ${key}`);
+      process.exit(1);
+    }
+    
     policies.set(key, { schemaname, tablename, policyname, roles, cmd, qual, with_check });
   }
   return policies;
@@ -166,6 +192,25 @@ function run() {
   testNormalizer();
   
   if (process.argv.includes('--self-test')) {
+    const policies = parseExpectedJsonLines('supabase/ci/expected-safe-rollback-policies.json');
+    assert.strictEqual(policies.size, 20, "Debe tener 20 claves unicas");
+    let hasSelect = false;
+    let hasInsert = false;
+    let hasUpdate = false;
+    let hasDelete = false;
+    for (const key of policies.keys()) {
+      if (key.startsWith('storage|objects|documents_select')) hasSelect = true;
+      if (key.startsWith('storage|objects|documents_insert')) hasInsert = true;
+      if (key.startsWith('storage|objects|documents_update')) hasUpdate = true;
+      if (key.startsWith('storage|objects|documents_delete')) hasDelete = true;
+      if (key.startsWith('storage|objects|storage_select_policy')) throw new Error('Vulnerable select');
+      if (key.startsWith('storage|objects|storage_insert_policy')) throw new Error('Vulnerable insert');
+      if (key.startsWith('storage|objects|storage_delete_policy')) throw new Error('Vulnerable delete');
+    }
+    assert.strictEqual(hasSelect, true, "Falta documents_select");
+    assert.strictEqual(hasInsert, true, "Falta documents_insert");
+    assert.strictEqual(hasUpdate, true, "Falta documents_update");
+    assert.strictEqual(hasDelete, true, "Falta documents_delete");
     console.log("Self-test passed.");
     process.exit(0);
   }
@@ -176,7 +221,7 @@ function run() {
   totalErrors += checkDiffs('Schema', 'schema_diff.txt', 'supabase/ci/expected-safe-rollback-schema.txt');
   
   const finalPolicies = parseJsonLinesPolicies('final_policies.json');
-  const expectedPolicies = parseExpectedJsonArray('supabase/ci/expected-safe-rollback-policies.json');
+  const expectedPolicies = parseExpectedJsonLines('supabase/ci/expected-safe-rollback-policies.json');
 
   const actualRelevant = new Map();
   for (const [key, pol] of finalPolicies.entries()) {
@@ -227,9 +272,9 @@ function run() {
   
   // Also check if any vulnerable storage policy still exists
   for (const key of finalPolicies.keys()) {
-    if (key === 'storage|objects|storage_select_policy' || 
-        key === 'storage|objects|storage_insert_policy' || 
-        key === 'storage|objects|storage_delete_policy') {
+    if (key.startsWith('storage|objects|storage_select_policy') || 
+        key.startsWith('storage|objects|storage_insert_policy') || 
+        key.startsWith('storage|objects|storage_delete_policy')) {
       console.error(`ERROR: Vulnerable policy found in final state: ${key}`);
       totalErrors++;
     }
