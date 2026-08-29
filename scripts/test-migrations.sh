@@ -69,7 +69,20 @@ docker exec -i "$DB_CONTAINER" pg_dump -U postgres -d postgres -s -n public --no
 grep -v '^--' initial_schema.sql | grep -Ev '^\\(un)?restrict[[:space:]]' | grep -v '^[[:space:]]*$' > initial_schema_normalized.sql
 
 psql "$DB_URL" -c "SELECT id, name, public, file_size_limit, allowed_mime_types FROM storage.buckets ORDER BY id;" > initial_storage.txt
-psql "$DB_URL" -c "SELECT schemaname, tablename, policyname, roles, cmd, qual, with_check FROM pg_policies WHERE schemaname IN ('public', 'storage') ORDER BY schemaname, tablename, policyname;" > initial_policies.txt
+psql "$DB_URL" -A -t -c "
+SELECT json_build_object(
+  'schemaname', schemaname,
+  'tablename', tablename,
+  'policyname', policyname,
+  'roles', roles,
+  'cmd', cmd,
+  'qual', qual,
+  'with_check', with_check
+)
+FROM pg_policies
+WHERE schemaname IN ('public', 'storage')
+ORDER BY schemaname, tablename, policyname, cmd;
+" > initial_policies.json
 psql "$DB_URL" -c "
 SELECT
   object_type,
@@ -143,7 +156,7 @@ if [ -d "supabase/rollbacks" ] && [ "$(ls -A supabase/rollbacks)" ]; then
   ROLLBACKS=$(ls supabase/rollbacks/*.rollback.sql | sort -r)
   for rollback in $ROLLBACKS; do
     echo "Rolling back $rollback ..."
-    psql "$DB_URL" -v ON_ERROR_STOP=1 -f "$rollback"
+    PGOPTIONS="-c centinela.is_ci=true" psql "$DB_URL" -v ON_ERROR_STOP=1 -f "$rollback"
   done
 fi
 
@@ -152,7 +165,20 @@ docker exec -i "$DB_CONTAINER" pg_dump -U postgres -d postgres -s -n public --no
 grep -v '^--' final_schema.sql | grep -Ev '^\\(un)?restrict[[:space:]]' | grep -v '^[[:space:]]*$' > final_schema_normalized.sql
 
 psql "$DB_URL" -c "SELECT id, name, public, file_size_limit, allowed_mime_types FROM storage.buckets ORDER BY id;" > final_storage.txt
-psql "$DB_URL" -c "SELECT schemaname, tablename, policyname, roles, cmd, qual, with_check FROM pg_policies WHERE schemaname IN ('public', 'storage') ORDER BY schemaname, tablename, policyname;" > final_policies.txt
+psql "$DB_URL" -A -t -c "
+SELECT json_build_object(
+  'schemaname', schemaname,
+  'tablename', tablename,
+  'policyname', policyname,
+  'roles', roles,
+  'cmd', cmd,
+  'qual', qual,
+  'with_check', with_check
+)
+FROM pg_policies
+WHERE schemaname IN ('public', 'storage')
+ORDER BY schemaname, tablename, policyname, cmd;
+" > final_policies.json
 psql "$DB_URL" -c "
 SELECT
   object_type,
@@ -196,31 +222,26 @@ psql "$DB_URL" -c "SELECT p.proname, pg_get_function_identity_arguments(p.oid) F
 echo "11. Comparing DUMPS..."
 ERRORS=0
 
-if ! diff -u initial_schema_normalized.sql final_schema_normalized.sql > schema_diff.txt; then
-  echo "ERROR: Schema differs after rollbacks!"
-  cat schema_diff.txt
+# Create standard diffs first so they are available as artifacts and for the Node script
+diff -u initial_schema_normalized.sql final_schema_normalized.sql > schema_diff.txt || true
+diff -u initial_storage.txt final_storage.txt > storage_diff.txt || true
+diff -u initial_policies.json final_policies.json > policies_diff.txt || true
+diff -u initial_grants.txt final_grants.txt > grants_diff.txt || true
+diff -u initial_functions.txt final_functions.txt > functions_diff.txt || true
+
+echo "Checking EXACT authorized security overrides against strict contract..."
+if ! node supabase/ci/verify-safe-rollback.js; then
+  echo "ERROR: Diffs failed strict contract verification!"
   ERRORS=1
 fi
 
-if ! diff -u initial_storage.txt final_storage.txt > storage_diff.txt; then
-  echo "ERROR: Storage differs after rollbacks!"
-  cat storage_diff.txt
+echo "12. Running strict SQL invariants..."
+if ! psql "$DB_URL" -v ON_ERROR_STOP=1 -f supabase/ci/verify_invariants.sql; then
+  echo "ERROR: SQL invariants violated post-rollback!"
   ERRORS=1
 fi
 
-if ! diff -u initial_policies.txt final_policies.txt > policies_diff.txt; then
-  echo "ERROR: Policies differ after rollbacks!"
-  cat policies_diff.txt
-  ERRORS=1
-fi
-
-if ! diff -u initial_grants.txt final_grants.txt > grants_diff.txt; then
-  echo "ERROR: Grants differ after rollbacks!"
-  cat grants_diff.txt
-  ERRORS=1
-fi
-
-if ! diff -u initial_functions.txt final_functions.txt > functions_diff.txt; then
+if [ -s functions_diff.txt ]; then
   echo "ERROR: Functions differ after rollbacks!"
   cat functions_diff.txt
   ERRORS=1

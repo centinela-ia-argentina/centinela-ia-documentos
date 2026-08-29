@@ -7,9 +7,19 @@ import { ProtocoloClient, type EscrituraProtocolo } from './ProtocoloClient';
 export default async function ProtocoloPage() {
   const { user, profile } = await getUserProfile();
   if (!user) redirect('/login');
-  if (!profile) redirect('/onboarding');
+  if (!profile || profile.status !== 'active') redirect('/onboarding');
 
   const supabase = await createClient();
+
+  const { data: org } = await supabase
+    .from('organizations')
+    .select('industry_type')
+    .eq('id', profile.organization_id)
+    .maybeSingle();
+
+  if (!org || org.industry_type !== 'escribania') {
+    redirect('/acceso-denegado');
+  }
 
   const [escriturasResult, casesResult] = await Promise.all([
     supabase
