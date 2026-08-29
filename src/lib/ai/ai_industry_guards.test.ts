@@ -4,8 +4,7 @@ import {
   expect,
   vi,
   beforeEach,
-  afterEach,
-  afterAll,
+  afterEach
 } from "vitest";
 
 vi.mock("server-only", () => ({}));
@@ -53,7 +52,7 @@ const mockCreateAuditLog = createAuditLog as unknown as ReturnType<
 >;
 
 describe("AI Industry Guards (Phase 6)", () => {
-  const originalEnv = { ...process.env };
+  const originalGeminiApiKey = process.env.GEMINI_API_KEY;
   const originalFetch = global.fetch;
 
   beforeEach(() => {
@@ -68,7 +67,7 @@ describe("AI Industry Guards (Phase 6)", () => {
             content: {
               parts: [
                 {
-                  text: '{\"puntuacion\": 100, \"semaforo\": \"verde\", \"acciones\": []}',
+                  text: '{"puntuacion": 100, "semaforo": "verde", "acciones": []}',
                 },
               ],
             },
@@ -79,8 +78,13 @@ describe("AI Industry Guards (Phase 6)", () => {
   });
 
   afterEach(() => {
-    process.env = { ...originalEnv };
+    if (originalGeminiApiKey === undefined) {
+      delete process.env.GEMINI_API_KEY;
+    } else {
+      process.env.GEMINI_API_KEY = originalGeminiApiKey;
+    }
     global.fetch = originalFetch;
+    vi.clearAllMocks();
   });
 
   const setupMock = (industry: string | null, role: string = "admin") => {
@@ -111,9 +115,9 @@ describe("AI Industry Guards (Phase 6)", () => {
                 limit: vi.fn().mockResolvedValue({ data: [] }),
               }),
             }),
-            insert: vi.fn().mockResolvedValue({ error: null }),
           }),
         }),
+        insert: vi.fn().mockResolvedValue({ error: null }),
       }),
     };
     mockCreateClient.mockResolvedValue(mockSupabase);
@@ -173,6 +177,7 @@ describe("AI Industry Guards (Phase 6)", () => {
       const res = await revisarEscritoIA({
         texto: "Un texto de 40 caracteres para pasar la validación inicial.",
       });
+      expect(res).toEqual(expect.objectContaining({ ok: true, revision: expect.objectContaining({ puntuacion: 100, semaforo: "verde" }) }));
       expect(global.fetch).toHaveBeenCalled();
     });
     it("6. Inmobiliaria recibe sin_permiso", async () => {
@@ -250,6 +255,8 @@ describe("AI Industry Guards (Phase 6)", () => {
         instruccion: "",
       });
       expect((res as any).motivo).toBe("sin_permiso"); // NOT sin_key
+      expect(global.fetch).not.toHaveBeenCalled();
+      expect(mockCreateAuditLog).not.toHaveBeenCalled();
     });
   });
 
@@ -268,12 +275,16 @@ describe("AI Industry Guards (Phase 6)", () => {
       const res = await generarBriefing();
       expect((res as any).motivo).toBe("sin_permiso");
       expect(mockDb.from).not.toHaveBeenCalledWith("properties");
+      expect(mockDb.from).not.toHaveBeenCalledWith("clients");
+      expect(mockDb.from).not.toHaveBeenCalledWith("rental_contracts");
     });
     it("17. Escribanía recibe sin_permiso", async () => {
       const mockDb = setupMock("escribania");
       const res = await preguntarCopiloto("hola");
       expect((res as any).motivo).toBe("sin_permiso");
       expect(mockDb.from).not.toHaveBeenCalledWith("properties");
+      expect(mockDb.from).not.toHaveBeenCalledWith("clients");
+      expect(mockDb.from).not.toHaveBeenCalledWith("rental_contracts");
     });
     it("18. Sin sesión", async () => {
       const mockDb = setupMock("inmobiliaria");
@@ -291,16 +302,19 @@ describe("AI Industry Guards (Phase 6)", () => {
       expect(page).toBeDefined(); // Did not throw redirect
     });
     it("20. Legal redirige antes de consultar", async () => {
-      setupMock("legal");
+      const mockDb = setupMock("legal");
       await expect(CopilotoPage()).rejects.toThrow("REDIRECT:/dashboard");
+      expect(mockDb.from).not.toHaveBeenCalledWith("properties");
     });
     it("21. Escribanía redirige", async () => {
-      setupMock("escribania");
+      const mockDb = setupMock("escribania");
       await expect(CopilotoPage()).rejects.toThrow("REDIRECT:/dashboard");
+      expect(mockDb.from).not.toHaveBeenCalledWith("properties");
     });
     it("22. Industria desconocida redirige", async () => {
-      setupMock("unknown");
+      const mockDb = setupMock("unknown");
       await expect(CopilotoPage()).rejects.toThrow("REDIRECT:/dashboard");
+      expect(mockDb.from).not.toHaveBeenCalledWith("properties");
     });
     it("23. Rol cliente redirige a acceso-denegado", async () => {
       setupMock("inmobiliaria", "client"); // Role is client
