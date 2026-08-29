@@ -10,18 +10,45 @@ if (!supabaseUrl || !supabaseAnonKey) {
   throw new Error('Missing Supabase credentials for Storage RLS tests.');
 }
 
-// Custom expectation function as requested
+const createPdfBlob = (content = 'Centinela IA Storage RLS test') =>
+  new Blob(
+    [
+      '%PDF-1.4\n',
+      '1 0 obj\n',
+      '<< /Type /Catalog >>\n',
+      'endobj\n',
+      `% ${content}\n`,
+      '%%EOF\n',
+    ],
+    { type: 'application/pdf' }
+  );
+
 const expectObjectNotVisible = (result: { data: any[] | null, error: any }, expectedFileName: string) => {
   if (result.error) {
-    // Si existe error, es una denegación segura.
     return;
   }
-  // Si error es null, data no debe contener el archivo conocido.
   const found = result.data?.some((f: any) => f.name === expectedFileName);
   expect(found).not.toBe(true);
 };
 
-describe('Storage RLS Policies (documents_*) con objetos reales', () => {
+const expectObjectContent = async (
+  adminClient: any,
+  path: string,
+  expectedContent: string,
+  forbiddenContent?: string
+) => {
+  const { data, error } = await adminClient.storage.from('documents').download(path);
+  expect(error).toBeNull();
+  expect(data).not.toBeNull();
+  
+  const text = await data!.text();
+  expect(text).toContain(expectedContent);
+  if (forbiddenContent) {
+    expect(text).not.toContain(forbiddenContent);
+  }
+};
+
+describe('Storage RLS Policies (documents_*) con objetos reales PDF', () => {
   let adminALegal: any;
   let employeeALegal: any;
   let auditorALegal: any;
@@ -30,7 +57,6 @@ describe('Storage RLS Policies (documents_*) con objetos reales', () => {
   let adminBInm: any;
   let anonClient: any;
 
-  // Paths trackeados para cleanup
   const pathsToCleanupA: string[] = [];
   const pathsToCleanupB: string[] = [];
 
@@ -54,21 +80,32 @@ describe('Storage RLS Policies (documents_*) con objetos reales', () => {
   });
 
   afterAll(async () => {
-    // Limpieza determinística por los respectivos admins
     if (pathsToCleanupA.length > 0) {
-      await adminALegal.storage.from('documents').remove(pathsToCleanupA);
+      const resA = await adminALegal.storage.from('documents').remove(pathsToCleanupA);
+      if (resA.error) throw new Error(`Cleanup failed for Org A: ${resA.error.message}`);
     }
     if (pathsToCleanupB.length > 0) {
-      await adminBInm.storage.from('documents').remove(pathsToCleanupB);
+      const resB = await adminBInm.storage.from('documents').remove(pathsToCleanupB);
+      if (resB.error) throw new Error(`Cleanup failed for Org B: ${resB.error.message}`);
     }
   });
 
-  const uploadFile = async (client: any, path: string, content: string = 'test content') => {
-    return client.storage.from('documents').upload(path, new Blob([content]), { upsert: false });
+  const uploadFile = async (client: any, path: string, content = 'Centinela IA Storage RLS test') => {
+    return client.storage
+      .from('documents')
+      .upload(path, createPdfBlob(content), {
+        contentType: 'application/pdf',
+        upsert: false,
+      });
   };
 
-  const updateFile = async (client: any, path: string) => {
-    return client.storage.from('documents').update(path, new Blob(['updated content']), { upsert: true });
+  const updateFile = async (client: any, path: string, content = 'Centinela IA Storage RLS updated test') => {
+    return client.storage
+      .from('documents')
+      .update(path, createPdfBlob(content), {
+        contentType: 'application/pdf',
+        upsert: true,
+      });
   };
 
   const deleteFile = async (client: any, path: string) => {
@@ -79,180 +116,210 @@ describe('Storage RLS Policies (documents_*) con objetos reales', () => {
     return client.storage.from('documents').list(path);
   };
 
-  it('1. Admin A: INSERT, SELECT, UPDATE y DELETE permitidos', async () => {
-    const filename = `test_admin_${randomUUID()}.txt`;
+  it('1. Admin A: INSERT PDF permitido, SELECT, UPDATE y DELETE', async () => {
+    const filename = `test_admin_${randomUUID()}.pdf`;
     const path = `${SEED_DATA.ORG_LEGAL_ID}/${filename}`;
+    pathsToCleanupA.push(path); 
     
-    // INSERT permitido
-    const { error: insertErr } = await uploadFile(adminALegal, path);
-    expect(insertErr).toBeNull();
-    pathsToCleanupA.push(path); // Por si falla a medias
+    // INSERT
+    const insertRes = await uploadFile(adminALegal, path, 'original-admin-a');
+    expect(insertRes.error).toBeNull();
+    expect(insertRes.data).not.toBeNull();
 
-    // SELECT permitido y objeto visible
-    const { data: listData, error: listErr } = await listFiles(adminALegal, SEED_DATA.ORG_LEGAL_ID);
-    expect(listErr).toBeNull();
-    expect(listData?.some((f: any) => f.name === filename)).toBe(true);
+    // SELECT
+    const listData = await listFiles(adminALegal, SEED_DATA.ORG_LEGAL_ID);
+    expect(listData.error).toBeNull();
+    expect(listData.data?.some((f: any) => f.name === filename)).toBe(true);
 
-    // UPDATE permitido
-    const { error: updateErr } = await updateFile(adminALegal, path);
-    expect(updateErr).toBeNull();
+    // UPDATE
+    const updateRes = await updateFile(adminALegal, path, 'updated-admin-a');
+    expect(updateRes.error).toBeNull();
+    await expectObjectContent(adminALegal, path, 'updated-admin-a', 'original-admin-a');
 
-    // DELETE permitido
-    const { error: deleteErr } = await deleteFile(adminALegal, path);
-    expect(deleteErr).toBeNull();
-    
-    // Lo sacamos de limpieza porque ya lo borró
-    pathsToCleanupA.pop();
+    // DELETE
+    const deleteRes = await deleteFile(adminALegal, path);
+    expect(deleteRes.error).toBeNull();
+    const listAfterDelete = await listFiles(adminALegal, SEED_DATA.ORG_LEGAL_ID);
+    expectObjectNotVisible(listAfterDelete, filename);
   });
 
-  it('2. Employee A: INSERT, SELECT, UPDATE permitidos. DELETE rechazado', async () => {
-    const filename = `test_employee_${randomUUID()}.txt`;
+  it('2. Employee A: INSERT, SELECT, UPDATE permitidos. DELETE no afecta el objeto', async () => {
+    const filename = `test_employee_${randomUUID()}.pdf`;
     const path = `${SEED_DATA.ORG_LEGAL_ID}/${filename}`;
+    pathsToCleanupA.push(path);
     
-    // INSERT permitido
-    const { error: insertErr } = await uploadFile(employeeALegal, path);
-    expect(insertErr).toBeNull();
-    pathsToCleanupA.push(path); // Cleanup required by Admin A later
+    // INSERT
+    const insertRes = await uploadFile(employeeALegal, path, 'original-employee-a');
+    expect(insertRes.error).toBeNull();
+    expect(insertRes.data).not.toBeNull();
 
-    // SELECT permitido y objeto visible
-    const { data: listData, error: listErr } = await listFiles(employeeALegal, SEED_DATA.ORG_LEGAL_ID);
-    expect(listErr).toBeNull();
-    expect(listData?.some((f: any) => f.name === filename)).toBe(true);
+    // SELECT
+    const listRes = await listFiles(employeeALegal, SEED_DATA.ORG_LEGAL_ID);
+    expect(listRes.error).toBeNull();
+    expect(listRes.data?.some((f: any) => f.name === filename)).toBe(true);
 
-    // UPDATE permitido
-    const { error: updateErr } = await updateFile(employeeALegal, path);
-    expect(updateErr).toBeNull();
+    // UPDATE
+    const updateRes = await updateFile(employeeALegal, path, 'updated-employee-a');
+    expect(updateRes.error).toBeNull();
+    await expectObjectContent(adminALegal, path, 'updated-employee-a');
 
-    // DELETE rechazado sobre objeto existente
-    const { error: deleteErr } = await deleteFile(employeeALegal, path);
-    expect(deleteErr).not.toBeNull();
+    // DELETE
+    await deleteFile(employeeALegal, path);
 
-    // Objeto sigue existiendo (verificado por Admin A)
+    // PERSISTENCE CHECK
     const adminList = await listFiles(adminALegal, SEED_DATA.ORG_LEGAL_ID);
     expect(adminList.data?.some((f: any) => f.name === filename)).toBe(true);
   });
 
-  it('3. Auditor A: SELECT permitido sobre objeto real. Resto rechazado sin alterar', async () => {
-    const filename = `test_auditor_target_${randomUUID()}.txt`;
+  it('3. Auditor A: SELECT objeto real. INSERT, UPDATE y DELETE negativos', async () => {
+    const filename = `test_auditor_target_${randomUUID()}.pdf`;
     const path = `${SEED_DATA.ORG_LEGAL_ID}/${filename}`;
-    const insertPath = `${SEED_DATA.ORG_LEGAL_ID}/test_auditor_insert_${randomUUID()}.txt`;
+    const insertPath = `${SEED_DATA.ORG_LEGAL_ID}/test_auditor_insert_${randomUUID()}.pdf`;
+    pathsToCleanupA.push(path, insertPath);
 
-    // Setup: crear objeto real con Admin A
-    await uploadFile(adminALegal, path);
-    pathsToCleanupA.push(path);
+    const setupResult = await uploadFile(adminALegal, path, 'original-auditor-a');
+    expect(setupResult.error).toBeNull();
+    expect(setupResult.data).not.toBeNull();
 
-    // SELECT permitido y objeto real visible
-    const { data: listData, error: listErr } = await listFiles(auditorALegal, SEED_DATA.ORG_LEGAL_ID);
-    expect(listErr).toBeNull();
-    expect(listData?.some((f: any) => f.name === filename)).toBe(true);
+    // SELECT
+    const listRes = await listFiles(auditorALegal, SEED_DATA.ORG_LEGAL_ID);
+    expect(listRes.error).toBeNull();
+    expect(listRes.data?.some((f: any) => f.name === filename)).toBe(true);
 
-    // INSERT rechazado
-    const { error: insertErr } = await uploadFile(auditorALegal, insertPath);
-    expect(insertErr).not.toBeNull();
+    // INSERT negativo
+    await uploadFile(auditorALegal, insertPath);
+    const adminListAfterInsert = await listFiles(adminALegal, SEED_DATA.ORG_LEGAL_ID);
+    expectObjectNotVisible(adminListAfterInsert, insertPath.split('/')[1]);
 
-    // UPDATE rechazado sobre objeto existente
-    const { error: updateErr } = await updateFile(auditorALegal, path);
-    expect(updateErr).not.toBeNull();
+    // UPDATE negativo
+    await updateFile(auditorALegal, path, 'forbidden-update-auditor');
+    await expectObjectContent(adminALegal, path, 'original-auditor-a', 'forbidden-update-auditor');
 
-    // DELETE rechazado sobre objeto existente
-    const { error: deleteErr } = await deleteFile(auditorALegal, path);
-    expect(deleteErr).not.toBeNull();
-
-    // Verificamos que el objeto permanece intacto con adminALegal
-    const adminList = await listFiles(adminALegal, SEED_DATA.ORG_LEGAL_ID);
-    expect(adminList.data?.some((f: any) => f.name === filename)).toBe(true);
+    // DELETE negativo
+    await deleteFile(auditorALegal, path);
+    const adminListAfterDelete = await listFiles(adminALegal, SEED_DATA.ORG_LEGAL_ID);
+    expect(adminListAfterDelete.data?.some((f: any) => f.name === filename)).toBe(true);
   });
 
-  it('4. Client A: objeto real no visible y mutaciones rechazadas', async () => {
-    const filename = `test_client_target_${randomUUID()}.txt`;
+  it('4. Client A: no observa, no inserta, no muta, no elimina', async () => {
+    const filename = `test_client_target_${randomUUID()}.pdf`;
     const path = `${SEED_DATA.ORG_LEGAL_ID}/${filename}`;
-    const insertPath = `${SEED_DATA.ORG_LEGAL_ID}/test_client_insert_${randomUUID()}.txt`;
+    const insertPath = `${SEED_DATA.ORG_LEGAL_ID}/test_client_insert_${randomUUID()}.pdf`;
+    pathsToCleanupA.push(path, insertPath);
 
-    // Setup: crear objeto real
-    await uploadFile(adminALegal, path);
-    pathsToCleanupA.push(path);
+    const setupResult = await uploadFile(adminALegal, path, 'original-client-a');
+    expect(setupResult.error).toBeNull();
+    expect(setupResult.data).not.toBeNull();
 
-    // Objeto real no visible
+    // SELECT legitimo primero
+    const checkVisible = await listFiles(adminALegal, SEED_DATA.ORG_LEGAL_ID);
+    expect(checkVisible.data?.some((f: any) => f.name === filename)).toBe(true);
+
+    // SELECT restringido
     const listResult = await listFiles(clientALegal, SEED_DATA.ORG_LEGAL_ID);
     expectObjectNotVisible(listResult, filename);
 
-    // INSERT rechazado
-    const { error: insertErr } = await uploadFile(clientALegal, insertPath);
-    expect(insertErr).not.toBeNull();
+    // INSERT
+    await uploadFile(clientALegal, insertPath);
+    const adminListAfterInsert = await listFiles(adminALegal, SEED_DATA.ORG_LEGAL_ID);
+    expectObjectNotVisible(adminListAfterInsert, insertPath.split('/')[1]);
 
-    // UPDATE y DELETE rechazados sobre objeto existente
-    expect((await updateFile(clientALegal, path)).error).not.toBeNull();
-    expect((await deleteFile(clientALegal, path)).error).not.toBeNull();
+    // UPDATE
+    await updateFile(clientALegal, path, 'forbidden-update-client');
+    await expectObjectContent(adminALegal, path, 'original-client-a', 'forbidden-update-client');
 
-    // Verificamos persistencia
-    const adminList = await listFiles(adminALegal, SEED_DATA.ORG_LEGAL_ID);
-    expect(adminList.data?.some((f: any) => f.name === filename)).toBe(true);
+    // DELETE
+    await deleteFile(clientALegal, path);
+    const adminListAfterDelete = await listFiles(adminALegal, SEED_DATA.ORG_LEGAL_ID);
+    expect(adminListAfterDelete.data?.some((f: any) => f.name === filename)).toBe(true);
   });
 
-  it('5. Admin A contra organización B: todo rechazado y no visible', async () => {
-    const filename = `test_orgB_target_${randomUUID()}.txt`;
+  it('5. Admin A contra B: rechazo cruzado en todas las operaciones', async () => {
+    const filename = `test_orgB_target_${randomUUID()}.pdf`;
     const pathB = `${SEED_DATA.ORG_INM_ID}/${filename}`;
-    const insertPathB = `${SEED_DATA.ORG_INM_ID}/test_orgA_insert_${randomUUID()}.txt`;
+    const insertPathB = `${SEED_DATA.ORG_INM_ID}/test_orgA_insert_${randomUUID()}.pdf`;
+    pathsToCleanupB.push(pathB, insertPathB);
 
-    // Setup: Admin B crea un objeto real
-    await uploadFile(adminBInm, pathB);
-    pathsToCleanupB.push(pathB);
+    const setupResult = await uploadFile(adminBInm, pathB, 'original-org-b');
+    expect(setupResult.error).toBeNull();
+    expect(setupResult.data).not.toBeNull();
 
-    // Admin A no puede ver el objeto real de B
+    // SELECT legitimo
+    const checkVisible = await listFiles(adminBInm, SEED_DATA.ORG_INM_ID);
+    expect(checkVisible.data?.some((f: any) => f.name === filename)).toBe(true);
+
+    // SELECT cruzado
     const listResult = await listFiles(adminALegal, SEED_DATA.ORG_INM_ID);
     expectObjectNotVisible(listResult, filename);
 
-    // INSERT en ruta B rechazado
-    expect((await uploadFile(adminALegal, insertPathB)).error).not.toBeNull();
+    // INSERT cruzado
+    await uploadFile(adminALegal, insertPathB);
+    const adminBListAfterInsert = await listFiles(adminBInm, SEED_DATA.ORG_INM_ID);
+    expectObjectNotVisible(adminBListAfterInsert, insertPathB.split('/')[1]);
 
-    // UPDATE y DELETE de objeto real B rechazado
-    expect((await updateFile(adminALegal, pathB)).error).not.toBeNull();
-    expect((await deleteFile(adminALegal, pathB)).error).not.toBeNull();
+    // UPDATE cruzado
+    await updateFile(adminALegal, pathB, 'forbidden-update-cross');
+    await expectObjectContent(adminBInm, pathB, 'original-org-b', 'forbidden-update-cross');
 
-    // Verificamos persistencia por el legitimo Admin B
-    const adminBList = await listFiles(adminBInm, SEED_DATA.ORG_INM_ID);
-    expect(adminBList.data?.some((f: any) => f.name === filename)).toBe(true);
+    // DELETE cruzado
+    await deleteFile(adminALegal, pathB);
+    const adminBListAfterDelete = await listFiles(adminBInm, SEED_DATA.ORG_INM_ID);
+    expect(adminBListAfterDelete.data?.some((f: any) => f.name === filename)).toBe(true);
   });
 
-  it('6. Perfil inactive: objeto no visible, todo rechazado', async () => {
-    const filename = `test_inactive_target_${randomUUID()}.txt`;
+  it('6. Inactive: no observa, no muta, no elimina', async () => {
+    const filename = `test_inactive_target_${randomUUID()}.pdf`;
     const path = `${SEED_DATA.ORG_LEGAL_ID}/${filename}`;
-    const insertPath = `${SEED_DATA.ORG_LEGAL_ID}/test_inactive_insert_${randomUUID()}.txt`;
+    const insertPath = `${SEED_DATA.ORG_LEGAL_ID}/test_inactive_insert_${randomUUID()}.pdf`;
+    pathsToCleanupA.push(path, insertPath);
 
-    // Setup
-    await uploadFile(adminALegal, path);
-    pathsToCleanupA.push(path);
+    const setupResult = await uploadFile(adminALegal, path, 'original-inactive');
+    expect(setupResult.error).toBeNull();
+    expect(setupResult.data).not.toBeNull();
+
+    const checkVisible = await listFiles(adminALegal, SEED_DATA.ORG_LEGAL_ID);
+    expect(checkVisible.data?.some((f: any) => f.name === filename)).toBe(true);
 
     const listResult = await listFiles(inactiveALegal, SEED_DATA.ORG_LEGAL_ID);
     expectObjectNotVisible(listResult, filename);
 
-    expect((await uploadFile(inactiveALegal, insertPath)).error).not.toBeNull();
-    expect((await updateFile(inactiveALegal, path)).error).not.toBeNull();
-    expect((await deleteFile(inactiveALegal, path)).error).not.toBeNull();
+    await uploadFile(inactiveALegal, insertPath);
+    const adminListAfterInsert = await listFiles(adminALegal, SEED_DATA.ORG_LEGAL_ID);
+    expectObjectNotVisible(adminListAfterInsert, insertPath.split('/')[1]);
 
-    // Persistencia
-    const adminList = await listFiles(adminALegal, SEED_DATA.ORG_LEGAL_ID);
-    expect(adminList.data?.some((f: any) => f.name === filename)).toBe(true);
+    await updateFile(inactiveALegal, path, 'forbidden-update-inactive');
+    await expectObjectContent(adminALegal, path, 'original-inactive', 'forbidden-update-inactive');
+
+    await deleteFile(inactiveALegal, path);
+    const adminListAfterDelete = await listFiles(adminALegal, SEED_DATA.ORG_LEGAL_ID);
+    expect(adminListAfterDelete.data?.some((f: any) => f.name === filename)).toBe(true);
   });
 
-  it('7. Anon: objeto no visible, todo rechazado', async () => {
-    const filename = `test_anon_target_${randomUUID()}.txt`;
+  it('7. Anon: no observa, no muta, no elimina', async () => {
+    const filename = `test_anon_target_${randomUUID()}.pdf`;
     const path = `${SEED_DATA.ORG_LEGAL_ID}/${filename}`;
-    const insertPath = `${SEED_DATA.ORG_LEGAL_ID}/test_anon_insert_${randomUUID()}.txt`;
+    const insertPath = `${SEED_DATA.ORG_LEGAL_ID}/test_anon_insert_${randomUUID()}.pdf`;
+    pathsToCleanupA.push(path, insertPath);
 
-    // Setup
-    await uploadFile(adminALegal, path);
-    pathsToCleanupA.push(path);
+    const setupResult = await uploadFile(adminALegal, path, 'original-anon');
+    expect(setupResult.error).toBeNull();
+    expect(setupResult.data).not.toBeNull();
+
+    const checkVisible = await listFiles(adminALegal, SEED_DATA.ORG_LEGAL_ID);
+    expect(checkVisible.data?.some((f: any) => f.name === filename)).toBe(true);
 
     const listResult = await listFiles(anonClient, SEED_DATA.ORG_LEGAL_ID);
     expectObjectNotVisible(listResult, filename);
 
-    expect((await uploadFile(anonClient, insertPath)).error).not.toBeNull();
-    expect((await updateFile(anonClient, path)).error).not.toBeNull();
-    expect((await deleteFile(anonClient, path)).error).not.toBeNull();
+    await uploadFile(anonClient, insertPath);
+    const adminListAfterInsert = await listFiles(adminALegal, SEED_DATA.ORG_LEGAL_ID);
+    expectObjectNotVisible(adminListAfterInsert, insertPath.split('/')[1]);
 
-    // Persistencia
-    const adminList = await listFiles(adminALegal, SEED_DATA.ORG_LEGAL_ID);
-    expect(adminList.data?.some((f: any) => f.name === filename)).toBe(true);
+    await updateFile(anonClient, path, 'forbidden-update-anon');
+    await expectObjectContent(adminALegal, path, 'original-anon', 'forbidden-update-anon');
+
+    await deleteFile(anonClient, path);
+    const adminListAfterDelete = await listFiles(adminALegal, SEED_DATA.ORG_LEGAL_ID);
+    expect(adminListAfterDelete.data?.some((f: any) => f.name === filename)).toBe(true);
   });
 });
