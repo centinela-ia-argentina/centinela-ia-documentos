@@ -151,6 +151,13 @@ if [ "$APPLIED_COUNT" -lt "$MIGRATION_COUNT" ]; then
 fi
 echo "SUCCESS: All $MIGRATION_COUNT migrations applied."
 
+echo "8.c Verifying FORWARD INVARIANTS..."
+if ! psql "$DB_URL" -v ON_ERROR_STOP=1 -f supabase/ci/verify_invariants.sql; then
+  echo "ERROR: SQL invariants violated in FORWARD state!"
+  exit 1
+fi
+echo "SUCCESS: Forward SQL invariants verified."
+
 echo "9. Applying rollbacks REVERSE ORDER..."
 if [ -d "supabase/rollbacks" ] && [ "$(ls -A supabase/rollbacks)" ]; then
   ROLLBACKS=$(ls supabase/rollbacks/*.rollback.sql | sort -r)
