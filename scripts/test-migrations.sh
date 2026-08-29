@@ -69,7 +69,20 @@ docker exec -i "$DB_CONTAINER" pg_dump -U postgres -d postgres -s -n public --no
 grep -v '^--' initial_schema.sql | grep -Ev '^\\(un)?restrict[[:space:]]' | grep -v '^[[:space:]]*$' > initial_schema_normalized.sql
 
 psql "$DB_URL" -c "SELECT id, name, public, file_size_limit, allowed_mime_types FROM storage.buckets ORDER BY id;" > initial_storage.txt
-psql "$DB_URL" -A -t -c "SELECT schemaname, tablename, policyname, roles, cmd, qual, with_check FROM pg_policies WHERE schemaname IN ('public', 'storage') ORDER BY schemaname, tablename, policyname;" > initial_policies.txt
+psql "$DB_URL" -A -t -c "
+SELECT json_build_object(
+  'schemaname', schemaname,
+  'tablename', tablename,
+  'policyname', policyname,
+  'roles', roles,
+  'cmd', cmd,
+  'qual', qual,
+  'with_check', with_check
+)
+FROM pg_policies
+WHERE schemaname IN ('public', 'storage')
+ORDER BY schemaname, tablename, policyname, cmd;
+" > initial_policies.json
 psql "$DB_URL" -c "
 SELECT
   object_type,
@@ -152,7 +165,20 @@ docker exec -i "$DB_CONTAINER" pg_dump -U postgres -d postgres -s -n public --no
 grep -v '^--' final_schema.sql | grep -Ev '^\\(un)?restrict[[:space:]]' | grep -v '^[[:space:]]*$' > final_schema_normalized.sql
 
 psql "$DB_URL" -c "SELECT id, name, public, file_size_limit, allowed_mime_types FROM storage.buckets ORDER BY id;" > final_storage.txt
-psql "$DB_URL" -A -t -c "SELECT schemaname, tablename, policyname, roles, cmd, qual, with_check FROM pg_policies WHERE schemaname IN ('public', 'storage') ORDER BY schemaname, tablename, policyname;" > final_policies.txt
+psql "$DB_URL" -A -t -c "
+SELECT json_build_object(
+  'schemaname', schemaname,
+  'tablename', tablename,
+  'policyname', policyname,
+  'roles', roles,
+  'cmd', cmd,
+  'qual', qual,
+  'with_check', with_check
+)
+FROM pg_policies
+WHERE schemaname IN ('public', 'storage')
+ORDER BY schemaname, tablename, policyname, cmd;
+" > final_policies.json
 psql "$DB_URL" -c "
 SELECT
   object_type,
@@ -199,7 +225,7 @@ ERRORS=0
 # Create standard diffs first so they are available as artifacts and for the Node script
 diff -u initial_schema_normalized.sql final_schema_normalized.sql > schema_diff.txt || true
 diff -u initial_storage.txt final_storage.txt > storage_diff.txt || true
-diff -u initial_policies.txt final_policies.txt > policies_diff.txt || true
+diff -u initial_policies.json final_policies.json > policies_diff.txt || true
 diff -u initial_grants.txt final_grants.txt > grants_diff.txt || true
 diff -u initial_functions.txt final_functions.txt > functions_diff.txt || true
 
