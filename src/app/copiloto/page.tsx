@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { getUserProfile } from '@/lib/auth/getUserProfile';
 import { AppShell } from '@/components/layout/AppShell';
-import { normalizeIndustryType } from '@/lib/industries/documentTypes';
+import { getStrictIndustry } from '@/lib/auth/getStrictIndustry';
 import { calcularProximoAjuste, estadoVencimiento } from '@/lib/rentals/labels';
 import type { RentalContract } from '@/types/rental';
 import { Sparkles } from 'lucide-react';
@@ -14,16 +14,16 @@ export default async function CopilotoPage() {
   if (!profile) redirect('/onboarding');
   if (profile.role === 'client') redirect('/acceso-denegado');
 
-  const supabase = await createClient();
-  const { data: org } = await supabase
-    .from('organizations')
-    .select('industry_type')
-    .eq('id', profile.organization_id)
-    .single();
+  let industry: string;
+  try {
+    industry = await getStrictIndustry();
+  } catch (e) {
+    redirect('/dashboard');
+  }
 
-  const industry = normalizeIndustryType(org?.industry_type);
   if (industry !== 'inmobiliaria') redirect('/dashboard');
 
+  const supabase = await createClient();
   const orgId = profile.organization_id;
   const [propsRes, casesRes, clientsRes, rentalsRes] = await Promise.all([
     supabase.from('properties').select('id').eq('organization_id', orgId).is('archived_at', null),
