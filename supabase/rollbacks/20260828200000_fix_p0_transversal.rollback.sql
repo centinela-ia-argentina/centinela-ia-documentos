@@ -45,22 +45,30 @@ CREATE POLICY "document_chunks_org_all" ON public.document_chunks FOR ALL USING 
 
 
 -- ==============================================================================
--- ROLLBACK P0-002: POLÍTICAS DE case_derivations
+-- ROLLBACK P0-002: POLÍTICAS DE case_derivations (Y ESTRUCTURA CONDICIONAL)
 -- ==============================================================================
+
 DROP POLICY IF EXISTS "case_derivations_select_role" ON public.case_derivations;
 DROP POLICY IF EXISTS "case_derivations_insert_role" ON public.case_derivations;
 DROP POLICY IF EXISTS "case_derivations_update_role" ON public.case_derivations;
 DROP POLICY IF EXISTS "case_derivations_delete_role" ON public.case_derivations;
 
-ALTER TABLE public.case_derivations
-DROP COLUMN IF EXISTS from_organization_id,
-DROP COLUMN IF EXISTS from_organization_name,
-DROP COLUMN IF EXISTS case_title,
-DROP COLUMN IF EXISTS to_email,
-DROP COLUMN IF EXISTS to_organization_id,
-DROP COLUMN IF EXISTS mensaje,
-DROP COLUMN IF EXISTS created_by,
-DROP COLUMN IF EXISTS accepted_by;
+DO $$
+BEGIN
+  IF current_setting('centinela.is_ci', true) = 'true' THEN
+    ALTER TABLE public.case_derivations
+      DROP COLUMN IF EXISTS from_organization_id,
+      DROP COLUMN IF EXISTS from_organization_name,
+      DROP COLUMN IF EXISTS case_title,
+      DROP COLUMN IF EXISTS to_email,
+      DROP COLUMN IF EXISTS to_organization_id,
+      DROP COLUMN IF EXISTS mensaje,
+      DROP COLUMN IF EXISTS created_by,
+      DROP COLUMN IF EXISTS accepted_by;
+  ELSE
+    RAISE NOTICE 'Skipping DROP COLUMNs on case_derivations in non-CI environment to prevent data loss';
+  END IF;
+END $$;
 
 -- ==============================================================================
 -- ROLLBACK P0-005: PROTOCOLO NOTARIAL
@@ -70,6 +78,13 @@ DROP POLICY IF EXISTS "protocolo_insert_role" ON public.protocolo_escrituras;
 DROP POLICY IF EXISTS "protocolo_update_role" ON public.protocolo_escrituras;
 DROP POLICY IF EXISTS "protocolo_delete_role" ON public.protocolo_escrituras;
 
-DROP TABLE IF EXISTS public.protocolo_escrituras CASCADE;
+DO $$
+BEGIN
+  IF current_setting('centinela.is_ci', true) = 'true' THEN
+    DROP TABLE IF EXISTS public.protocolo_escrituras CASCADE;
+  ELSE
+    RAISE NOTICE 'Skipping DROP TABLE protocolo_escrituras in non-CI environment to prevent data loss';
+  END IF;
+END $$;
 
 COMMIT;

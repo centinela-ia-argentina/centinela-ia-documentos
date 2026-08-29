@@ -11,18 +11,12 @@ BEGIN;
 -- Motivo: Storage must match baseline strictly to prevent false positives in diffs.
 UPDATE storage.buckets SET file_size_limit = NULL, public = false, allowed_mime_types = NULL WHERE id = 'documents';
 
-DROP POLICY IF EXISTS "documents_select" ON storage.objects;
-DROP POLICY IF EXISTS "documents_insert" ON storage.objects;
-DROP POLICY IF EXISTS "documents_update" ON storage.objects;
-DROP POLICY IF EXISTS "documents_delete" ON storage.objects;
+-- Las políticas documents_select, documents_insert, documents_update y documents_delete
+-- NO se eliminan en el rollback, ya que reemplazan a las vulnerables del baseline.
 
-DROP POLICY IF EXISTS "storage_select_policy" ON storage.objects;
-DROP POLICY IF EXISTS "storage_insert_policy" ON storage.objects;
-DROP POLICY IF EXISTS "storage_delete_policy" ON storage.objects;
-
-CREATE POLICY "storage_select_policy" ON storage.objects FOR SELECT USING (bucket_id = 'documents' AND (auth.uid() IS NOT NULL));
-CREATE POLICY "storage_insert_policy" ON storage.objects FOR INSERT WITH CHECK (bucket_id = 'documents' AND (auth.uid() IS NOT NULL));
-CREATE POLICY "storage_delete_policy" ON storage.objects FOR DELETE USING (bucket_id = 'documents' AND (auth.uid() IS NOT NULL));
+-- En lugar de restaurar las políticas vulnerables del baseline (auth.uid() IS NOT NULL),
+-- conservamos las políticas seguras (documents_select, documents_insert, etc.)
+-- para no reabrir brechas cross-tenant durante un rollback en producción.
 
 -- 2. Restore Default RLS
 -- Baseline: Contextual functions were used to secure agenda_plazos, agent_messages, ai_outputs.

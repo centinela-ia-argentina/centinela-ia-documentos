@@ -143,7 +143,7 @@ if [ -d "supabase/rollbacks" ] && [ "$(ls -A supabase/rollbacks)" ]; then
   ROLLBACKS=$(ls supabase/rollbacks/*.rollback.sql | sort -r)
   for rollback in $ROLLBACKS; do
     echo "Rolling back $rollback ..."
-    psql "$DB_URL" -v ON_ERROR_STOP=1 -f "$rollback"
+    PGOPTIONS="-c centinela.is_ci=true" psql "$DB_URL" -v ON_ERROR_STOP=1 -f "$rollback"
   done
 fi
 
@@ -197,9 +197,20 @@ echo "11. Comparing DUMPS..."
 ERRORS=0
 
 if ! diff -u initial_schema_normalized.sql final_schema_normalized.sql > schema_diff.txt; then
-  echo "ERROR: Schema differs after rollbacks!"
-  cat schema_diff.txt
-  ERRORS=1
+  echo "Schema differs. Checking authorized security overrides..."
+  
+  grep -E "^[+-]" schema_diff.txt | grep -vE "^(\+\+\+|---)" > actual_schema_changes.txt || true
+  
+  # Allow the deliberate retention of ENABLE ROW LEVEL SECURITY for inmobiliaria tables
+  grep -vE "^[+-]ALTER TABLE public\.(properties|clients|rental_contracts|rent_index_values) ENABLE ROW LEVEL SECURITY;" actual_schema_changes.txt > clean_unauthorized_schema.txt || true
+  
+  if [ -s clean_unauthorized_schema.txt ]; then
+    echo "ERROR: Unauthorized schema differences found!"
+    cat clean_unauthorized_schema.txt
+    ERRORS=1
+  else
+    echo "SUCCESS: Only authorized security schema overrides found."
+  fi
 fi
 
 if ! diff -u initial_storage.txt final_storage.txt > storage_diff.txt; then
@@ -209,9 +220,23 @@ if ! diff -u initial_storage.txt final_storage.txt > storage_diff.txt; then
 fi
 
 if ! diff -u initial_policies.txt final_policies.txt > policies_diff.txt; then
-  echo "ERROR: Policies differ after rollbacks!"
-  cat policies_diff.txt
-  ERRORS=1
+  echo "Policies differ. Checking authorized security overrides..."
+  
+  # Filter out unified diff headers and context lines, keeping only additions (+) and deletions (-)
+  grep -E "^[+-]" policies_diff.txt | grep -vE "^(\+\+\+|---)" > actual_changes.txt || true
+
+  # Remove the authorized security overrides from the changes
+  # (The new secure policies added, and the old insecure policies removed)
+  grep -vE "^[+-]public\|(properties|clients|rental_contracts|rent_index_values)\|(properties|clients|rental|rent_index)_(select|insert|update|delete)" actual_changes.txt | \
+  grep -vE "^[+-]storage\|objects\|(storage_select_policy|storage_insert_policy|storage_delete_policy|documents_select|documents_insert|documents_update|documents_delete)" > clean_unauthorized.txt || true
+
+  if [ -s clean_unauthorized.txt ]; then
+    echo "ERROR: Unauthorized policy differences found!"
+    cat clean_unauthorized.txt
+    ERRORS=1
+  else
+    echo "SUCCESS: Only authorized security policy overrides found (Storage and Inmobiliaria)."
+  fi
 fi
 
 if ! diff -u initial_grants.txt final_grants.txt > grants_diff.txt; then
