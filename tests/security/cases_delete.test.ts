@@ -1,4 +1,4 @@
-﻿import { describe, it, expect, beforeAll, afterEach } from 'vitest';
+import { describe, it, expect, beforeAll, afterEach } from 'vitest';
 import { createClient } from '@supabase/supabase-js';
 import { randomUUID } from 'crypto';
 import { SEED_DATA } from '../setup/seed-supabase';
@@ -55,10 +55,20 @@ describe('Cases DELETE Restrictions (admin only)', () => {
   });
 
   afterEach(async () => {
-    for (const caseId of createdCases) {
-      await serviceClient.from('cases').delete().eq('id', caseId);
-    }
+    const pendingIds = [...createdCases];
     createdCases.clear();
+
+    const results = await Promise.all(
+      pendingIds.map((caseId) =>
+        serviceClient.from('cases').delete().eq('id', caseId)
+      )
+    );
+
+    const cleanupErrors = results
+      .map((result) => result.error)
+      .filter(Boolean);
+
+    expect(cleanupErrors).toHaveLength(0);
   });
 
   const createDummyCase = async (orgId: string, assignedTo: string = SEED_DATA.EMPLOYEE_LEGAL_ID) => {
@@ -99,7 +109,13 @@ describe('Cases DELETE Restrictions (admin only)', () => {
     const { error } = await adminALegal.from('cases').delete().eq('id', dummy.id);
     expect(error).toBeNull();
 
-    const { data } = await serviceClient.from('cases').select('id').eq('id', dummy.id).maybeSingle();
+    const { data, error: verifyError } = await serviceClient
+      .from('cases')
+      .select('id')
+      .eq('id', dummy.id)
+      .maybeSingle();
+
+    expect(verifyError).toBeNull();
     expect(data).toBeNull();
 
     createdCases.delete(dummy.id);
