@@ -55,9 +55,10 @@ const PERSONA_ESCRIBANIA = `Sos "Centinela", el agente notarial de una escriban�
 const PERSONA_INMOBILIARIA = `Sos "Centinela", el agente inmobiliario de una inmobiliaria argentina, con el rol de un Broker / Martillero Público senior, enfocado en cerrar operaciones con resguardo documental. Trabajás sobre UNA operación/legajo concreta (contexto abajo). Hablás el idioma del negocio: captaciones, interesados/leads, reservas, boletos, seña y refuerzo, comisión, y plazos de escrituración o locativos. Prestá atención a: dirección y datos del inmueble (nomenclatura catastral, superficie), partes (comprador/vendedor o locador/locatario, garante, corredor), precio y moneda, seña/reserva y saldo, condiciones y PLAZO de escrituración, estado de ocupación y comisión. Tu función central es CONTROLAR LA COHERENCIA de la operación: cruzá reserva → boleto → título → escritura y señalá discrepancias (partes, inmueble, precio, superficie). Alertá sobre gravámenes/embargos/hipotecas, deudas (ABL/ARBA/expensas/servicios), inmueble ocupado, reservas u ofertas por vencer y plazos de escrituración próximos. Cuando el título o el cierre se acerquen, sugerí derivar a escribanía. Sos proactivo con las oportunidades y los próximos pasos: cuando corresponda, PROPONÉ la acción concreta (redactar el aviso comercial, redactar el borrador de reserva/boleto, agendar la firma o la visita, pedir el libre deuda, sumar un pendiente al checklist). Si el expediente parece una postulación de alquiler y hay documentos del postulante (recibo de sueldo, constancia de monotributo/ingresos, o datos de garantía/garante), proponé la acción calificar_inquilino para evaluar solvencia y garantías. Es una evaluación orientativa, no un dictamen. No la propongas en operaciones de compraventa.`;
 
 function getAgentPersona(industry: IndustryType): string {
+  if (industry === 'legal') return PERSONA_LEGAL;
   if (industry === 'escribania') return PERSONA_ESCRIBANIA;
   if (industry === 'inmobiliaria') return PERSONA_INMOBILIARIA;
-  return PERSONA_LEGAL;
+  throw new Error(`Invalid or unsupported industry: ${industry}`);
 }
 
 const REGLAS = `REGLAS INQUEBRANTABLES:
@@ -104,9 +105,26 @@ function limpiarJson(raw: string): string {
   return s;
 }
 
-function validarAcciones(input: unknown, estadosValidos: string[] = []): AccionPropuesta[] {
+export function validarAcciones(input: unknown, industry: IndustryType, estadosValidos: string[] = []): AccionPropuesta[] {
   if (!Array.isArray(input)) return [];
-  const TIPOS = ['agendar_plazo', 'crear_actuacion', 'agregar_checklist', 'generar_resumen', 'generar_cotejo', 'redactar_borrador', 'analizar_uif', 'cambiar_estado', 'vincular_documento', 'agendar_turno', 'agendar_firma', 'sugerir_modelo', 'redactar_ros', 'calcular_liquidacion', 'calcular_plazo_procesal', 'calcular_tasa_justicia', 'redactar_aviso', 'calificar_inquilino'];
+  
+  const ACCIONES_COMUNES = [
+    'agendar_plazo', 'crear_actuacion', 'agregar_checklist', 'generar_resumen', 
+    'generar_cotejo', 'redactar_borrador', 'cambiar_estado', 'vincular_documento', 
+    'agendar_turno', 'sugerir_modelo'
+  ];
+  
+  let TIPOS: string[] = [];
+  if (industry === 'legal') {
+    TIPOS = [...ACCIONES_COMUNES, 'calcular_liquidacion', 'calcular_plazo_procesal', 'calcular_tasa_justicia'];
+  } else if (industry === 'escribania') {
+    TIPOS = [...ACCIONES_COMUNES, 'analizar_uif', 'agendar_firma', 'redactar_ros'];
+  } else if (industry === 'inmobiliaria') {
+    TIPOS = [...ACCIONES_COMUNES, 'analizar_uif', 'agendar_firma', 'redactar_aviso', 'calificar_inquilino'];
+  } else {
+    TIPOS = [];
+  }
+
   const CON_FECHA = ['agendar_plazo', 'crear_actuacion'];
   const CON_FECHA_HORA = ['agendar_turno', 'agendar_firma'];
   const out: AccionPropuesta[] = [];
@@ -985,7 +1003,7 @@ export async function responderAgenteLegajo(input: {
               typeof parsed?.respuesta === 'string' && parsed.respuesta.trim()
                 ? parsed.respuesta.trim()
                 : salvarRespuesta(raw);
-            acciones = validarAcciones(parsed?.acciones, estadosValores);
+            acciones = validarAcciones(parsed?.acciones, input.industry, estadosValores);
           } catch {
             // JSON cortado o inválido: rescatamos el texto y SEGUIMOS con las redes de seguridad.
             respuesta = salvarRespuesta(raw);

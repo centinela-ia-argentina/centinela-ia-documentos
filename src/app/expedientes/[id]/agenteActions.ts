@@ -2,7 +2,8 @@
 
 import { createClient } from '@/lib/supabase/server';
 import { getUserProfile } from '@/lib/auth/getUserProfile';
-import { normalizeIndustryType } from '@/lib/industries/documentTypes';
+import { getStrictIndustryForOrganization } from '@/lib/auth/getStrictIndustry';
+import { normalizeIndustryType, type IndustryType } from '@/lib/industries/documentTypes';
 import { canUseAi, canUpdateCase, isUserRole } from '@/lib/permissions/roles';
 import { revalidatePath } from 'next/cache';
 import { guardarPlazoDetectado, guardarTurno } from '@/app/agenda/actions';
@@ -40,12 +41,12 @@ export async function preguntarAgente(input: {
     .single();
   if (!caseData) return { ok: false, motivo: 'Legajo no encontrado.' };
 
-  const { data: organization } = await supabase
-    .from('organizations')
-    .select('industry_type')
-    .eq('id', profile.organization_id)
-    .maybeSingle();
-  const industry = normalizeIndustryType(organization?.industry_type);
+  let industry: IndustryType;
+  try {
+    industry = await getStrictIndustryForOrganization(profile.organization_id);
+  } catch (e) {
+    return { ok: false, motivo: 'Industria no autorizada.' };
+  }
 
   const { data: docsData } = await supabase
     .from('documents')

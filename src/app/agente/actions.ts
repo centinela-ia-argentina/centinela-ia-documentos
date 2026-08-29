@@ -2,7 +2,8 @@
 
 import { createClient } from '@/lib/supabase/server';
 import { getUserProfile } from '@/lib/auth/getUserProfile';
-import { normalizeIndustryType } from '@/lib/industries/documentTypes';
+import { normalizeIndustryType, type IndustryType } from '@/lib/industries/documentTypes';
+import { getStrictIndustryForOrganization } from '@/lib/auth/getStrictIndustry';
 import { canUseAi } from '@/lib/permissions/roles';
 import {
   responderAgenteLegajo,
@@ -37,12 +38,12 @@ export async function preguntarAgenteGlobal(input: {
 
   const supabase = await createClient();
 
-  const { data: organization } = await supabase
-    .from('organizations')
-    .select('industry_type')
-    .eq('id', profile.organization_id)
-    .maybeSingle();
-  const industry = normalizeIndustryType(organization?.industry_type);
+  let industry: IndustryType;
+  try {
+    industry = await getStrictIndustryForOrganization(profile.organization_id);
+  } catch (e) {
+    return { ok: false, motivo: 'Industria no autorizada.' };
+  }
 
 const GLOBAL_AGENT_CASE_CONTEXT_LIMIT = 40;
 

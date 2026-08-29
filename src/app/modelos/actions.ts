@@ -1,6 +1,7 @@
 'use server';
 
 import { getUserProfile } from '@/lib/auth/getUserProfile';
+import { getStrictIndustry, getStrictIndustryForOrganization } from '@/lib/auth/getStrictIndustry';
 import { canUseAi } from '@/lib/permissions/roles';
 import { createAuditLog } from '@/lib/audit/createAuditLog';
 import { createClient } from '@/lib/supabase/server';
@@ -17,8 +18,15 @@ export async function redactarEscritoIA(input: {
   industria?: string;
 }): Promise<RedactarResult> {
   const { user, profile } = await getUserProfile();
-  if (!user || !profile) return { ok: false, motivo: 'sin_permiso' };
+  if (!user || !profile || !profile.organization_id) return { ok: false, motivo: 'sin_permiso' };
   if (!canUseAi(profile.role as any)) return { ok: false, motivo: 'sin_permiso' };
+
+  let industriaModelo: string;
+  try {
+    industriaModelo = await getStrictIndustryForOrganization(profile.organization_id);
+  } catch (e) {
+    return { ok: false, motivo: 'sin_permiso' };
+  }
 
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) return { ok: false, motivo: 'sin_key' };
@@ -30,7 +38,6 @@ export async function redactarEscritoIA(input: {
     .map(([k, v]) => `- ${k}: ${v}`)
     .join('\n');
 
-  const industriaModelo = input.industria || 'legal';
   const persona =
     industriaModelo === 'escribania'
       ? 'Sos un escribano/a argentino/a experto/a en redacción de instrumentos notariales. Redactá un documento formal, claro y bien estructurado, en español rioplatense con estilo notarial.'
@@ -93,7 +100,7 @@ export async function redactarEscritoIA(input: {
       action: 'ai_model_generated' as any,
       resourceType: 'organization',
       resourceId: profile.organization_id,
-      metadata: { entity_id: input.titulo, details: { industria: input.industria } }
+      metadata: { entity_id: input.titulo, details: { industria: industriaModelo } }
     });
 
     return { ok: true, texto: texto.trim() };
@@ -120,8 +127,15 @@ export type RevisionResult =
 
 export async function revisarEscritoIA(input: { texto: string }): Promise<RevisionResult> {
   const { user, profile } = await getUserProfile();
-  if (!user || !profile) return { ok: false, motivo: 'sin_permiso' };
+  if (!user || !profile || !profile.organization_id) return { ok: false, motivo: 'sin_permiso' };
   if (!canUseAi(profile.role as any)) return { ok: false, motivo: 'sin_permiso' };
+
+  try {
+    const industry = await getStrictIndustryForOrganization(profile.organization_id);
+    if (industry !== 'legal') return { ok: false, motivo: 'sin_permiso' };
+  } catch (e) {
+    return { ok: false, motivo: 'sin_permiso' };
+  }
 
   const texto = input.texto?.trim();
   if (!texto || texto.length < 40) return { ok: false, motivo: 'sin_texto' };

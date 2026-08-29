@@ -2,6 +2,7 @@
 
 import { createClient } from '@/lib/supabase/server';
 import { getUserProfile } from '@/lib/auth/getUserProfile';
+import { getStrictIndustry } from '@/lib/auth/getStrictIndustry';
 import { calcularProximoAjuste, estadoVencimiento, getIndexTypeLabel, getRentalStatusLabel } from '@/lib/rentals/labels';
 import { getPropertyStatusLabel, getPropertyTypeLabel } from '@/lib/properties/labels';
 import { getClientStatusLabel, getClientTypeLabel, getOperationInterestLabel, getDesiredPropertyTypeLabel } from '@/lib/clients/labels';
@@ -12,6 +13,13 @@ import type { RentalContract } from '@/types/rental';
 export async function generarBriefing() {
   const { user, profile } = await getUserProfile();
   if (!user || !profile) return { ok: false as const, motivo: 'sin_sesion' as const };
+
+  try {
+    const industry = await getStrictIndustry();
+    if (industry !== 'inmobiliaria') return { ok: false as const, motivo: 'sin_permiso' as const };
+  } catch (e) {
+    return { ok: false as const, motivo: 'sin_permiso' as const };
+  }
 
   const supabase = await createClient();
   const orgId = profile.organization_id;
@@ -60,6 +68,13 @@ export async function generarBriefing() {
 export async function preguntarCopiloto(pregunta: string) {
   const { user, profile } = await getUserProfile();
   if (!user || !profile) return { ok: false as const, motivo: 'sin_sesion' as const };
+
+  try {
+    const industry = await getStrictIndustry();
+    if (industry !== 'inmobiliaria') return { ok: false as const, motivo: 'sin_permiso' as const };
+  } catch (e) {
+    return { ok: false as const, motivo: 'sin_permiso' as const };
+  }
 
   const limpia = (pregunta || '').trim();
   if (!limpia) return { ok: false as const, motivo: 'sin_pregunta' as const };
