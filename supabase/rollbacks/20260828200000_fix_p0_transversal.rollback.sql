@@ -52,9 +52,15 @@ DROP POLICY IF EXISTS "case_derivations_insert_role" ON public.case_derivations;
 DROP POLICY IF EXISTS "case_derivations_update_role" ON public.case_derivations;
 DROP POLICY IF EXISTS "case_derivations_delete_role" ON public.case_derivations;
 
--- Nota: No eliminamos las columnas from/to_organization_id, etc. para evitar 
--- pérdida accidental de datos en rollback, pero podríamos hacerlo si la especificación
--- fuera estricta sobre recrear el schema idéntico. Se dejan por seguridad.
+ALTER TABLE public.case_derivations
+DROP COLUMN IF EXISTS from_organization_id,
+DROP COLUMN IF EXISTS from_organization_name,
+DROP COLUMN IF EXISTS case_title,
+DROP COLUMN IF EXISTS to_email,
+DROP COLUMN IF EXISTS to_organization_id,
+DROP COLUMN IF EXISTS mensaje,
+DROP COLUMN IF EXISTS created_by,
+DROP COLUMN IF EXISTS accepted_by;
 
 -- ==============================================================================
 -- ROLLBACK P0-005: PROTOCOLO NOTARIAL
@@ -64,7 +70,6 @@ DROP POLICY IF EXISTS "protocolo_insert_role" ON public.protocolo_escrituras;
 DROP POLICY IF EXISTS "protocolo_update_role" ON public.protocolo_escrituras;
 DROP POLICY IF EXISTS "protocolo_delete_role" ON public.protocolo_escrituras;
 
--- Si se desea restaurar el estado anterior donde la tabla no existía, descomentar:
--- DROP TABLE IF EXISTS public.protocolo_escrituras CASCADE;
+DROP TABLE IF EXISTS public.protocolo_escrituras CASCADE;
 
 COMMIT;

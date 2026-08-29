@@ -161,14 +161,8 @@ export function UploadClient({
   const duplicateCount = Object.values(uploadStatus).filter(s => s.status === 'duplicate').length;
 
   useEffect(() => {
-    if (totalFiles > 0 && !isUploading && successCount === totalFiles && errorCount === 0) {
-      router.refresh();
-      if (caseId) {
-        router.push(`/expedientes/${caseId}?tab=documentos`);
-      } else {
-        router.push('/documentos');
-      }
-    }
+    // Eliminado el redireccionamiento automático para permitir que 
+    // el usuario (y E2E) vea el resumen de estado y decida cuándo avanzar.
   }, [isUploading, totalFiles, successCount, errorCount, caseId, router]);
 
   return (
