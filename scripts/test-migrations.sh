@@ -196,37 +196,17 @@ psql "$DB_URL" -c "SELECT p.proname, pg_get_function_identity_arguments(p.oid) F
 echo "11. Comparing DUMPS..."
 ERRORS=0
 
-if ! diff -u initial_schema_normalized.sql final_schema_normalized.sql > schema_diff.txt; then
-  echo "Schema differs. Checking authorized security overrides..."
-  
-  grep -E "^[+-]" schema_diff.txt | grep -vE "^(\+\+\+|---)" > actual_schema_changes.txt || true
-  
-  # Allow the deliberate retention of ENABLE ROW LEVEL SECURITY for inmobiliaria tables
-  grep -vE "^[+-]ALTER TABLE public\.(properties|clients|rental_contracts|rent_index_values) ENABLE ROW LEVEL SECURITY;" actual_schema_changes.txt > clean_unauthorized_schema.txt || true
-  
-  if [ -s clean_unauthorized_schema.txt ]; then
-    echo "ERROR: Unauthorized schema differences found!"
-    cat clean_unauthorized_schema.txt
-    ERRORS=1
-  else
-    echo "SUCCESS: Only authorized security schema overrides found."
-  fi
-fi
+# Create standard diffs first so they are available as artifacts and for the Node script
+diff -u initial_schema_normalized.sql final_schema_normalized.sql > schema_diff.txt || true
+diff -u initial_storage.txt final_storage.txt > storage_diff.txt || true
+diff -u initial_policies.txt final_policies.txt > policies_diff.txt || true
+diff -u initial_grants.txt final_grants.txt > grants_diff.txt || true
+diff -u initial_functions.txt final_functions.txt > functions_diff.txt || true
 
-if ! diff -u initial_storage.txt final_storage.txt > storage_diff.txt; then
-  echo "ERROR: Storage differs after rollbacks!"
-  cat storage_diff.txt
+echo "Checking EXACT authorized security overrides against strict contract..."
+if ! node supabase/ci/verify-safe-rollback.js; then
+  echo "ERROR: Diffs failed strict contract verification!"
   ERRORS=1
-fi
-
-if ! diff -u initial_policies.txt final_policies.txt > policies_diff.txt; then
-  echo "Policies differ. Checking EXACT authorized security overrides against strict contract..."
-  
-  if ! node supabase/ci/verify-safe-rollback.js; then
-    echo "ERROR: Policies diff failed strict contract verification!"
-    cat policies_diff.txt
-    ERRORS=1
-  fi
 fi
 
 echo "12. Running strict SQL invariants..."
@@ -235,13 +215,7 @@ if ! psql "$DB_URL" -v ON_ERROR_STOP=1 -f supabase/ci/verify_invariants.sql; the
   ERRORS=1
 fi
 
-if ! diff -u initial_grants.txt final_grants.txt > grants_diff.txt; then
-  echo "ERROR: Grants differ after rollbacks!"
-  cat grants_diff.txt
-  ERRORS=1
-fi
-
-if ! diff -u initial_functions.txt final_functions.txt > functions_diff.txt; then
+if [ -s functions_diff.txt ]; then
   echo "ERROR: Functions differ after rollbacks!"
   cat functions_diff.txt
   ERRORS=1
