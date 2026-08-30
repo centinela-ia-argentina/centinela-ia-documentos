@@ -287,4 +287,21 @@ describe('Checklist mutations (T-AUD-P1-006)', () => {
     expect(mockUpdate).not.toHaveBeenCalled();
     expect(createAuditLog).not.toHaveBeenCalled();
   });
+
+  it('G. Rechaza toggleChecklistItem cross-case', async () => {
+    setupMockQuery([
+      { data: { id: 'item-B', checklist_id: 'check-B', status: 'pending' } },
+      { data: { id: 'check-B', case_id: 'case-B' } },
+    ]);
+
+    const formData = new FormData();
+    formData.append('case_id', 'case-A');
+    formData.append('item_id', 'item-B');
+
+    await toggleChecklistItem(formData);
+
+    expect(mockUpdate).not.toHaveBeenCalled();
+    expect(mockDelete).not.toHaveBeenCalled();
+    expect(createAuditLog).not.toHaveBeenCalled();
+  });
 });
