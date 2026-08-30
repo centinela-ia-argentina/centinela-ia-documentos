@@ -108,6 +108,7 @@ async function createCaseChecklist(input: {
   industry: IndustryType;
 }) {
   const template = getCaseTemplate(input.industry, input.caseType);
+  if (!template) return;
   const checklistItems = template.checklist.filter((item) => item.trim());
 
   if (checklistItems.length === 0) return;
@@ -197,21 +198,26 @@ export async function createCase(formData: FormData) {
 
   const supabase = await createClient();
   
-  const { data: orgData } = await supabase
+  const { data: orgData, error: orgError } = await supabase
     .from('organizations')
     .select('industry_type')
     .eq('id', profile.organization_id)
     .maybeSingle();
 
-  const { industry, caseType, error: validationError } = resolveCaseTypeForIndustry(
-    orgData?.industry_type,
+  if (orgError || !orgData) {
+    redirect('/expedientes/nuevo?error=invalid_industry');
+  }
+
+  const resolution = resolveCaseTypeForIndustry(
+    orgData.industry_type,
     rawCaseType
   );
 
-  if (validationError) {
-    redirect(`/expedientes/nuevo?error=${validationError}`);
+  if (!resolution.ok) {
+    redirect(`/expedientes/nuevo?error=${resolution.error}`);
   }
 
+  const { industry, caseType } = resolution;
   const status = resolveCaseStatus(requestedStatus, industry);
 
   const { data, error } = await supabase
@@ -232,7 +238,7 @@ export async function createCase(formData: FormData) {
 
   if (error || !data) {
     console.error('Create case error:', error);
-    redirect('/expedientes/nuevo?error=insert_failed');
+    redirect('/expedientes/nuevo?error=create_failed');
   }
 
   await createAuditLog({

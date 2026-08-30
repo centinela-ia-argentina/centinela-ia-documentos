@@ -1,26 +1,46 @@
-import { type IndustryType, isIndustryType } from '@/lib/industries/documentTypes';
-import { getCaseTypes } from '@/lib/industries/caseConfig';
+import { type IndustryType, isIndustryType, ACTIVE_INDUSTRY_TYPES } from '@/lib/industries/documentTypes';
+import { caseTypesByIndustry } from '@/lib/industries/caseConfig';
+
+export type CaseTypeResolution =
+  | {
+      ok: true;
+      industry: IndustryType;
+      caseType: string;
+    }
+  | {
+      ok: false;
+      error: 'invalid_industry' | 'invalid_case_type';
+    };
 
 export function resolveCaseTypeForIndustry(
   rawIndustry: unknown,
   rawCaseType: unknown
-): { industry: IndustryType; caseType: string; error?: 'invalid_industry' | 'invalid_case_type' } {
+): CaseTypeResolution {
   if (!isIndustryType(rawIndustry)) {
-    return { industry: 'general', caseType: '', error: 'invalid_industry' };
+    return { ok: false, error: 'invalid_industry' };
   }
   const industry = rawIndustry as IndustryType;
+  
+  if (!ACTIVE_INDUSTRY_TYPES.includes(industry)) {
+    return { ok: false, error: 'invalid_industry' };
+  }
+
+  const exactTypes = caseTypesByIndustry[industry];
+  if (!exactTypes || exactTypes.length === 0) {
+    return { ok: false, error: 'invalid_industry' };
+  }
+
   const caseType = typeof rawCaseType === 'string' ? rawCaseType.trim() : '';
 
   if (!caseType) {
-    return { industry, caseType, error: 'invalid_case_type' };
+    return { ok: false, error: 'invalid_case_type' };
   }
 
-  const validTypes = getCaseTypes(industry);
-  if (!validTypes.includes(caseType)) {
-    return { industry, caseType, error: 'invalid_case_type' };
+  if (!exactTypes.includes(caseType)) {
+    return { ok: false, error: 'invalid_case_type' };
   }
 
-  return { industry, caseType };
+  return { ok: true, industry, caseType };
 }
 
 export function getChecklistItemsToInsert(templateTitles: string[], currentTitles: string[]): string[] {

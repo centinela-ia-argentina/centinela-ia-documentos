@@ -29,51 +29,56 @@ describe('Expedientes Actions Helpers', () => {
   });
 
   describe('resolveCaseTypeForIndustry', () => {
-    it('1. Jurídico + Demanda: permitido', () => {
-      expect(resolveCaseTypeForIndustry('legal', 'Demanda')).toEqual({ industry: 'legal', caseType: 'Demanda' });
+    it('1. Industria null devuelve solamente ok: false e invalid_industry sin industry ni caseType', () => {
+      const result = resolveCaseTypeForIndustry(null, 'Demanda');
+      expect(result).toEqual({ ok: false, error: 'invalid_industry' });
+      expect('industry' in result).toBe(false);
+      expect('caseType' in result).toBe(false);
     });
-    it('2. Jurídico + Escritura: denegado', () => {
-      expect(resolveCaseTypeForIndustry('legal', 'Escritura').error).toBe('invalid_case_type');
+
+    it('2. Industria inexistente devuelve solamente ok: false e invalid_industry sin properties adicionales', () => {
+      const result = resolveCaseTypeForIndustry('inexistente', 'Demanda');
+      expect(result).toEqual({ ok: false, error: 'invalid_industry' });
     });
-    it('3. Inmobiliaria + Compraventa de inmueble: permitido', () => {
-      expect(resolveCaseTypeForIndustry('inmobiliaria', 'Compraventa de inmueble')).toEqual({ industry: 'inmobiliaria', caseType: 'Compraventa de inmueble' });
+
+    it('3. gestoria + General devuelve invalid_industry por estar vacía', () => {
+      expect(resolveCaseTypeForIndustry('gestoria', 'General')).toEqual({ ok: false, error: 'invalid_industry' });
     });
-    it('4. Inmobiliaria + Demanda: denegado', () => {
-      expect(resolveCaseTypeForIndustry('inmobiliaria', 'Demanda').error).toBe('invalid_case_type');
+
+    it('4. contable + Otro devuelve invalid_industry', () => {
+      expect(resolveCaseTypeForIndustry('contable', 'Otro')).toEqual({ ok: false, error: 'invalid_industry' });
     });
-    it('5. Escribanía + Escritura: permitido', () => {
-      expect(resolveCaseTypeForIndustry('escribania', 'Escritura')).toEqual({ industry: 'escribania', caseType: 'Escritura' });
+
+    it('5. compliance + General devuelve invalid_industry', () => {
+      expect(resolveCaseTypeForIndustry('compliance', 'General')).toEqual({ ok: false, error: 'invalid_industry' });
     });
-    it('6. Escribanía + Demanda: denegado', () => {
-      expect(resolveCaseTypeForIndustry('escribania', 'Demanda').error).toBe('invalid_case_type');
+
+    it('6. legal + Demanda es válido', () => {
+      expect(resolveCaseTypeForIndustry('legal', 'Demanda')).toEqual({ ok: true, industry: 'legal', caseType: 'Demanda' });
     });
-    it('7. Jurídico + Sucesión: permitido', () => {
-      expect(resolveCaseTypeForIndustry('legal', 'Sucesión')).toEqual({ industry: 'legal', caseType: 'Sucesión' });
+
+    it('7. legal + Escritura es invalid_case_type', () => {
+      expect(resolveCaseTypeForIndustry('legal', 'Escritura')).toEqual({ ok: false, error: 'invalid_case_type' });
     });
-    it('8. Escribanía + Sucesión: permitido', () => {
-      expect(resolveCaseTypeForIndustry('escribania', 'Sucesión')).toEqual({ industry: 'escribania', caseType: 'Sucesión' });
+
+    it('8. inmobiliaria + Alquiler es válido', () => {
+      expect(resolveCaseTypeForIndustry('inmobiliaria', 'Alquiler')).toEqual({ ok: true, industry: 'inmobiliaria', caseType: 'Alquiler' });
     });
-    it('9. case_type vacío: denegado', () => {
-      expect(resolveCaseTypeForIndustry('legal', '').error).toBe('invalid_case_type');
-      expect(resolveCaseTypeForIndustry('legal', null).error).toBe('invalid_case_type');
+
+    it('9. inmobiliaria + Demanda es invalid_case_type', () => {
+      expect(resolveCaseTypeForIndustry('inmobiliaria', 'Demanda')).toEqual({ ok: false, error: 'invalid_case_type' });
     });
-    it('10. case_type desconocido: denegado', () => {
-      expect(resolveCaseTypeForIndustry('legal', 'Inventado').error).toBe('invalid_case_type');
+
+    it('10. escribania + Escritura es válido', () => {
+      expect(resolveCaseTypeForIndustry('escribania', 'Escritura')).toEqual({ ok: true, industry: 'escribania', caseType: 'Escritura' });
     });
-    it('11. case_type válido con espacios externos: permitido después de trim', () => {
-      expect(resolveCaseTypeForIndustry('legal', '  Demanda  ')).toEqual({ industry: 'legal', caseType: 'Demanda' });
+
+    it('11. escribania + Demanda es invalid_case_type', () => {
+      expect(resolveCaseTypeForIndustry('escribania', 'Demanda')).toEqual({ ok: false, error: 'invalid_case_type' });
     });
-    it('12. Industria ausente o desconocida: denegada, sin fallback a general', () => {
-      expect(resolveCaseTypeForIndustry(null, 'Demanda').error).toBe('invalid_industry');
-      expect(resolveCaseTypeForIndustry('inexistente', 'Demanda').error).toBe('invalid_industry');
-      expect(resolveCaseTypeForIndustry(null, 'Demanda').industry).toBe('general'); // Retorna general pero con error, fallando cerrado
-    });
-    it('13. Un tipo perteneciente a empresa no debe aceptarse para Jurídico, Inmobiliaria o Escribanía', () => {
-      expect(resolveCaseTypeForIndustry('legal', 'Legajo de empleado').error).toBe('invalid_case_type');
-    });
-    it('14. Otro solo se acepta cuando figure en getCaseTypes para esa industria', () => {
-      expect(resolveCaseTypeForIndustry('legal', 'Otro')).toEqual({ industry: 'legal', caseType: 'Otro' });
+
+    it('12. espacios externos en un tipo válido: permitido después de trim', () => {
+      expect(resolveCaseTypeForIndustry('legal', '  Demanda  ')).toEqual({ ok: true, industry: 'legal', caseType: 'Demanda' });
     });
   });
 });
-

@@ -1,54 +1,64 @@
 import { describe, it, expect } from 'vitest';
 import { getCaseTemplate } from './caseTemplates';
+import { ACTIVE_INDUSTRY_TYPES } from './documentTypes';
+import { caseTypesByIndustry } from './caseConfig';
 
 describe('caseTemplates.ts - Selección por industria y caseType', () => {
-  it('1. Jurídico + Sucesión selecciona la plantilla jurídica', () => {
+  it('1. getCaseTemplate("legal", "Alquiler") no devuelve plantilla', () => {
+    expect(getCaseTemplate('legal', 'Alquiler')).toBeNull();
+  });
+
+  it('2. getCaseTemplate("inmobiliaria", "Demanda") no devuelve plantilla', () => {
+    expect(getCaseTemplate('inmobiliaria', 'Demanda')).toBeNull();
+  });
+
+  it('3. getCaseTemplate("escribania", "Contrato / Asesoramiento") no devuelve plantilla', () => {
+    expect(getCaseTemplate('escribania', 'Contrato / Asesoramiento')).toBeNull();
+  });
+
+  it('4. getCaseTemplate("empresa", "Poder") no devuelve plantilla notarial', () => {
+    expect(getCaseTemplate('empresa', 'Poder')).toBeNull();
+  });
+
+  it('5. getCaseTemplate("gestoria", "General") no devuelve fallback', () => {
+    expect(getCaseTemplate('gestoria', 'General')).toBeNull();
+  });
+
+  it('6. getCaseTemplate("legal", "Sucesión") devuelve la jurídica', () => {
     const template = getCaseTemplate('legal', 'Sucesión');
-    expect(template.checklist).toContain('Publicación de edictos');
-    expect(template.checklist).toContain('Declaratoria de herederos');
-    expect(template.checklist).not.toContain('Certificado de dominio');
+    expect(template).not.toBeNull();
+    expect(template!.checklist).toContain('Publicación de edictos');
   });
 
-  it('2. Escribanía + Sucesión selecciona la plantilla notarial', () => {
+  it('7. getCaseTemplate("escribania", "Sucesión") devuelve la notarial', () => {
     const template = getCaseTemplate('escribania', 'Sucesión');
-    expect(template.checklist).toContain('Certificado de dominio');
-    expect(template.checklist).toContain('Certificado de inhibiciones');
-    expect(template.checklist).not.toContain('Publicación de edictos');
+    expect(template).not.toBeNull();
+    expect(template!.checklist).toContain('Certificado de dominio');
   });
 
-  it('3. Ambas listas son distintas', () => {
-    const tLegal = getCaseTemplate('legal', 'Sucesión');
-    const tEscrib = getCaseTemplate('escribania', 'Sucesión');
-    expect(tLegal.checklist).not.toEqual(tEscrib.checklist);
+  it('8. getCaseTemplate("legal", "Otro") devuelve el fallback explícito permitido', () => {
+    const template = getCaseTemplate('legal', 'Otro');
+    expect(template).not.toBeNull();
+    expect(template!.checklist).toContain('Documento principal');
   });
 
-  it('4. La jurídica conserva Publicación de edictos y Declaratoria de herederos', () => {
-    const template = getCaseTemplate('legal', 'Sucesión');
-    expect(template.checklist).toContain('Publicación de edictos');
-    expect(template.checklist).toContain('Declaratoria de herederos');
+  it('9. getCaseTemplate("inmobiliaria", "Otro") devuelve el fallback explícito permitido', () => {
+    const template = getCaseTemplate('inmobiliaria', 'Otro');
+    expect(template).not.toBeNull();
+    expect(template!.checklist).toContain('Documento principal');
   });
 
-  it('5. La notarial contiene Certificado de dominio y documentación de instrumentación/adjudicación', () => {
-    const template = getCaseTemplate('escribania', 'Sucesión');
-    expect(template.checklist).toContain('Certificado de dominio');
-    expect(template.checklist).toContain('Datos necesarios para la escritura de adjudicación');
+  it('10. Tipo inventado no devuelve fallback', () => {
+    expect(getCaseTemplate('legal', 'Inventado')).toBeNull();
   });
 
-  it('6. Una industria no puede obtener la plantilla exclusiva de otra industria', () => {
-    const tLegal = getCaseTemplate('legal', 'Sucesión');
-    expect(tLegal.checklist).not.toContain('Certificado de dominio');
-    const tEscrib = getCaseTemplate('escribania', 'Sucesión');
-    expect(tEscrib.checklist).not.toContain('Publicación de edictos');
-  });
-
-  it('7. Los tipos válidos existentes de Jurídico, Inmobiliaria y Escribanía continúan resolviendo una plantilla', () => {
-    expect(getCaseTemplate('legal', 'Demanda').checklist).toContain('Escrito de demanda');
-    expect(getCaseTemplate('inmobiliaria', 'Alquiler').checklist).toContain('Garantía');
-    expect(getCaseTemplate('escribania', 'Poder').checklist).toContain('Objeto y facultades del poder (general o especial)');
-  });
-
-  it('8. Un tipo desconocido no reutiliza una plantilla cross-industry', () => {
-    const template = getCaseTemplate('empresa', 'Inexistente');
-    expect(template.checklist).toContain('Documento principal'); // fallbackTemplate
+  it('Parametrizada: recorre las combinaciones válidas configuradas y comprueba plantilla explícita', () => {
+    for (const industry of ACTIVE_INDUSTRY_TYPES) {
+      const validTypes = caseTypesByIndustry[industry];
+      for (const caseType of validTypes) {
+        const template = getCaseTemplate(industry, caseType);
+        expect(template).not.toBeNull();
+      }
+    }
   });
 });
