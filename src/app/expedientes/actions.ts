@@ -18,7 +18,7 @@ import {
   getCaseStatuses,
 } from '@/lib/industries/caseConfig';
 import { getCaseTemplate } from '@/lib/industries/caseTemplates';
-import { normalizeIndustryType } from '@/lib/industries/documentTypes';
+import { normalizeIndustryType, type IndustryType } from '@/lib/industries/documentTypes';
 import {
   canCreateCase,
   canUpdateCase,
@@ -26,7 +26,7 @@ import {
   canDeleteCase,
   isUserRole,
 } from '@/lib/permissions/roles';
-import { getChecklistItemsToInsert, getNextChecklistStatus } from './helpers';
+import { getChecklistItemsToInsert, getNextChecklistStatus, resolveCaseTypeForIndustry } from './helpers';
 
 const CASE_METADATA_PREFIX = 'case_metadata.';
 
@@ -105,8 +105,9 @@ async function createCaseChecklist(input: {
   organizationId: string;
   userId: string;
   caseType: string;
+  industry: IndustryType;
 }) {
-  const template = getCaseTemplate(input.caseType);
+  const template = getCaseTemplate(input.industry, input.caseType);
   const checklistItems = template.checklist.filter((item) => item.trim());
 
   if (checklistItems.length === 0) return;
@@ -185,7 +186,7 @@ export async function createCase(formData: FormData) {
 
   const title = String(formData.get('title') || '').trim();
   const clientName = String(formData.get('client_name') || '').trim();
-  const caseType = String(formData.get('case_type') || 'general');
+  const rawCaseType = String(formData.get('case_type') || '');
   const requestedStatus = String(formData.get('status') || '');
   const propertyId = String(formData.get('property_id') || '');
   const { metadata } = collectCaseMetadata(formData);
@@ -195,7 +196,22 @@ export async function createCase(formData: FormData) {
   }
 
   const supabase = await createClient();
-  const industry = await getOrganizationIndustry(supabase, profile.organization_id);
+  
+  const { data: orgData } = await supabase
+    .from('organizations')
+    .select('industry_type')
+    .eq('id', profile.organization_id)
+    .maybeSingle();
+
+  const { industry, caseType, error: validationError } = resolveCaseTypeForIndustry(
+    orgData?.industry_type,
+    rawCaseType
+  );
+
+  if (validationError) {
+    redirect(`/expedientes/nuevo?error=${validationError}`);
+  }
+
   const status = resolveCaseStatus(requestedStatus, industry);
 
   const { data, error } = await supabase
@@ -216,7 +232,7 @@ export async function createCase(formData: FormData) {
 
   if (error || !data) {
     console.error('Create case error:', error);
-    redirect('/expedientes/nuevo?error=create_failed');
+    redirect('/expedientes/nuevo?error=insert_failed');
   }
 
   await createAuditLog({
@@ -238,6 +254,7 @@ export async function createCase(formData: FormData) {
     organizationId: profile.organization_id,
     userId: user.id,
     caseType,
+    industry,
   });
 
   revalidatePath('/dashboard');

@@ -1,3 +1,5 @@
+import { type IndustryType } from './documentTypes';
+
 export type CaseTemplate = {
   checklist: string[];
   defaultStatus?: string;
@@ -21,7 +23,7 @@ export const caseTemplatesByType: Record<string, CaseTemplate> = {
       'Cédula de notificación',
     ],
   },
-  Sucesión: {
+  'legal:Sucesión': {
     checklist: [
       'Partida de defunción',
       'Partidas de vínculo (nacimiento / matrimonio)',
@@ -31,6 +33,21 @@ export const caseTemplatesByType: Record<string, CaseTemplate> = {
       'Avalúo fiscal de inmuebles',
       'Publicación de edictos',
       'Declaratoria de herederos',
+    ],
+  },
+  'escribania:Sucesión': {
+    checklist: [
+      'Partida de defunción',
+      'Partidas que acrediten los vínculos',
+      'DNI de herederos o comparecientes',
+      'CUIT / CUIL / CDI de las partes',
+      'Declaratoria de herederos o testamento aprobado',
+      'Testimonio o copia certificada del antecedente sucesorio',
+      'Títulos antecedentes de los bienes',
+      'Certificado de dominio',
+      'Certificado de inhibiciones',
+      'Valuación fiscal o documentación catastral',
+      'Datos necesarios para la escritura de adjudicación',
     ],
   },
   'Contrato / Asesoramiento': {
@@ -173,8 +190,13 @@ export const caseTemplatesByType: Record<string, CaseTemplate> = {
   Otro: fallbackTemplate,
 };
 
-export function getCaseTemplate(caseType?: string | null): CaseTemplate {
+export function getCaseTemplate(industry: IndustryType, caseType?: string | null): CaseTemplate {
   if (!caseType) return fallbackTemplate;
+
+  const specificKey = `${industry}:${caseType}`;
+  if (caseTemplatesByType[specificKey]) {
+    return caseTemplatesByType[specificKey];
+  }
 
   return caseTemplatesByType[caseType] ?? fallbackTemplate;
 }
