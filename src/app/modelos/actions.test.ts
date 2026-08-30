@@ -19,7 +19,7 @@ describe('extraerDatosParaModelo', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     global.fetch = globalFetchMock;
-    
+
     // Configurar API Key por defecto para que no falle por esto prematuramente
     process.env.GEMINI_API_KEY = 'test-key';
   });
@@ -87,8 +87,10 @@ describe('extraerDatosParaModelo', () => {
     expect(globalFetchMock).not.toHaveBeenCalled();
   });
 
-  it('7. Admin autorizado ejecuta el flujo normal (aunque haya DB vacía)', async () => {
-    const mockOrder = vi.fn().mockResolvedValue({ data: [] });
+  it('7. Admin autorizado ejecuta el flujo normal', async () => {
+    const mockOrder = vi.fn().mockResolvedValue({
+      data: [{ result_json: { vendedor: "Persona Ficticia", matricula: "TEST-123" } }]
+    });
     const mockEq2 = vi.fn().mockReturnValue({ order: mockOrder });
     const mockEq1 = vi.fn().mockReturnValue({ eq: mockEq2 });
     const mockSelect = vi.fn().mockReturnValue({ eq: mockEq1 });
@@ -96,16 +98,52 @@ describe('extraerDatosParaModelo', () => {
 
     vi.mocked(createClient).mockResolvedValue({ from: mockFrom } as any);
 
-    await runTest({ role: 'admin' });
+    const mockJsonResponse = {
+      candidates: [
+        {
+          content: {
+            parts: [
+              {
+                text: JSON.stringify({
+                  vendedor: "Persona Ficticia",
+                  matricula: "TEST-123",
+                  campo_vacio: "",
+                  campo_numerico: 123
+                })
+              }
+            ]
+          }
+        }
+      ]
+    };
 
-    expect(createClient).toHaveBeenCalled();
+    globalFetchMock.mockResolvedValue({
+      ok: true,
+      json: vi.fn().mockResolvedValue(mockJsonResponse)
+    });
+
+    const result = await runTest({ role: 'admin' });
+
+    expect(createClient).toHaveBeenCalledTimes(1);
     expect(mockFrom).toHaveBeenCalledWith('ai_outputs');
     expect(mockEq1).toHaveBeenCalledWith('case_id', 'case-1');
     expect(mockEq2).toHaveBeenCalledWith('organization_id', 'org-1');
+
+    expect(globalFetchMock).toHaveBeenCalledTimes(1);
+
+    expect(result).toEqual({
+      vendedor: "Persona Ficticia",
+      matricula: "TEST-123"
+    });
+
+    expect(result.campo_vacio).toBeUndefined();
+    expect(result.campo_numerico).toBeUndefined();
   });
 
   it('8. Employee autorizado ejecuta el flujo normal', async () => {
-    const mockOrder = vi.fn().mockResolvedValue({ data: [] });
+    const mockOrder = vi.fn().mockResolvedValue({
+      data: [{ result_json: { comprador: "Empresa S.A." } }]
+    });
     const mockEq2 = vi.fn().mockReturnValue({ order: mockOrder });
     const mockEq1 = vi.fn().mockReturnValue({ eq: mockEq2 });
     const mockSelect = vi.fn().mockReturnValue({ eq: mockEq1 });
@@ -113,15 +151,42 @@ describe('extraerDatosParaModelo', () => {
 
     vi.mocked(createClient).mockResolvedValue({ from: mockFrom } as any);
 
-    await runTest({ role: 'employee' });
+    const mockJsonResponse = {
+      candidates: [
+        {
+          content: {
+            parts: [
+              {
+                text: JSON.stringify({
+                  comprador: "Empresa S.A."
+                })
+              }
+            ]
+          }
+        }
+      ]
+    };
 
-    expect(createClient).toHaveBeenCalled();
+    globalFetchMock.mockResolvedValue({
+      ok: true,
+      json: vi.fn().mockResolvedValue(mockJsonResponse)
+    });
+
+    const result = await runTest({ role: 'employee' });
+
+    expect(createClient).toHaveBeenCalledTimes(1);
     expect(mockFrom).toHaveBeenCalledWith('ai_outputs');
+
+    expect(globalFetchMock).toHaveBeenCalledTimes(1);
+
+    expect(result).toEqual({
+      comprador: "Empresa S.A."
+    });
   });
 
   it('9. Sin GEMINI_API_KEY para rol autorizado devuelve {} y no llama a fetch', async () => {
     process.env.GEMINI_API_KEY = '';
-    
+
     const mockOrder = vi.fn().mockResolvedValue({ data: [{ result_json: { test: '1' } }] });
     const mockEq2 = vi.fn().mockReturnValue({ order: mockOrder });
     const mockEq1 = vi.fn().mockReturnValue({ eq: mockEq2 });

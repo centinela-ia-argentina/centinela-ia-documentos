@@ -113,14 +113,13 @@ describe('createCase Server Action', () => {
   });
 });
 
-import { linkChecklistItemDocument, toggleChecklistItem, removeChecklistItem } from './actions';
+import { linkChecklistItemDocument, toggleChecklistItem, removeChecklistItem, toggleChecklistItemNotRequired } from './actions';
 
 describe('Checklist mutations (T-AUD-P1-006)', () => {
   const mockUpdate = vi.fn();
   const mockDelete = vi.fn();
   const mockSelect = vi.fn();
   const mockEq = vi.fn();
-  const mockMaybeSingle = vi.fn();
   const mockFrom = vi.fn();
 
   beforeEach(() => {
@@ -157,7 +156,7 @@ describe('Checklist mutations (T-AUD-P1-006)', () => {
     });
   };
 
-  it('Rechaza vinculación cruzada de items (item pertenece a otro checklist/case)', async () => {
+  it('A. Rechaza toggleChecklistItemNotRequired cross-case', async () => {
     setupMockQuery([
       { data: { id: 'item-B', checklist_id: 'check-B', status: 'pending' } },
       { data: { id: 'check-B', case_id: 'case-B' } },
@@ -166,33 +165,67 @@ describe('Checklist mutations (T-AUD-P1-006)', () => {
     const formData = new FormData();
     formData.append('case_id', 'case-A');
     formData.append('item_id', 'item-B');
-    formData.append('document_id', 'doc-A');
+
+    await toggleChecklistItemNotRequired(formData);
+
+    expect(mockUpdate).not.toHaveBeenCalled();
+    expect(mockDelete).not.toHaveBeenCalled();
+    expect(createAuditLog).not.toHaveBeenCalled();
+  });
+
+  it('B. Rechaza desvinculacion real cross-case mediante linkChecklistItemDocument', async () => {
+    setupMockQuery([
+      { data: { id: 'item-B', checklist_id: 'check-B', status: 'pending' } },
+      { data: { id: 'check-B', case_id: 'case-B' } },
+    ]);
+
+    const formData = new FormData();
+    formData.append('case_id', 'case-A');
+    formData.append('item_id', 'item-B');
+    formData.append('document_id', ''); // sin document_id
 
     await linkChecklistItemDocument(formData);
 
     expect(mockUpdate).not.toHaveBeenCalled();
+    expect(mockDelete).not.toHaveBeenCalled();
     expect(createAuditLog).not.toHaveBeenCalled();
   });
 
-  it('Rechaza vinculación cruzada de document (doc pertenece a otro case)', async () => {
+  it('C. Conserva prueba cross-case de eliminacion (removeChecklistItem)', async () => {
+    setupMockQuery([
+      { data: { id: 'item-B', checklist_id: 'check-B', status: 'pending' } },
+      { data: { id: 'check-B', case_id: 'case-B' } },
+    ]);
+
+    const formData = new FormData();
+    formData.append('case_id', 'case-A');
+    formData.append('item_id', 'item-B');
+
+    await removeChecklistItem(formData);
+
+    expect(mockDelete).not.toHaveBeenCalled();
+    expect(mockUpdate).not.toHaveBeenCalled();
+    expect(createAuditLog).not.toHaveBeenCalled();
+  });
+
+  it('D. Fallo en la segunda consulta de la cadena', async () => {
     setupMockQuery([
       { data: { id: 'item-A', checklist_id: 'check-A', status: 'pending' } },
-      { data: { id: 'check-A', case_id: 'case-A' } },
-      { data: { id: 'doc-B', case_id: 'case-B' } },
+      { data: null, error: { message: 'not found' } }, // Falla checklist
     ]);
 
     const formData = new FormData();
     formData.append('case_id', 'case-A');
     formData.append('item_id', 'item-A');
-    formData.append('document_id', 'doc-B');
 
-    await linkChecklistItemDocument(formData);
+    await removeChecklistItem(formData);
 
+    expect(mockDelete).not.toHaveBeenCalled();
     expect(mockUpdate).not.toHaveBeenCalled();
     expect(createAuditLog).not.toHaveBeenCalled();
   });
 
-  it('Operación positiva: vinculación válida', async () => {
+  it('E. Vinculacion positiva fuerte (linkChecklistItemDocument)', async () => {
     setupMockQuery([
       { data: { id: 'item-A', checklist_id: 'check-A', status: 'pending' } },
       { data: { id: 'check-A', case_id: 'case-A' } },
@@ -206,42 +239,17 @@ describe('Checklist mutations (T-AUD-P1-006)', () => {
 
     await expect(linkChecklistItemDocument(formData)).rejects.toThrow('NEXT_REDIRECT');
 
-    expect(mockUpdate).toHaveBeenCalled();
-  });
-
-  it('Rechaza desvinculación (removeChecklistItem) cruzada', async () => {
-    setupMockQuery([
-      { data: { id: 'item-B', checklist_id: 'check-B', status: 'pending' } },
-      { data: { id: 'check-B', case_id: 'case-B' } },
-    ]);
-
-    const formData = new FormData();
-    formData.append('case_id', 'case-A');
-    formData.append('item_id', 'item-B');
-
-    await removeChecklistItem(formData);
-
+    expect(mockUpdate).toHaveBeenCalledTimes(1);
     expect(mockDelete).not.toHaveBeenCalled();
-    expect(createAuditLog).not.toHaveBeenCalled();
+    expect(createAuditLog).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(createAuditLog).mock.calls[0][0].resourceId).toBe('case-A');
+    expect(vi.mocked(createAuditLog).mock.calls[0][0].metadata).toEqual({
+      checklist_item_id: 'item-A',
+      document_id: 'doc-A'
+    });
   });
 
-  it('Rechaza toggle (toggleChecklistItem) cruzada', async () => {
-    setupMockQuery([
-      { data: { id: 'item-B', checklist_id: 'check-B', status: 'pending' } },
-      { data: { id: 'check-B', case_id: 'case-B' } },
-    ]);
-
-    const formData = new FormData();
-    formData.append('case_id', 'case-A');
-    formData.append('item_id', 'item-B');
-
-    await toggleChecklistItem(formData);
-
-    expect(mockUpdate).not.toHaveBeenCalled();
-    expect(createAuditLog).not.toHaveBeenCalled();
-  });
-
-  it('Operación positiva: toggle válida', async () => {
+  it('F. Operacion positiva de eliminacion (removeChecklistItem)', async () => {
     setupMockQuery([
       { data: { id: 'item-A', checklist_id: 'check-A', status: 'pending' } },
       { data: { id: 'check-A', case_id: 'case-A' } },
@@ -251,23 +259,30 @@ describe('Checklist mutations (T-AUD-P1-006)', () => {
     formData.append('case_id', 'case-A');
     formData.append('item_id', 'item-A');
 
-    await toggleChecklistItem(formData);
+    await removeChecklistItem(formData);
 
-    expect(mockUpdate).toHaveBeenCalled();
+    expect(mockDelete).toHaveBeenCalledTimes(1);
+    expect(mockUpdate).not.toHaveBeenCalled();
     expect(createAuditLog).toHaveBeenCalledTimes(1);
     expect(vi.mocked(createAuditLog).mock.calls[0][0].resourceId).toBe('case-A');
+    expect(vi.mocked(createAuditLog).mock.calls[0][0].metadata).toEqual({
+      checklist_item_id: 'item-A'
+    });
   });
 
-  it('Falla cerrada si el item no existe', async () => {
+  it('Rechaza vinculacion cruzada de document (doc pertenece a otro case)', async () => {
     setupMockQuery([
-      { data: null, error: null }
+      { data: { id: 'item-A', checklist_id: 'check-A', status: 'pending' } },
+      { data: { id: 'check-A', case_id: 'case-A' } },
+      { data: { id: 'doc-B', case_id: 'case-B' } }, // document belongs to case-B
     ]);
 
     const formData = new FormData();
     formData.append('case_id', 'case-A');
-    formData.append('item_id', 'item-X');
+    formData.append('item_id', 'item-A');
+    formData.append('document_id', 'doc-B');
 
-    await toggleChecklistItem(formData);
+    await linkChecklistItemDocument(formData);
 
     expect(mockUpdate).not.toHaveBeenCalled();
     expect(createAuditLog).not.toHaveBeenCalled();
