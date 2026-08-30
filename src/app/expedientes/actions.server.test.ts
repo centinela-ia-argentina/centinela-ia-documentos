@@ -44,7 +44,7 @@ describe('createCase Server Action', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    
+
     vi.mocked(getUserProfile).mockResolvedValue({
       user: { id: 'user-123' },
       profile: { organization_id: 'org-123', role: 'admin' },

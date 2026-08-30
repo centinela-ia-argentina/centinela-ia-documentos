@@ -20,7 +20,7 @@ export function resolveCaseTypeForIndustry(
     return { ok: false, error: 'invalid_industry' };
   }
   const industry = rawIndustry as IndustryType;
-  
+
   if (!ACTIVE_INDUSTRY_TYPES.includes(industry)) {
     return { ok: false, error: 'invalid_industry' };
   }

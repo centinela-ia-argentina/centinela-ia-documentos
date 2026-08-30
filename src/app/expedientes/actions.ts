@@ -197,7 +197,7 @@ export async function createCase(formData: FormData) {
   }
 
   const supabase = await createClient();
-  
+
   const { data: orgData, error: orgError } = await supabase
     .from('organizations')
     .select('industry_type')
