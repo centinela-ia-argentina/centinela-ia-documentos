@@ -799,15 +799,21 @@ export async function ejecutarAccionAgenteInner(input: {
         .select('industry_type')
         .eq('id', profile.organization_id)
         .maybeSingle();
-      const industryBorrador = normalizeIndustryType(orgBorrador?.industry_type);
-      if (industryBorrador === 'inmobiliaria') {
-        await redactarBorradorInmobiliaria(caseId);
-        revalidatePath(`/expedientes/${caseId}`);
-        return { ok: true, mensaje: 'Borrador de reserva/boleto generado. Actualizá la página para verlo.' };
-      }
-      await redactarEscrituraExpediente(caseId);
-      revalidatePath(`/expedientes/${caseId}`);
-      return { ok: true, mensaje: 'Borrador generado. Actualizá la página para verlo.' };
+              const industryBorrador = normalizeIndustryType(orgBorrador?.industry_type);
+        if (industryBorrador === 'inmobiliaria') {
+          await redactarBorradorInmobiliaria(caseId);
+          revalidatePath(`/expedientes/${caseId}`);
+          return { ok: true, mensaje: 'Borrador de reserva/boleto generado. Actualizá la página para verlo.' };
+        }
+        if (industryBorrador === 'escribania') {
+          await redactarEscrituraExpediente(caseId);
+          revalidatePath(`/expedientes/${caseId}`);
+          return { ok: true, mensaje: 'Borrador generado. Actualizá la página para verlo.' };
+        }
+        if (industryBorrador === 'legal') {
+          return { ok: false, mensaje: 'La redacción automática desde el Agente IA no está habilitada para Jurídico. Usá Modelos de escritos para preparar el borrador.' };
+        }
+        return { ok: false, mensaje: 'La industria no está habilitada para esta acción.' };
     }
     case 'redactar_aviso': {
       if (!canUseAi(profile.role)) return { ok: false, mensaje: 'Sin permiso para usar la IA.' };
