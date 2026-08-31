@@ -321,4 +321,33 @@ describe("AI Industry Guards (Phase 6)", () => {
       await expect(CopilotoPage()).rejects.toThrow("REDIRECT:/acceso-denegado");
     });
   });
+  describe("F. RUTEO DE REDACTAR BORRADOR (T-AUD-P1-002)", () => {
+    it("legal descarta redactar_borrador pero conserva sugerir_modelo", () => {
+      const input = [
+        { tipo: 'redactar_borrador', titulo: 'Borrador' },
+        { tipo: 'sugerir_modelo', titulo: 'Modelo' }
+      ];
+      const result = validarAcciones(input, 'legal');
+      expect(result).not.toContainEqual(expect.objectContaining({ tipo: 'redactar_borrador' }));
+      expect(result).toContainEqual(expect.objectContaining({ tipo: 'sugerir_modelo' }));
+    });
+    
+    it("escribania acepta redactar_borrador", () => {
+      const input = [{ tipo: 'redactar_borrador', titulo: 'Borrador' }];
+      const result = validarAcciones(input, 'escribania');
+      expect(result).toContainEqual(expect.objectContaining({ tipo: 'redactar_borrador' }));
+    });
+    
+    it("inmobiliaria acepta redactar_borrador", () => {
+      const input = [{ tipo: 'redactar_borrador', titulo: 'Borrador' }];
+      const result = validarAcciones(input, 'inmobiliaria');
+      expect(result).toContainEqual(expect.objectContaining({ tipo: 'redactar_borrador' }));
+    });
+    
+    it("una industria desconocida no acepta redactar_borrador", () => {
+      const input = [{ tipo: 'redactar_borrador', titulo: 'Borrador' }];
+      const result = validarAcciones(input, 'general' as any); // general o unknown
+      expect(result).not.toContainEqual(expect.objectContaining({ tipo: 'redactar_borrador' }));
+    });
+  });
 });

@@ -83,7 +83,7 @@ function reglasAcciones(hoy: string, estadosValidos: string): string {
   3) "agregar_checklist": sumar un pendiente al checklist cuando detectes algo que FALTA o hay que conseguir/controlar. SIN "fecha". Ej: "Solicitar certificado de inhibición".
   4) "generar_resumen": regenerar el resumen integral del expediente con IA cuando convenga actualizarlo. SIN "fecha". Ej: "Actualizar el resumen del legajo".
   5) "generar_cotejo": cruzar (cotejar) los documentos del legajo con IA para detectar discrepancias, faltantes o vigencias vencidas. SIN "fecha". Proponéla cuando haya varios documentos que convenga confrontar. Ej: "Cotejar los documentos del legajo".
-  6) "redactar_borrador": generar con IA un borrador del documento principal del legajo a partir de su información. SIN "fecha". En escribanía es la escritura o acto notarial; en inmobiliaria es el borrador de RESERVA o BOLETO DE COMPRAVENTA. Proponéla solo cuando el legajo tenga datos suficientes (partes, inmueble, precio/valor). Ej: en inmobiliaria "Redactar borrador de boleto de compraventa"; en escribanía "Redactar borrador de escritura".
+  6) "redactar_borrador": generar con IA un borrador del documento principal del legajo a partir de su información. SIN "fecha". SOLO para rubros Escribanía e Inmobiliaria. En escribanía es la escritura o acto notarial; en inmobiliaria es el borrador de RESERVA o BOLETO DE COMPRAVENTA. Está PROHIBIDA para el rubro Jurídico (para Jurídico corresponde usar sugerir_modelo). Proponéla solo cuando el legajo tenga datos suficientes (partes, inmueble, precio/valor). Ej: en inmobiliaria "Redactar borrador de boleto de compraventa"; en escribanía "Redactar borrador de escritura".
   7) "analizar_uif": correr el análisis de riesgo UIF (prevención de lavado) con IA cuando los montos o el tipo de operación lo ameriten. SIN "fecha". Ej: "Analizar riesgo UIF de la operación".
   8) "cambiar_estado": mover el legajo a otra etapa del flujo de trabajo cuando el avance lo justifique. SIN "fecha", pero REQUIERE el campo "estado" con EXACTAMENTE uno de estos valores válidos: ${estadosValidos}. Usá "titulo" para describir el cambio (ej: "Pasar a En preparación"). Proponéla solo si el contexto muestra que el legajo avanzó de etapa.
   9) "vincular_documento": vincular un documento YA cargado en el legajo con un ítem PENDIENTE del checklist que ese documento satisface. SIN "fecha". REQUIERE dos campos: "itemChecklist" (el título EXACTO del ítem, copiado del CONTEXTO) y "documento" (el nombre EXACTO del archivo, copiado del CONTEXTO). Proponéla SOLO cuando en el contexto haya un ítem marcado "PENDIENTE (sin documento)" y un documento del legajo que claramente lo cumpla. Usá "titulo" para describir el vínculo (ej: "Vincular 'DNI del comprador' con dni_comprador.pdf"). NO inventes títulos ni nombres: deben coincidir textualmente con el contexto.
@@ -110,7 +110,7 @@ export function validarAcciones(input: unknown, industry: IndustryType, estadosV
   
   const ACCIONES_COMUNES = [
     'agendar_plazo', 'crear_actuacion', 'agregar_checklist', 'generar_resumen', 
-    'generar_cotejo', 'redactar_borrador', 'cambiar_estado', 'vincular_documento', 
+    'generar_cotejo', 'cambiar_estado', 'vincular_documento', 
     'agendar_turno', 'sugerir_modelo'
   ];
   
@@ -118,9 +118,9 @@ export function validarAcciones(input: unknown, industry: IndustryType, estadosV
   if (industry === 'legal') {
     TIPOS = [...ACCIONES_COMUNES, 'calcular_liquidacion', 'calcular_plazo_procesal', 'calcular_tasa_justicia'];
   } else if (industry === 'escribania') {
-    TIPOS = [...ACCIONES_COMUNES, 'analizar_uif', 'agendar_firma', 'redactar_ros'];
+    TIPOS = [...ACCIONES_COMUNES, 'analizar_uif', 'agendar_firma', 'redactar_ros', 'redactar_borrador'];
   } else if (industry === 'inmobiliaria') {
-    TIPOS = [...ACCIONES_COMUNES, 'analizar_uif', 'agendar_firma', 'redactar_aviso', 'calificar_inquilino'];
+    TIPOS = [...ACCIONES_COMUNES, 'analizar_uif', 'agendar_firma', 'redactar_aviso', 'calificar_inquilino', 'redactar_borrador'];
   } else {
     TIPOS = [];
   }
