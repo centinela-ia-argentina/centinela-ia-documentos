@@ -4,13 +4,13 @@
 > Si el código contradice este documento, el código manda; avisá la discrepancia.
 
 ## 1. Qué es
-SaaS web multi-organización de gestión documental inteligente para rubros con documentación sensible (jurídico, escribanía, inmobiliaria, empresa). Centraliza expedientes + PDFs, control de acceso por rol, auditoría de acciones y análisis documental beta en entorno controlado (sin IA externa paga todavía). Etapa: beta operativa comercial, Sprint 15, producto online.
+SaaS web multi-organización de gestión documental inteligente para rubros con documentación sensible (jurídico, escribanía, inmobiliaria, empresa). Centraliza expedientes + PDFs, control de acceso por rol, auditoría de acciones y análisis documental beta en entorno controlado (sin IA externa paga todavía). Etapa: beta operativa comercial, producto online.
 
 ## 2. Stack
-- Next.js 16.2.6 (App Router), TypeScript, Tailwind CSS
+- Next.js 16.3.1 (App Router), TypeScript, Tailwind CSS
 - Supabase (Auth + PostgreSQL + Storage), bucket privado "documents" (50MB, visor por enlaces temporales)
 - Vercel (deploy auto desde main), GitHub
-- Repo: https://github.com/tobiasexequielperez11-cell/centinela-ia-documentos
+- Repo: https://github.com/centinela-ia-argentina/centinela-ia-documentos
 - Deploy: https://centinela-ia-documentos.vercel.app/
 
 ## 3. Arquitectura: núcleo común + configuración por rubro (CLAVE)
@@ -40,8 +40,37 @@ Landing, login, dashboard, expedientes, documentos, análisis beta, reportes, au
 - Panel de observaciones para pendientes y documentos que requieren atención.
 - Los cálculos, plazos y acciones propuestas no se ejecutan ni persisten sin la intervención correspondiente del usuario.
 
-## 8. Flujo obligatorio antes de pushear
-1. Hacer el cambio. 2. npm run build (sin errores). 3. git restore next-env.d.ts. 4. git add -A && git commit -m "<mensaje>". 5. git push origin main. 6. Esperar Vercel Ready y validar online (cache-bust con ?v=). Si tocás SQL/migraciones, correrlas en Supabase.
+## 8. Flujo obligatorio de cambios e integración
+- Toda modificación comienza desde main actualizado.
+- Se crea una rama independiente por paquete.
+- Nunca se pushea directamente a main.
+- Antes del commit se ejecutan:
+  - npm audit --omit=dev
+  - npm run lint
+  - npm run typecheck
+  - npm run test:unit
+  - npm run build
+  - git diff --check
+- Si next-env.d.ts cambia automáticamente sin formar parte del paquete, se restaura antes del commit.
+- Se confirma que git status --short contiene únicamente los archivos autorizados.
+- Se hace commit y push de la rama independiente.
+- Se crea un Draft PR con base main.
+- El PR permanece en Draft mientras exista una compuerta pendiente o fallida.
+- Deben aprobarse:
+  - Lint, Typecheck, Unit Tests & Build
+  - Security & RLS Tests
+  - Migration & Rollback Tests
+  - E2E Playwright Tests
+  - Vercel
+- Solo con todas las compuertas verdes se pasa de Draft a Ready.
+- La integración se realiza mediante squash merge.
+- Después del merge se confirma:
+  - nuevo SHA de main;
+  - ejecución automática del CI por push a main;
+  - los cuatro jobs del pipeline en verde;
+  - despliegue de Production aprobado por Vercel.
+- Si el cambio incluye SQL o migraciones, deben ejecutarse también las verificaciones específicas de migración y rollback.
+- Nunca incluir secretos, tokens, contraseñas reales ni credenciales en commits, PR, logs o documentación.
 
 ## 9. Lenguaje (UI)
 USAR: "beta operativa comercial", "análisis documental beta", "entorno controlado". EVITAR: "IA simulada", "simulado", "beta cerrada", "GitHub privado", "IA mágica". Cuidar acentos al editar config.
