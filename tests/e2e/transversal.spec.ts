@@ -45,10 +45,11 @@ test.describe.serial('Centinela IA - Aislamiento Transversal', () => {
       const response = await page.goto(`/expedientes/${CASE_INM_ID}`);
       expect(response?.status()).toBe(404);
 
+      await expect(page.getByRole('heading', { name: '404', exact: true })).toBeVisible();
       await expect(page.locator('[data-testid="case-detail-title"]')).toHaveCount(0);
-      const pageText = await page.textContent('body');
-      expect(pageText).not.toContain('Propiedad 1');
-      expect(pageText).not.toContain(CASE_INM_ID);
+      const visibleText = await page.locator('body').innerText();
+      expect(visibleText).not.toContain('Propiedad 1');
+      expect(visibleText).not.toContain(CASE_INM_ID);
     } finally {
       await page.close();
       await context.close();
@@ -61,10 +62,11 @@ test.describe.serial('Centinela IA - Aislamiento Transversal', () => {
       const response = await page.goto(`/expedientes/${CASE_LEGAL_ID}`);
       expect(response?.status()).toBe(404);
 
+      await expect(page.getByRole('heading', { name: '404', exact: true })).toBeVisible();
       await expect(page.locator('[data-testid="case-detail-title"]')).toHaveCount(0);
-      const pageText = await page.textContent('body');
-      expect(pageText).not.toContain('Caso Legal 1');
-      expect(pageText).not.toContain(CASE_LEGAL_ID);
+      const visibleText = await page.locator('body').innerText();
+      expect(visibleText).not.toContain('Caso Legal 1');
+      expect(visibleText).not.toContain(CASE_LEGAL_ID);
     } finally {
       await page.close();
       await context.close();
@@ -77,10 +79,11 @@ test.describe.serial('Centinela IA - Aislamiento Transversal', () => {
       const response = await page.goto(`/expedientes/${CASE_LEGAL_ID}`);
       expect(response?.status()).toBe(404);
 
+      await expect(page.getByRole('heading', { name: '404', exact: true })).toBeVisible();
       await expect(page.locator('[data-testid="case-detail-title"]')).toHaveCount(0);
-      const pageText = await page.textContent('body');
-      expect(pageText).not.toContain('Caso Legal 1');
-      expect(pageText).not.toContain(CASE_LEGAL_ID);
+      const visibleText = await page.locator('body').innerText();
+      expect(visibleText).not.toContain('Caso Legal 1');
+      expect(visibleText).not.toContain(CASE_LEGAL_ID);
     } finally {
       await page.close();
       await context.close();
@@ -93,10 +96,11 @@ test.describe.serial('Centinela IA - Aislamiento Transversal', () => {
       const response = await page.goto(`/expedientes/${CASE_INM_ID}`);
       expect(response?.status()).toBe(404);
 
+      await expect(page.getByRole('heading', { name: '404', exact: true })).toBeVisible();
       await expect(page.locator('[data-testid="case-detail-title"]')).toHaveCount(0);
-      const pageText = await page.textContent('body');
-      expect(pageText).not.toContain('Propiedad 1');
-      expect(pageText).not.toContain(CASE_INM_ID);
+      const visibleText = await page.locator('body').innerText();
+      expect(visibleText).not.toContain('Propiedad 1');
+      expect(visibleText).not.toContain(CASE_INM_ID);
     } finally {
       await page.close();
       await context.close();

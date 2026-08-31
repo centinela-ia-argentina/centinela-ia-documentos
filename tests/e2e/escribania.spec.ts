@@ -173,17 +173,19 @@ test.describe.serial('Centinela IA - Escribania E2E', () => {
     try {
       let response = await page.goto(`/expedientes/${CASE_LEGAL_ID}`);
       expect(response?.status()).toBe(404);
+      await expect(page.getByRole('heading', { name: '404', exact: true })).toBeVisible();
       await expect(page.locator('[data-testid="case-detail-title"]')).toHaveCount(0);
-      let pageText = await page.textContent('body');
-      expect(pageText).not.toContain('Caso Legal 1');
-      expect(pageText).not.toContain(CASE_LEGAL_ID);
+      let visibleText = await page.locator('body').innerText();
+      expect(visibleText).not.toContain('Caso Legal 1');
+      expect(visibleText).not.toContain(CASE_LEGAL_ID);
 
       response = await page.goto(`/expedientes/${CASE_INM_ID}`);
       expect(response?.status()).toBe(404);
+      await expect(page.getByRole('heading', { name: '404', exact: true })).toBeVisible();
       await expect(page.locator('[data-testid="case-detail-title"]')).toHaveCount(0);
-      pageText = await page.textContent('body');
-      expect(pageText).not.toContain('Propiedad 1');
-      expect(pageText).not.toContain(CASE_INM_ID);
+      visibleText = await page.locator('body').innerText();
+      expect(visibleText).not.toContain('Propiedad 1');
+      expect(visibleText).not.toContain(CASE_INM_ID);
     } finally {
       await page.close();
       await context.close();
