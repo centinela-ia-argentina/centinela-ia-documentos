@@ -35,6 +35,7 @@ export const SEED_DATA = {
   ADMIN_ESC_ID: 'cccc3333-3333-3333-3333-333333333333',
   CASE_LEGAL_ID: 'cccc1111-1111-1111-1111-111111111111',
   CASE_INM_ID: 'dddd2222-2222-2222-2222-222222222222',
+  CASE_ESC_ID: 'eeee3333-3333-3333-3333-333333333333',
   DOC_LEGAL_ID: 'ddcc1111-1111-1111-1111-111111111111',
   CHUNK_ID: '33333333-3333-3333-3333-333333333333'
 };
@@ -107,6 +108,7 @@ export async function seedSupabase() {
     await throwOnError(supabaseAdmin.from('cases').upsert([
       { id: SEED_DATA.CASE_LEGAL_ID, organization_id: SEED_DATA.ORG_LEGAL_ID, title: 'Caso Legal 1', case_type: 'civil', status: 'active', created_by: SEED_DATA.ADMIN_LEGAL_ID, assigned_to: SEED_DATA.CLIENT_ASSIGNED_ID },
       { id: SEED_DATA.CASE_INM_ID, organization_id: SEED_DATA.ORG_INM_ID, title: 'Propiedad 1', case_type: 'venta', status: 'active', created_by: SEED_DATA.ADMIN_INM_ID, assigned_to: null },
+      { id: SEED_DATA.CASE_ESC_ID, organization_id: SEED_DATA.ORG_ESC_ID, title: 'Escritura 1', case_type: 'Escritura', status: 'active', created_by: SEED_DATA.ADMIN_ESC_ID, assigned_to: null },
     ]), 'cases');
 
     // 5. Documents (For RAG/RLS tests)
