@@ -1,6 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 vi.mock('server-only', () => ({}));
+vi.mock('next/cache', () => ({
+  revalidatePath: vi.fn(),
+}));
+
 vi.mock('next/navigation', () => ({
   redirect: vi.fn().mockImplementation(() => {
     throw new Error('NEXT_REDIRECT');
@@ -105,6 +109,199 @@ describe('createCase Server Action', () => {
 
     expect(redirect).toHaveBeenCalledWith('/expedientes/nuevo?error=invalid_industry');
     expect(mockInsert).not.toHaveBeenCalled();
+    expect(createAuditLog).not.toHaveBeenCalled();
+  });
+});
+
+import { linkChecklistItemDocument, toggleChecklistItem, removeChecklistItem, toggleChecklistItemNotRequired } from './actions';
+
+describe('Checklist mutations (T-AUD-P1-006)', () => {
+  const mockUpdate = vi.fn();
+  const mockDelete = vi.fn();
+  const mockSelect = vi.fn();
+  const mockEq = vi.fn();
+  const mockFrom = vi.fn();
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+
+    vi.mocked(getUserProfile).mockResolvedValue({
+      user: { id: 'user-1' },
+      profile: { organization_id: 'org-1', role: 'admin' }
+    } as any);
+
+    mockUpdate.mockReturnValue({ eq: mockEq });
+    mockDelete.mockReturnValue({ eq: mockEq });
+
+    mockFrom.mockReturnValue({
+      select: mockSelect,
+      update: mockUpdate,
+      delete: mockDelete,
+    });
+    mockSelect.mockReturnValue({ eq: mockEq });
+
+    vi.mocked(createClient).mockResolvedValue({
+      from: mockFrom,
+    } as any);
+  });
+
+  const setupMockQuery = (responses: any[]) => {
+    let callIndex = 0;
+    mockEq.mockReturnValue({
+      eq: mockEq,
+      maybeSingle: vi.fn().mockImplementation(() => {
+        const resp = responses[callIndex++] || { data: null, error: null };
+        return Promise.resolve(resp);
+      })
+    });
+  };
+
+  it('A. Rechaza toggleChecklistItemNotRequired cross-case', async () => {
+    setupMockQuery([
+      { data: { id: 'item-B', checklist_id: 'check-B', status: 'pending' } },
+      { data: { id: 'check-B', case_id: 'case-B' } },
+    ]);
+
+    const formData = new FormData();
+    formData.append('case_id', 'case-A');
+    formData.append('item_id', 'item-B');
+
+    await toggleChecklistItemNotRequired(formData);
+
+    expect(mockUpdate).not.toHaveBeenCalled();
+    expect(mockDelete).not.toHaveBeenCalled();
+    expect(createAuditLog).not.toHaveBeenCalled();
+  });
+
+  it('B. Rechaza desvinculacion real cross-case mediante linkChecklistItemDocument', async () => {
+    setupMockQuery([
+      { data: { id: 'item-B', checklist_id: 'check-B', status: 'pending' } },
+      { data: { id: 'check-B', case_id: 'case-B' } },
+    ]);
+
+    const formData = new FormData();
+    formData.append('case_id', 'case-A');
+    formData.append('item_id', 'item-B');
+    formData.append('document_id', ''); // sin document_id
+
+    await linkChecklistItemDocument(formData);
+
+    expect(mockUpdate).not.toHaveBeenCalled();
+    expect(mockDelete).not.toHaveBeenCalled();
+    expect(createAuditLog).not.toHaveBeenCalled();
+  });
+
+  it('C. Conserva prueba cross-case de eliminacion (removeChecklistItem)', async () => {
+    setupMockQuery([
+      { data: { id: 'item-B', checklist_id: 'check-B', status: 'pending' } },
+      { data: { id: 'check-B', case_id: 'case-B' } },
+    ]);
+
+    const formData = new FormData();
+    formData.append('case_id', 'case-A');
+    formData.append('item_id', 'item-B');
+
+    await removeChecklistItem(formData);
+
+    expect(mockDelete).not.toHaveBeenCalled();
+    expect(mockUpdate).not.toHaveBeenCalled();
+    expect(createAuditLog).not.toHaveBeenCalled();
+  });
+
+  it('D. Fallo en la segunda consulta de la cadena', async () => {
+    setupMockQuery([
+      { data: { id: 'item-A', checklist_id: 'check-A', status: 'pending' } },
+      { data: null, error: { message: 'not found' } }, // Falla checklist
+    ]);
+
+    const formData = new FormData();
+    formData.append('case_id', 'case-A');
+    formData.append('item_id', 'item-A');
+
+    await removeChecklistItem(formData);
+
+    expect(mockDelete).not.toHaveBeenCalled();
+    expect(mockUpdate).not.toHaveBeenCalled();
+    expect(createAuditLog).not.toHaveBeenCalled();
+  });
+
+  it('E. Vinculacion positiva fuerte (linkChecklistItemDocument)', async () => {
+    setupMockQuery([
+      { data: { id: 'item-A', checklist_id: 'check-A', status: 'pending' } },
+      { data: { id: 'check-A', case_id: 'case-A' } },
+      { data: { id: 'doc-A', case_id: 'case-A' } },
+    ]);
+
+    const formData = new FormData();
+    formData.append('case_id', 'case-A');
+    formData.append('item_id', 'item-A');
+    formData.append('document_id', 'doc-A');
+
+    await expect(linkChecklistItemDocument(formData)).rejects.toThrow('NEXT_REDIRECT');
+
+    expect(mockUpdate).toHaveBeenCalledTimes(1);
+    expect(mockDelete).not.toHaveBeenCalled();
+    expect(createAuditLog).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(createAuditLog).mock.calls[0][0].resourceId).toBe('case-A');
+    expect(vi.mocked(createAuditLog).mock.calls[0][0].metadata).toEqual({
+      checklist_item_id: 'item-A',
+      document_id: 'doc-A'
+    });
+  });
+
+  it('F. Operacion positiva de eliminacion (removeChecklistItem)', async () => {
+    setupMockQuery([
+      { data: { id: 'item-A', checklist_id: 'check-A', status: 'pending' } },
+      { data: { id: 'check-A', case_id: 'case-A' } },
+    ]);
+
+    const formData = new FormData();
+    formData.append('case_id', 'case-A');
+    formData.append('item_id', 'item-A');
+
+    await removeChecklistItem(formData);
+
+    expect(mockDelete).toHaveBeenCalledTimes(1);
+    expect(mockUpdate).not.toHaveBeenCalled();
+    expect(createAuditLog).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(createAuditLog).mock.calls[0][0].resourceId).toBe('case-A');
+    expect(vi.mocked(createAuditLog).mock.calls[0][0].metadata).toEqual({
+      checklist_item_id: 'item-A'
+    });
+  });
+
+  it('Rechaza vinculacion cruzada de document (doc pertenece a otro case)', async () => {
+    setupMockQuery([
+      { data: { id: 'item-A', checklist_id: 'check-A', status: 'pending' } },
+      { data: { id: 'check-A', case_id: 'case-A' } },
+      { data: { id: 'doc-B', case_id: 'case-B' } }, // document belongs to case-B
+    ]);
+
+    const formData = new FormData();
+    formData.append('case_id', 'case-A');
+    formData.append('item_id', 'item-A');
+    formData.append('document_id', 'doc-B');
+
+    await linkChecklistItemDocument(formData);
+
+    expect(mockUpdate).not.toHaveBeenCalled();
+    expect(createAuditLog).not.toHaveBeenCalled();
+  });
+
+  it('G. Rechaza toggleChecklistItem cross-case', async () => {
+    setupMockQuery([
+      { data: { id: 'item-B', checklist_id: 'check-B', status: 'pending' } },
+      { data: { id: 'check-B', case_id: 'case-B' } },
+    ]);
+
+    const formData = new FormData();
+    formData.append('case_id', 'case-A');
+    formData.append('item_id', 'item-B');
+
+    await toggleChecklistItem(formData);
+
+    expect(mockUpdate).not.toHaveBeenCalled();
+    expect(mockDelete).not.toHaveBeenCalled();
     expect(createAuditLog).not.toHaveBeenCalled();
   });
 });

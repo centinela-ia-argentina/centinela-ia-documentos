@@ -199,7 +199,7 @@ export async function revisarEscritoIA(input: { texto: string }): Promise<Revisi
       parsed.semaforo === 'verde' || parsed.semaforo === 'rojo' ? parsed.semaforo : 'amarillo';
     const punt = Number(parsed.puntuacion);
     const checklist = Array.isArray(parsed.checklist)
-      ? parsed.checklist
+      ? parsed.checklis
           .map((c: { item?: unknown; ok?: unknown }) => ({ item: String(c?.item ?? ''), ok: Boolean(c?.ok) }))
           .filter((c: { item: string }) => c.item)
       : [];
@@ -236,7 +236,10 @@ export async function revisarEscritoIA(input: { texto: string }): Promise<Revisi
 
 export async function extraerDatosParaModelo(caseId: string): Promise<Record<string, string>> {
   const { user, profile } = await getUserProfile();
-  if (!user || !profile) return {};
+
+  if (!user || !profile || !profile.organization_id || !canUseAi(profile.role as any)) {
+    return {};
+  }
 
   const supabase = await createClient();
   const { data: aiData } = await supabase

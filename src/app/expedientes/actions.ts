@@ -383,15 +383,10 @@ export async function toggleChecklistItem(formData: FormData) {
 
   const supabase = await createClient();
 
-  const { data: checklistItem, error: itemError } = await supabase
-    .from('checklist_items')
-    .select('id, status, checklist_id')
-    .eq('id', itemId)
-    .eq('organization_id', profile.organization_id)
-    .maybeSingle();
+  const { ok: chainOk, data: checklistItem } = await validateChecklistItemChain(supabase, itemId, caseId, profile.organization_id);
 
-  if (itemError || !checklistItem) {
-    console.error('Checklist item lookup error:', itemError);
+  if (!chainOk || !checklistItem) {
+    console.error('Checklist item lookup error');
     revalidatePath(`/expedientes/${caseId}`);
     return;
   }
@@ -402,7 +397,9 @@ export async function toggleChecklistItem(formData: FormData) {
   const { error } = await supabase
     .from('checklist_items')
     .update({ status: nextStatus })
-    .eq('id', itemId);
+    .eq('id', itemId)
+    .eq('organization_id', profile.organization_id)
+    .eq('checklist_id', checklistItem.checklist_id);
 
   if (error) {
     console.error('Toggle checklist item error:', error);
@@ -437,15 +434,10 @@ export async function linkChecklistItemDocument(formData: FormData) {
 
   const supabase = await createClient();
 
-  const { data: checklistItem, error: itemError } = await supabase
-    .from('checklist_items')
-    .select('id, title, document_id, checklist_id')
-    .eq('id', itemId)
-    .eq('organization_id', profile.organization_id)
-    .maybeSingle();
+  const { ok: chainOk, data: checklistItem } = await validateChecklistItemChain(supabase, itemId, caseId, profile.organization_id);
 
-  if (itemError || !checklistItem) {
-    console.error('Checklist item document link lookup error:', itemError);
+  if (!chainOk || !checklistItem) {
+    console.error('Checklist item document link validation error');
     revalidatePath(`/expedientes/${caseId}`);
     return;
   }
@@ -480,7 +472,9 @@ export async function linkChecklistItemDocument(formData: FormData) {
     .update({
       document_id: linkedDocumentId,
     })
-    .eq('id', itemId);
+    .eq('id', itemId)
+    .eq('organization_id', profile.organization_id)
+    .eq('checklist_id', checklistItem.checklist_id);
 
   if (error) {
     console.error('Checklist item document link error:', error);
@@ -520,14 +514,9 @@ export async function toggleChecklistItemNotRequired(formData: FormData) {
   if (!caseId || !itemId) redirect('/expedientes');
   const supabase = await createClient();
 
-  const { data: checklistItem, error: itemError } = await supabase
-    .from('checklist_items')
-    .select('id, status, checklist_id')
-    .eq('id', itemId)
-    .eq('organization_id', profile.organization_id)
-    .maybeSingle();
+  const { ok: chainOk, data: checklistItem } = await validateChecklistItemChain(supabase, itemId, caseId, profile.organization_id);
 
-  if (itemError || !checklistItem) {
+  if (!chainOk || !checklistItem) {
     revalidatePath(`/expedientes/${caseId}`);
     return;
   }
@@ -538,7 +527,9 @@ export async function toggleChecklistItemNotRequired(formData: FormData) {
   const { error } = await supabase
     .from('checklist_items')
     .update({ status: nextStatus })
-    .eq('id', itemId);
+    .eq('id', itemId)
+    .eq('organization_id', profile.organization_id)
+    .eq('checklist_id', checklistItem.checklist_id);
 
   if (!error) {
     await createAuditLog({
@@ -629,14 +620,9 @@ export async function removeChecklistItem(formData: FormData) {
   if (!caseId || !itemId) redirect('/expedientes');
   const supabase = await createClient();
 
-  const { data: checklistItem, error: itemError } = await supabase
-    .from('checklist_items')
-    .select('id, checklist_id')
-    .eq('id', itemId)
-    .eq('organization_id', profile.organization_id)
-    .maybeSingle();
+  const { ok: chainOk, data: checklistItem } = await validateChecklistItemChain(supabase, itemId, caseId, profile.organization_id);
 
-  if (itemError || !checklistItem) {
+  if (!chainOk || !checklistItem) {
     revalidatePath(`/expedientes/${caseId}`);
     return;
   }
@@ -644,7 +630,9 @@ export async function removeChecklistItem(formData: FormData) {
   const { error } = await supabase
     .from('checklist_items')
     .delete()
-    .eq('id', itemId);
+    .eq('id', itemId)
+    .eq('organization_id', profile.organization_id)
+    .eq('checklist_id', checklistItem.checklist_id);
 
   if (!error) {
     await createAuditLog({
@@ -1754,4 +1742,36 @@ export async function calificarInquilinoExpediente(formData: FormData) {
   });
 
   revalidatePath(`/expedientes/${caseId}`);
+}
+
+async function validateChecklistItemChain(
+  supabase: any,
+  itemId: string,
+  caseId: string,
+  organizationId: string
+) {
+  const { data: itemData, error: itemError } = await supabase
+    .from('checklist_items')
+    .select('id, status, title, document_id, checklist_id')
+    .eq('id', itemId)
+    .eq('organization_id', organizationId)
+    .maybeSingle();
+
+  if (itemError || !itemData || !itemData.checklist_id) {
+    return { ok: false, data: null };
+  }
+
+  const { data: checklistData, error: checklistError } = await supabase
+    .from('checklists')
+    .select('id, case_id')
+    .eq('id', itemData.checklist_id)
+    .eq('organization_id', organizationId)
+    .eq('case_id', caseId)
+    .maybeSingle();
+
+  if (checklistError || !checklistData || checklistData.case_id !== caseId) {
+    return { ok: false, data: null };
+  }
+
+  return { ok: true, data: itemData };
 }
