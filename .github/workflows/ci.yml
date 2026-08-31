@@ -3,7 +3,7 @@ name: CI Pipeline
 on:
   push:
     branches:
-      - fix/juridico-commercial-ready-02
+      - main
   pull_request:
     branches:
       - main
