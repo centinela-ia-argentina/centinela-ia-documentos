@@ -18,15 +18,16 @@ test.describe.serial('Centinela IA - Inmobiliaria E2E', () => {
   test.afterAll(async () => {
     if (tempCaseId) {
       try {
-        const { data: checklist } = await serviceClient
+        const { data: checklists } = await serviceClient
           .from('checklists')
           .select('id')
-          .eq('case_id', tempCaseId)
-          .single();
-
-        if (checklist) {
-          const { error: itemsErr } = await serviceClient.from('checklist_items').delete().eq('checklist_id', checklist.id);
-          expect(itemsErr).toBeNull();
+          .eq('case_id', tempCaseId);
+          
+        if (checklists && checklists.length > 0) {
+          for (const checklist of checklists) {
+            const { error: itemsErr } = await serviceClient.from('checklist_items').delete().eq('checklist_id', checklist.id);
+            expect(itemsErr).toBeNull();
+          }
         }
 
         const { error: chkErr } = await serviceClient.from('checklists').delete().eq('case_id', tempCaseId);
@@ -53,11 +54,26 @@ test.describe.serial('Centinela IA - Inmobiliaria E2E', () => {
     const { context, page } = await loginAs(browser, 'admin.inm@test.com');
     try {
       const nav = page.locator('nav');
-      await expect(nav.locator('a', { hasText: 'Operaciones' }).first()).toBeVisible();
-      await expect(nav.locator('a', { hasText: 'Propiedades' }).first()).toBeVisible();
-      await expect(nav.locator('a', { hasText: 'Clientes' }).first()).toBeVisible();
-      await expect(nav.locator('a', { hasText: 'Alquileres' }).first()).toBeVisible();
-      await expect(nav.locator('a', { hasText: 'Panel inmobiliario' }).first()).toBeVisible();
+      
+      const operacionesLink = nav.locator('a', { hasText: 'Operaciones' }).first();
+      await operacionesLink.scrollIntoViewIfNeeded();
+      await expect(operacionesLink).toBeVisible();
+
+      const propiedadesLink = nav.locator('a', { hasText: 'Propiedades' }).first();
+      await propiedadesLink.scrollIntoViewIfNeeded();
+      await expect(propiedadesLink).toBeVisible();
+
+      const clientesLink = nav.locator('a', { hasText: 'Clientes' }).first();
+      await clientesLink.scrollIntoViewIfNeeded();
+      await expect(clientesLink).toBeVisible();
+
+      const alquileresLink = nav.locator('a', { hasText: 'Alquileres' }).first();
+      await alquileresLink.scrollIntoViewIfNeeded();
+      await expect(alquileresLink).toBeVisible();
+
+      const panelLink = nav.locator('a', { hasText: 'Panel inmobiliario' }).first();
+      await panelLink.scrollIntoViewIfNeeded();
+      await expect(panelLink).toBeVisible();
     } finally {
       await page.close();
       await context.close();
@@ -118,14 +134,17 @@ test.describe.serial('Centinela IA - Inmobiliaria E2E', () => {
       await expect(page).toHaveURL(/\/expedientes\/[a-f0-9\-]+/);
       tempCaseId = page.url().split('/').pop() || '';
 
-      const { data: checklist, error: chkErr } = await serviceClient
+      const { data: checklists, error: chkErr } = await serviceClient
         .from('checklists')
         .select('id, case_id, organization_id, template_type')
-        .eq('case_id', tempCaseId)
-        .single();
+        .eq('case_id', tempCaseId);
 
       expect(chkErr).toBeNull();
-      expect(checklist).not.toBeNull();
+      expect(checklists).not.toBeNull();
+      expect(checklists?.length).toBe(1);
+      
+      const checklist = checklists![0];
+
       expect(checklist?.case_id).toBe(tempCaseId);
       expect(checklist?.organization_id).toBe(ORG_INM_ID);
       expect(checklist?.template_type).toBe('Compraventa de inmueble');
@@ -133,12 +152,12 @@ test.describe.serial('Centinela IA - Inmobiliaria E2E', () => {
       const { data: items, error: itemsErr } = await serviceClient
         .from('checklist_items')
         .select('id, checklist_id, organization_id')
-        .eq('checklist_id', checklist!.id);
+        .eq('checklist_id', checklist.id);
 
       expect(itemsErr).toBeNull();
       expect(items?.length).toBeGreaterThan(0);
       items?.forEach(item => {
-        expect(item.checklist_id).toBe(checklist!.id);
+        expect(item.checklist_id).toBe(checklist.id);
         expect(item.organization_id).toBe(ORG_INM_ID);
       });
     } finally {

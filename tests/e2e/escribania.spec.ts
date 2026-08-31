@@ -19,15 +19,16 @@ test.describe.serial('Centinela IA - Escribania E2E', () => {
   test.afterAll(async () => {
     if (tempCaseId) {
       try {
-        const { data: checklist } = await serviceClient
+        const { data: checklists } = await serviceClient
           .from('checklists')
           .select('id')
-          .eq('case_id', tempCaseId)
-          .single();
-
-        if (checklist) {
-          const { error: itemsErr } = await serviceClient.from('checklist_items').delete().eq('checklist_id', checklist.id);
-          expect(itemsErr).toBeNull();
+          .eq('case_id', tempCaseId);
+          
+        if (checklists && checklists.length > 0) {
+          for (const checklist of checklists) {
+            const { error: itemsErr } = await serviceClient.from('checklist_items').delete().eq('checklist_id', checklist.id);
+            expect(itemsErr).toBeNull();
+          }
         }
 
         const { error: chkErr } = await serviceClient.from('checklists').delete().eq('case_id', tempCaseId);
@@ -54,11 +55,26 @@ test.describe.serial('Centinela IA - Escribania E2E', () => {
     const { context, page } = await loginAs(browser, 'admin.esc@test.com');
     try {
       const nav = page.locator('nav');
-      await expect(nav.locator('a', { hasText: 'Legajos' }).first()).toBeVisible();
-      await expect(nav.locator('a', { hasText: 'Recibidos' }).first()).toBeVisible();
-      await expect(nav.locator('a', { hasText: 'Modelos' }).first()).toBeVisible();
-      await expect(nav.locator('a', { hasText: 'Agenda' }).first()).toBeVisible();
-      await expect(nav.locator('a', { hasText: 'Índice / Repertorio' }).first()).toBeVisible();
+      
+      const legajosLink = nav.locator('a', { hasText: 'Legajos' }).first();
+      await legajosLink.scrollIntoViewIfNeeded();
+      await expect(legajosLink).toBeVisible();
+
+      const recibidosLink = nav.locator('a', { hasText: 'Recibidos' }).first();
+      await recibidosLink.scrollIntoViewIfNeeded();
+      await expect(recibidosLink).toBeVisible();
+
+      const modelosLink = nav.locator('a', { hasText: 'Modelos' }).first();
+      await modelosLink.scrollIntoViewIfNeeded();
+      await expect(modelosLink).toBeVisible();
+
+      const agendaLink = nav.locator('a', { hasText: 'Agenda' }).first();
+      await agendaLink.scrollIntoViewIfNeeded();
+      await expect(agendaLink).toBeVisible();
+
+      const indiceLink = nav.locator('a', { hasText: 'Índice / Repertorio' }).first();
+      await indiceLink.scrollIntoViewIfNeeded();
+      await expect(indiceLink).toBeVisible();
     } finally {
       await page.close();
       await context.close();
@@ -120,14 +136,17 @@ test.describe.serial('Centinela IA - Escribania E2E', () => {
       await expect(page).toHaveURL(/\/expedientes\/[a-f0-9\-]+/);
       tempCaseId = page.url().split('/').pop() || '';
 
-      const { data: checklist, error: chkErr } = await serviceClient
+      const { data: checklists, error: chkErr } = await serviceClient
         .from('checklists')
         .select('id, case_id, organization_id, template_type')
-        .eq('case_id', tempCaseId)
-        .single();
+        .eq('case_id', tempCaseId);
 
       expect(chkErr).toBeNull();
-      expect(checklist).not.toBeNull();
+      expect(checklists).not.toBeNull();
+      expect(checklists?.length).toBe(1);
+      
+      const checklist = checklists![0];
+
       expect(checklist?.case_id).toBe(tempCaseId);
       expect(checklist?.organization_id).toBe(ORG_ESC_ID);
       expect(checklist?.template_type).toBe('Escritura');
@@ -135,12 +154,12 @@ test.describe.serial('Centinela IA - Escribania E2E', () => {
       const { data: items, error: itemsErr } = await serviceClient
         .from('checklist_items')
         .select('id, checklist_id, organization_id')
-        .eq('checklist_id', checklist!.id);
+        .eq('checklist_id', checklist.id);
 
       expect(itemsErr).toBeNull();
       expect(items?.length).toBeGreaterThan(0);
       items?.forEach(item => {
-        expect(item.checklist_id).toBe(checklist!.id);
+        expect(item.checklist_id).toBe(checklist.id);
         expect(item.organization_id).toBe(ORG_ESC_ID);
       });
     } finally {
