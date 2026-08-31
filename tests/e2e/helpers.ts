@@ -1,7 +1,8 @@
 import { Browser, expect } from '@playwright/test';
 
 export async function loginAs(browser: Browser, email: string) {
-  const context = await browser.newContext();
+  const baseURL = process.env.PLAYWRIGHT_BASE_URL || 'http://127.0.0.1:3000';
+  const context = await browser.newContext({ baseURL });
   const page = await context.newPage();
 
   await page.goto('/login');

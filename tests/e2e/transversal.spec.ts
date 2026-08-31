@@ -129,7 +129,9 @@ test.describe.serial('Centinela IA - Aislamiento Transversal', () => {
 
       await page.waitForLoadState('networkidle');
 
-      expect(page.url()).not.toMatch(/\/expedientes\/[a-f0-9\-]+/);
+      const currentUrl = page.url();
+      expect(currentUrl).toContain('/expedientes/nuevo');
+      expect(currentUrl).toContain('error=');
 
       const { data: createdCases, error: queryErr } = await serviceClient.from('cases').select('id, case_type').eq('title', uniqueTitleForManipulation);
       expect(queryErr).toBeNull();
