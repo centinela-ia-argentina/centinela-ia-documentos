@@ -242,7 +242,7 @@ describe('revisarEscritoIA', () => {
     return revisarEscritoIA({ texto: 'Texto de prueba que sea lo suficientemente largo para superar el limite de cuarenta caracteres' });
   };
 
-  it('A. Caso positivo con checklist array (T-AUD-P1-010 regression)', async () => {
+  it('A. Caso positivo con checklist array (PR #10 post-merge regression)', async () => {
     const mockJsonResponse = {
       candidates: [
         {
