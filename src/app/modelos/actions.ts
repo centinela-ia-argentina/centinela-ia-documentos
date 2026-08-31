@@ -199,7 +199,7 @@ export async function revisarEscritoIA(input: { texto: string }): Promise<Revisi
       parsed.semaforo === 'verde' || parsed.semaforo === 'rojo' ? parsed.semaforo : 'amarillo';
     const punt = Number(parsed.puntuacion);
     const checklist = Array.isArray(parsed.checklist)
-      ? parsed.checklis
+      ? parsed.checklist
           .map((c: { item?: unknown; ok?: unknown }) => ({ item: String(c?.item ?? ''), ok: Boolean(c?.ok) }))
           .filter((c: { item: string }) => c.item)
       : [];

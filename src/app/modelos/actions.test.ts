@@ -7,6 +7,13 @@ vi.mock('@/lib/auth/getUserProfile', () => ({
   getUserProfile: vi.fn(),
 }));
 
+vi.mock('@/lib/audit/createAuditLog', () => ({
+  createAuditLog: vi.fn(),
+}));
+
+vi.mock('@/lib/auth/getStrictIndustry', () => ({
+  getStrictIndustryForOrganization: vi.fn().mockResolvedValue('legal'),
+}));
 vi.mock('@/lib/supabase/server', () => ({
   createClient: vi.fn(),
 }));
@@ -199,5 +206,120 @@ describe('extraerDatosParaModelo', () => {
     expect(result).toEqual({});
     expect(createClient).toHaveBeenCalled(); // llega a la base pero se corta después
     expect(globalFetchMock).not.toHaveBeenCalled();
+  });
+});
+
+import { revisarEscritoIA } from './actions';
+import { createAuditLog } from '@/lib/audit/createAuditLog';
+
+describe('revisarEscritoIA', () => {
+
+  let mockInsert: any;
+  const globalFetchMock = vi.fn();
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    global.fetch = globalFetchMock;
+    process.env.GEMINI_API_KEY = 'test-key';
+
+    mockInsert = vi.fn();
+    const mockFrom = vi.fn().mockReturnValue({ insert: mockInsert });
+    vi.mocked(createClient).mockResolvedValue({ from: mockFrom } as any);
+  });
+
+  const runTest = async (profileOverrides: any) => {
+    const { getUserProfile } = await import('@/lib/auth/getUserProfile');
+    vi.mocked(getUserProfile).mockResolvedValue({
+      user: { id: 'user-1' },
+      profile: {
+        id: 'user-1',
+        organization_id: 'org-1',
+        role: 'admin',
+        ...profileOverrides
+      },
+    } as any);
+
+    return revisarEscritoIA({ texto: 'Texto de prueba que sea lo suficientemente largo para superar el limite de cuarenta caracteres' });
+  };
+
+  it('A. Caso positivo con checklist array (T-AUD-P1-010 regression)', async () => {
+    const mockJsonResponse = {
+      candidates: [
+        {
+          content: {
+            parts: [
+              {
+                text: JSON.stringify({
+                  semaforo: "verde",
+                  puntuacion: 8,
+                  errores: [],
+                  datos_incompletos: [],
+                  sugerencias: [],
+                  checklist: [
+                    { item: "Firma", ok: true },
+                    { item: "Fecha", ok: false }
+                  ]
+                })
+              }
+            ]
+          }
+        }
+      ]
+    };
+
+    globalFetchMock.mockResolvedValue({
+      ok: true,
+      json: vi.fn().mockResolvedValue(mockJsonResponse)
+    });
+
+
+
+
+    const result = await runTest({ industry_type: 'legal' });
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.revision.checklist).toHaveLength(2);
+      expect(result.revision.checklist[0]).toEqual({ item: "Firma", ok: true });
+      expect(result.revision.checklist[1]).toEqual({ item: "Fecha", ok: false });
+    }
+
+    expect(globalFetchMock).toHaveBeenCalledTimes(1);
+    expect(mockInsert).toHaveBeenCalledTimes(1);
+  });
+
+  it('B. Caso límite sin array en checklist', async () => {
+    const mockJsonResponse = {
+      candidates: [
+        {
+          content: {
+            parts: [
+              {
+                text: JSON.stringify({
+                  semaforo: "verde",
+                  puntuacion: 8,
+                  errores: [],
+                  datos_incompletos: [],
+                  sugerencias: [],
+                  checklist: "no soy un array"
+                })
+              }
+            ]
+          }
+        }
+      ]
+    };
+
+    globalFetchMock.mockResolvedValue({
+      ok: true,
+      json: vi.fn().mockResolvedValue(mockJsonResponse)
+    });
+
+    const result = await runTest({ industry_type: 'legal' });
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.revision.checklist).toEqual([]);
+    }
   });
 });
