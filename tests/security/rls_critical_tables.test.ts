@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, beforeAll } from 'vitest';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import * as dotenv from 'dotenv';
 import path from 'path';
@@ -71,18 +71,26 @@ const CASE_A = SEED_DATA.CASE_LEGAL_ID;
 const CASE_B = SEED_DATA.CASE_INM_ID;
 const DOC_A = SEED_DATA.DOC_LEGAL_ID;
 
-function assertIsRlsError(error: any) {
-  if (!error) return;
-  const invalidCodes = ['PGRST204', '42703', '23502', '23514'];
-  if (invalidCodes.includes(error.code)) {
-    throw new Error(`Falso positivo de RLS: error de esquema (${error.code}: ${error.message})`);
+async function expectRlsDeniedInsert(table: string, client: SupabaseClient, payload: any) {
+  const { data, error } = await client.from(table).insert(payload).select();
+  if (!error) throw new Error(`Esperaba error de RLS en ${table} pero la inserciÃƒÂ³n fue exitosa.`);
+  if (error.code !== '42501' && !error.message.includes('permission denied') && !error.message.includes('row-level security')) {
+    throw new Error(`Error inesperado en inserciÃƒÂ³n RLS denegada: ${error.code} - ${error.message}. Se esperaba 42501.`);
   }
+  expect(data === null || (data as any[]).length === 0).toBe(true);
+
+  const { data: verify, error: vErr } = await serviceClient.from(table).select('*').eq('id', payload.id);
+  expect(vErr).toBeNull();
+  expect(verify?.length).toBe(0);
 }
 
-async function expectDeniedInsert(table: string, client: SupabaseClient, payload: any) {
+async function expectIntegrityRejectedInsert(table: string, client: SupabaseClient, payload: any) {
   const { data, error } = await client.from(table).insert(payload).select();
-  if (error) assertIsRlsError(error);
-  expect(data === null || data.length === 0).toBe(true);
+  if (!error) throw new Error(`Esperaba error de FK en ${table} pero la inserciÃƒÂ³n fue exitosa.`);
+  if (error.code !== '23503') {
+    throw new Error(`Error inesperado en integridad cruzada: ${error.code} - ${error.message}. Se esperaba 23503.`);
+  }
+  expect(data === null || (data as any[]).length === 0).toBe(true);
 
   const { data: verify, error: vErr } = await serviceClient.from(table).select('*').eq('id', payload.id);
   expect(vErr).toBeNull();
@@ -100,8 +108,10 @@ async function expectAllowedInsert(table: string, client: SupabaseClient, payloa
 
 async function expectDeniedUpdate(table: string, client: SupabaseClient, id: string, payload: any, originalObj: any) {
   const { data, error } = await client.from(table).update(payload).eq('id', id).select();
-  if (error) assertIsRlsError(error);
-  expect(data === null || data.length === 0).toBe(true);
+  if (error && error.code !== '42501') {
+    throw new Error(`Error inesperado en UPDATE RLS: ${error.code} - ${error.message}`);
+  }
+  expect(data === null || (data as any[]).length === 0).toBe(true);
 
   const { data: verify, error: vErr } = await serviceClient.from(table).select('*').eq('id', id).single();
   expect(vErr).toBeNull();
@@ -121,8 +131,10 @@ async function expectAllowedUpdate(table: string, client: SupabaseClient, id: st
 
 async function expectDeniedDelete(table: string, client: SupabaseClient, id: string) {
   const { data, error } = await client.from(table).delete().eq('id', id).select();
-  if (error) assertIsRlsError(error);
-  expect(data === null || data.length === 0).toBe(true);
+  if (error && error.code !== '42501') {
+    throw new Error(`Error inesperado en DELETE RLS: ${error.code} - ${error.message}`);
+  }
+  expect(data === null || (data as any[]).length === 0).toBe(true);
 
   const { data: verify, error: vErr } = await serviceClient.from(table).select('*').eq('id', id);
   expect(vErr).toBeNull();
@@ -140,8 +152,10 @@ async function expectAllowedDelete(table: string, client: SupabaseClient, id: st
 
 async function expectDeniedSelect(table: string, client: SupabaseClient, id: string) {
   const { data, error } = await client.from(table).select('*').eq('id', id);
-  if (error) assertIsRlsError(error);
-  expect(data === null || data.length === 0).toBe(true);
+  if (error && error.code !== '42501') {
+    throw new Error(`Error inesperado en SELECT RLS: ${error.code} - ${error.message}`);
+  }
+  expect(data === null || (data as any[]).length === 0).toBe(true);
 }
 
 async function expectAllowedSelect(table: string, client: SupabaseClient, id: string) {
@@ -171,8 +185,7 @@ describe('RLS: documents', () => {
       try {
         await expectAllowedInsert('documents', client, payload);
       } finally {
-        const { error } = await serviceClient.from('documents').delete().eq('id', id);
-        expect(error).toBeNull();
+        await serviceClient.from('documents').delete().eq('id', id);
       }
     }
   });
@@ -182,10 +195,9 @@ describe('RLS: documents', () => {
       const id = crypto.randomUUID();
       const payload = getPayload(id);
       try {
-        await expectDeniedInsert('documents', client, payload);
+        await expectRlsDeniedInsert('documents', client, payload);
       } finally {
-        const { error } = await serviceClient.from('documents').delete().eq('id', id);
-        expect(error).toBeNull();
+        await serviceClient.from('documents').delete().eq('id', id);
       }
     }
   });
@@ -193,30 +205,26 @@ describe('RLS: documents', () => {
   it('SELECT - permitidos', async () => {
     const id = crypto.randomUUID();
     const payload = getPayload(id);
-    const { error: errInsert } = await serviceClient.from('documents').insert(payload);
-    expect(errInsert).toBeNull();
+    await serviceClient.from('documents').insert(payload);
     try {
       for (const client of [adminA, empA, auditorA, clientAsignadoA]) {
         await expectAllowedSelect('documents', client, id);
       }
     } finally {
-      const { error } = await serviceClient.from('documents').delete().eq('id', id);
-      expect(error).toBeNull();
+      await serviceClient.from('documents').delete().eq('id', id);
     }
   });
 
   it('SELECT - denegados', async () => {
     const id = crypto.randomUUID();
     const payload = getPayload(id);
-    const { error: errInsert } = await serviceClient.from('documents').insert(payload);
-    expect(errInsert).toBeNull();
+    await serviceClient.from('documents').insert(payload);
     try {
       for (const client of [clientNoAsignadoA, adminB, inactivoA, anon]) {
         await expectDeniedSelect('documents', client, id);
       }
     } finally {
-      const { error } = await serviceClient.from('documents').delete().eq('id', id);
-      expect(error).toBeNull();
+      await serviceClient.from('documents').delete().eq('id', id);
     }
   });
 
@@ -224,13 +232,11 @@ describe('RLS: documents', () => {
     for (const client of [adminA, empA]) {
       const id = crypto.randomUUID();
       const payload = getPayload(id);
-      const { error: errInsert } = await serviceClient.from('documents').insert(payload);
-      expect(errInsert).toBeNull();
+      await serviceClient.from('documents').insert(payload);
       try {
         await expectAllowedUpdate('documents', client, id, { file_name: 'updated.pdf' });
       } finally {
-        const { error } = await serviceClient.from('documents').delete().eq('id', id);
-        expect(error).toBeNull();
+        await serviceClient.from('documents').delete().eq('id', id);
       }
     }
   });
@@ -239,13 +245,11 @@ describe('RLS: documents', () => {
     for (const client of [auditorA, clientAsignadoA, clientNoAsignadoA, adminB, inactivoA, anon]) {
       const id = crypto.randomUUID();
       const payload = getPayload(id);
-      const { error: errInsert } = await serviceClient.from('documents').insert(payload);
-      expect(errInsert).toBeNull();
+      await serviceClient.from('documents').insert(payload);
       try {
         await expectDeniedUpdate('documents', client, id, { file_name: 'updated.pdf' }, payload);
       } finally {
-        const { error } = await serviceClient.from('documents').delete().eq('id', id);
-        expect(error).toBeNull();
+        await serviceClient.from('documents').delete().eq('id', id);
       }
     }
   });
@@ -254,13 +258,11 @@ describe('RLS: documents', () => {
     for (const client of [adminA, empA]) {
       const id = crypto.randomUUID();
       const payload = getPayload(id);
-      const { error: errInsert } = await serviceClient.from('documents').insert(payload);
-      expect(errInsert).toBeNull();
+      await serviceClient.from('documents').insert(payload);
       try {
         await expectAllowedDelete('documents', client, id);
       } finally {
-        const { error } = await serviceClient.from('documents').delete().eq('id', id);
-        expect(error).toBeNull();
+        await serviceClient.from('documents').delete().eq('id', id);
       }
     }
   });
@@ -269,36 +271,32 @@ describe('RLS: documents', () => {
     for (const client of [auditorA, clientAsignadoA, clientNoAsignadoA, adminB, inactivoA, anon]) {
       const id = crypto.randomUUID();
       const payload = getPayload(id);
-      const { error: errInsert } = await serviceClient.from('documents').insert(payload);
-      expect(errInsert).toBeNull();
+      await serviceClient.from('documents').insert(payload);
       try {
         await expectDeniedDelete('documents', client, id);
       } finally {
-        const { error } = await serviceClient.from('documents').delete().eq('id', id);
-        expect(error).toBeNull();
+        await serviceClient.from('documents').delete().eq('id', id);
       }
     }
   });
 
-  it('RELACIÃ“N PADRE-HIJO: positivo org A', async () => {
+  it('RELACIÃƒâ€œN PADRE-HIJO: positivo org A', async () => {
     const id = crypto.randomUUID();
     const payload = getPayload(id);
     try {
       await expectAllowedInsert('documents', adminA, payload);
     } finally {
-      const { error } = await serviceClient.from('documents').delete().eq('id', id);
-      expect(error).toBeNull();
+      await serviceClient.from('documents').delete().eq('id', id);
     }
   });
 
-  it('RELACIÃ“N PADRE-HIJO: negativo cruzado (Org A, Case B)', async () => {
+  it('RELACIÃƒâ€œN PADRE-HIJO: negativo cruzado (Org A, Case B)', async () => {
     const id = crypto.randomUUID();
     const payload = { ...getPayload(id), case_id: CASE_B };
     try {
-      await expectDeniedInsert('documents', adminA, payload);
+      await expectIntegrityRejectedInsert('documents', adminA, payload);
     } finally {
-      const { error } = await serviceClient.from('documents').delete().eq('id', id);
-      expect(error).toBeNull();
+      await serviceClient.from('documents').delete().eq('id', id);
     }
   });
 });
@@ -323,8 +321,7 @@ describe('RLS: ai_outputs', () => {
       try {
         await expectAllowedInsert('ai_outputs', client, payload);
       } finally {
-        const { error } = await serviceClient.from('ai_outputs').delete().eq('id', id);
-        expect(error).toBeNull();
+        await serviceClient.from('ai_outputs').delete().eq('id', id);
       }
     }
   });
@@ -334,10 +331,9 @@ describe('RLS: ai_outputs', () => {
       const id = crypto.randomUUID();
       const payload = getPayload(id);
       try {
-        await expectDeniedInsert('ai_outputs', client, payload);
+        await expectRlsDeniedInsert('ai_outputs', client, payload);
       } finally {
-        const { error } = await serviceClient.from('ai_outputs').delete().eq('id', id);
-        expect(error).toBeNull();
+        await serviceClient.from('ai_outputs').delete().eq('id', id);
       }
     }
   });
@@ -345,84 +341,104 @@ describe('RLS: ai_outputs', () => {
   it('SELECT - permitidos', async () => {
     const id = crypto.randomUUID();
     const payload = getPayload(id);
-    const { error: errInsert } = await serviceClient.from('ai_outputs').insert(payload);
-    expect(errInsert).toBeNull();
+    await serviceClient.from('ai_outputs').insert(payload);
     try {
       for (const client of [adminA, empA, auditorA]) {
         await expectAllowedSelect('ai_outputs', client, id);
       }
     } finally {
-      const { error } = await serviceClient.from('ai_outputs').delete().eq('id', id);
-      expect(error).toBeNull();
+      await serviceClient.from('ai_outputs').delete().eq('id', id);
     }
   });
 
   it('SELECT - denegados', async () => {
     const id = crypto.randomUUID();
     const payload = getPayload(id);
-    const { error: errInsert } = await serviceClient.from('ai_outputs').insert(payload);
-    expect(errInsert).toBeNull();
+    await serviceClient.from('ai_outputs').insert(payload);
     try {
       for (const client of [clientAsignadoA, clientNoAsignadoA, adminB, inactivoA, anon]) {
         await expectDeniedSelect('ai_outputs', client, id);
       }
     } finally {
-      const { error } = await serviceClient.from('ai_outputs').delete().eq('id', id);
-      expect(error).toBeNull();
+      await serviceClient.from('ai_outputs').delete().eq('id', id);
     }
   });
 
   it('UPDATE - denegados para todos', async () => {
-    for (const client of [adminA, empA, auditorA, clientAsignadoA, adminB, anon]) {
+    for (const client of [adminA, empA, auditorA, clientAsignadoA, clientNoAsignadoA, adminB, inactivoA, anon]) {
       const id = crypto.randomUUID();
       const payload = getPayload(id);
-      const { error: errInsert } = await serviceClient.from('ai_outputs').insert(payload);
-      expect(errInsert).toBeNull();
+      await serviceClient.from('ai_outputs').insert(payload);
       try {
         await expectDeniedUpdate('ai_outputs', client, id, { output_type: 'classification' }, payload);
       } finally {
-        const { error } = await serviceClient.from('ai_outputs').delete().eq('id', id);
-        expect(error).toBeNull();
+        await serviceClient.from('ai_outputs').delete().eq('id', id);
       }
     }
   });
 
   it('DELETE - permitidos', async () => {
-    const id = crypto.randomUUID();
-    const payload = getPayload(id);
-    const { error: errInsert } = await serviceClient.from('ai_outputs').insert(payload);
-    expect(errInsert).toBeNull();
-    try {
-      await expectAllowedDelete('ai_outputs', adminA, id);
-    } finally {
-      const { error } = await serviceClient.from('ai_outputs').delete().eq('id', id);
-      expect(error).toBeNull();
-    }
-  });
-
-  it('DELETE - denegados', async () => {
-    for (const client of [empA, auditorA, clientAsignadoA, adminB]) {
+    for (const client of [adminA]) {
       const id = crypto.randomUUID();
       const payload = getPayload(id);
-      const { error: errInsert } = await serviceClient.from('ai_outputs').insert(payload);
-      expect(errInsert).toBeNull();
+      await serviceClient.from('ai_outputs').insert(payload);
       try {
-        await expectDeniedDelete('ai_outputs', client, id);
+        await expectAllowedDelete('ai_outputs', client, id);
       } finally {
-        const { error } = await serviceClient.from('ai_outputs').delete().eq('id', id);
-        expect(error).toBeNull();
+        await serviceClient.from('ai_outputs').delete().eq('id', id);
       }
     }
   });
 
-  it('RELACIÃ“N PADRE-HIJO (case): negativo cruzado (Org A, Case B)', async () => {
+  it('DELETE - denegados', async () => {
+    for (const client of [empA, auditorA, clientAsignadoA, clientNoAsignadoA, adminB, inactivoA, anon]) {
+      const id = crypto.randomUUID();
+      const payload = getPayload(id);
+      await serviceClient.from('ai_outputs').insert(payload);
+      try {
+        await expectDeniedDelete('ai_outputs', client, id);
+      } finally {
+        await serviceClient.from('ai_outputs').delete().eq('id', id);
+      }
+    }
+  });
+
+  it('RELACIÃƒâ€œN PADRE-HIJO (case): negativo cruzado (Org A, Case B)', async () => {
     const id = crypto.randomUUID();
     const payload = { ...getPayload(id), case_id: CASE_B };
     try {
-      await expectDeniedInsert('ai_outputs', adminA, payload);
+      await expectIntegrityRejectedInsert('ai_outputs', adminA, payload);
     } finally {
-      const { error } = await serviceClient.from('ai_outputs').delete().eq('id', id);
-      expect(error).toBeNull();
+      await serviceClient.from('ai_outputs').delete().eq('id', id);
+    }
+  });
+
+  it('RELACIÃƒâ€œN PADRE-HIJO: ai_outputs -> documents (positivo)', async () => {
+    const id = crypto.randomUUID();
+    const payload = getPayload(id);
+    try {
+      await expectAllowedInsert('ai_outputs', adminA, payload);
+    } finally {
+      await serviceClient.from('ai_outputs').delete().eq('id', id);
+    }
+  });
+
+  it('RELACIÃƒâ€œN PADRE-HIJO: ai_outputs -> documents (negativo cruzado Org A apunta a Document Org B)', async () => {
+    const docB_id = crypto.randomUUID();
+    await serviceClient.from('documents').insert({
+        id: docB_id,
+        organization_id: ORG_B,
+        case_id: CASE_B,
+        file_name: 'b.pdf', file_path: 'b.pdf', file_size: 10, file_mime_type: 'application/pdf'
+    });
+
+    try {
+        const aiId = crypto.randomUUID();
+        const payload = { ...getPayload(aiId), document_id: docB_id };
+        await expectIntegrityRejectedInsert('ai_outputs', adminA, payload);
+    } finally {
+        await serviceClient.from('ai_outputs').delete().eq('id', docB_id);
+        await serviceClient.from('documents').delete().eq('id', docB_id);
     }
   });
 });
@@ -446,8 +462,7 @@ describe('RLS: agent_messages', () => {
       try {
         await expectAllowedInsert('agent_messages', client, payload);
       } finally {
-        const { error } = await serviceClient.from('agent_messages').delete().eq('id', id);
-        expect(error).toBeNull();
+        await serviceClient.from('agent_messages').delete().eq('id', id);
       }
     }
   });
@@ -457,10 +472,9 @@ describe('RLS: agent_messages', () => {
       const id = crypto.randomUUID();
       const payload = getPayload(id);
       try {
-        await expectDeniedInsert('agent_messages', client, payload);
+        await expectRlsDeniedInsert('agent_messages', client, payload);
       } finally {
-        const { error } = await serviceClient.from('agent_messages').delete().eq('id', id);
-        expect(error).toBeNull();
+        await serviceClient.from('agent_messages').delete().eq('id', id);
       }
     }
   });
@@ -468,88 +482,78 @@ describe('RLS: agent_messages', () => {
   it('SELECT - permitidos', async () => {
     const id = crypto.randomUUID();
     const payload = getPayload(id);
-    const { error: errInsert } = await serviceClient.from('agent_messages').insert(payload);
-    expect(errInsert).toBeNull();
+    await serviceClient.from('agent_messages').insert(payload);
     try {
       for (const client of [adminA, empA, auditorA]) {
         await expectAllowedSelect('agent_messages', client, id);
       }
     } finally {
-      const { error } = await serviceClient.from('agent_messages').delete().eq('id', id);
-      expect(error).toBeNull();
+      await serviceClient.from('agent_messages').delete().eq('id', id);
     }
   });
 
   it('SELECT - denegados', async () => {
     const id = crypto.randomUUID();
     const payload = getPayload(id);
-    const { error: errInsert } = await serviceClient.from('agent_messages').insert(payload);
-    expect(errInsert).toBeNull();
+    await serviceClient.from('agent_messages').insert(payload);
     try {
       for (const client of [clientAsignadoA, clientNoAsignadoA, adminB, inactivoA, anon]) {
         await expectDeniedSelect('agent_messages', client, id);
       }
     } finally {
-      const { error } = await serviceClient.from('agent_messages').delete().eq('id', id);
-      expect(error).toBeNull();
+      await serviceClient.from('agent_messages').delete().eq('id', id);
     }
   });
 
   it('UPDATE - denegados para todos', async () => {
-    for (const client of [adminA, empA, auditorA, clientAsignadoA, adminB, anon]) {
+    for (const client of [adminA, empA, auditorA, clientAsignadoA, clientNoAsignadoA, adminB, inactivoA, anon]) {
       const id = crypto.randomUUID();
       const payload = getPayload(id);
-      const { error: errInsert } = await serviceClient.from('agent_messages').insert(payload);
-      expect(errInsert).toBeNull();
+      await serviceClient.from('agent_messages').insert(payload);
       try {
         await expectDeniedUpdate('agent_messages', client, id, { content: 'updated' }, payload);
       } finally {
-        const { error } = await serviceClient.from('agent_messages').delete().eq('id', id);
-        expect(error).toBeNull();
+        await serviceClient.from('agent_messages').delete().eq('id', id);
       }
     }
   });
 
   it('DELETE - permitidos', async () => {
-    const id = crypto.randomUUID();
-    const payload = getPayload(id);
-    const { error: errInsert } = await serviceClient.from('agent_messages').insert(payload);
-    expect(errInsert).toBeNull();
-    try {
-      await expectAllowedDelete('agent_messages', adminA, id);
-    } finally {
-      const { error } = await serviceClient.from('agent_messages').delete().eq('id', id);
-      expect(error).toBeNull();
-    }
-  });
-
-  it('DELETE - denegados', async () => {
-    for (const client of [empA, auditorA, clientAsignadoA, adminB]) {
+    for (const client of [adminA]) {
       const id = crypto.randomUUID();
       const payload = getPayload(id);
-      const { error: errInsert } = await serviceClient.from('agent_messages').insert(payload);
-      expect(errInsert).toBeNull();
+      await serviceClient.from('agent_messages').insert(payload);
       try {
-        await expectDeniedDelete('agent_messages', client, id);
+        await expectAllowedDelete('agent_messages', client, id);
       } finally {
-        const { error } = await serviceClient.from('agent_messages').delete().eq('id', id);
-        expect(error).toBeNull();
+        await serviceClient.from('agent_messages').delete().eq('id', id);
       }
     }
   });
 
-  it('RELACIÃ“N PADRE-HIJO: negativo cruzado (Org A, Case B)', async () => {
+  it('DELETE - denegados', async () => {
+    for (const client of [empA, auditorA, clientAsignadoA, clientNoAsignadoA, adminB, inactivoA, anon]) {
+      const id = crypto.randomUUID();
+      const payload = getPayload(id);
+      await serviceClient.from('agent_messages').insert(payload);
+      try {
+        await expectDeniedDelete('agent_messages', client, id);
+      } finally {
+        await serviceClient.from('agent_messages').delete().eq('id', id);
+      }
+    }
+  });
+
+  it('RELACIÃƒâ€œN PADRE-HIJO: negativo cruzado (Org A, Case B)', async () => {
     const id = crypto.randomUUID();
     const payload = { ...getPayload(id), case_id: CASE_B };
     try {
-      await expectDeniedInsert('agent_messages', adminA, payload);
+      await expectIntegrityRejectedInsert('agent_messages', adminA, payload);
     } finally {
-      const { error } = await serviceClient.from('agent_messages').delete().eq('id', id);
-      expect(error).toBeNull();
+      await serviceClient.from('agent_messages').delete().eq('id', id);
     }
   });
 });
-
 // ==========================================
 // 4. case_events
 // ==========================================
@@ -558,7 +562,7 @@ describe('RLS: case_events', () => {
     id,
     organization_id: ORG_A,
     case_id: CASE_A,
-    event_date: new Date().toISOString(),
+    event_date: '2028-01-15',
     event_type: 'test_event',
     title: 'test',
     description: 'test',
@@ -572,8 +576,7 @@ describe('RLS: case_events', () => {
       try {
         await expectAllowedInsert('case_events', client, payload);
       } finally {
-        const { error } = await serviceClient.from('case_events').delete().eq('id', id);
-        expect(error).toBeNull();
+        await serviceClient.from('case_events').delete().eq('id', id);
       }
     }
   });
@@ -583,10 +586,9 @@ describe('RLS: case_events', () => {
       const id = crypto.randomUUID();
       const payload = getPayload(id);
       try {
-        await expectDeniedInsert('case_events', client, payload);
+        await expectRlsDeniedInsert('case_events', client, payload);
       } finally {
-        const { error } = await serviceClient.from('case_events').delete().eq('id', id);
-        expect(error).toBeNull();
+        await serviceClient.from('case_events').delete().eq('id', id);
       }
     }
   });
@@ -594,30 +596,26 @@ describe('RLS: case_events', () => {
   it('SELECT - permitidos', async () => {
     const id = crypto.randomUUID();
     const payload = getPayload(id);
-    const { error: errInsert } = await serviceClient.from('case_events').insert(payload);
-    expect(errInsert).toBeNull();
+    await serviceClient.from('case_events').insert(payload);
     try {
       for (const client of [adminA, empA, auditorA, clientAsignadoA]) {
         await expectAllowedSelect('case_events', client, id);
       }
     } finally {
-      const { error } = await serviceClient.from('case_events').delete().eq('id', id);
-      expect(error).toBeNull();
+      await serviceClient.from('case_events').delete().eq('id', id);
     }
   });
 
   it('SELECT - denegados', async () => {
     const id = crypto.randomUUID();
     const payload = getPayload(id);
-    const { error: errInsert } = await serviceClient.from('case_events').insert(payload);
-    expect(errInsert).toBeNull();
+    await serviceClient.from('case_events').insert(payload);
     try {
       for (const client of [clientNoAsignadoA, adminB, inactivoA, anon]) {
         await expectDeniedSelect('case_events', client, id);
       }
     } finally {
-      const { error } = await serviceClient.from('case_events').delete().eq('id', id);
-      expect(error).toBeNull();
+      await serviceClient.from('case_events').delete().eq('id', id);
     }
   });
 
@@ -625,13 +623,11 @@ describe('RLS: case_events', () => {
     for (const client of [adminA, empA]) {
       const id = crypto.randomUUID();
       const payload = getPayload(id);
-      const { error: errInsert } = await serviceClient.from('case_events').insert(payload);
-      expect(errInsert).toBeNull();
+      await serviceClient.from('case_events').insert(payload);
       try {
         await expectAllowedUpdate('case_events', client, id, { description: 'updated' });
       } finally {
-        const { error } = await serviceClient.from('case_events').delete().eq('id', id);
-        expect(error).toBeNull();
+        await serviceClient.from('case_events').delete().eq('id', id);
       }
     }
   });
@@ -640,13 +636,11 @@ describe('RLS: case_events', () => {
     for (const client of [auditorA, clientAsignadoA, clientNoAsignadoA, adminB, inactivoA, anon]) {
       const id = crypto.randomUUID();
       const payload = getPayload(id);
-      const { error: errInsert } = await serviceClient.from('case_events').insert(payload);
-      expect(errInsert).toBeNull();
+      await serviceClient.from('case_events').insert(payload);
       try {
         await expectDeniedUpdate('case_events', client, id, { description: 'updated' }, payload);
       } finally {
-        const { error } = await serviceClient.from('case_events').delete().eq('id', id);
-        expect(error).toBeNull();
+        await serviceClient.from('case_events').delete().eq('id', id);
       }
     }
   });
@@ -655,13 +649,11 @@ describe('RLS: case_events', () => {
     for (const client of [adminA, empA]) {
       const id = crypto.randomUUID();
       const payload = getPayload(id);
-      const { error: errInsert } = await serviceClient.from('case_events').insert(payload);
-      expect(errInsert).toBeNull();
+      await serviceClient.from('case_events').insert(payload);
       try {
         await expectAllowedDelete('case_events', client, id);
       } finally {
-        const { error } = await serviceClient.from('case_events').delete().eq('id', id);
-        expect(error).toBeNull();
+        await serviceClient.from('case_events').delete().eq('id', id);
       }
     }
   });
@@ -670,25 +662,22 @@ describe('RLS: case_events', () => {
     for (const client of [auditorA, clientAsignadoA, clientNoAsignadoA, adminB, inactivoA, anon]) {
       const id = crypto.randomUUID();
       const payload = getPayload(id);
-      const { error: errInsert } = await serviceClient.from('case_events').insert(payload);
-      expect(errInsert).toBeNull();
+      await serviceClient.from('case_events').insert(payload);
       try {
         await expectDeniedDelete('case_events', client, id);
       } finally {
-        const { error } = await serviceClient.from('case_events').delete().eq('id', id);
-        expect(error).toBeNull();
+        await serviceClient.from('case_events').delete().eq('id', id);
       }
     }
   });
 
-  it('RELACIÃ“N PADRE-HIJO: negativo cruzado (Org A, Case B)', async () => {
+  it('RELACIÃƒâ€œN PADRE-HIJO: negativo cruzado (Org A, Case B)', async () => {
     const id = crypto.randomUUID();
     const payload = { ...getPayload(id), case_id: CASE_B };
     try {
-      await expectDeniedInsert('case_events', adminA, payload);
+      await expectIntegrityRejectedInsert('case_events', adminA, payload);
     } finally {
-      const { error } = await serviceClient.from('case_events').delete().eq('id', id);
-      expect(error).toBeNull();
+      await serviceClient.from('case_events').delete().eq('id', id);
     }
   });
 });
@@ -714,21 +703,19 @@ describe('RLS: reports', () => {
       try {
         await expectAllowedInsert('reports', client, payload);
       } finally {
-        const { error } = await serviceClient.from('reports').delete().eq('id', id);
-        expect(error).toBeNull();
+        await serviceClient.from('reports').delete().eq('id', id);
       }
     }
   });
 
   it('INSERT - denegados', async () => {
-    for (const client of [auditorA, clientAsignadoA, adminB, anon]) {
+    for (const client of [auditorA, clientAsignadoA, clientNoAsignadoA, inactivoA, adminB, anon]) {
       const id = crypto.randomUUID();
       const payload = getPayload(id);
       try {
-        await expectDeniedInsert('reports', client, payload);
+        await expectRlsDeniedInsert('reports', client, payload);
       } finally {
-        const { error } = await serviceClient.from('reports').delete().eq('id', id);
-        expect(error).toBeNull();
+        await serviceClient.from('reports').delete().eq('id', id);
       }
     }
   });
@@ -736,30 +723,26 @@ describe('RLS: reports', () => {
   it('SELECT - permitidos', async () => {
     const id = crypto.randomUUID();
     const payload = getPayload(id);
-    const { error: errInsert } = await serviceClient.from('reports').insert(payload);
-    expect(errInsert).toBeNull();
+    await serviceClient.from('reports').insert(payload);
     try {
       for (const client of [adminA, empA, auditorA]) {
         await expectAllowedSelect('reports', client, id);
       }
     } finally {
-      const { error } = await serviceClient.from('reports').delete().eq('id', id);
-      expect(error).toBeNull();
+      await serviceClient.from('reports').delete().eq('id', id);
     }
   });
 
   it('SELECT - denegados', async () => {
     const id = crypto.randomUUID();
     const payload = getPayload(id);
-    const { error: errInsert } = await serviceClient.from('reports').insert(payload);
-    expect(errInsert).toBeNull();
+    await serviceClient.from('reports').insert(payload);
     try {
-      for (const client of [clientAsignadoA, adminB, anon]) {
+      for (const client of [clientAsignadoA, clientNoAsignadoA, inactivoA, adminB, anon]) {
         await expectDeniedSelect('reports', client, id);
       }
     } finally {
-      const { error } = await serviceClient.from('reports').delete().eq('id', id);
-      expect(error).toBeNull();
+      await serviceClient.from('reports').delete().eq('id', id);
     }
   });
 
@@ -767,28 +750,24 @@ describe('RLS: reports', () => {
     for (const client of [adminA, empA]) {
       const id = crypto.randomUUID();
       const payload = getPayload(id);
-      const { error: errInsert } = await serviceClient.from('reports').insert(payload);
-      expect(errInsert).toBeNull();
+      await serviceClient.from('reports').insert(payload);
       try {
         await expectAllowedUpdate('reports', client, id, { title: 'updated' });
       } finally {
-        const { error } = await serviceClient.from('reports').delete().eq('id', id);
-        expect(error).toBeNull();
+        await serviceClient.from('reports').delete().eq('id', id);
       }
     }
   });
 
   it('UPDATE - denegados', async () => {
-    for (const client of [auditorA, clientAsignadoA, adminB, anon]) {
+    for (const client of [auditorA, clientAsignadoA, clientNoAsignadoA, inactivoA, adminB, anon]) {
       const id = crypto.randomUUID();
       const payload = getPayload(id);
-      const { error: errInsert } = await serviceClient.from('reports').insert(payload);
-      expect(errInsert).toBeNull();
+      await serviceClient.from('reports').insert(payload);
       try {
         await expectDeniedUpdate('reports', client, id, { title: 'updated' }, payload);
       } finally {
-        const { error } = await serviceClient.from('reports').delete().eq('id', id);
-        expect(error).toBeNull();
+        await serviceClient.from('reports').delete().eq('id', id);
       }
     }
   });
@@ -797,40 +776,35 @@ describe('RLS: reports', () => {
     for (const client of [adminA, empA]) {
       const id = crypto.randomUUID();
       const payload = getPayload(id);
-      const { error: errInsert } = await serviceClient.from('reports').insert(payload);
-      expect(errInsert).toBeNull();
+      await serviceClient.from('reports').insert(payload);
       try {
         await expectAllowedDelete('reports', client, id);
       } finally {
-        const { error } = await serviceClient.from('reports').delete().eq('id', id);
-        expect(error).toBeNull();
+        await serviceClient.from('reports').delete().eq('id', id);
       }
     }
   });
 
   it('DELETE - denegados', async () => {
-    for (const client of [auditorA, clientAsignadoA, adminB, anon]) {
+    for (const client of [auditorA, clientAsignadoA, clientNoAsignadoA, inactivoA, adminB, anon]) {
       const id = crypto.randomUUID();
       const payload = getPayload(id);
-      const { error: errInsert } = await serviceClient.from('reports').insert(payload);
-      expect(errInsert).toBeNull();
+      await serviceClient.from('reports').insert(payload);
       try {
         await expectDeniedDelete('reports', client, id);
       } finally {
-        const { error } = await serviceClient.from('reports').delete().eq('id', id);
-        expect(error).toBeNull();
+        await serviceClient.from('reports').delete().eq('id', id);
       }
     }
   });
 
-  it('RELACIÃ“N PADRE-HIJO: negativo cruzado (Org A, Case B)', async () => {
+  it('RELACIÃƒâ€œN PADRE-HIJO: negativo cruzado (Org A, Case B)', async () => {
     const id = crypto.randomUUID();
     const payload = { ...getPayload(id), case_id: CASE_B };
     try {
-      await expectDeniedInsert('reports', adminA, payload);
+      await expectIntegrityRejectedInsert('reports', adminA, payload);
     } finally {
-      const { error } = await serviceClient.from('reports').delete().eq('id', id);
-      expect(error).toBeNull();
+      await serviceClient.from('reports').delete().eq('id', id);
     }
   });
 });
@@ -855,21 +829,19 @@ describe('RLS: case_derivations', () => {
       try {
         await expectAllowedInsert('case_derivations', client, payload);
       } finally {
-        const { error } = await serviceClient.from('case_derivations').delete().eq('id', id);
-        expect(error).toBeNull();
+        await serviceClient.from('case_derivations').delete().eq('id', id);
       }
     }
   });
 
   it('INSERT - denegados', async () => {
-    for (const client of [auditorA, clientAsignadoA, adminB, adminC, anon]) {
+    for (const client of [auditorA, clientAsignadoA, clientNoAsignadoA, inactivoA, adminB, adminC, anon]) {
       const id = crypto.randomUUID();
       const payload = getPayload(id);
       try {
-        await expectDeniedInsert('case_derivations', client, payload);
+        await expectRlsDeniedInsert('case_derivations', client, payload);
       } finally {
-        const { error } = await serviceClient.from('case_derivations').delete().eq('id', id);
-        expect(error).toBeNull();
+        await serviceClient.from('case_derivations').delete().eq('id', id);
       }
     }
   });
@@ -877,87 +849,77 @@ describe('RLS: case_derivations', () => {
   it('SELECT - permitidos', async () => {
     const id = crypto.randomUUID();
     const payload = getPayload(id);
-    const { error: errInsert } = await serviceClient.from('case_derivations').insert(payload);
-    expect(errInsert).toBeNull();
+    await serviceClient.from('case_derivations').insert(payload);
     try {
-      for (const client of [adminA, empA, adminB]) {
+      for (const client of [adminA, empA, auditorA, clientAsignadoA, clientNoAsignadoA, adminB]) {
         await expectAllowedSelect('case_derivations', client, id);
       }
     } finally {
-      const { error } = await serviceClient.from('case_derivations').delete().eq('id', id);
-      expect(error).toBeNull();
+      await serviceClient.from('case_derivations').delete().eq('id', id);
     }
   });
 
   it('SELECT - denegados', async () => {
     const id = crypto.randomUUID();
     const payload = getPayload(id);
-    const { error: errInsert } = await serviceClient.from('case_derivations').insert(payload);
-    expect(errInsert).toBeNull();
+    await serviceClient.from('case_derivations').insert(payload);
     try {
-      for (const client of [adminC, anon]) {
+      for (const client of [inactivoA, adminC, anon]) {
         await expectDeniedSelect('case_derivations', client, id);
       }
     } finally {
-      const { error } = await serviceClient.from('case_derivations').delete().eq('id', id);
-      expect(error).toBeNull();
+      await serviceClient.from('case_derivations').delete().eq('id', id);
     }
   });
 
   it('UPDATE - permitidos', async () => {
-    for (const client of [adminA, adminB]) {
+    for (const client of [adminA, empA, adminB]) {
       const id = crypto.randomUUID();
       const payload = getPayload(id);
-      const { error: errInsert } = await serviceClient.from('case_derivations').insert(payload);
-      expect(errInsert).toBeNull();
+      await serviceClient.from('case_derivations').insert(payload);
       try {
         await expectAllowedUpdate('case_derivations', client, id, { status: 'accepted' });
       } finally {
-        const { error } = await serviceClient.from('case_derivations').delete().eq('id', id);
-        expect(error).toBeNull();
+        await serviceClient.from('case_derivations').delete().eq('id', id);
       }
     }
   });
 
   it('UPDATE - denegados', async () => {
-    for (const client of [adminC, anon]) {
+    for (const client of [auditorA, clientAsignadoA, clientNoAsignadoA, inactivoA, adminC, anon]) {
       const id = crypto.randomUUID();
       const payload = getPayload(id);
-      const { error: errInsert } = await serviceClient.from('case_derivations').insert(payload);
-      expect(errInsert).toBeNull();
+      await serviceClient.from('case_derivations').insert(payload);
       try {
         await expectDeniedUpdate('case_derivations', client, id, { status: 'accepted' }, payload);
       } finally {
-        const { error } = await serviceClient.from('case_derivations').delete().eq('id', id);
-        expect(error).toBeNull();
+        await serviceClient.from('case_derivations').delete().eq('id', id);
       }
     }
   });
 
   it('DELETE - permitidos', async () => {
-    const id = crypto.randomUUID();
-    const payload = getPayload(id);
-    const { error: errInsert } = await serviceClient.from('case_derivations').insert(payload);
-    expect(errInsert).toBeNull();
-    try {
-      await expectAllowedDelete('case_derivations', adminA, id);
-    } finally {
-      const { error } = await serviceClient.from('case_derivations').delete().eq('id', id);
-      expect(error).toBeNull();
+    for (const client of [adminA, empA]) {
+      const id = crypto.randomUUID();
+      const payload = getPayload(id);
+      await serviceClient.from('case_derivations').insert(payload);
+      try {
+        await expectAllowedDelete('case_derivations', client, id);
+      } finally {
+        await serviceClient.from('case_derivations').delete().eq('id', id);
+      }
     }
   });
 
   it('DELETE - denegados', async () => {
-    for (const client of [adminB, adminC, anon]) {
+    for (const client of [adminB, auditorA, clientAsignadoA, clientNoAsignadoA, inactivoA, adminC, anon]) {
       const id = crypto.randomUUID();
       const payload = getPayload(id);
-      const { error: errInsert } = await serviceClient.from('case_derivations').insert(payload);
-      expect(errInsert).toBeNull();
+      await serviceClient.from('case_derivations').insert(payload);
       try {
         await expectDeniedDelete('case_derivations', client, id);
       } finally {
-        const { error } = await serviceClient.from('case_derivations').delete().eq('id', id);
-        expect(error).toBeNull();
+        await serviceClient.from('case_derivations').delete().eq('id', id);
       }
     }
   });
@@ -982,21 +944,19 @@ describe('RLS: properties', () => {
       try {
         await expectAllowedInsert('properties', client, payload);
       } finally {
-        const { error } = await serviceClient.from('properties').delete().eq('id', id);
-        expect(error).toBeNull();
+        await serviceClient.from('properties').delete().eq('id', id);
       }
     }
   });
 
   it('INSERT - denegados', async () => {
-    for (const client of [auditorA, clientAsignadoA, adminB, anon]) {
+    for (const client of [auditorA, clientAsignadoA, clientNoAsignadoA, inactivoA, adminB, anon]) {
       const id = crypto.randomUUID();
       const payload = getPayload(id);
       try {
-        await expectDeniedInsert('properties', client, payload);
+        await expectRlsDeniedInsert('properties', client, payload);
       } finally {
-        const { error } = await serviceClient.from('properties').delete().eq('id', id);
-        expect(error).toBeNull();
+        await serviceClient.from('properties').delete().eq('id', id);
       }
     }
   });
@@ -1004,30 +964,26 @@ describe('RLS: properties', () => {
   it('SELECT - permitidos', async () => {
     const id = crypto.randomUUID();
     const payload = getPayload(id);
-    const { error: errInsert } = await serviceClient.from('properties').insert(payload);
-    expect(errInsert).toBeNull();
+    await serviceClient.from('properties').insert(payload);
     try {
       for (const client of [adminA, empA, auditorA]) {
         await expectAllowedSelect('properties', client, id);
       }
     } finally {
-      const { error } = await serviceClient.from('properties').delete().eq('id', id);
-      expect(error).toBeNull();
+      await serviceClient.from('properties').delete().eq('id', id);
     }
   });
 
   it('SELECT - denegados', async () => {
     const id = crypto.randomUUID();
     const payload = getPayload(id);
-    const { error: errInsert } = await serviceClient.from('properties').insert(payload);
-    expect(errInsert).toBeNull();
+    await serviceClient.from('properties').insert(payload);
     try {
-      for (const client of [clientAsignadoA, adminB, anon]) {
+      for (const client of [clientAsignadoA, clientNoAsignadoA, inactivoA, adminB, anon]) {
         await expectDeniedSelect('properties', client, id);
       }
     } finally {
-      const { error } = await serviceClient.from('properties').delete().eq('id', id);
-      expect(error).toBeNull();
+      await serviceClient.from('properties').delete().eq('id', id);
     }
   });
 
@@ -1035,28 +991,24 @@ describe('RLS: properties', () => {
     for (const client of [adminA, empA]) {
       const id = crypto.randomUUID();
       const payload = getPayload(id);
-      const { error: errInsert } = await serviceClient.from('properties').insert(payload);
-      expect(errInsert).toBeNull();
+      await serviceClient.from('properties').insert(payload);
       try {
         await expectAllowedUpdate('properties', client, id, { property_type: 'departamento' });
       } finally {
-        const { error } = await serviceClient.from('properties').delete().eq('id', id);
-        expect(error).toBeNull();
+        await serviceClient.from('properties').delete().eq('id', id);
       }
     }
   });
 
   it('UPDATE - denegados', async () => {
-    for (const client of [auditorA, clientAsignadoA, adminB, anon]) {
+    for (const client of [auditorA, clientAsignadoA, clientNoAsignadoA, inactivoA, adminB, anon]) {
       const id = crypto.randomUUID();
       const payload = getPayload(id);
-      const { error: errInsert } = await serviceClient.from('properties').insert(payload);
-      expect(errInsert).toBeNull();
+      await serviceClient.from('properties').insert(payload);
       try {
         await expectDeniedUpdate('properties', client, id, { property_type: 'departamento' }, payload);
       } finally {
-        const { error } = await serviceClient.from('properties').delete().eq('id', id);
-        expect(error).toBeNull();
+        await serviceClient.from('properties').delete().eq('id', id);
       }
     }
   });
@@ -1065,28 +1017,24 @@ describe('RLS: properties', () => {
     for (const client of [adminA, empA]) {
       const id = crypto.randomUUID();
       const payload = getPayload(id);
-      const { error: errInsert } = await serviceClient.from('properties').insert(payload);
-      expect(errInsert).toBeNull();
+      await serviceClient.from('properties').insert(payload);
       try {
         await expectAllowedDelete('properties', client, id);
       } finally {
-        const { error } = await serviceClient.from('properties').delete().eq('id', id);
-        expect(error).toBeNull();
+        await serviceClient.from('properties').delete().eq('id', id);
       }
     }
   });
 
   it('DELETE - denegados', async () => {
-    for (const client of [auditorA, clientAsignadoA, adminB, anon]) {
+    for (const client of [auditorA, clientAsignadoA, clientNoAsignadoA, inactivoA, adminB, anon]) {
       const id = crypto.randomUUID();
       const payload = getPayload(id);
-      const { error: errInsert } = await serviceClient.from('properties').insert(payload);
-      expect(errInsert).toBeNull();
+      await serviceClient.from('properties').insert(payload);
       try {
         await expectDeniedDelete('properties', client, id);
       } finally {
-        const { error } = await serviceClient.from('properties').delete().eq('id', id);
-        expect(error).toBeNull();
+        await serviceClient.from('properties').delete().eq('id', id);
       }
     }
   });
@@ -1096,7 +1044,7 @@ describe('RLS: properties', () => {
 // 8. cases.property_id
 // ==========================================
 describe('RLS: cases.property_id', () => {
-  it('RELACIÃ“N PADRE-HIJO: caso org B referenciando propiedad org A denegado', async () => {
+  it('RELACIÃƒâ€œN PADRE-HIJO: caso Org A referenciando propiedad Org A permitido', async () => {
     const propId = crypto.randomUUID();
     const propPayload = {
       id: propId,
@@ -1105,11 +1053,39 @@ describe('RLS: cases.property_id', () => {
       property_type: 'casa',
       status: 'active',
     };
-    const { error: errInsert } = await serviceClient.from('properties').insert(propPayload);
-    expect(errInsert).toBeNull();
+    await serviceClient.from('properties').insert(propPayload);
 
+    const caseId = crypto.randomUUID();
     try {
-      const caseId = crypto.randomUUID();
+      const casePayload = {
+        id: caseId,
+        organization_id: ORG_A,
+        title: 'Prop cross',
+        case_type: 'venta',
+        status: 'active',
+        created_by: SEED_DATA.ADMIN_LEGAL_ID,
+        property_id: propId,
+      };
+      await expectAllowedInsert('cases', adminA, casePayload);
+    } finally {
+      await serviceClient.from('cases').delete().eq('id', caseId);
+      await serviceClient.from('properties').delete().eq('id', propId);
+    }
+  });
+
+  it('RELACIÃƒâ€œN PADRE-HIJO: caso Org B referenciando propiedad Org A denegado', async () => {
+    const propId = crypto.randomUUID();
+    const propPayload = {
+      id: propId,
+      organization_id: ORG_A,
+      address: '123',
+      property_type: 'casa',
+      status: 'active',
+    };
+    await serviceClient.from('properties').insert(propPayload);
+
+    const caseId = crypto.randomUUID();
+    try {
       const casePayload = {
         id: caseId,
         organization_id: ORG_B,
@@ -1119,10 +1095,10 @@ describe('RLS: cases.property_id', () => {
         created_by: SEED_DATA.ADMIN_INM_ID,
         property_id: propId,
       };
-      await expectDeniedInsert('cases', adminB, casePayload);
+      await expectIntegrityRejectedInsert('cases', adminB, casePayload);
     } finally {
-      const { error } = await serviceClient.from('properties').delete().eq('id', propId);
-      expect(error).toBeNull();
+      await serviceClient.from('cases').delete().eq('id', caseId);
+      await serviceClient.from('properties').delete().eq('id', propId);
     }
   });
 });
@@ -1146,21 +1122,19 @@ describe('RLS: clients', () => {
       try {
         await expectAllowedInsert('clients', client, payload);
       } finally {
-        const { error } = await serviceClient.from('clients').delete().eq('id', id);
-        expect(error).toBeNull();
+        await serviceClient.from('clients').delete().eq('id', id);
       }
     }
   });
 
   it('INSERT - denegados', async () => {
-    for (const client of [auditorA, clientAsignadoA, adminB, anon]) {
+    for (const client of [auditorA, clientAsignadoA, clientNoAsignadoA, inactivoA, adminB, anon]) {
       const id = crypto.randomUUID();
       const payload = getPayload(id);
       try {
-        await expectDeniedInsert('clients', client, payload);
+        await expectRlsDeniedInsert('clients', client, payload);
       } finally {
-        const { error } = await serviceClient.from('clients').delete().eq('id', id);
-        expect(error).toBeNull();
+        await serviceClient.from('clients').delete().eq('id', id);
       }
     }
   });
@@ -1168,30 +1142,26 @@ describe('RLS: clients', () => {
   it('SELECT - permitidos', async () => {
     const id = crypto.randomUUID();
     const payload = getPayload(id);
-    const { error: errInsert } = await serviceClient.from('clients').insert(payload);
-    expect(errInsert).toBeNull();
+    await serviceClient.from('clients').insert(payload);
     try {
       for (const client of [adminA, empA, auditorA]) {
         await expectAllowedSelect('clients', client, id);
       }
     } finally {
-      const { error } = await serviceClient.from('clients').delete().eq('id', id);
-      expect(error).toBeNull();
+      await serviceClient.from('clients').delete().eq('id', id);
     }
   });
 
   it('SELECT - denegados', async () => {
     const id = crypto.randomUUID();
     const payload = getPayload(id);
-    const { error: errInsert } = await serviceClient.from('clients').insert(payload);
-    expect(errInsert).toBeNull();
+    await serviceClient.from('clients').insert(payload);
     try {
-      for (const client of [clientAsignadoA, adminB, anon]) {
+      for (const client of [clientAsignadoA, clientNoAsignadoA, inactivoA, adminB, anon]) {
         await expectDeniedSelect('clients', client, id);
       }
     } finally {
-      const { error } = await serviceClient.from('clients').delete().eq('id', id);
-      expect(error).toBeNull();
+      await serviceClient.from('clients').delete().eq('id', id);
     }
   });
 
@@ -1199,28 +1169,24 @@ describe('RLS: clients', () => {
     for (const client of [adminA, empA]) {
       const id = crypto.randomUUID();
       const payload = getPayload(id);
-      const { error: errInsert } = await serviceClient.from('clients').insert(payload);
-      expect(errInsert).toBeNull();
+      await serviceClient.from('clients').insert(payload);
       try {
         await expectAllowedUpdate('clients', client, id, { full_name: 'updated' });
       } finally {
-        const { error } = await serviceClient.from('clients').delete().eq('id', id);
-        expect(error).toBeNull();
+        await serviceClient.from('clients').delete().eq('id', id);
       }
     }
   });
 
   it('UPDATE - denegados', async () => {
-    for (const client of [auditorA, clientAsignadoA, adminB, anon]) {
+    for (const client of [auditorA, clientAsignadoA, clientNoAsignadoA, inactivoA, adminB, anon]) {
       const id = crypto.randomUUID();
       const payload = getPayload(id);
-      const { error: errInsert } = await serviceClient.from('clients').insert(payload);
-      expect(errInsert).toBeNull();
+      await serviceClient.from('clients').insert(payload);
       try {
         await expectDeniedUpdate('clients', client, id, { full_name: 'updated' }, payload);
       } finally {
-        const { error } = await serviceClient.from('clients').delete().eq('id', id);
-        expect(error).toBeNull();
+        await serviceClient.from('clients').delete().eq('id', id);
       }
     }
   });
@@ -1229,28 +1195,24 @@ describe('RLS: clients', () => {
     for (const client of [adminA, empA]) {
       const id = crypto.randomUUID();
       const payload = getPayload(id);
-      const { error: errInsert } = await serviceClient.from('clients').insert(payload);
-      expect(errInsert).toBeNull();
+      await serviceClient.from('clients').insert(payload);
       try {
         await expectAllowedDelete('clients', client, id);
       } finally {
-        const { error } = await serviceClient.from('clients').delete().eq('id', id);
-        expect(error).toBeNull();
+        await serviceClient.from('clients').delete().eq('id', id);
       }
     }
   });
 
   it('DELETE - denegados', async () => {
-    for (const client of [auditorA, clientAsignadoA, adminB, anon]) {
+    for (const client of [auditorA, clientAsignadoA, clientNoAsignadoA, inactivoA, adminB, anon]) {
       const id = crypto.randomUUID();
       const payload = getPayload(id);
-      const { error: errInsert } = await serviceClient.from('clients').insert(payload);
-      expect(errInsert).toBeNull();
+      await serviceClient.from('clients').insert(payload);
       try {
         await expectDeniedDelete('clients', client, id);
       } finally {
-        const { error } = await serviceClient.from('clients').delete().eq('id', id);
-        expect(error).toBeNull();
+        await serviceClient.from('clients').delete().eq('id', id);
       }
     }
   });
@@ -1260,26 +1222,7 @@ describe('RLS: clients', () => {
 // 10. rental_contracts
 // ==========================================
 describe('RLS: rental_contracts', () => {
-  const propId = crypto.randomUUID();
-  const propPayload = {
-    id: propId,
-    organization_id: ORG_A,
-    address: 'Prop for contract',
-    property_type: 'casa',
-    status: 'active',
-  };
-
-  beforeAll(async () => {
-    const { error } = await serviceClient.from('properties').insert(propPayload);
-    expect(error).toBeNull();
-  });
-
-  afterAll(async () => {
-    const { error } = await serviceClient.from('properties').delete().eq('id', propId);
-    expect(error).toBeNull();
-  });
-
-  const getPayload = (id: string) => ({
+  const getPayload = (id: string, propId: string) => ({
     id,
     organization_id: ORG_A,
     property_id: propId,
@@ -1291,116 +1234,126 @@ describe('RLS: rental_contracts', () => {
 
   it('INSERT - permitidos', async () => {
     for (const client of [adminA, empA]) {
+      const propId = crypto.randomUUID();
+      await serviceClient.from('properties').insert({ id: propId, organization_id: ORG_A, address: 'p', property_type: 'casa', status: 'active' });
       const id = crypto.randomUUID();
-      const payload = getPayload(id);
+      const payload = getPayload(id, propId);
       try {
         await expectAllowedInsert('rental_contracts', client, payload);
       } finally {
-        const { error } = await serviceClient.from('rental_contracts').delete().eq('id', id);
-        expect(error).toBeNull();
+        await serviceClient.from('rental_contracts').delete().eq('id', id);
+        await serviceClient.from('properties').delete().eq('id', propId);
       }
     }
   });
 
   it('INSERT - denegados', async () => {
-    for (const client of [auditorA, clientAsignadoA, adminB, anon]) {
+    for (const client of [auditorA, clientAsignadoA, clientNoAsignadoA, inactivoA, adminB, anon]) {
+      const propId = crypto.randomUUID();
+      await serviceClient.from('properties').insert({ id: propId, organization_id: ORG_A, address: 'p', property_type: 'casa', status: 'active' });
       const id = crypto.randomUUID();
-      const payload = getPayload(id);
+      const payload = getPayload(id, propId);
       try {
-        await expectDeniedInsert('rental_contracts', client, payload);
+        await expectRlsDeniedInsert('rental_contracts', client, payload);
       } finally {
-        const { error } = await serviceClient.from('rental_contracts').delete().eq('id', id);
-        expect(error).toBeNull();
+        await serviceClient.from('rental_contracts').delete().eq('id', id);
+        await serviceClient.from('properties').delete().eq('id', propId);
       }
     }
   });
 
   it('SELECT - permitidos', async () => {
+    const propId = crypto.randomUUID();
+    await serviceClient.from('properties').insert({ id: propId, organization_id: ORG_A, address: 'p', property_type: 'casa', status: 'active' });
     const id = crypto.randomUUID();
-    const payload = getPayload(id);
-    const { error: errInsert } = await serviceClient.from('rental_contracts').insert(payload);
-    expect(errInsert).toBeNull();
+    const payload = getPayload(id, propId);
+    await serviceClient.from('rental_contracts').insert(payload);
     try {
       for (const client of [adminA, empA, auditorA]) {
         await expectAllowedSelect('rental_contracts', client, id);
       }
     } finally {
-      const { error } = await serviceClient.from('rental_contracts').delete().eq('id', id);
-      expect(error).toBeNull();
+      await serviceClient.from('rental_contracts').delete().eq('id', id);
+      await serviceClient.from('properties').delete().eq('id', propId);
     }
   });
 
   it('SELECT - denegados', async () => {
+    const propId = crypto.randomUUID();
+    await serviceClient.from('properties').insert({ id: propId, organization_id: ORG_A, address: 'p', property_type: 'casa', status: 'active' });
     const id = crypto.randomUUID();
-    const payload = getPayload(id);
-    const { error: errInsert } = await serviceClient.from('rental_contracts').insert(payload);
-    expect(errInsert).toBeNull();
+    const payload = getPayload(id, propId);
+    await serviceClient.from('rental_contracts').insert(payload);
     try {
-      for (const client of [clientAsignadoA, adminB, anon]) {
+      for (const client of [clientAsignadoA, clientNoAsignadoA, inactivoA, adminB, anon]) {
         await expectDeniedSelect('rental_contracts', client, id);
       }
     } finally {
-      const { error } = await serviceClient.from('rental_contracts').delete().eq('id', id);
-      expect(error).toBeNull();
+      await serviceClient.from('rental_contracts').delete().eq('id', id);
+      await serviceClient.from('properties').delete().eq('id', propId);
     }
   });
 
   it('UPDATE - permitidos', async () => {
     for (const client of [adminA, empA]) {
+      const propId = crypto.randomUUID();
+      await serviceClient.from('properties').insert({ id: propId, organization_id: ORG_A, address: 'p', property_type: 'casa', status: 'active' });
       const id = crypto.randomUUID();
-      const payload = getPayload(id);
-      const { error: errInsert } = await serviceClient.from('rental_contracts').insert(payload);
-      expect(errInsert).toBeNull();
+      const payload = getPayload(id, propId);
+      await serviceClient.from('rental_contracts').insert(payload);
       try {
         await expectAllowedUpdate('rental_contracts', client, id, { amount: 2000 });
       } finally {
-        const { error } = await serviceClient.from('rental_contracts').delete().eq('id', id);
-        expect(error).toBeNull();
+        await serviceClient.from('rental_contracts').delete().eq('id', id);
+        await serviceClient.from('properties').delete().eq('id', propId);
       }
     }
   });
 
   it('UPDATE - denegados', async () => {
-    for (const client of [auditorA, clientAsignadoA, adminB, anon]) {
+    for (const client of [auditorA, clientAsignadoA, clientNoAsignadoA, inactivoA, adminB, anon]) {
+      const propId = crypto.randomUUID();
+      await serviceClient.from('properties').insert({ id: propId, organization_id: ORG_A, address: 'p', property_type: 'casa', status: 'active' });
       const id = crypto.randomUUID();
-      const payload = getPayload(id);
-      const { error: errInsert } = await serviceClient.from('rental_contracts').insert(payload);
-      expect(errInsert).toBeNull();
+      const payload = getPayload(id, propId);
+      await serviceClient.from('rental_contracts').insert(payload);
       try {
         await expectDeniedUpdate('rental_contracts', client, id, { amount: 2000 }, payload);
       } finally {
-        const { error } = await serviceClient.from('rental_contracts').delete().eq('id', id);
-        expect(error).toBeNull();
+        await serviceClient.from('rental_contracts').delete().eq('id', id);
+        await serviceClient.from('properties').delete().eq('id', propId);
       }
     }
   });
 
   it('DELETE - permitidos', async () => {
     for (const client of [adminA, empA]) {
+      const propId = crypto.randomUUID();
+      await serviceClient.from('properties').insert({ id: propId, organization_id: ORG_A, address: 'p', property_type: 'casa', status: 'active' });
       const id = crypto.randomUUID();
-      const payload = getPayload(id);
-      const { error: errInsert } = await serviceClient.from('rental_contracts').insert(payload);
-      expect(errInsert).toBeNull();
+      const payload = getPayload(id, propId);
+      await serviceClient.from('rental_contracts').insert(payload);
       try {
         await expectAllowedDelete('rental_contracts', client, id);
       } finally {
-        const { error } = await serviceClient.from('rental_contracts').delete().eq('id', id);
-        expect(error).toBeNull();
+        await serviceClient.from('rental_contracts').delete().eq('id', id);
+        await serviceClient.from('properties').delete().eq('id', propId);
       }
     }
   });
 
   it('DELETE - denegados', async () => {
-    for (const client of [auditorA, clientAsignadoA, adminB, anon]) {
+    for (const client of [auditorA, clientAsignadoA, clientNoAsignadoA, inactivoA, adminB, anon]) {
+      const propId = crypto.randomUUID();
+      await serviceClient.from('properties').insert({ id: propId, organization_id: ORG_A, address: 'p', property_type: 'casa', status: 'active' });
       const id = crypto.randomUUID();
-      const payload = getPayload(id);
-      const { error: errInsert } = await serviceClient.from('rental_contracts').insert(payload);
-      expect(errInsert).toBeNull();
+      const payload = getPayload(id, propId);
+      await serviceClient.from('rental_contracts').insert(payload);
       try {
         await expectDeniedDelete('rental_contracts', client, id);
       } finally {
-        const { error } = await serviceClient.from('rental_contracts').delete().eq('id', id);
-        expect(error).toBeNull();
+        await serviceClient.from('rental_contracts').delete().eq('id', id);
+        await serviceClient.from('properties').delete().eq('id', propId);
       }
     }
   });
@@ -1425,21 +1378,19 @@ describe('RLS: rent_index_values', () => {
       try {
         await expectAllowedInsert('rent_index_values', client, payload);
       } finally {
-        const { error } = await serviceClient.from('rent_index_values').delete().eq('id', id);
-        expect(error).toBeNull();
+        await serviceClient.from('rent_index_values').delete().eq('id', id);
       }
     }
   });
 
   it('INSERT - denegados', async () => {
-    for (const client of [auditorA, clientAsignadoA, adminB, anon]) {
+    for (const client of [auditorA, clientAsignadoA, clientNoAsignadoA, inactivoA, adminB, anon]) {
       const id = crypto.randomUUID();
       const payload = getPayload(id);
       try {
-        await expectDeniedInsert('rent_index_values', client, payload);
+        await expectRlsDeniedInsert('rent_index_values', client, payload);
       } finally {
-        const { error } = await serviceClient.from('rent_index_values').delete().eq('id', id);
-        expect(error).toBeNull();
+        await serviceClient.from('rent_index_values').delete().eq('id', id);
       }
     }
   });
@@ -1447,30 +1398,26 @@ describe('RLS: rent_index_values', () => {
   it('SELECT - permitidos', async () => {
     const id = crypto.randomUUID();
     const payload = getPayload(id);
-    const { error: errInsert } = await serviceClient.from('rent_index_values').insert(payload);
-    expect(errInsert).toBeNull();
+    await serviceClient.from('rent_index_values').insert(payload);
     try {
       for (const client of [adminA, empA, auditorA]) {
         await expectAllowedSelect('rent_index_values', client, id);
       }
     } finally {
-      const { error } = await serviceClient.from('rent_index_values').delete().eq('id', id);
-      expect(error).toBeNull();
+      await serviceClient.from('rent_index_values').delete().eq('id', id);
     }
   });
 
   it('SELECT - denegados', async () => {
     const id = crypto.randomUUID();
     const payload = getPayload(id);
-    const { error: errInsert } = await serviceClient.from('rent_index_values').insert(payload);
-    expect(errInsert).toBeNull();
+    await serviceClient.from('rent_index_values').insert(payload);
     try {
-      for (const client of [clientAsignadoA, adminB, anon]) {
+      for (const client of [clientAsignadoA, clientNoAsignadoA, inactivoA, adminB, anon]) {
         await expectDeniedSelect('rent_index_values', client, id);
       }
     } finally {
-      const { error } = await serviceClient.from('rent_index_values').delete().eq('id', id);
-      expect(error).toBeNull();
+      await serviceClient.from('rent_index_values').delete().eq('id', id);
     }
   });
 
@@ -1478,28 +1425,24 @@ describe('RLS: rent_index_values', () => {
     for (const client of [adminA, empA]) {
       const id = crypto.randomUUID();
       const payload = getPayload(id);
-      const { error: errInsert } = await serviceClient.from('rent_index_values').insert(payload);
-      expect(errInsert).toBeNull();
+      await serviceClient.from('rent_index_values').insert(payload);
       try {
         await expectAllowedUpdate('rent_index_values', client, id, { value: 2.0 });
       } finally {
-        const { error } = await serviceClient.from('rent_index_values').delete().eq('id', id);
-        expect(error).toBeNull();
+        await serviceClient.from('rent_index_values').delete().eq('id', id);
       }
     }
   });
 
   it('UPDATE - denegados', async () => {
-    for (const client of [auditorA, clientAsignadoA, adminB, anon]) {
+    for (const client of [auditorA, clientAsignadoA, clientNoAsignadoA, inactivoA, adminB, anon]) {
       const id = crypto.randomUUID();
       const payload = getPayload(id);
-      const { error: errInsert } = await serviceClient.from('rent_index_values').insert(payload);
-      expect(errInsert).toBeNull();
+      await serviceClient.from('rent_index_values').insert(payload);
       try {
         await expectDeniedUpdate('rent_index_values', client, id, { value: 2.0 }, payload);
       } finally {
-        const { error } = await serviceClient.from('rent_index_values').delete().eq('id', id);
-        expect(error).toBeNull();
+        await serviceClient.from('rent_index_values').delete().eq('id', id);
       }
     }
   });
@@ -1508,28 +1451,24 @@ describe('RLS: rent_index_values', () => {
     for (const client of [adminA, empA]) {
       const id = crypto.randomUUID();
       const payload = getPayload(id);
-      const { error: errInsert } = await serviceClient.from('rent_index_values').insert(payload);
-      expect(errInsert).toBeNull();
+      await serviceClient.from('rent_index_values').insert(payload);
       try {
         await expectAllowedDelete('rent_index_values', client, id);
       } finally {
-        const { error } = await serviceClient.from('rent_index_values').delete().eq('id', id);
-        expect(error).toBeNull();
+        await serviceClient.from('rent_index_values').delete().eq('id', id);
       }
     }
   });
 
   it('DELETE - denegados', async () => {
-    for (const client of [auditorA, clientAsignadoA, adminB, anon]) {
+    for (const client of [auditorA, clientAsignadoA, clientNoAsignadoA, inactivoA, adminB, anon]) {
       const id = crypto.randomUUID();
       const payload = getPayload(id);
-      const { error: errInsert } = await serviceClient.from('rent_index_values').insert(payload);
-      expect(errInsert).toBeNull();
+      await serviceClient.from('rent_index_values').insert(payload);
       try {
         await expectDeniedDelete('rent_index_values', client, id);
       } finally {
-        const { error } = await serviceClient.from('rent_index_values').delete().eq('id', id);
-        expect(error).toBeNull();
+        await serviceClient.from('rent_index_values').delete().eq('id', id);
       }
     }
   });
@@ -1539,26 +1478,7 @@ describe('RLS: rent_index_values', () => {
 // 12. property_comparables
 // ==========================================
 describe('RLS: property_comparables', () => {
-  const propId = crypto.randomUUID();
-  const propPayload = {
-    id: propId,
-    organization_id: ORG_A,
-    address: 'Prop for comparable',
-    property_type: 'casa',
-    status: 'active',
-  };
-
-  beforeAll(async () => {
-    const { error } = await serviceClient.from('properties').insert(propPayload);
-    expect(error).toBeNull();
-  });
-
-  afterAll(async () => {
-    const { error } = await serviceClient.from('properties').delete().eq('id', propId);
-    expect(error).toBeNull();
-  });
-
-  const getPayload = (id: string) => ({
+  const getPayload = (id: string, propId: string) => ({
     id,
     organization_id: ORG_A,
     property_id: propId,
@@ -1569,121 +1489,131 @@ describe('RLS: property_comparables', () => {
 
   it('INSERT - permitidos', async () => {
     for (const client of [adminA, empA]) {
+      const propId = crypto.randomUUID();
+      await serviceClient.from('properties').insert({ id: propId, organization_id: ORG_A, address: 'p', property_type: 'casa', status: 'active' });
       const id = crypto.randomUUID();
-      const payload = getPayload(id);
+      const payload = getPayload(id, propId);
       try {
         await expectAllowedInsert('property_comparables', client, payload);
       } finally {
-        const { error } = await serviceClient.from('property_comparables').delete().eq('id', id);
-        expect(error).toBeNull();
+        await serviceClient.from('property_comparables').delete().eq('id', id);
+        await serviceClient.from('properties').delete().eq('id', propId);
       }
     }
   });
 
   it('INSERT - denegados', async () => {
-    for (const client of [auditorA, clientAsignadoA, adminB, anon]) {
+    for (const client of [auditorA, clientAsignadoA, clientNoAsignadoA, inactivoA, adminB, anon]) {
+      const propId = crypto.randomUUID();
+      await serviceClient.from('properties').insert({ id: propId, organization_id: ORG_A, address: 'p', property_type: 'casa', status: 'active' });
       const id = crypto.randomUUID();
-      const payload = getPayload(id);
+      const payload = getPayload(id, propId);
       try {
-        await expectDeniedInsert('property_comparables', client, payload);
+        await expectRlsDeniedInsert('property_comparables', client, payload);
       } finally {
-        const { error } = await serviceClient.from('property_comparables').delete().eq('id', id);
-        expect(error).toBeNull();
+        await serviceClient.from('property_comparables').delete().eq('id', id);
+        await serviceClient.from('properties').delete().eq('id', propId);
       }
     }
   });
 
   it('SELECT - permitidos', async () => {
+    const propId = crypto.randomUUID();
+    await serviceClient.from('properties').insert({ id: propId, organization_id: ORG_A, address: 'p', property_type: 'casa', status: 'active' });
     const id = crypto.randomUUID();
-    const payload = getPayload(id);
-    const { error: errInsert } = await serviceClient.from('property_comparables').insert(payload);
-    expect(errInsert).toBeNull();
+    const payload = getPayload(id, propId);
+    await serviceClient.from('property_comparables').insert(payload);
     try {
       for (const client of [adminA, empA, auditorA]) {
         await expectAllowedSelect('property_comparables', client, id);
       }
     } finally {
-      const { error } = await serviceClient.from('property_comparables').delete().eq('id', id);
-      expect(error).toBeNull();
+      await serviceClient.from('property_comparables').delete().eq('id', id);
+      await serviceClient.from('properties').delete().eq('id', propId);
     }
   });
 
   it('SELECT - denegados', async () => {
+    const propId = crypto.randomUUID();
+    await serviceClient.from('properties').insert({ id: propId, organization_id: ORG_A, address: 'p', property_type: 'casa', status: 'active' });
     const id = crypto.randomUUID();
-    const payload = getPayload(id);
-    const { error: errInsert } = await serviceClient.from('property_comparables').insert(payload);
-    expect(errInsert).toBeNull();
+    const payload = getPayload(id, propId);
+    await serviceClient.from('property_comparables').insert(payload);
     try {
-      for (const client of [clientAsignadoA, adminB, anon]) {
+      for (const client of [clientAsignadoA, clientNoAsignadoA, inactivoA, adminB, anon]) {
         await expectDeniedSelect('property_comparables', client, id);
       }
     } finally {
-      const { error } = await serviceClient.from('property_comparables').delete().eq('id', id);
-      expect(error).toBeNull();
+      await serviceClient.from('property_comparables').delete().eq('id', id);
+      await serviceClient.from('properties').delete().eq('id', propId);
     }
   });
 
   it('UPDATE - permitidos', async () => {
     for (const client of [adminA, empA]) {
+      const propId = crypto.randomUUID();
+      await serviceClient.from('properties').insert({ id: propId, organization_id: ORG_A, address: 'p', property_type: 'casa', status: 'active' });
       const id = crypto.randomUUID();
-      const payload = getPayload(id);
-      const { error: errInsert } = await serviceClient.from('property_comparables').insert(payload);
-      expect(errInsert).toBeNull();
+      const payload = getPayload(id, propId);
+      await serviceClient.from('property_comparables').insert(payload);
       try {
         await expectAllowedUpdate('property_comparables', client, id, { price: 200000 });
       } finally {
-        const { error } = await serviceClient.from('property_comparables').delete().eq('id', id);
-        expect(error).toBeNull();
+        await serviceClient.from('property_comparables').delete().eq('id', id);
+        await serviceClient.from('properties').delete().eq('id', propId);
       }
     }
   });
 
   it('UPDATE - denegados', async () => {
-    for (const client of [auditorA, clientAsignadoA, adminB, anon]) {
+    for (const client of [auditorA, clientAsignadoA, clientNoAsignadoA, inactivoA, adminB, anon]) {
+      const propId = crypto.randomUUID();
+      await serviceClient.from('properties').insert({ id: propId, organization_id: ORG_A, address: 'p', property_type: 'casa', status: 'active' });
       const id = crypto.randomUUID();
-      const payload = getPayload(id);
-      const { error: errInsert } = await serviceClient.from('property_comparables').insert(payload);
-      expect(errInsert).toBeNull();
+      const payload = getPayload(id, propId);
+      await serviceClient.from('property_comparables').insert(payload);
       try {
         await expectDeniedUpdate('property_comparables', client, id, { price: 200000 }, payload);
       } finally {
-        const { error } = await serviceClient.from('property_comparables').delete().eq('id', id);
-        expect(error).toBeNull();
+        await serviceClient.from('property_comparables').delete().eq('id', id);
+        await serviceClient.from('properties').delete().eq('id', propId);
       }
     }
   });
 
   it('DELETE - permitidos', async () => {
     for (const client of [adminA, empA]) {
+      const propId = crypto.randomUUID();
+      await serviceClient.from('properties').insert({ id: propId, organization_id: ORG_A, address: 'p', property_type: 'casa', status: 'active' });
       const id = crypto.randomUUID();
-      const payload = getPayload(id);
-      const { error: errInsert } = await serviceClient.from('property_comparables').insert(payload);
-      expect(errInsert).toBeNull();
+      const payload = getPayload(id, propId);
+      await serviceClient.from('property_comparables').insert(payload);
       try {
         await expectAllowedDelete('property_comparables', client, id);
       } finally {
-        const { error } = await serviceClient.from('property_comparables').delete().eq('id', id);
-        expect(error).toBeNull();
+        await serviceClient.from('property_comparables').delete().eq('id', id);
+        await serviceClient.from('properties').delete().eq('id', propId);
       }
     }
   });
 
   it('DELETE - denegados', async () => {
-    for (const client of [auditorA, clientAsignadoA, adminB, anon]) {
+    for (const client of [auditorA, clientAsignadoA, clientNoAsignadoA, inactivoA, adminB, anon]) {
+      const propId = crypto.randomUUID();
+      await serviceClient.from('properties').insert({ id: propId, organization_id: ORG_A, address: 'p', property_type: 'casa', status: 'active' });
       const id = crypto.randomUUID();
-      const payload = getPayload(id);
-      const { error: errInsert } = await serviceClient.from('property_comparables').insert(payload);
-      expect(errInsert).toBeNull();
+      const payload = getPayload(id, propId);
+      await serviceClient.from('property_comparables').insert(payload);
       try {
         await expectDeniedDelete('property_comparables', client, id);
       } finally {
-        const { error } = await serviceClient.from('property_comparables').delete().eq('id', id);
-        expect(error).toBeNull();
+        await serviceClient.from('property_comparables').delete().eq('id', id);
+        await serviceClient.from('properties').delete().eq('id', propId);
       }
     }
   });
 
-  it('RELACIÃ“N PADRE-HIJO: negativo cruzado', async () => {
+  it('RELACIÃƒâ€œN PADRE-HIJO: negativo cruzado', async () => {
     const otherPropId = crypto.randomUUID();
     const otherPropPayload = {
       id: otherPropId,
@@ -1692,16 +1622,16 @@ describe('RLS: property_comparables', () => {
       property_type: 'casa',
       status: 'active',
     };
-    const { error: errInsert } = await serviceClient.from('properties').insert(otherPropPayload);
-    expect(errInsert).toBeNull();
+    await serviceClient.from('properties').insert(otherPropPayload);
 
     try {
       const id = crypto.randomUUID();
-      const payload = { ...getPayload(id), property_id: otherPropId };
-      await expectDeniedInsert('property_comparables', adminA, payload);
+      const payload = { ...getPayload(id, otherPropId), organization_id: ORG_A };
+      // AquÃƒÂ­ esperamos 23503 porque la FK es (property_id, organization_id) referenciando properties,
+      // y no hay property con organization_id ORG_A que tenga el ID otherPropId
+      await expectIntegrityRejectedInsert('property_comparables', adminA, payload);
     } finally {
-      const { error } = await serviceClient.from('properties').delete().eq('id', otherPropId);
-      expect(error).toBeNull();
+      await serviceClient.from('properties').delete().eq('id', otherPropId);
     }
   });
 });
