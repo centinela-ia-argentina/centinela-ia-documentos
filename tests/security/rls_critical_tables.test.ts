@@ -325,7 +325,7 @@ describe('RLS: ai_outputs', () => {
     organization_id: ORG_A,
     case_id: CASE_A,
     document_id: DOC_A,
-    output_type: 'classification',
+    output_type: 'summary',
     content: { test: 1 },
   });
 
@@ -385,7 +385,7 @@ describe('RLS: ai_outputs', () => {
       const payload = getPayload(id);
       await insertFixtureOrFail('ai_outputs', payload);
       try {
-        await expectDeniedUpdate('ai_outputs', client, id, { output_type: 'classification' }, payload);
+        await expectDeniedUpdate('ai_outputs', client, id, { content: { test: 2 } }, payload);
       } finally {
         await deleteFixtureOrFail('ai_outputs', id);
       }
