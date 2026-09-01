@@ -9,6 +9,7 @@ export default defineConfig({
   reporter: 'html',
   use: {
     baseURL: 'http://127.0.0.1:3000',
+    timezoneId: 'America/Argentina/Buenos_Aires',
     trace: 'on-first-retry',
   },
   projects: [
