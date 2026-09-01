@@ -33,9 +33,16 @@ export const SEED_DATA = {
   ADMIN_INM_ID: 'bbbb2222-2222-2222-2222-222222222222',
   ORG_ESC_ID: '33333333-3333-3333-3333-333333333333',
   ADMIN_ESC_ID: 'cccc3333-3333-3333-3333-333333333333',
+  EMPLOYEE_ESC_ID: 'aaaa3333-3333-3333-3333-333333333333',
+  AUDITOR_ESC_ID: 'bbbb3333-3333-3333-3333-333333333333',
+  CLIENT_ESC_ID: 'dddd3333-3333-3333-3333-333333333333',
   CASE_LEGAL_ID: 'cccc1111-1111-1111-1111-111111111111',
   CASE_INM_ID: 'dddd2222-2222-2222-2222-222222222222',
   CASE_ESC_ID: 'eeee3333-3333-3333-3333-333333333333',
+  CASE_ESC_PODER_ID: 'eeee3333-3333-3333-3333-333333333334',
+  CASE_ESC_CERTIFICACION_ID: 'eeee3333-3333-3333-3333-333333333335',
+  CASE_ESC_ACTA_ID: 'eeee3333-3333-3333-3333-333333333336',
+  CASE_ESC_SUCESION_ID: 'eeee3333-3333-3333-3333-333333333337',
   DOC_LEGAL_ID: 'ddcc1111-1111-1111-1111-111111111111',
   CHUNK_ID: '33333333-3333-3333-3333-333333333333'
 };
@@ -74,7 +81,10 @@ export async function seedSupabase() {
       { id: SEED_DATA.CLIENT_UNASSIGNED_ID, email: 'client.unassigned@test.com' },
       { id: SEED_DATA.INACTIVE_LEGAL_ID, email: 'inactive.legal@test.com' },
       { id: SEED_DATA.ADMIN_INM_ID, email: 'admin.inm@test.com' },
-      { id: SEED_DATA.ADMIN_ESC_ID, email: 'admin.esc@test.com' }
+      { id: SEED_DATA.ADMIN_ESC_ID, email: 'admin.esc@test.com' },
+      { id: SEED_DATA.EMPLOYEE_ESC_ID, email: 'emp.esc@test.com' },
+      { id: SEED_DATA.AUDITOR_ESC_ID, email: 'auditor.esc@test.com' },
+      { id: SEED_DATA.CLIENT_ESC_ID, email: 'client.esc@test.com' }
     ];
 
     for (const u of users) {
@@ -101,7 +111,10 @@ export async function seedSupabase() {
       { id: SEED_DATA.CLIENT_UNASSIGNED_ID, organization_id: SEED_DATA.ORG_LEGAL_ID, email: 'client.unassigned@test.com', role: 'client', status: 'active', full_name: 'Client Unassigned' },
       { id: SEED_DATA.INACTIVE_LEGAL_ID, organization_id: SEED_DATA.ORG_LEGAL_ID, email: 'inactive.legal@test.com', role: 'employee', status: 'inactive', full_name: 'Inactive Legal' },
       { id: SEED_DATA.ADMIN_INM_ID, organization_id: SEED_DATA.ORG_INM_ID, email: 'admin.inm@test.com', role: 'admin', status: 'active', full_name: 'Admin Inm' },
-      { id: SEED_DATA.ADMIN_ESC_ID, organization_id: SEED_DATA.ORG_ESC_ID, email: 'admin.esc@test.com', role: 'admin', status: 'active', full_name: 'Admin Esc' }
+      { id: SEED_DATA.ADMIN_ESC_ID, organization_id: SEED_DATA.ORG_ESC_ID, email: 'admin.esc@test.com', role: 'admin', status: 'active', full_name: 'Admin Esc' },
+      { id: SEED_DATA.EMPLOYEE_ESC_ID, organization_id: SEED_DATA.ORG_ESC_ID, email: 'emp.esc@test.com', role: 'employee', status: 'active', full_name: 'Employee Esc' },
+      { id: SEED_DATA.AUDITOR_ESC_ID, organization_id: SEED_DATA.ORG_ESC_ID, email: 'auditor.esc@test.com', role: 'auditor', status: 'active', full_name: 'Auditor Esc' },
+      { id: SEED_DATA.CLIENT_ESC_ID, organization_id: SEED_DATA.ORG_ESC_ID, email: 'client.esc@test.com', role: 'client', status: 'active', full_name: 'Client Esc' }
     ]), 'profiles');
 
     // 4. Cases
@@ -109,6 +122,10 @@ export async function seedSupabase() {
       { id: SEED_DATA.CASE_LEGAL_ID, organization_id: SEED_DATA.ORG_LEGAL_ID, title: 'Caso Legal 1', case_type: 'civil', status: 'active', created_by: SEED_DATA.ADMIN_LEGAL_ID, assigned_to: SEED_DATA.CLIENT_ASSIGNED_ID },
       { id: SEED_DATA.CASE_INM_ID, organization_id: SEED_DATA.ORG_INM_ID, title: 'Propiedad 1', case_type: 'venta', status: 'active', created_by: SEED_DATA.ADMIN_INM_ID, assigned_to: null },
       { id: SEED_DATA.CASE_ESC_ID, organization_id: SEED_DATA.ORG_ESC_ID, title: 'Escritura 1', case_type: 'Escritura', status: 'active', created_by: SEED_DATA.ADMIN_ESC_ID, assigned_to: null },
+      { id: SEED_DATA.CASE_ESC_PODER_ID, organization_id: SEED_DATA.ORG_ESC_ID, title: 'Poder QA', case_type: 'Poder', status: 'active', created_by: SEED_DATA.ADMIN_ESC_ID, assigned_to: null },
+      { id: SEED_DATA.CASE_ESC_CERTIFICACION_ID, organization_id: SEED_DATA.ORG_ESC_ID, title: 'Certificación QA', case_type: 'Certificación de firmas', status: 'active', created_by: SEED_DATA.ADMIN_ESC_ID, assigned_to: null },
+      { id: SEED_DATA.CASE_ESC_ACTA_ID, organization_id: SEED_DATA.ORG_ESC_ID, title: 'Acta QA', case_type: 'Acta notarial', status: 'active', created_by: SEED_DATA.ADMIN_ESC_ID, assigned_to: null },
+      { id: SEED_DATA.CASE_ESC_SUCESION_ID, organization_id: SEED_DATA.ORG_ESC_ID, title: 'Sucesión QA', case_type: 'Sucesión', status: 'active', created_by: SEED_DATA.ADMIN_ESC_ID, assigned_to: SEED_DATA.CLIENT_ESC_ID }
     ]), 'cases');
 
     // 5. Documents (For RAG/RLS tests)
