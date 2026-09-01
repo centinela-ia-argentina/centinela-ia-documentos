@@ -1009,7 +1009,7 @@ describe('RLS: properties', () => {
       const payload = getPayload(id);
       await insertFixtureOrFail('properties', payload);
       try {
-        await expectAllowedUpdate('properties', client, id, { property_type: 'departamento' });
+        await expectAllowedUpdate('properties', client, id, { title: 'Updated property' });
       } finally {
         await deleteFixtureOrFail('properties', id);
       }
@@ -1022,7 +1022,7 @@ describe('RLS: properties', () => {
       const payload = getPayload(id);
       await insertFixtureOrFail('properties', payload);
       try {
-        await expectDeniedUpdate('properties', client, id, { property_type: 'departamento' }, payload);
+        await expectDeniedUpdate('properties', client, id, { title: 'Updated property' }, payload);
       } finally {
         await deleteFixtureOrFail('properties', id);
       }
@@ -1187,7 +1187,7 @@ describe('RLS: clients', () => {
       const payload = getPayload(id);
       await insertFixtureOrFail('clients', payload);
       try {
-        await expectAllowedUpdate('clients', client, id, { full_name: 'updated' });
+        await expectAllowedUpdate('clients', client, id, { name: 'updated' });
       } finally {
         await deleteFixtureOrFail('clients', id);
       }
@@ -1200,7 +1200,7 @@ describe('RLS: clients', () => {
       const payload = getPayload(id);
       await insertFixtureOrFail('clients', payload);
       try {
-        await expectDeniedUpdate('clients', client, id, { full_name: 'updated' }, payload);
+        await expectDeniedUpdate('clients', client, id, { name: 'updated' }, payload);
       } finally {
         await deleteFixtureOrFail('clients', id);
       }
@@ -1318,7 +1318,7 @@ describe('RLS: rental_contracts', () => {
       const payload = getPayload(id, propId);
       await insertFixtureOrFail('rental_contracts', payload);
       try {
-        await expectAllowedUpdate('rental_contracts', client, id, { amount: 2000 });
+        await expectAllowedUpdate('rental_contracts', client, id, { property_id: null });
       } finally {
         await deleteFixtureOrFail('rental_contracts', id);
         await deleteFixtureOrFail('properties', propId);
@@ -1334,7 +1334,7 @@ describe('RLS: rental_contracts', () => {
       const payload = getPayload(id, propId);
       await insertFixtureOrFail('rental_contracts', payload);
       try {
-        await expectDeniedUpdate('rental_contracts', client, id, { amount: 2000 }, payload);
+        await expectDeniedUpdate('rental_contracts', client, id, { property_id: null }, payload);
       } finally {
         await deleteFixtureOrFail('rental_contracts', id);
         await deleteFixtureOrFail('properties', propId);
@@ -1443,7 +1443,7 @@ describe('RLS: rent_index_values', () => {
       const payload = getPayload(id);
       await insertFixtureOrFail('rent_index_values', payload);
       try {
-        await expectAllowedUpdate('rent_index_values', client, id, { value: 2.0 });
+        await expectAllowedUpdate('rent_index_values', client, id, { contract_id: null });
       } finally {
         await deleteFixtureOrFail('rent_index_values', id);
       }
@@ -1456,7 +1456,7 @@ describe('RLS: rent_index_values', () => {
       const payload = getPayload(id);
       await insertFixtureOrFail('rent_index_values', payload);
       try {
-        await expectDeniedUpdate('rent_index_values', client, id, { value: 2.0 }, payload);
+        await expectDeniedUpdate('rent_index_values', client, id, { contract_id: null }, payload);
       } finally {
         await deleteFixtureOrFail('rent_index_values', id);
       }

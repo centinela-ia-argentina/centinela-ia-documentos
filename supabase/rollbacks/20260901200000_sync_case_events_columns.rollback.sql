@@ -1,11 +1,17 @@
 BEGIN;
 
-ALTER TABLE public.case_events DROP COLUMN IF EXISTS event_date;
-ALTER TABLE public.case_events DROP COLUMN IF EXISTS title;
+-- Estrategia conservadora:
+-- Como la migración usa ADD COLUMN IF NOT EXISTS, no podemos saber si
+-- las columnas event_date o title ya existían.
+-- Para no destruir datos de columnas preexistentes,
+-- el rollback se limitará a relajar la restricción NOT NULL.
+-- Tampoco se eliminan incondicionalmente los índices, ya que podrían ser preexistentes.
 
-DROP INDEX IF EXISTS public.idx_case_events_case_id;
-DROP INDEX IF EXISTS public.idx_case_events_organization_id;
-DROP INDEX IF EXISTS public.idx_case_events_event_date;
+ALTER TABLE public.case_events
+  ALTER COLUMN event_date DROP NOT NULL;
+
+ALTER TABLE public.case_events
+  ALTER COLUMN title DROP NOT NULL;
 
 NOTIFY pgrst, 'reload schema';
 
