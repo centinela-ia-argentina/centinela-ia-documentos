@@ -44,6 +44,8 @@ export function getNavItemDescription(
 
 // --- Terminología de entidades, por rubro (para pantallas internas) ---
 export type IndustryTerms = {
+  agenteSaludoGlobal: string;
+  agenteEjemploPlazos: string;
   expedienteSingular: string;
   expedientePlural: string;
   partes: string;
@@ -88,6 +90,8 @@ export type IndustryTerms = {
 };
 
 const defaultTerms: IndustryTerms = {
+  agenteSaludoGlobal: 'Soy tu Agente IA. Vigilo tus registros y plazos las 24 horas.',
+  agenteEjemploPlazos: '¿Cuáles son los plazos o vencimientos críticos?',
   expedienteSingular: 'Expediente',
   expedientePlural: 'Expedientes',
   partes: 'Partes',
@@ -130,10 +134,10 @@ const termsByIndustry: Partial<Record<IndustryType, Partial<IndustryTerms>>> = {
   escribania: {
     expedienteSingular: 'Legajo',
     expedientePlural: 'Legajos',
-    partes: 'Firmantes',
+    partes: 'Otorgantes / Comparecientes',
     listaEyebrow: 'LEGAJOS',
     listaTitulo: 'Gestión de Legajos',
-    listaSubtitulo: 'Todos tus legajos, firmantes, estados y documentación asociada en un único panel.',
+    listaSubtitulo: 'Todos tus legajos, otorgantes, estados y documentación asociada en un único panel.',
     nuevoCta: 'Nuevo legajo',
     itemSinTitulo: 'Legajo sin título',
     vacioSinResultados: 'No se encontraron legajos para',
@@ -162,8 +166,8 @@ const termsByIndustry: Partial<Record<IndustryType, Partial<IndustryTerms>>> = {
     dashboardActivesHelper: 'Legajos actualmente en preparación o curso',
     dashboardPlazosHelper: 'Fechas clave y vencimientos',
     reportesSubtitulo: 'Análisis y visión de conjunto: métricas, actividad y auditoría del registro notarial.',
-    placeholderTitle: 'Ej. Escritura Compraventa Pérez c/ Gómez',
-    placeholderClient: 'Ej. Juan Pérez (Vendedor) y Ana Gómez (Compradora)',
+    placeholderTitle: 'Ej. Escritura de Compraventa - Pérez y Gómez',
+    placeholderClient: 'Ej. Juan Pérez y Ana Gómez',
   },
   inmobiliaria: {
     expedienteSingular: 'Operación',
@@ -261,7 +265,7 @@ const agendaLabelsByIndustry: Partial<Record<IndustryType, AgendaLabels>> = {
     eyebrow: 'Herramientas notariales',
     subtitulo: 'Feriados, turnos, firmas y vencimientos de certificados y legajos.',
     plazoLabel: 'Plazo / vencimiento',
-    feriaLabel: 'Feria judicial',
+    feriaLabel: 'Feria notarial / Día inhábil',
   },
   inmobiliaria: {
     eyebrow: 'Herramientas inmobiliarias',

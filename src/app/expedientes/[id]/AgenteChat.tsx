@@ -1,6 +1,8 @@
 'use client';
 
 import { useState, useRef, useEffect, type ReactNode } from 'react';
+import { getIndustryTerms } from '@/lib/industries/uiLabels';
+import type { IndustryType } from '@/lib/industries/documentTypes';
 import { preguntarAgente, ejecutarAccionAgente, diagnosticoLegajo, borrarConversacionAgente } from './agenteActions';
 import type { MensajeChat, AccionPropuesta } from '@/lib/ai/agente';
 import { MaquinaEscribir } from '@/components/MaquinaEscribir';
@@ -33,7 +35,7 @@ const ACCION_META: Record<
 
 const SUGERENCIAS: Record<string, string[]> = {
   legal: [
-    '¿Cuáles son los plazos o vencimientos críticos de este expediente?',
+    terms.agenteEjemploPlazos,
     '¿Detectás alguna inconsistencia o riesgo procesal en los documentos?',
     '¿Qué próximos pasos me recomendás?',
   ],
@@ -130,6 +132,7 @@ type Props = {
 };
 
 export function AgenteChat({ caseId, caseTitle, industry, puedeUsarIA, historialInicial, modeloUrl }: Props) {
+  const terms = getIndustryTerms(industry);
   const [mensajes, setMensajes] = useState<MensajeUI[]>(historialInicial ?? []);
   const [input, setInput] = useState('');
   const [cargando, setCargando] = useState(false);

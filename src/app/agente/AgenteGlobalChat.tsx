@@ -195,7 +195,7 @@ export function AgenteGlobalChat({ industry, puedeUsarIA }: Props) {
         </p>
         <div className="mt-3 flex flex-col items-center gap-1.5 text-xs text-slate-400 max-w-lg">
           <p className="rounded-lg bg-slate-950/50 border border-slate-800 px-3 py-2 text-slate-300 w-full text-center">
-            ℹ️ Para trabajar sobre documentos o ejecutar acciones, abrí un expediente, legajo u operación y usá su Agente IA.
+            ℹ️ Para trabajar sobre documentos o ejecutar acciones, abrí un registro y usá su Agente IA.
           </p>
           <p className="text-slate-500">
             ⌛ Por privacidad, esta conversación no se guarda en Centinela IA y se reinicia al salir o recargar.
