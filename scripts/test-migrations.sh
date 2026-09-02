@@ -158,7 +158,14 @@ if ! psql "$DB_URL" -v ON_ERROR_STOP=1 -f supabase/ci/verify_invariants.sql; the
 fi
 echo "SUCCESS: Forward SQL invariants verified."
 
-echo "9. Applying rollbacks REVERSE ORDER..."
+echo "9. Verifying explicit-grants rollback rejects non-CI execution..."
+if PGOPTIONS="-c centinela.is_ci=false" psql "$DB_URL" -v ON_ERROR_STOP=1 -f supabase/rollbacks/20260818150000_explicit_grants.rollback.sql; then
+  echo "ERROR: Explicit-grants rollback executed without the CI guard."
+  exit 1
+fi
+echo "SUCCESS: Explicit-grants rollback is blocked outside CI."
+
+echo "9.b Applying rollbacks REVERSE ORDER..."
 if [ -d "supabase/rollbacks" ] && [ "$(ls -A supabase/rollbacks)" ]; then
   ROLLBACKS=$(ls supabase/rollbacks/*.rollback.sql | sort -r)
   for rollback in $ROLLBACKS; do
@@ -168,6 +175,9 @@ if [ -d "supabase/rollbacks" ] && [ "$(ls -A supabase/rollbacks)" ]; then
 fi
 
 echo "10. Generating FINAL SNAPSHOTS..."
+docker exec -i "$DB_CONTAINER" pg_dump -U postgres -d postgres -s -n public --no-acl > final_schema.sql
+grep -v '^--' initial_schema.sql | grep -Ev '^\\(un)?restrict[[:space:]]' | grep -v '^[[:space:]]*$' > initial_schema_normalized.sql
+
 docker exec -i "$DB_CONTAINER" pg_dump -U postgres -d postgres -s -n public --no-acl > final_schema.sql
 grep -v '^--' final_schema.sql | grep -Ev '^\\(un)?restrict[[:space:]]' | grep -v '^[[:space:]]*$' > final_schema_normalized.sql
 
