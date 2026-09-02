@@ -28,13 +28,11 @@ export const INDUSTRY_TYPES: IndustryType[] = [
 ];
 
 // Rubros ofrecidos hoy (verticales activas). El resto queda en el tipo para el futuro
-// pero no se ofrece aun en los selectores.
+// pero no se ofrece ni se habilita en flujos comerciales.
 export const ACTIVE_INDUSTRY_TYPES: IndustryType[] = [
-  'general',
   'legal',
   'escribania',
   'inmobiliaria',
-  'empresa',
 ];
 
 export const industryLabels: Record<IndustryType, string> = {
@@ -114,6 +112,10 @@ export const documentTypesByIndustry: Record<IndustryType, string[]> = {
 
 export function isIndustryType(value: unknown): value is IndustryType {
   return typeof value === 'string' && INDUSTRY_TYPES.includes(value as IndustryType);
+}
+
+export function isActiveIndustryType(value: unknown): value is IndustryType {
+  return isIndustryType(value) && ACTIVE_INDUSTRY_TYPES.includes(value);
 }
 
 export function normalizeIndustryType(value: unknown): IndustryType {

@@ -1,6 +1,6 @@
 import type { IndustryType } from './documentTypes';
 
-const DEFAULT_ANALYSIS_PROMPT = `Sos un asistente jurídico argentino experto en análisis documental.
+const LEGAL_ANALYSIS_PROMPT = `Sos un asistente jurídico argentino experto en análisis documental.
 Analizá el DOCUMENTO y devolvé SOLO un objeto JSON válido (sin texto adicional) con esta forma exacta:
 {
   "resumen": "3 a 4 líneas explicando qué es y qué dice el documento",
@@ -65,30 +65,35 @@ Agregá al MISMO objeto JSON un campo llamado "transcripcion" (string) con la TR
 
 export function getAnalysisSystemPrompt(industry: IndustryType): string {
   let base: string;
-  if (industry === 'escribania') {
+  if (industry === 'legal') {
+    base = LEGAL_ANALYSIS_PROMPT;
+  } else if (industry === 'escribania') {
     base = ESCRIBANIA_ANALYSIS_PROMPT;
   } else if (industry === 'inmobiliaria') {
     base = INMOBILIARIA_ANALYSIS_PROMPT;
   } else {
-    base = DEFAULT_ANALYSIS_PROMPT;
+    throw new Error(`Unsupported industry for document analysis: ${industry}`);
   }
   return `${base}\n\n${TRANSCRIPCION_INSTRUCTION}`;
 }
 
-const DEFAULT_RAG_PROMPT = `Sos un asistente jurídico. Respondé la pregunta usando ÚNICAMENTE la información de los fragmentos de documentos a continuación. Si la respuesta no está en los fragmentos, decilo con claridad y no inventes. Citá las fuentes con [número] al final de cada afirmación relevante. Respondé en español rioplatense, claro y conciso.`;
+const LEGAL_RAG_PROMPT = `Sos un asistente jurídico. Respondé la pregunta usando ÚNICAMENTE la información de los fragmentos de documentos a continuación. Si la respuesta no está en los fragmentos, decilo con claridad y no inventes. Citá las fuentes con [número] al final de cada afirmación relevante. Respondé en español rioplatense, claro y conciso.`;
 
 const ESCRIBANIA_RAG_PROMPT = `Sos un asistente notarial experto. Respondé la pregunta usando ÚNICAMENTE la información de los fragmentos de documentos a continuación. Si la respuesta no está en los fragmentos, decilo con claridad y no inventes. Citá las fuentes con [número] al final de cada afirmación relevante. Respondé en español rioplatense, claro y conciso, orientado al trabajo de escribanía.`;
 
 const INMOBILIARIA_RAG_PROMPT = `Sos un asistente inmobiliario experto. Respondé la pregunta usando ÚNICAMENTE la información de los fragmentos de documentos a continuación. Si la respuesta no está en los fragmentos, decilo con claridad y no inventes. Citá las fuentes con [número] al final de cada afirmación relevante. Respondé en español rioplatense, claro y conciso, orientado al trabajo inmobiliario (operaciones de compraventa y alquiler).`;
 
 export function getRagSystemPrompt(industry: IndustryType): string {
+  if (industry === 'legal') {
+    return LEGAL_RAG_PROMPT;
+  }
   if (industry === 'escribania') {
     return ESCRIBANIA_RAG_PROMPT;
   }
   if (industry === 'inmobiliaria') {
     return INMOBILIARIA_RAG_PROMPT;
   }
-  return DEFAULT_RAG_PROMPT;
+  throw new Error(`Unsupported industry for RAG: ${industry}`);
 }
 
 export const PROPERTY_EXTRACTION_PROMPT = `Sos un asistente de IA especializado en extraer datos de propiedades a partir de documentos inmobiliarios, legales o registrales (como títulos de propiedad, boletos de compraventa, reservas, contratos de alquiler, certificados de dominio, etc.).
