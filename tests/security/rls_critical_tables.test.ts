@@ -1705,7 +1705,7 @@ describe('RLS: property_comparables', () => {
     }
   });
 
-  it('RELACIÓN PADRE-HIJO: negativo cruzado', async () => {
+  it('RELACIÓN PADRE-HIJO: RLS deniega (Org A, Prop Org B)', async () => {
     const otherPropId = crypto.randomUUID();
     const otherPropPayload = {
       id: otherPropId,
@@ -1717,7 +1717,25 @@ describe('RLS: property_comparables', () => {
     try {
       const id = crypto.randomUUID();
       const payload = { ...getPayload(id, otherPropId), organization_id: ORG_A };
-      await expectIntegrityRejectedInsert('property_comparables', adminA, payload);
+      await expectRlsDeniedInsert('property_comparables', adminA, payload);
+    } finally {
+      await deleteFixtureOrFail('properties', otherPropId);
+    }
+  });
+
+  it('RELACIÓN PADRE-HIJO: FK bloquea aislado (Org A, Prop Org B)', async () => {
+    const otherPropId = crypto.randomUUID();
+    const otherPropPayload = {
+      id: otherPropId,
+      organization_id: ORG_B,
+      title: 'Other property',
+    };
+    await insertFixtureOrFail('properties', otherPropPayload);
+
+    try {
+      const id = crypto.randomUUID();
+      const payload = { ...getPayload(id, otherPropId), organization_id: ORG_A };
+      await expectIntegrityRejectedInsert('property_comparables', serviceClient, payload);
     } finally {
       await deleteFixtureOrFail('properties', otherPropId);
     }
