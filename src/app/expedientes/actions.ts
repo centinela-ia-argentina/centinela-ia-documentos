@@ -16,6 +16,7 @@ import { canUseAi } from '@/lib/permissions/roles';
 import {
   getAllowedCaseStatuses,
   getCaseStatuses,
+  getWritableCaseStatuses,
 } from '@/lib/industries/caseConfig';
 import { getCaseTemplate } from '@/lib/industries/caseTemplates';
 import { normalizeIndustryType, type IndustryType } from '@/lib/industries/documentTypes';
@@ -84,22 +85,6 @@ async function getOrganizationIndustry(
   return normalizeIndustryType(data?.industry_type);
 }
 
-function resolveCaseStatus(
-  requestedStatus: string,
-  industry: ReturnType<typeof normalizeIndustryType>
-) {
-  const canonicalStatuses = getCaseStatuses(industry).map(s => s.value);
-  if (canonicalStatuses.includes(requestedStatus)) {
-    return requestedStatus;
-  }
-  const normalized = requestedStatus.trim().toLowerCase();
-  if (normalized === 'activo' || normalized === 'active') return 'active';
-  if (normalized === 'archivado' || normalized === 'archived') return 'archived';
-  if (normalized === 'nuevo' || normalized === 'new') return 'new';
-  if (normalized === 'en tramite' || normalized === 'en trámite' || normalized === 'in_review') return 'in_review';
-  if (normalized === 'esperando cliente' || normalized === 'waiting_client') return 'waiting_client';
-  return canonicalStatuses[0] ?? 'active';
-}
 
 // Imported from helpers.ts
 // export function getChecklistItemsToInsert...
@@ -222,7 +207,11 @@ export async function createCase(formData: FormData) {
   }
 
   const { industry, caseType } = resolution;
-  const status = resolveCaseStatus(requestedStatus, industry);
+  const writableStatuses = getWritableCaseStatuses(industry);
+  if (!writableStatuses.includes(requestedStatus)) {
+    redirect('/expedientes/nuevo?error=invalid_status');
+  }
+  const status = requestedStatus;
 
   const { data, error } = await supabase
     .from('cases')
@@ -338,7 +327,11 @@ export async function updateCaseStatus(formData: FormData) {
 
   const supabase = await createClient();
   const industry = await getOrganizationIndustry(supabase, profile.organization_id);
-  const status = resolveCaseStatus(requestedStatus, industry);
+  const writableStatuses = getWritableCaseStatuses(industry);
+  if (!writableStatuses.includes(requestedStatus)) {
+    redirect(`/expedientes/${caseId}?error=invalid_status`);
+  }
+  const status = requestedStatus;
   const updatePayload: {
     status: string;
     metadata?: Record<string, string>;
