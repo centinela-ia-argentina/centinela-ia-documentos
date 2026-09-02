@@ -327,7 +327,6 @@ const agendaLabelsByIndustry: Partial<Record<IndustryType, AgendaLabels>> = {
     feriaLabel: 'Feriado extendido',
   },
   empresa: {
-    agenteSaludoGlobal: 'Soy tu Agente corporativo. Vigilo carpetas, plazos y documentos las 24 horas.',
     eyebrow: 'Herramientas de gestión',
     subtitulo: 'Feriados, vencimientos de documentos y fechas clave de la organización.',
     plazoLabel: 'Plazo',

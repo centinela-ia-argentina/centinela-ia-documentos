@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { getUserProfile } from '@/lib/auth/getUserProfile';
 import { normalizeIndustryType, type IndustryType } from '@/lib/industries/documentTypes';
+import { getIndustryTerms } from '@/lib/industries/uiLabels';
 import { getStrictIndustryForOrganization } from '@/lib/auth/getStrictIndustry';
 import { canUseAi } from '@/lib/permissions/roles';
 import {
@@ -44,6 +45,8 @@ export async function preguntarAgenteGlobal(input: {
   } catch (e) {
     return { ok: false, motivo: 'Industria no autorizada.' };
   }
+
+  const terms = getIndustryTerms(industry);
 
 const GLOBAL_AGENT_CASE_CONTEXT_LIMIT = 40;
 

@@ -83,11 +83,13 @@ export function ModelosClient({
   modeloInicialId = null,
   expedienteInicialId = null,
   industria = 'legal',
+  puedeIA = true,
 }: {
   expedientes: ExpedienteLite[];
   modeloInicialId?: string | null;
   expedienteInicialId?: string | null;
   industria?: string;
+  puedeIA?: boolean;
 }) {
   const expInicial = expedientes.find((e) => e.id === expedienteInicialId) ?? null;
   const idInicial =
@@ -513,7 +515,7 @@ export function ModelosClient({
                   {textoIA && (
                     <div className="mt-2 space-y-2">
                       <div className="flex items-center justify-between gap-2">
-                        <span className="text-[11px] font-medium text-brandviolet">✨ Borrador generado con IA — revisalo antes de presentar.</span>
+                        <span className="text-[11px] font-medium text-brandviolet">✨ Borrador generado con IA — {esEscribania ? 'revisalo antes de otorgar o firmar.' : esInmobiliaria ? 'revisalo antes de utilizarlo.' : 'revisalo antes de presentar.'}</span>
                         <button type="button" onClick={() => setTextoIA(null)} className="shrink-0 text-[11px] font-semibold text-slate-400 hover:text-white underline">
                           Volver al relleno manual
                         </button>
