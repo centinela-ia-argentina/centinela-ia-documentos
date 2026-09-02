@@ -176,9 +176,6 @@ fi
 
 echo "10. Generating FINAL SNAPSHOTS..."
 docker exec -i "$DB_CONTAINER" pg_dump -U postgres -d postgres -s -n public --no-acl > final_schema.sql
-grep -v '^--' initial_schema.sql | grep -Ev '^\\(un)?restrict[[:space:]]' | grep -v '^[[:space:]]*$' > initial_schema_normalized.sql
-
-docker exec -i "$DB_CONTAINER" pg_dump -U postgres -d postgres -s -n public --no-acl > final_schema.sql
 grep -v '^--' final_schema.sql | grep -Ev '^\\(un)?restrict[[:space:]]' | grep -v '^[[:space:]]*$' > final_schema_normalized.sql
 
 psql "$DB_URL" -c "SELECT id, name, public, file_size_limit, allowed_mime_types FROM storage.buckets ORDER BY id;" > final_storage.txt
