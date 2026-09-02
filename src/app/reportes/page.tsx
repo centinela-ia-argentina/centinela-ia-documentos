@@ -489,7 +489,7 @@ if (
       .select('id, organization_id, user_id, action, resource_type, resource_id, metadata, created_at')
       .eq('organization_id', profile.organization_id)
       .order('created_at', { ascending: false })
-      .limit(80);
+      
 
     auditLogs = (res.data ?? []) as AuditLogRecordForReport[];
 
