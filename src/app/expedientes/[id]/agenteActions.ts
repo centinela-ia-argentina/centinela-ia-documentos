@@ -23,7 +23,7 @@ export async function preguntarAgente(input: {
   historial: MensajeChat[];
   pregunta: string;
 }): Promise<
-  { ok: false; motivo: string; correlationId?: string } | { ok: true; respuesta: string; acciones: AccionPropuesta[] }
+  { ok: false; motivo: string; correlationId?: string } | { ok: true; respuesta: string; acciones: AccionPropuesta[]; memoryPersisted: boolean }
 > {
   const pregunta = (input.pregunta ?? '').trim();
   if (!pregunta) return { ok: false, motivo: 'Escribí una pregunta.' };
@@ -436,8 +436,8 @@ export async function preguntarAgente(input: {
       source_count: partes.length
     }
   });
-  // Guardar la conversación en la memoria del legajo.
-  // Si falla, no rompemos el chat: solo lo registramos en consola.
+  // Guardar la conversación en la memoria del legajo con observabilidad controlada.
+  let memoryPersisted = true;
   try {
     const { error: insertError } = await supabase.from('agent_messages').insert([
       {
@@ -456,13 +456,39 @@ export async function preguntarAgente(input: {
       },
     ]);
     if (insertError) {
+      memoryPersisted = false;
       console.error('Agente guardar memoria error:', insertError.message || insertError.code);
+      await createAuditLog({
+        organizationId: profile.organization_id,
+        userId: user.id,
+        action: 'AI_AGENT_MEMORY_ERROR',
+        entityType: 'case',
+        entityId: input.caseId,
+        details: {
+          caseId: input.caseId,
+          errorCode: insertError.code ?? 'UNKNOWN',
+          motivo: insertError.message || 'insert_failed',
+        },
+      });
     }
   } catch (e) {
+    memoryPersisted = false;
     console.error('Agente guardar memoria error:', e);
+    await createAuditLog({
+      organizationId: profile.organization_id,
+      userId: user.id,
+      action: 'AI_AGENT_MEMORY_ERROR',
+      entityType: 'case',
+      entityId: input.caseId,
+      details: {
+        caseId: input.caseId,
+        errorCode: 'EXCEPTION',
+        motivo: e instanceof Error ? e.message : 'insert_exception',
+      },
+    });
   }
 
-  return { ok: true, respuesta: res.respuesta, acciones: res.acciones };
+  return { ok: true, respuesta: res.respuesta, acciones: res.acciones, memoryPersisted };
 }
 
 // Borra toda la conversación guardada del Agente IA en un legajo.

@@ -114,6 +114,7 @@ export function AgenteChat({ caseId, caseTitle, industry, puedeUsarIA, historial
   const [mensajes, setMensajes] = useState<MensajeUI[]>(historialInicial ?? []);
   const [input, setInput] = useState('');
   const [cargando, setCargando] = useState(false);
+  const [avisoMemoria, setAvisoMemoria] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [accEstados, setAccEstados] = useState<Record<string, 'idle' | 'loading' | 'ok' | 'error' | 'descartado'>>({});
   const [saludo, setSaludo] = useState<{ alertas: string[] } | null>(null);
@@ -152,6 +153,11 @@ export function AgenteChat({ caseId, caseTitle, industry, puedeUsarIA, historial
       const res = await preguntarAgente({ caseId, historial: historialPrevio, pregunta });
       if (res.ok) {
         setMensajes((prev) => [...prev, { rol: 'model', texto: res.respuesta, acciones: res.acciones }]);
+        if (res.memoryPersisted === false) {
+          setAvisoMemoria('La respuesta se generó correctamente, pero hubo un error al guardar la conversación en la memoria.');
+        } else {
+          setAvisoMemoria(null);
+        }
       } else {
         setError(res.motivo);
       }
