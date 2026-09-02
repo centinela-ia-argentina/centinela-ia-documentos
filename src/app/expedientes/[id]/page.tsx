@@ -795,7 +795,7 @@ export default async function CaseDetailPage({ params, searchParams }: CaseDetai
                     <div className="flex items-center justify-between gap-3">
                       <h3 className="text-sm font-semibold text-white">✍️ Borrador de escritura (IA)</h3>
                       {documentosAnalizados > 0 ? (
-                        <RedactarEscrituraButton caseId={caseRecord.id} yaGenerada={!!borradorEscritura} />
+                        (puedeUsarIA ? <RedactarEscrituraButton caseId={caseRecord.id} yaGenerada={!!borradorEscritura} /> : null)
                       ) : (
                         <span className="text-xs text-white/40">Analizá al menos 1 documento para habilitarlo</span>
                       )}
@@ -890,7 +890,7 @@ export default async function CaseDetailPage({ params, searchParams }: CaseDetai
                             />
                           );
                         })()}
-                        <AnalizarUifButton caseId={caseRecord.id} yaGenerada={!!analisisUif} />
+                        (puedeUsarIA ? <AnalizarUifButton caseId={caseRecord.id} yaGenerada={!!analisisUif} /> : null)
                       </div>
                     </div>
                     {analisisUif ? (
