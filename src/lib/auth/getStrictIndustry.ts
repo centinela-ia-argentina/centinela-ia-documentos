@@ -1,7 +1,10 @@
 import 'server-only';
 import { createClient } from '@/lib/supabase/server';
 import { getUserProfile } from './getUserProfile';
-import { type IndustryType } from '@/lib/industries/documentTypes';
+import {
+  isActiveIndustryType,
+  type IndustryType,
+} from '@/lib/industries/documentTypes';
 
 export async function getStrictIndustryForOrganization(organizationId: string): Promise<IndustryType> {
   if (!organizationId) {
@@ -19,13 +22,11 @@ export async function getStrictIndustryForOrganization(organizationId: string): 
     throw new Error('Unauthorized: Organization or industry_type not found.');
   }
 
-  const allowedIndustries: IndustryType[] = ['legal', 'inmobiliaria', 'escribania'];
-  
-  if (!allowedIndustries.includes(org.industry_type as IndustryType)) {
+  if (!isActiveIndustryType(org.industry_type)) {
     throw new Error('Unauthorized: Unsupported organization industry.');
   }
 
-  return org.industry_type as IndustryType;
+  return org.industry_type;
 }
 
 export async function getStrictIndustry(): Promise<IndustryType> {
