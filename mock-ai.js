@@ -1,5 +1,16 @@
 const originalFetch = global.fetch;
 
+function geminiResponse(text) {
+  return new Response(JSON.stringify({
+    candidates: [{
+      content: {
+        parts: [{ text }]
+      },
+      finishReason: 'STOP'
+    }]
+  }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+}
+
 global.fetch = async (input, init) => {
   const url =
     typeof input === 'string'
@@ -34,6 +45,40 @@ global.fetch = async (input, init) => {
     }
 
     if (url.includes(':generateContent')) {
+      let prompt = '';
+      try {
+        const requestBody = typeof init?.body === 'string' ? JSON.parse(init.body) : null;
+        prompt = requestBody?.contents?.[0]?.parts?.map((part) => part?.text || '').join('') || '';
+      } catch {
+        prompt = '';
+      }
+
+      if (prompt.includes('FRAGMENTOS:') && prompt.includes('PREGUNTA:')) {
+        const markers = [
+          'RAG_E2E_LEGAL_MARKER',
+          'RAG_E2E_LEGAL_OTHER_CASE_MARKER',
+          'RAG_E2E_INMOBILIARIA_MARKER',
+          'RAG_E2E_ESCRIBANIA_MARKER',
+        ].filter((marker) => prompt.includes(marker));
+
+        if (markers.length !== 1) {
+          return geminiResponse('RAG_E2E_CONTAMINATION_DETECTED');
+        }
+
+        const answers = {
+          RAG_E2E_LEGAL_MARKER:
+            'Respuesta jurídica E2E: el expediente contiene la cláusula legal determinista [1].',
+          RAG_E2E_LEGAL_OTHER_CASE_MARKER:
+            'Respuesta jurídica E2E: el otro expediente contiene evidencia aislada [1].',
+          RAG_E2E_INMOBILIARIA_MARKER:
+            'Respuesta inmobiliaria E2E: la operación identifica el inmueble determinista [1].',
+          RAG_E2E_ESCRIBANIA_MARKER:
+            'Respuesta notarial E2E: el acto identifica la matrícula determinista [1].',
+        };
+
+        return geminiResponse(answers[markers[0]]);
+      }
+
       // Generar un JSON "comodín" que cumpla con los esquemas de copiloto, análisis documental, tasador, etc.
       const mockContent = JSON.stringify({
         resumen_general: "Resumen generado por AI Mock.",
@@ -55,13 +100,7 @@ global.fetch = async (input, init) => {
         nivel_confianza: 0.95
       });
 
-      return new Response(JSON.stringify({
-        candidates: [{
-          content: {
-            parts: [{ text: mockContent }]
-          }
-        }]
-      }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+      return geminiResponse(mockContent);
     }
   }
 

@@ -112,17 +112,18 @@ export async function preguntarADocumentosLegajo(
       return { ok: false, error: 'No pude consultar los documentos. Reintentá.', correlationId };
     }
 
-    // Deduplicación
+    // Deduplicación y defensa en profundidad: aun si la RPC regresara una fila
+    // fuera de alcance, solo se acepta evidencia de los documentos ya autorizados.
     const delLegajo: any[] = [];
     const contentSet = new Set<string>();
     const docCounts = new Map<string, number>();
 
     for (const m of (matches ?? [])) {
       const c = (m.chunk_text || '').trim();
-      if (!c) continue;
+      const dId = typeof m.document_id === 'string' ? m.document_id : '';
+      if (!c || !idsCaso.has(dId)) continue;
 
       if (!contentSet.has(c)) {
-        const dId = m.document_id;
         const dCount = docCounts.get(dId) || 0;
 
         if (dCount < 3) {
