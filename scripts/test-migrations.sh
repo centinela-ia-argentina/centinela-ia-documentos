@@ -158,7 +158,14 @@ if ! psql "$DB_URL" -v ON_ERROR_STOP=1 -f supabase/ci/verify_invariants.sql; the
 fi
 echo "SUCCESS: Forward SQL invariants verified."
 
-echo "9. Applying rollbacks REVERSE ORDER..."
+echo "9. Verifying explicit-grants rollback rejects non-CI execution..."
+if PGOPTIONS="-c centinela.is_ci=false" psql "$DB_URL" -v ON_ERROR_STOP=1 -f supabase/rollbacks/20260818150000_explicit_grants.rollback.sql; then
+  echo "ERROR: Explicit-grants rollback executed without the CI guard."
+  exit 1
+fi
+echo "SUCCESS: Explicit-grants rollback is blocked outside CI."
+
+echo "9.b Applying rollbacks REVERSE ORDER..."
 if [ -d "supabase/rollbacks" ] && [ "$(ls -A supabase/rollbacks)" ]; then
   ROLLBACKS=$(ls supabase/rollbacks/*.rollback.sql | sort -r)
   for rollback in $ROLLBACKS; do
