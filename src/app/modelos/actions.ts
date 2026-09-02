@@ -5,6 +5,8 @@ import { getStrictIndustry, getStrictIndustryForOrganization } from '@/lib/auth/
 import { canUseAi } from '@/lib/permissions/roles';
 import { createAuditLog } from '@/lib/audit/createAuditLog';
 import { createClient } from '@/lib/supabase/server';
+import { MODELOS, extractModelVars } from '@/lib/legal/modelos';
+import type { IndustryType } from '@/lib/industries/documentTypes';
 
 export type RedactarResult =
   | { ok: true; texto: string }
@@ -241,6 +243,35 @@ export async function extraerDatosParaModelo(caseId: string, modeloId?: string |
     return {};
   }
 
+  // 1. Fail-closed ante modelo inexistente, ausente o manipulado
+  if (!modeloId || typeof modeloId !== 'string') {
+    return {};
+  }
+
+  // 2. Prohibido inicializar industria con 'legal'; fallo cerrado ante error
+  let industry: IndustryType;
+  try {
+    industry = await getStrictIndustryForOrganization(profile.organization_id);
+  } catch {
+    return {};
+  }
+
+  // 3. Validar modeloId contra registro server-side y verificar que corresponda a la industria
+  const modelo = MODELOS.find((m) => m.id === modeloId);
+  if (!modelo) {
+    return {};
+  }
+  const modelIndustries = modelo.industries ?? ['legal'];
+  if (!modelIndustries.includes(industry)) {
+    return {};
+  }
+
+  // 4. Claves aprobadas: derivadas estrictamente de las variables del cuerpo del modelo
+  const allowedKeys = new Set(extractModelVars(modelo.cuerpo));
+  if (allowedKeys.size === 0) {
+    return {};
+  }
+
   const supabase = await createClient();
   const { data: aiData } = await supabase
     .from('ai_outputs')
@@ -257,55 +288,11 @@ export async function extraerDatosParaModelo(caseId: string, modeloId?: string |
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) return {};
 
-  let industry = 'legal';
-  try {
-    industry = await getStrictIndustryForOrganization(profile.organization_id);
-  } catch (e) {}
-
-  let schema = '{}';
-  if (industry === 'inmobiliaria') {
-    schema = `{
-  "vendedor": "",
-  "dni_vendedor": "",
-  "comprador": "",
-  "dni_comprador": "",
-  "ubicacion_inmueble": "",
-  "nomenclatura_catastral": "",
-  "matricula": "",
-  "precio": "",
-  "fecha_boleto": ""
-}`;
-  } else if (industry === 'escribania') {
-    schema = `{
-  "otorgante": "",
-  "dni_otorgante": "",
-  "compareciente": "",
-  "inmueble": "",
-  "matricula": "",
-  "fecha_acto": "",
-  "monto": ""
-}`;
-  } else {
-    schema = `{
-  "actor": "",
-  "demandado": "",
-  "juzgado": "",
-  "expediente": "",
-  "monto": "",
-  "fecha_hecho": ""
-}`;
+  const schemaObj: Record<string, string> = {};
+  for (const k of allowedKeys) {
+    schemaObj[k] = '';
   }
-
-  if (modeloId && typeof modeloId === 'string') {
-    const mod = modeloId.toLowerCase();
-    if (mod.includes('sucesion')) {
-       schema = `{ "causante": "", "dni_causante": "", "fecha_defuncion": "", "juzgado": "", "expediente": "", "herederos": "" }`;
-    } else if (mod.includes('poder') || mod.includes('certificacion') || mod.includes('acta')) {
-       schema = `{ "otorgante": "", "dni_otorgante": "", "apoderado": "", "dni_apoderado": "", "fecha_acto": "", "objeto": "" }`;
-    } else if (mod.includes('compraventa') && industry !== 'inmobiliaria') {
-       schema = `{ "vendedor": "", "dni_vendedor": "", "comprador": "", "dni_comprador": "", "inmueble": "", "precio": "" }`;
-    }
-  }
+  const schema = JSON.stringify(schemaObj, null, 2);
 
   const prompt = [
     'Extraé la siguiente información de los análisis provistos.',
@@ -334,7 +321,8 @@ export async function extraerDatosParaModelo(caseId: string, modeloId?: string |
     const parsed = JSON.parse(raw);
     const result: Record<string, string> = {};
     for (const [k, v] of Object.entries(parsed)) {
-      if (typeof v === 'string' && v.trim() !== '') {
+      // Descartar cualquier clave no aprobada
+      if (allowedKeys.has(k) && typeof v === 'string' && v.trim() !== '') {
         result[k] = v.trim();
       }
     }

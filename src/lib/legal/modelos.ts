@@ -2260,3 +2260,11 @@ export function sugerirModeloNotarialPorTipo(tipo?: string): ModeloEscrito | nul
   if (!id) return null;
   return MODELOS.find((m) => m.id === id) ?? null;
 }
+
+export function extractModelVars(cuerpo: string): string[] {
+  const set = new Set<string>();
+  const re = /\{\{\s*([\w-]+)\s*\}\}/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(cuerpo)) !== null) set.add(m[1]);
+  return Array.from(set);
+}

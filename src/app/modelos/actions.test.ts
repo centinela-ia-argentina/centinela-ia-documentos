@@ -19,6 +19,7 @@ vi.mock('@/lib/supabase/server', () => ({
 }));
 
 import { createClient } from '@/lib/supabase/server';
+import { getStrictIndustryForOrganization } from '@/lib/auth/getStrictIndustry';
 
 describe('extraerDatosParaModelo', () => {
   const globalFetchMock = vi.fn();
@@ -29,9 +30,10 @@ describe('extraerDatosParaModelo', () => {
 
     // Configurar API Key por defecto para que no falle por esto prematuramente
     process.env.GEMINI_API_KEY = 'test-key';
+    vi.mocked(getStrictIndustryForOrganization).mockResolvedValue('legal');
   });
 
-  const runTest = async (profileOverrides: any) => {
+  const runTest = async (profileOverrides: any = {}, modeloId: string | null = 'demanda-laboral-despido') => {
     const { getUserProfile } = await import('@/lib/auth/getUserProfile');
     vi.mocked(getUserProfile).mockResolvedValue({
       user: { id: 'user-1' },
@@ -43,14 +45,14 @@ describe('extraerDatosParaModelo', () => {
       },
     } as any);
 
-    return extraerDatosParaModelo('case-1');
+    return extraerDatosParaModelo('case-1', modeloId);
   };
 
   it('1. Sin usuario devuelve {} y no llama a fetch ni supabase', async () => {
     const { getUserProfile } = await import('@/lib/auth/getUserProfile');
     vi.mocked(getUserProfile).mockResolvedValue({ user: null, profile: null });
 
-    const result = await extraerDatosParaModelo('case-1');
+    const result = await extraerDatosParaModelo('case-1', 'demanda-laboral-despido');
     expect(result).toEqual({});
     expect(createClient).not.toHaveBeenCalled();
     expect(globalFetchMock).not.toHaveBeenCalled();
@@ -58,9 +60,9 @@ describe('extraerDatosParaModelo', () => {
 
   it('2. Sin profile devuelve {} y no llama a fetch ni supabase', async () => {
     const { getUserProfile } = await import('@/lib/auth/getUserProfile');
-    vi.mocked(getUserProfile).mockResolvedValue({ user: { id: 'u' }, profile: null } as any);
+    vi.mocked(getUserProfile).mockResolvedValue({ user: { id: 'user-1' }, profile: null } as any);
 
-    const result = await extraerDatosParaModelo('case-1');
+    const result = await extraerDatosParaModelo('case-1', 'demanda-laboral-despido');
     expect(result).toEqual({});
     expect(createClient).not.toHaveBeenCalled();
     expect(globalFetchMock).not.toHaveBeenCalled();
@@ -94,9 +96,9 @@ describe('extraerDatosParaModelo', () => {
     expect(globalFetchMock).not.toHaveBeenCalled();
   });
 
-  it('7. Admin autorizado ejecuta el flujo normal', async () => {
+  it('7. Admin autorizado ejecuta el flujo normal para modelo legal válido', async () => {
     const mockOrder = vi.fn().mockResolvedValue({
-      data: [{ result_json: { vendedor: "Persona Ficticia", matricula: "TEST-123" } }]
+      data: [{ result_json: { parte: "Juan Pérez", demandado: "Acme Corp" } }]
     });
     const mockEq2 = vi.fn().mockReturnValue({ order: mockOrder });
     const mockEq1 = vi.fn().mockReturnValue({ eq: mockEq2 });
@@ -112,8 +114,8 @@ describe('extraerDatosParaModelo', () => {
             parts: [
               {
                 text: JSON.stringify({
-                  vendedor: "Persona Ficticia",
-                  matricula: "TEST-123",
+                  parte: "Juan Pérez",
+                  demandado: "Acme Corp",
                   campo_vacio: "",
                   campo_numerico: 123
                 })
@@ -129,7 +131,7 @@ describe('extraerDatosParaModelo', () => {
       json: vi.fn().mockResolvedValue(mockJsonResponse)
     });
 
-    const result = await runTest({ role: 'admin' });
+    const result = await runTest({ role: 'admin' }, 'demanda-laboral-despido');
 
     expect(createClient).toHaveBeenCalledTimes(1);
     expect(mockFrom).toHaveBeenCalledWith('ai_outputs');
@@ -139,17 +141,19 @@ describe('extraerDatosParaModelo', () => {
     expect(globalFetchMock).toHaveBeenCalledTimes(1);
 
     expect(result).toEqual({
-      vendedor: "Persona Ficticia",
-      matricula: "TEST-123"
+      parte: "Juan Pérez",
+      demandado: "Acme Corp"
     });
 
     expect(result.campo_vacio).toBeUndefined();
     expect(result.campo_numerico).toBeUndefined();
   });
 
-  it('8. Employee autorizado ejecuta el flujo normal', async () => {
+  it('8. Employee autorizado en escribanía prellena modelo notarial válido', async () => {
+    vi.mocked(getStrictIndustryForOrganization).mockResolvedValue('escribania');
+
     const mockOrder = vi.fn().mockResolvedValue({
-      data: [{ result_json: { comprador: "Empresa S.A." } }]
+      data: [{ result_json: { firmante: "Carlos Test" } }]
     });
     const mockEq2 = vi.fn().mockReturnValue({ order: mockOrder });
     const mockEq1 = vi.fn().mockReturnValue({ eq: mockEq2 });
@@ -165,7 +169,7 @@ describe('extraerDatosParaModelo', () => {
             parts: [
               {
                 text: JSON.stringify({
-                  comprador: "Empresa S.A."
+                  firmante: "Carlos Test"
                 })
               }
             ]
@@ -179,19 +183,136 @@ describe('extraerDatosParaModelo', () => {
       json: vi.fn().mockResolvedValue(mockJsonResponse)
     });
 
-    const result = await runTest({ role: 'employee' });
+    const result = await runTest({ role: 'employee' }, 'notarial-certificacion-firmas');
 
     expect(createClient).toHaveBeenCalledTimes(1);
-    expect(mockFrom).toHaveBeenCalledWith('ai_outputs');
-
     expect(globalFetchMock).toHaveBeenCalledTimes(1);
-
     expect(result).toEqual({
-      comprador: "Empresa S.A."
+      firmante: "Carlos Test"
     });
   });
 
-  it('9. Sin GEMINI_API_KEY para rol autorizado devuelve {} y no llama a fetch', async () => {
+  it('9. Modelo inmobiliario válido prellena para organización inmobiliaria', async () => {
+    vi.mocked(getStrictIndustryForOrganization).mockResolvedValue('inmobiliaria');
+
+    const mockOrder = vi.fn().mockResolvedValue({
+      data: [{ result_json: { oferente: "Inversionista SA" } }]
+    });
+    const mockEq2 = vi.fn().mockReturnValue({ order: mockOrder });
+    const mockEq1 = vi.fn().mockReturnValue({ eq: mockEq2 });
+    const mockSelect = vi.fn().mockReturnValue({ eq: mockEq1 });
+    const mockFrom = vi.fn().mockReturnValue({ select: mockSelect });
+
+    vi.mocked(createClient).mockResolvedValue({ from: mockFrom } as any);
+
+    const mockJsonResponse = {
+      candidates: [
+        {
+          content: {
+            parts: [
+              {
+                text: JSON.stringify({
+                  oferente: "Inversionista SA"
+                })
+              }
+            ]
+          }
+        }
+      ]
+    };
+
+    globalFetchMock.mockResolvedValue({
+      ok: true,
+      json: vi.fn().mockResolvedValue(mockJsonResponse)
+    });
+
+    const result = await runTest({ role: 'admin' }, 'reserva-oferta-compra');
+
+    expect(createClient).toHaveBeenCalledTimes(1);
+    expect(result).toEqual({
+      oferente: "Inversionista SA"
+    });
+  });
+
+  it('10. Fail-closed: modelo inexistente devuelve {} sin invocar IA', async () => {
+    const result = await runTest({ role: 'admin' }, 'modelo-que-no-existe-en-la-base');
+    expect(result).toEqual({});
+    expect(createClient).not.toHaveBeenCalled();
+    expect(globalFetchMock).not.toHaveBeenCalled();
+  });
+
+  it('11. Fail-closed: modelo cruzado entre industrias devuelve {} sin invocar IA', async () => {
+    // Organización legal intentando usar modelo exclusivo de escribania
+    vi.mocked(getStrictIndustryForOrganization).mockResolvedValue('legal');
+    const result = await runTest({ role: 'admin' }, 'notarial-certificacion-firmas');
+    expect(result).toEqual({});
+    expect(createClient).not.toHaveBeenCalled();
+    expect(globalFetchMock).not.toHaveBeenCalled();
+  });
+
+  it('12. Fail-closed: modelo cruzado inmobiliaria -> legal devuelve {}', async () => {
+    // Organización legal intentando usar modelo exclusivo de inmobiliaria
+    vi.mocked(getStrictIndustryForOrganization).mockResolvedValue('legal');
+    const result = await runTest({ role: 'admin' }, 'reserva-oferta-compra');
+    expect(result).toEqual({});
+    expect(createClient).not.toHaveBeenCalled();
+    expect(globalFetchMock).not.toHaveBeenCalled();
+  });
+
+  it('13. Sanitización estricta: descarta claves arbitrarias / no aprobadas devueltas por IA', async () => {
+    const mockOrder = vi.fn().mockResolvedValue({
+      data: [{ result_json: { parte: "Juan Pérez" } }]
+    });
+    const mockEq2 = vi.fn().mockReturnValue({ order: mockOrder });
+    const mockEq1 = vi.fn().mockReturnValue({ eq: mockEq2 });
+    const mockSelect = vi.fn().mockReturnValue({ eq: mockEq1 });
+    const mockFrom = vi.fn().mockReturnValue({ select: mockSelect });
+
+    vi.mocked(createClient).mockResolvedValue({ from: mockFrom } as any);
+
+    const mockJsonResponse = {
+      candidates: [
+        {
+          content: {
+            parts: [
+              {
+                text: JSON.stringify({
+                  parte: "Juan Pérez",
+                  clave_arbitraria_inyectada: "malicioso",
+                  password_leaked: "secreto",
+                  otra_clave_no_del_template: "valor"
+                })
+              }
+            ]
+          }
+        }
+      ]
+    };
+
+    globalFetchMock.mockResolvedValue({
+      ok: true,
+      json: vi.fn().mockResolvedValue(mockJsonResponse)
+    });
+
+    const result = await runTest({ role: 'admin' }, 'demanda-laboral-despido');
+
+    expect(result).toEqual({
+      parte: "Juan Pérez"
+    });
+    expect((result as any).clave_arbitraria_inyectada).toBeUndefined();
+    expect((result as any).password_leaked).toBeUndefined();
+    expect((result as any).otra_clave_no_del_template).toBeUndefined();
+  });
+
+  it('14. Fail-closed ante error en getStrictIndustryForOrganization', async () => {
+    vi.mocked(getStrictIndustryForOrganization).mockRejectedValue(new Error('Organization industry unknown'));
+    const result = await runTest({ role: 'admin' }, 'demanda-laboral-despido');
+    expect(result).toEqual({});
+    expect(createClient).not.toHaveBeenCalled();
+    expect(globalFetchMock).not.toHaveBeenCalled();
+  });
+
+  it('15. Sin GEMINI_API_KEY para rol autorizado devuelve {} y no llama a fetch', async () => {
     process.env.GEMINI_API_KEY = '';
 
     const mockOrder = vi.fn().mockResolvedValue({ data: [{ result_json: { test: '1' } }] });
@@ -202,7 +323,7 @@ describe('extraerDatosParaModelo', () => {
 
     vi.mocked(createClient).mockResolvedValue({ from: mockFrom } as any);
 
-    const result = await runTest({ role: 'admin' });
+    const result = await runTest({ role: 'admin' }, 'demanda-laboral-despido');
     expect(result).toEqual({});
     expect(createClient).toHaveBeenCalled(); // llega a la base pero se corta después
     expect(globalFetchMock).not.toHaveBeenCalled();
@@ -210,7 +331,6 @@ describe('extraerDatosParaModelo', () => {
 });
 
 import { revisarEscritoIA } from './actions';
-import { createAuditLog } from '@/lib/audit/createAuditLog';
 
 describe('revisarEscritoIA', () => {
 
@@ -271,9 +391,6 @@ describe('revisarEscritoIA', () => {
       ok: true,
       json: vi.fn().mockResolvedValue(mockJsonResponse)
     });
-
-
-
 
     const result = await runTest({ industry_type: 'legal' });
 
