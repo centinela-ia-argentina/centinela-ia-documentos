@@ -1081,9 +1081,7 @@ describe('RLS: cases.property_id', () => {
     const propPayload = {
       id: propId,
       organization_id: ORG_A,
-      address: '123',
-      property_type: 'casa',
-      status: 'active',
+      title: 'Prop cross',
     };
     await insertFixtureOrFail('properties', propPayload);
 
@@ -1110,9 +1108,7 @@ describe('RLS: cases.property_id', () => {
     const propPayload = {
       id: propId,
       organization_id: ORG_A,
-      address: '123',
-      property_type: 'casa',
-      status: 'active',
+      title: 'Prop cross',
     };
     await insertFixtureOrFail('properties', propPayload);
 
@@ -1714,9 +1710,7 @@ describe('RLS: property_comparables', () => {
     const otherPropPayload = {
       id: otherPropId,
       organization_id: ORG_B,
-      address: 'Other Prop',
-      property_type: 'casa',
-      status: 'active',
+      title: 'Other property',
     };
     await insertFixtureOrFail('properties', otherPropPayload);
 
