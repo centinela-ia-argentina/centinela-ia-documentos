@@ -35,7 +35,7 @@ const ACCION_META: Record<
 
 const SUGERENCIAS: Record<string, string[]> = {
   legal: [
-    terms.agenteEjemploPlazos,
+    getIndustryTerms('legal').agenteEjemploPlazos,
     '¿Detectás alguna inconsistencia o riesgo procesal en los documentos?',
     '¿Qué próximos pasos me recomendás?',
   ],
@@ -132,7 +132,7 @@ type Props = {
 };
 
 export function AgenteChat({ caseId, caseTitle, industry, puedeUsarIA, historialInicial, modeloUrl }: Props) {
-  const terms = getIndustryTerms(industry);
+  const terms = getIndustryTerms(industry as IndustryType);
   const [mensajes, setMensajes] = useState<MensajeUI[]>(historialInicial ?? []);
   const [input, setInput] = useState('');
   const [cargando, setCargando] = useState(false);
