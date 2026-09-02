@@ -1,6 +1,7 @@
 'use server';
 
 import { createClient } from '@/lib/supabase/server';
+import { getIndustryTerms } from '@/lib/industries/uiLabels';
 import { getUserProfile } from '@/lib/auth/getUserProfile';
 import { getStrictIndustryForOrganization } from '@/lib/auth/getStrictIndustry';
 import { normalizeIndustryType, type IndustryType } from '@/lib/industries/documentTypes';
@@ -143,13 +144,14 @@ export async function preguntarAgente(input: {
     })
     .filter(Boolean);
   if (camposRubro.length) {
-    partes.push('\nDATOS DEL EXPEDIENTE (cargados en el legajo, usalos como verdad):');
+    const terms = getIndustryTerms(industry);
+    partes.push(`\nDATOS DEL REGISTRO (cargados en el ${terms.expedienteSingular.toLowerCase()}, usalos como verdad):`);
     partes.push(camposRubro.join('\n'));
   }
 
   const resumenJson = (resumenData?.result_json ?? null) as any;
   if (resumenJson) {
-    partes.push('\nRESUMEN DEL EXPEDIENTE:');
+    partes.push(`\nRESUMEN DEL REGISTRO:`);
     if (resumenJson.resumen_general) partes.push(String(resumenJson.resumen_general));
     if (resumenJson.estado_actual) partes.push(`Estado procesal: ${resumenJson.estado_actual}`);
     if (Array.isArray(resumenJson.puntos_clave) && resumenJson.puntos_clave.length)
@@ -437,7 +439,7 @@ export async function preguntarAgente(input: {
   // Guardar la conversación en la memoria del legajo.
   // Si falla, no rompemos el chat: solo lo registramos en consola.
   try {
-    await supabase.from('agent_messages').insert([
+    const { error: insertError } = await supabase.from('agent_messages').insert([
       {
         organization_id: profile.organization_id,
         case_id: input.caseId,
@@ -453,6 +455,9 @@ export async function preguntarAgente(input: {
         created_by: user.id,
       },
     ]);
+    if (insertError) {
+      console.error('Agente guardar memoria error:', insertError.message || insertError.code);
+    }
   } catch (e) {
     console.error('Agente guardar memoria error:', e);
   }
