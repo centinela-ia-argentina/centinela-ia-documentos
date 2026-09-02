@@ -4,14 +4,19 @@ import { useState, useRef, useEffect } from 'react';
 import { MoreVertical } from 'lucide-react';
 import { archiveCase, unarchiveCase, deleteCase } from './actions';
 
+import { getIndustryTerms } from '@/lib/industries/uiLabels';
+import type { IndustryType } from '@/lib/industries/documentTypes';
+
 interface CaseCardMenuProps {
+  industry: string;
   caseId: string;
   isArchived: boolean;
   canArchive: boolean;
   canDelete: boolean;
 }
 
-export function CaseCardMenu({ caseId, isArchived, canArchive, canDelete }: CaseCardMenuProps) {
+export function CaseCardMenu({ caseId, isArchived, canArchive, canDelete, industry }: CaseCardMenuProps) {
+  const terms = getIndustryTerms(industry as IndustryType);
   const [isOpen, setIsOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -85,7 +90,7 @@ export function CaseCardMenu({ caseId, isArchived, canArchive, canDelete }: Case
 
             {canDelete && (
               <form action={deleteCase} className="w-full" onSubmit={(e) => {
-                if (!window.confirm("Vas a borrar esta operación y todo su contenido interno (checklist, cronología, análisis del expediente y turnos de agenda). Los documentos quedan guardados en la Bóveda. Esta acción no se puede deshacer. ¿Continuar?")) {
+                if (!window.confirm(`Vas a borrar este ${terms.expedienteSingular.toLowerCase()} y todo su contenido interno (checklist, cronología, análisis de IA y agenda). Los documentos quedan guardados en la Bóveda. Esta acción no se puede deshacer. ¿Continuar?`)) {
                   e.preventDefault();
                 }
               }}>

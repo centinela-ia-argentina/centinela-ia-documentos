@@ -78,34 +78,34 @@ const GLOBAL_AGENT_CASE_CONTEXT_LIMIT = 40;
   const plazos = plazosResult.data ?? [];
 
   const caseTitleById = new Map<string, string>();
-  for (const c of cases) caseTitleById.set(c.id, c.title || 'Expediente sin título');
+  for (const c of cases) caseTitleById.set(c.id, c.title || terms.itemSinTitulo);
 
   const partes: string[] = [];
-  partes.push('VISTA GLOBAL DE LA ORGANIZACIÓN (todos los legajos activos).');
+  partes.push(`VISTA GLOBAL DE LA ORGANIZACIÓN (todos los ${terms.expedientePlural.toLowerCase()} activos).`);
   partes.push(
     'REGLAS INNEGOCIABLES DE RESPUESTA Y LÍMITES DE EJECUCIÓN:\n' +
       'Estás operando exclusivamente como Agente IA general de orientación y panorama organizacional.\n\n' +
-      '1. CONSULTAS INFORMATIVAS: Si el usuario hace una pregunta informativa (ej. "¿Qué información tenés sobre el expediente X?"), NO apliques la limitación de ejecución. Respondé con los datos disponibles. Si el expediente consultado no figura en tu contexto, aplicá estrictamente las reglas de expediente no encontrado detalladas más abajo.\n\n' +
-      '2. SOLICITUDES OPERATIVAS: Ante pedidos de ejecución o modificación (por ejemplo: cambiar estado de un expediente, agendar un plazo procesal, modificar un expediente, vincular documentos, eliminar o cargar un documento desde acá), TENÉS ESTRICTAMENTE PROHIBIDO:\n' +
+      '1. CONSULTAS INFORMATIVAS: Si el usuario hace una pregunta informativa (ej. "¿Qué información tenés sobre el ${terms.expedienteSingular.toLowerCase()} X?"), NO apliques la limitación de ejecución. Respondé con los datos disponibles. Si el ${terms.expedienteSingular.toLowerCase()} consultado no figura en tu contexto, aplicá estrictamente las reglas de no encontrado detalladas más abajo.\n\n' +
+      '2. SOLICITUDES OPERATIVAS: Ante pedidos de ejecución o modificación (por ejemplo: cambiar estado de un ${terms.expedienteSingular.toLowerCase()}, agendar un plazo, modificar un ${terms.expedienteSingular.toLowerCase()}, vincular documentos, eliminar o cargar un documento desde acá), TENÉS ESTRICTAMENTE PROHIBIDO:\n' +
       '- Pedir parámetros de ejecución, fechas o el ID del caso.\n' +
       '- Prometer o dar a entender que podrás realizar la acción luego.\n' +
       '- Devolver tokens o bloques de acción.\n' +
       'Ante pedidos operativos, DEBÉS RESPONDER EXACTA Y CLARAMENTE CON ESTE TEXTO:\n' +
-      '“Desde el Agente IA general no puedo modificar casos ni ejecutar acciones concretas. Abrí el expediente, legajo u operación correspondiente y utilizá su Agente IA.”'
+      '“Desde el Agente IA general no puedo modificar casos ni ejecutar acciones concretas. Abrí el ${terms.expedienteSingular.toLowerCase()} correspondiente y utilizá su Agente IA.”'
   );
 
   if (countIsUnknown && includedCaseCount === GLOBAL_AGENT_CASE_CONTEXT_LIMIT) {
     partes.push(
-      `Contexto limitado a un máximo de ${GLOBAL_AGENT_CASE_CONTEXT_LIMIT} expedientes activos creados más recientemente.\n` +
-      `REGLA PARA EXPEDIENTES NO ENCONTRADOS: Si el usuario pregunta por un expediente que no figura acá, respondé exactamente: "Ese expediente no aparece entre los ${GLOBAL_AGENT_CASE_CONTEXT_LIMIT} incluidos en el contexto actual. Puede estar fuera del recorte. Usá Buscar o abrí el expediente específico."\n` +
+      `Contexto limitado a un máximo de ${GLOBAL_AGENT_CASE_CONTEXT_LIMIT} ${terms.expedientePlural.toLowerCase()} activos creados más recientemente.\n` +
+      `REGLA PARA ${terms.expedientePlural.toUpperCase()} NO ENCONTRADOS: Si el usuario pregunta por un ${terms.expedienteSingular.toLowerCase()} que no figura acá, respondé exactamente: "Ese ${terms.expedienteSingular.toLowerCase()} no aparece entre los ${GLOBAL_AGENT_CASE_CONTEXT_LIMIT} incluidos en el contexto actual. Puede estar fuera del recorte. Usá Buscar o abrí el ${terms.expedienteSingular.toLowerCase()} específico."\n` +
       `Si el usuario hace peticiones exhaustivas (ej. "todos mis casos", "panorama completo"), TENÉS ESTRICTAMENTE PROHIBIDO presentar este análisis parcial como total.`
     );
   } else if (isCaseContextPartial) {
     partes.push(
-      `La organización tiene ${totalActiveCases} expedientes activos. En esta conversación disponés únicamente de los ${GLOBAL_AGENT_CASE_CONTEXT_LIMIT} expedientes creados más recientemente.\n` +
+      `La organización tiene ${totalActiveCases} ${terms.expedientePlural.toLowerCase()} activos. En esta conversación disponés únicamente de los ${GLOBAL_AGENT_CASE_CONTEXT_LIMIT} ${terms.expedientePlural.toLowerCase()} creados más recientemente.\n` +
       `REGLA PARA EXPEDIENTES NO ENCONTRADOS: Si el usuario pregunta por un expediente que no figura acá, respondé exactamente: "Ese expediente no aparece entre los ${GLOBAL_AGENT_CASE_CONTEXT_LIMIT} incluidos en el contexto actual. Puede estar fuera del recorte. Usá Buscar o abrí el expediente específico."\n` +
       `Si el usuario hace peticiones exhaustivas (ej. "todos mis casos", "panorama completo", "resumen de todos"), TENÉS ESTRICTAMENTE PROHIBIDO presentar un análisis parcial como total. DEBÉS INCLUIR EXACTAMENTE ESTA ADVERTENCIA:\n` +
-      `“Esta vista del Agente General incluye los ${GLOBAL_AGENT_CASE_CONTEXT_LIMIT} expedientes creados más recientemente de ${totalActiveCases} activos. No puedo afirmar que el análisis cubra la totalidad. Para localizar un expediente fuera de este contexto, usá Buscar o abrí el expediente específico.”`
+      `“Esta vista del Agente General incluye los ${GLOBAL_AGENT_CASE_CONTEXT_LIMIT} ${terms.expedientePlural.toLowerCase()} creados más recientemente de ${totalActiveCases} activos. No puedo afirmar que el análisis cubra la totalidad. Para localizar un ${terms.expedienteSingular.toLowerCase()} fuera de este contexto, usá Buscar o abrí el ${terms.expedienteSingular.toLowerCase()} específico.”`
     );
   } else {
     partes.push(

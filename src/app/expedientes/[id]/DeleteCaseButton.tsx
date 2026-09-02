@@ -2,7 +2,7 @@
 
 import { useFormStatus } from 'react-dom';
 
-export function DeleteCaseButton() {
+export function DeleteCaseButton({ confirmText = 'Vas a borrar esta operación y todo su contenido. ¿Continuar?' }: { confirmText?: string }) {
   const { pending } = useFormStatus();
 
   return (
@@ -12,7 +12,7 @@ export function DeleteCaseButton() {
       onClick={(e) => {
         if (
           !window.confirm(
-            'Vas a borrar esta operación y todo su contenido interno (checklist, cronología, análisis del expediente y turnos de agenda). Los documentos quedan guardados en la Bóveda. Esta acción no se puede deshacer. ¿Continuar?'
+            confirmText
           )
         ) {
           e.preventDefault();

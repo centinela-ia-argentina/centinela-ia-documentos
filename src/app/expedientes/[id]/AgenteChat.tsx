@@ -33,23 +33,6 @@ const ACCION_META: Record<
   calificar_inquilino: { icono: '✨', verbo: 'Aprobar y calificar', verboLoading: 'Calificando…', hecho: 'Pre-Score generado' },
 };
 
-const SUGERENCIAS: Record<string, string[]> = {
-  legal: [
-    getIndustryTerms('legal').agenteEjemploPlazos,
-    '¿Detectás alguna inconsistencia o riesgo procesal en los documentos?',
-    '¿Qué próximos pasos me recomendás?',
-  ],
-  escribania: [
-    '¿Están vigentes todos los certificados del legajo?',
-    '¿Hay gravámenes, embargos o inhibiciones sobre el inmueble?',
-    '¿Qué documentación falta para poder escriturar?',
-  ],
-  inmobiliaria: [
-    '¿Qué vencimientos tiene la operación o el contrato?',
-    '¿Los datos de la reserva, el boleto y el título coinciden?',
-    '¿Qué conviene hacer para avanzar con esta operación?',
-  ],
-};
 
 function formatFecha(iso: string) {
   const [y, m, d] = iso.split('-');
@@ -115,12 +98,6 @@ function MensajeTexto({ texto }: { texto: string }) {
   return <div className="space-y-1">{bloques}</div>;
 }
 
-function getTituloAgente(industry: string): string {
-  if (industry === 'inmobiliaria') return 'Agente IA de la operación';
-  if (industry === 'escribania') return 'Agente IA del legajo';
-  if (industry === 'legal') return 'Agente IA del expediente';
-  return 'Agente IA del caso';
-}
 
 type Props = {
   caseId: string;
@@ -133,6 +110,7 @@ type Props = {
 
 export function AgenteChat({ caseId, caseTitle, industry, puedeUsarIA, historialInicial, modeloUrl }: Props) {
   const terms = getIndustryTerms(industry as IndustryType);
+  const titulo = `Agente IA del ${terms.expedienteSingular.toLowerCase()}`;
   const [mensajes, setMensajes] = useState<MensajeUI[]>(historialInicial ?? []);
   const [input, setInput] = useState('');
   const [cargando, setCargando] = useState(false);
@@ -160,7 +138,7 @@ export function AgenteChat({ caseId, caseTitle, industry, puedeUsarIA, historial
     if (el) el.scrollTop = el.scrollHeight;
   }, [mensajes, cargando]);
 
-  const sugerencias = SUGERENCIAS[industry] ?? SUGERENCIAS.legal;
+    const sugerencias = terms.agenteSugerenciasLocales;
 
   async function enviar(texto: string) {
     const pregunta = texto.trim();
@@ -200,7 +178,7 @@ export function AgenteChat({ caseId, caseTitle, industry, puedeUsarIA, historial
 
   async function borrarConversacion() {
     if (mensajes.length === 0 || cargando) return;
-    if (!window.confirm('¿Borrar toda la conversación de este legajo? No se puede deshacer.')) return;
+    if (!window.confirm('¿Borrar toda la conversación? No se puede deshacer.')) return;
     try {
       const r = await borrarConversacionAgente({ caseId });
       if (r.ok) {
@@ -257,7 +235,7 @@ export function AgenteChat({ caseId, caseTitle, industry, puedeUsarIA, historial
         </div>
         <div className="flex-1">
           <div className="flex flex-wrap items-center gap-2">
-            <h3 className="text-base font-semibold text-slate-50">{getTituloAgente(industry)}</h3>
+            <h3 className="text-base font-semibold text-slate-50">{titulo}</h3>
             <span className="inline-flex items-center gap-1 rounded-full bg-cyan-500/15 px-2.5 py-0.5 text-xs font-medium text-cyan-300 border border-cyan-500/20">
               📁 Contexto: {caseTitle || 'Este caso'}
             </span>
@@ -292,7 +270,7 @@ export function AgenteChat({ caseId, caseTitle, industry, puedeUsarIA, historial
               texto={[
                 '👋 ¡Hola! ¿Cómo estás? ¿Qué tal tu día?',
                 '',
-                'Soy tu agente de este legajo y estoy acá para ayudarte. La IA propone, vos decidís.',
+                'Soy tu agente y estoy acá para ayudarte. La IA propone, vos decidís.',
                 '',
                 saludo.alertas.length > 0
                   ? ['Le eché un ojo mientras entrabas y noté esto:', ...saludo.alertas.map((a) => `• ${a}`)].join('\n')
@@ -487,7 +465,7 @@ export function AgenteChat({ caseId, caseTitle, industry, puedeUsarIA, historial
             }
           }}
           rows={1}
-          placeholder="Escribí tu consulta sobre el legajo…"
+          placeholder="Escribí tu consulta sobre el ${terms.expedienteSingular.toLowerCase()}…"
           className="flex-1 resize-none rounded-lg border border-slate-700 bg-slate-950/60 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:border-cyan-500 focus:outline-none"
         />
         <button

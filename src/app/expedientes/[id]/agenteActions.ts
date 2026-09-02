@@ -48,6 +48,7 @@ export async function preguntarAgente(input: {
   } catch (e) {
     return { ok: false, motivo: 'Industria no autorizada.' };
   }
+  const terms = getIndustryTerms(industry);
 
   const { data: docsData } = await supabase
     .from('documents')
@@ -110,7 +111,7 @@ export async function preguntarAgente(input: {
     .eq('organization_id', profile.organization_id)
     .order('event_date', { ascending: true });
 
-  // Checklist del legajo: ítems y si ya tienen documento vinculado.
+  // Checklist del ${terms.expedienteSingular.toLowerCase()}: ítems y si ya tienen documento vinculado.
   const { data: checklistsData } = await supabase
     .from('checklists')
     .select('id')
@@ -132,7 +133,7 @@ export async function preguntarAgente(input: {
     `Cliente: ${caseData.client_name ?? '-'} | Tipo: ${caseData.case_type ?? '-'} | Estado: ${getCaseStatusLabel(caseData.status, industry)}`
   );
 
-  // Datos propios del rubro cargados en el formulario del legajo
+  // Datos propios del rubro cargados en el formulario del ${terms.expedienteSingular.toLowerCase()}
   // (en legal: carátula, N° de expediente, juzgado, fuero, parte contraria,
   // estado procesal, próxima fecha clave). Se leen de metadata por su clave.
   const metadataLegajo = (caseData.metadata ?? {}) as Record<string, unknown>;
@@ -144,7 +145,6 @@ export async function preguntarAgente(input: {
     })
     .filter(Boolean);
   if (camposRubro.length) {
-    const terms = getIndustryTerms(industry);
     partes.push(`\nDATOS DEL REGISTRO (cargados en el ${terms.expedienteSingular.toLowerCase()}, usalos como verdad):`);
     partes.push(camposRubro.join('\n'));
   }
@@ -179,7 +179,7 @@ export async function preguntarAgente(input: {
   // un análisis, y para que pueda decidir con criterio si corresponde un ROS.
   const uifJson = (uifData?.result_json ?? null) as any;
   if (uifJson) {
-    partes.push('\nANÁLISIS UIF / PLA (ya realizado por el sistema; usalo como VERDAD, no propongas volver a analizar salvo que el legajo haya cambiado):');
+    partes.push(`\nANÁLISIS UIF / PLA (ya realizado por el sistema; usalo como VERDAD, no propongas volver a analizar salvo que el ${terms.expedienteSingular.toLowerCase()} haya cambiado):`);
     if (uifJson.nivel_riesgo) partes.push(`Nivel de riesgo: ${String(uifJson.nivel_riesgo).toUpperCase()}`);
     partes.push(`¿Requiere ROS?: ${uifJson.requiere_ros ? 'SÍ' : 'NO'}`);
     if (uifJson.fundamento) partes.push(`Fundamento: ${uifJson.fundamento}`);
@@ -257,12 +257,12 @@ export async function preguntarAgente(input: {
     }
   }
 
-  // Cronología del legajo: actuaciones y plazos (a mano o detectados por la IA).
+  // Cronología del ${terms.expedienteSingular.toLowerCase()}: actuaciones y plazos (a mano o detectados por la IA).
   // Marcamos los FUTUROS para que el agente pueda proponer agendarlos.
   const eventos = eventosData ?? [];
   if (eventos.length) {
     const hoyIso = new Date().toISOString().slice(0, 10);
-    partes.push('\nCRONOLOGÍA DEL LEGAJO (actuaciones y plazos; los marcados como PLAZO FUTURO son agendables):');
+    partes.push(`\n${terms.cronologiaDelLegajo} (actuaciones y plazos; los marcados como PLAZO FUTURO son agendables):`);
     partes.push(
       eventos
         .map((e) => {
@@ -302,13 +302,13 @@ export async function preguntarAgente(input: {
       i++;
     }
   } else if (documentos.length > 0) {
-    partes.push('\nDOCUMENTOS DEL LEGAJO (sin analizar aún):');
+    partes.push(`\n${terms.documentosDelLegajo} (sin analizar aún):`);
     partes.push(documentos.map((d) => `- ${d.file_name}`).join('\n'));
   }
 
   // Checklist en el contexto: marcamos cuáles se pueden vincular a un documento.
   if (checklistItemsCtx.length > 0) {
-    partes.push('\nCHECKLIST DEL LEGAJO (los marcados "PENDIENTE (sin documento)" se pueden vincular con un documento del legajo que los cumpla):');
+    partes.push(`\n${terms.checklistDelLegajo} (los marcados "PENDIENTE (sin documento)" se pueden vincular con un documento del ${terms.expedienteSingular.toLowerCase()} que los cumpla):`);
     partes.push(
       checklistItemsCtx
         .map((it) => {
@@ -324,7 +324,7 @@ export async function preguntarAgente(input: {
     );
   }
 
-  // --- RAG: fragmentos textuales relevantes de los documentos del legajo ---
+  // --- RAG: fragmentos textuales relevantes de los documentos del ${terms.expedienteSingular.toLowerCase()} ---
   // Además del análisis ya extraído, buscamos en el TEXTO COMPLETO indexado
   // los fragmentos más parecidos a la pregunta, para que el agente pueda
   // responder cualquier detalle y citar el documento del que salió.
@@ -507,7 +507,10 @@ export async function ejecutarAccionAgenteInner(input: {
   if (!isUserRole(profile.role)) return { ok: false, mensaje: 'No tenés permiso.' };
 
   const { caseId, accion } = input;
-  if (!caseId) return { ok: false, mensaje: 'Falta el legajo.' };
+  let industry = 'legal' as IndustryType;
+  try { industry = await getStrictIndustryForOrganization(profile.organization_id); } catch(e) {}
+  const terms = getIndustryTerms(industry);
+  if (!caseId) return { ok: false, mensaje: `Falta el ${terms.expedienteSingular.toLowerCase()}.` };
 
   const supabase = await createClient();
   const { data: caseRecord } = await supabase
@@ -528,7 +531,7 @@ export async function ejecutarAccionAgenteInner(input: {
       const r = await guardarPlazoDetectado({
         titulo: accion.titulo,
         fecha: accion.fecha as string,
-        detalle: accion.motivo || 'Propuesto por el Agente IA del legajo',
+        detalle: accion.motivo || `Propuesto por el Agente IA del ${terms.expedienteSingular.toLowerCase()}`,
         caseId,
       });
       return r.ok
@@ -550,7 +553,7 @@ export async function ejecutarAccionAgenteInner(input: {
         fecha: accion.fecha as string,
         hora: horaOk,
         tipo: esFirma ? 'firma' : 'turno',
-        detalle: accion.motivo || 'Propuesto por el Agente IA del legajo',
+        detalle: accion.motivo || `Propuesto por el Agente IA del ${terms.expedienteSingular.toLowerCase()}`,
         caseId,
       });
       return r.ok
@@ -848,7 +851,7 @@ export async function ejecutarAccionAgenteInner(input: {
       revalidatePath(`/expedientes/${caseId}`);
       return {
         ok: true,
-        mensaje: 'Análisis UIF actualizado. Ya podés descargar el "Borrador de ROS (PDF)" desde el panel 🛡️ Análisis UIF del legajo (actualizá la página si no lo ves).',
+        mensaje: `Análisis UIF actualizado. Ya podés descargar el "Borrador de ROS (PDF)" desde el panel 🛡️ Análisis UIF del ${terms.expedienteSingular.toLowerCase()} (actualizá la página si no lo ves).`,
       };
     }
 
@@ -858,7 +861,7 @@ export async function ejecutarAccionAgenteInner(input: {
       const nombreDoc = typeof accion.documento === 'string' ? accion.documento.trim().toLowerCase() : '';
       if (!tituloItem || !nombreDoc) return { ok: false, mensaje: 'Faltan datos para vincular (ítem o documento).' };
 
-      // 1) Documento del legajo por nombre exacto (o que lo contenga).
+      // 1) Documento del ${terms.expedienteSingular.toLowerCase()} por nombre exacto (o que lo contenga).
       const { data: docsVinc } = await supabase
         .from('documents')
         .select('id, file_name')
@@ -867,7 +870,7 @@ export async function ejecutarAccionAgenteInner(input: {
       const doc =
         (docsVinc ?? []).find((d) => (d.file_name ?? '').trim().toLowerCase() === nombreDoc) ??
         (docsVinc ?? []).find((d) => (d.file_name ?? '').trim().toLowerCase().includes(nombreDoc));
-      if (!doc) return { ok: false, mensaje: 'No encontré ese documento en el legajo.' };
+      if (!doc) return { ok: false, mensaje: `No encontré ese documento en el ${terms.expedienteSingular.toLowerCase()}.` };
 
       // 2) Ítem del checklist por título exacto (preferí uno sin documento).
       const { data: checklistsVinc } = await supabase
@@ -876,7 +879,7 @@ export async function ejecutarAccionAgenteInner(input: {
         .eq('case_id', caseId)
         .eq('organization_id', profile.organization_id);
       const checklistIdsVinc = (checklistsVinc ?? []).map((c) => c.id);
-      if (checklistIdsVinc.length === 0) return { ok: false, mensaje: 'El legajo no tiene checklist.' };
+      if (checklistIdsVinc.length === 0) return { ok: false, mensaje: `El ${terms.expedienteSingular.toLowerCase()} no tiene checklist.` };
       const { data: itemsVinc } = await supabase
         .from('checklist_items')
         .select('id, title, document_id')
@@ -926,14 +929,14 @@ export async function ejecutarAccionAgenteInner(input: {
         return { ok: false, mensaje: 'No se pudo cambiar el estado.' };
       }
       revalidatePath(`/expedientes/${caseId}`);
-      return { ok: true, mensaje: 'Estado del legajo actualizado.' };
+      return { ok: true, mensaje: `Estado del ${terms.expedienteSingular.toLowerCase()} actualizado.` };
     }
     default:
       return { ok: false, mensaje: 'Acción no reconocida.' };
   }
 }
 
-// --- Diagnóstico proactivo del legajo (sin IA, solo datos) ---
+// --- Diagnóstico proactivo del ${terms.expedienteSingular.toLowerCase()} (sin IA, solo datos) ---
 export async function diagnosticoLegajo(
 	{ caseId }: { caseId: string }
 ): Promise<{ ok: boolean; alertas: string[] }> {
@@ -943,6 +946,10 @@ export async function diagnosticoLegajo(
 		const { user, profile } = await getUserProfile();
 		const orgId = profile?.organization_id;
 		if (!orgId || !profile?.role || !isUserRole(profile.role)) return { ok: false, alertas: [] };
+
+		let diagIndustry = 'legal' as IndustryType;
+		try { diagIndustry = await getStrictIndustryForOrganization(orgId); } catch(e) {}
+		const terms = getIndustryTerms(diagIndustry);
 
 		const supabase = await createClient();
 		const alertas: string[] = [];
@@ -974,7 +981,7 @@ export async function diagnosticoLegajo(
 		const sinAnalizar = (docs ?? []).filter((d) => !analizados.has(d.id)).length;
 
 		if (totalDocs === 0) {
-			alertas.push('Todavía no hay documentos cargados en el legajo.');
+			alertas.push(`Todavía no hay documentos cargados en el ${terms.expedienteSingular.toLowerCase()}.`);
 		} else if (sinAnalizar > 0) {
 			alertas.push(`${sinAnalizar} de ${totalDocs} documento(s) sin analizar con IA.`);
 		}

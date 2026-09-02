@@ -25,12 +25,14 @@ export function getNavItemLabel(
 
 const navDescriptionOverrides: Partial<Record<IndustryType, Record<string, string>>> = {
   escribania: {
+    agenteSaludoGlobal: 'Soy tu Agente notarial. Vigilo certificados, vigencias y actos las 24 horas.',
     '/expedientes': 'Gestión operativa de legajos vinculados.',
     '/buscar': 'Búsqueda avanzada de legajos y documentos.',
     '/calculadoras': 'Sellos, ITI, honorarios y aportes notariales.',
     '/modelos': 'Escrituras, poderes, actas y autorizaciones notariales.',
   },
   inmobiliaria: {
+    agenteSaludoGlobal: 'Soy tu Agente inmobiliario. Vigilo operaciones, contratos y vencimientos las 24 horas.',
     '/modelos': 'Reservas, autorizaciones y boletos de compraventa.',
   },
 };
@@ -44,11 +46,24 @@ export function getNavItemDescription(
 
 // --- Terminología de entidades, por rubro (para pantallas internas) ---
 export type IndustryTerms = {
+    expedienteSinTitulo: string;
+  todosLosLegajosActivos: string;
+  legajosIncluidosContexto: string;
+  contextoDelLegajo: string;
+  cronologiaDelLegajo: string;
+  documentosDelLegajo: string;
+  checklistDelLegajo: string;
+  resumenIntegralDelExpediente: string;
+  recorteMensaje: string;
+  noEncontradoMensaje: string;
   agenteSaludoGlobal: string;
+  agentePreguntasGlobales: string[];
+  agenteSugerenciasLocales: string[];
   agenteEjemploPlazos: string;
   expedienteSingular: string;
   expedientePlural: string;
   partes: string;
+  feriaLabel: string;
   listaEyebrow: string;
   listaTitulo: string;
   listaSubtitulo: string;
@@ -90,11 +105,25 @@ export type IndustryTerms = {
 };
 
 const defaultTerms: IndustryTerms = {
-  agenteSaludoGlobal: 'Soy tu Agente IA. Vigilo tus registros y plazos las 24 horas.',
+  agenteSaludoGlobal: 'Soy tu Agente jurídico. Vigilo tus expedientes, plazos y riesgos las 24 horas.',
+
   agenteEjemploPlazos: '¿Cuáles son los plazos o vencimientos críticos?',
-  expedienteSingular: 'Expediente',
+    agentePreguntasGlobales: ['¿Qué vencimientos y plazos tengo esta semana?', '¿Qué expedientes necesitan atención urgente?', '¿Qué me recomendás priorizar hoy?'],
+    agenteSugerenciasLocales: ['¿Cuáles son los plazos o vencimientos críticos?', '¿Detectás alguna inconsistencia o riesgo procesal en los documentos?', '¿Qué próximos pasos me recomendás?'],
+      expedienteSinTitulo: 'Expediente sin título',
+    todosLosLegajosActivos: 'todos los expedientes activos',
+    legajosIncluidosContexto: 'EXPEDIENTES INCLUIDOS EN EL CONTEXTO',
+    contextoDelLegajo: 'CONTEXTO DEL EXPEDIENTE',
+    cronologiaDelLegajo: 'CRONOLOGÍA DEL EXPEDIENTE',
+    documentosDelLegajo: 'DOCUMENTOS DEL EXPEDIENTE',
+    checklistDelLegajo: 'CHECKLIST DEL EXPEDIENTE',
+    resumenIntegralDelExpediente: 'resumen integral del expediente',
+    recorteMensaje: '... [recortado] ...',
+    noEncontradoMensaje: '[No encontrado]',
+    expedienteSingular: 'Expediente',
   expedientePlural: 'Expedientes',
   partes: 'Partes',
+  feriaLabel: 'Feria judicial',
   listaEyebrow: 'EXPEDIENTES',
   listaTitulo: 'Gestión de Casos',
   listaSubtitulo: 'Todos tus casos, clientes, estados y documentación asociada en un único panel.',
@@ -132,9 +161,21 @@ const defaultTerms: IndustryTerms = {
 
 const termsByIndustry: Partial<Record<IndustryType, Partial<IndustryTerms>>> = {
   escribania: {
+        agenteSaludoGlobal: 'Soy tu Agente notarial. Vigilo certificados, vigencias y actos las 24 horas.',
+    expedienteSinTitulo: 'Legajo sin título',
+    todosLosLegajosActivos: 'todos los legajos activos',
+    legajosIncluidosContexto: 'LEGAJOS INCLUIDOS EN EL CONTEXTO',
+    contextoDelLegajo: 'CONTEXTO DEL LEGAJO',
+    cronologiaDelLegajo: 'CRONOLOGÍA DEL LEGAJO',
+    documentosDelLegajo: 'DOCUMENTOS DEL LEGAJO',
+    checklistDelLegajo: 'CHECKLIST DEL LEGAJO',
+    resumenIntegralDelExpediente: 'resumen integral del legajo',
+    recorteMensaje: '... [recortado] ...',
+    noEncontradoMensaje: '[No encontrado]',
     expedienteSingular: 'Legajo',
     expedientePlural: 'Legajos',
-    partes: 'Otorgantes / Comparecientes',
+    partes: 'Personas intervinientes',
+    feriaLabel: 'Feria notarial / Día inhábil',
     listaEyebrow: 'LEGAJOS',
     listaTitulo: 'Gestión de Legajos',
     listaSubtitulo: 'Todos tus legajos, otorgantes, estados y documentación asociada en un único panel.',
@@ -170,9 +211,21 @@ const termsByIndustry: Partial<Record<IndustryType, Partial<IndustryTerms>>> = {
     placeholderClient: 'Ej. Juan Pérez y Ana Gómez',
   },
   inmobiliaria: {
+        agenteSaludoGlobal: 'Soy tu Agente inmobiliario. Vigilo operaciones, contratos y vencimientos las 24 horas.',
+    expedienteSinTitulo: 'Operación sin título',
+    todosLosLegajosActivos: 'todas las operaciones activas',
+    legajosIncluidosContexto: 'OPERACIONES INCLUIDAS EN EL CONTEXTO',
+    contextoDelLegajo: 'CONTEXTO DE LA OPERACIÓN',
+    cronologiaDelLegajo: 'CRONOLOGÍA DE LA OPERACIÓN',
+    documentosDelLegajo: 'DOCUMENTOS DE LA OPERACIÓN',
+    checklistDelLegajo: 'CHECKLIST DE LA OPERACIÓN',
+    resumenIntegralDelExpediente: 'resumen integral de la operación',
+    recorteMensaje: '... [recortado] ...',
+    noEncontradoMensaje: '[No encontrado]',
     expedienteSingular: 'Operación',
     expedientePlural: 'Operaciones',
     partes: 'Partes',
+    feriaLabel: 'Feriado extendido',
     listaEyebrow: 'OPERACIONES',
     listaTitulo: 'Gestión de Operaciones',
     listaSubtitulo: 'Todas tus operaciones, clientes, estados y documentación asociada en un único panel.',
@@ -274,6 +327,7 @@ const agendaLabelsByIndustry: Partial<Record<IndustryType, AgendaLabels>> = {
     feriaLabel: 'Feriado extendido',
   },
   empresa: {
+    agenteSaludoGlobal: 'Soy tu Agente corporativo. Vigilo carpetas, plazos y documentos las 24 horas.',
     eyebrow: 'Herramientas de gestión',
     subtitulo: 'Feriados, vencimientos de documentos y fechas clave de la organización.',
     plazoLabel: 'Plazo',

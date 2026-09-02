@@ -1429,7 +1429,7 @@ export default async function CaseDetailPage({ params, searchParams }: CaseDetai
             label: '🕑 Cronología',
             content: (
               <div className="space-y-6">
-                <CronologiaExpediente items={cronologia} />
+                <CronologiaExpediente items={cronologia} titulo={`🕒 Cronología del ${terms.expedienteSingular.toLowerCase()}`} />
                 <MotionCard index={0}>
             <h3 className="font-display text-lg font-semibold text-white">Línea de tiempo del expediente</h3>
             <p className="mt-1 text-sm text-slate-400">Registro cronológico de actuaciones, audiencias y movimientos.</p>
@@ -1769,7 +1769,7 @@ export default async function CaseDetailPage({ params, searchParams }: CaseDetai
             {canDeleteCase(profile.role) && (
               <form action={deleteCase}>
                 <input type="hidden" name="case_id" value={caseRecord.id} />
-                <DeleteCaseButton />
+                <DeleteCaseButton confirmText={`Vas a borrar este ${terms.expedienteSingular.toLowerCase()} y todo su contenido interno (checklist, cronología, análisis de IA y agenda). Los documentos quedan guardados en la Bóveda. Esta acción no se puede deshacer. ¿Continuar?`} />
               </form>
             )}
           </div>
