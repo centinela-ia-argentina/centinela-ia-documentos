@@ -213,7 +213,7 @@ export function ModelosClient({
     setCargandoPrellenado(true);
 
     try {
-      const extr = await extraerDatosParaModelo(id);
+      const extr = await extraerDatosParaModelo(id, seleccionadoId);
 
       if (solicitudActual !== solicitudPrellenadoRef.current) return;
 

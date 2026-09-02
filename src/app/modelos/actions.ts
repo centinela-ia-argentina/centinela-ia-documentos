@@ -234,7 +234,7 @@ export async function revisarEscritoIA(input: { texto: string }): Promise<Revisi
   }
 }
 
-export async function extraerDatosParaModelo(caseId: string): Promise<Record<string, string>> {
+export async function extraerDatosParaModelo(caseId: string, modeloId?: string | null): Promise<Record<string, string>> {
   const { user, profile } = await getUserProfile();
 
   if (!user || !profile || !profile.organization_id || !canUseAi(profile.role as any)) {
@@ -252,32 +252,65 @@ export async function extraerDatosParaModelo(caseId: string): Promise<Record<str
   if (!aiData || aiData.length === 0) return {};
 
   const rawJson = aiData.map(d => JSON.stringify(d.result_json)).join('\n');
-  // Trim to avoid hitting limits
   const chunk = rawJson.substring(0, 15000);
 
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) return {};
 
+  let industry = 'legal';
+  try {
+    industry = await getStrictIndustryForOrganization(profile.organization_id);
+  } catch (e) {}
+
+  let schema = '{}';
+  if (industry === 'inmobiliaria') {
+    schema = `{
+  "vendedor": "",
+  "dni_vendedor": "",
+  "comprador": "",
+  "dni_comprador": "",
+  "ubicacion_inmueble": "",
+  "nomenclatura_catastral": "",
+  "matricula": "",
+  "precio": "",
+  "fecha_boleto": ""
+}`;
+  } else if (industry === 'escribania') {
+    schema = `{
+  "otorgante": "",
+  "dni_otorgante": "",
+  "compareciente": "",
+  "inmueble": "",
+  "matricula": "",
+  "fecha_acto": "",
+  "monto": ""
+}`;
+  } else {
+    schema = `{
+  "actor": "",
+  "demandado": "",
+  "juzgado": "",
+  "expediente": "",
+  "monto": "",
+  "fecha_hecho": ""
+}`;
+  }
+
+  if (modeloId && typeof modeloId === 'string') {
+    const mod = modeloId.toLowerCase();
+    if (mod.includes('sucesion')) {
+       schema = `{ "causante": "", "dni_causante": "", "fecha_defuncion": "", "juzgado": "", "expediente": "", "herederos": "" }`;
+    } else if (mod.includes('poder') || mod.includes('certificacion') || mod.includes('acta')) {
+       schema = `{ "otorgante": "", "dni_otorgante": "", "apoderado": "", "dni_apoderado": "", "fecha_acto": "", "objeto": "" }`;
+    } else if (mod.includes('compraventa') && industry !== 'inmobiliaria') {
+       schema = `{ "vendedor": "", "dni_vendedor": "", "comprador": "", "dni_comprador": "", "inmueble": "", "precio": "" }`;
+    }
+  }
+
   const prompt = [
-    'Extraé la siguiente información de los análisis provistos (documentos analizados del expediente).',
+    'Extraé la siguiente información de los análisis provistos.',
     'Devolvé SOLO un JSON válido con estas claves exactas si las encontrás. Si no está la información exacta, dejá el valor vacío "". NO inventes datos.',
-    '{',
-    '  "vendedor": "",',
-    '  "dni_vendedor": "",',
-    '  "cuit_vendedor": "",',
-    '  "comprador": "",',
-    '  "dni_comprador": "",',
-    '  "cuit_comprador": "",',
-    '  "ubicacion_inmueble": "",',
-    '  "nomenclatura_catastral": "",',
-    '  "matricula": "",',
-    '  "superficie": "",',
-    '  "precio": "",',
-    '  "monto": "",',
-    '  "titulo_antecedente": "",',
-    '  "fecha_boleto": "",',
-    '  "ciudad": ""',
-    '}',
+    schema,
     '',
     'ANÁLISIS:',
     chunk
