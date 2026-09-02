@@ -88,13 +88,17 @@ function resolveCaseStatus(
   requestedStatus: string,
   industry: ReturnType<typeof normalizeIndustryType>
 ) {
-  const allowedStatuses = getAllowedCaseStatuses(industry);
-
-  if (allowedStatuses.includes(requestedStatus)) {
+  const canonicalStatuses = getCaseStatuses(industry).map(s => s.value);
+  if (canonicalStatuses.includes(requestedStatus)) {
     return requestedStatus;
   }
-
-  return getCaseStatuses(industry)[0]?.value ?? 'active';
+  const normalized = requestedStatus.trim().toLowerCase();
+  if (normalized === 'activo' || normalized === 'active') return 'active';
+  if (normalized === 'archivado' || normalized === 'archived') return 'archived';
+  if (normalized === 'nuevo' || normalized === 'new') return 'new';
+  if (normalized === 'en tramite' || normalized === 'en trámite' || normalized === 'in_review') return 'in_review';
+  if (normalized === 'esperando cliente' || normalized === 'waiting_client') return 'waiting_client';
+  return canonicalStatuses[0] ?? 'active';
 }
 
 // Imported from helpers.ts
