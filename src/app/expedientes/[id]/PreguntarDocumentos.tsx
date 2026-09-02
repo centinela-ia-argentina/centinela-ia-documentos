@@ -150,7 +150,7 @@ export function PreguntarDocumentos({
                 </div>
 
                 {fuentes.length > 0 && (
-                  <div>
+                  <div data-testid="rag-sources">
                     <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
                       Fuentes
                     </p>
@@ -158,6 +158,7 @@ export function PreguntarDocumentos({
                       {fuentes.map((f, i) => (
                         <details
                           key={`${f.documentId}-${i}`}
+                          data-testid={`rag-source-${i}`}
                           className="group rounded-lg border border-slate-800 bg-slate-900/40 px-3 py-2 text-xs text-slate-300 transition hover:border-cyan-500/30"
                         >
                           <summary className="flex cursor-pointer select-none items-center gap-2 font-medium text-cyan-300">

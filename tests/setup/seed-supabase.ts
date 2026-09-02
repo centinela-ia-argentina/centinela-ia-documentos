@@ -43,8 +43,19 @@ export const SEED_DATA = {
   CASE_ESC_CERTIFICACION_ID: 'eeee3333-3333-3333-3333-333333333335',
   CASE_ESC_ACTA_ID: 'eeee3333-3333-3333-3333-333333333336',
   CASE_ESC_SUCESION_ID: 'eeee3333-3333-3333-3333-333333333337',
+  CASE_RAG_LEGAL_OTHER_ID: 'cccc1111-1111-1111-1111-111111111112',
+  CASE_RAG_NO_EVIDENCE_ID: 'cccc1111-1111-1111-1111-111111111113',
   DOC_LEGAL_ID: 'ddcc1111-1111-1111-1111-111111111111',
-  CHUNK_ID: '33333333-3333-3333-3333-333333333333'
+  DOC_RAG_LEGAL_ID: 'ddcc1111-1111-1111-1111-111111111112',
+  DOC_RAG_LEGAL_OTHER_ID: 'ddcc1111-1111-1111-1111-111111111113',
+  DOC_RAG_INM_ID: 'ddcc2222-2222-2222-2222-222222222222',
+  DOC_RAG_ESC_ID: 'ddcc3333-3333-3333-3333-333333333333',
+  DOC_RAG_NO_EVIDENCE_ID: 'ddcc1111-1111-1111-1111-111111111114',
+  CHUNK_ID: '33333333-3333-3333-3333-333333333333',
+  CHUNK_RAG_LEGAL_ID: '33333333-3333-3333-3333-333333333334',
+  CHUNK_RAG_LEGAL_OTHER_ID: '33333333-3333-3333-3333-333333333335',
+  CHUNK_RAG_INM_ID: '33333333-3333-3333-3333-333333333336',
+  CHUNK_RAG_ESC_ID: '33333333-3333-3333-3333-333333333337'
 };
 
 // Validar que todos sean UUID válidos
@@ -125,7 +136,9 @@ export async function seedSupabase() {
       { id: SEED_DATA.CASE_ESC_PODER_ID, organization_id: SEED_DATA.ORG_ESC_ID, title: 'Poder QA', case_type: 'Poder', status: 'active', created_by: SEED_DATA.ADMIN_ESC_ID, assigned_to: null },
       { id: SEED_DATA.CASE_ESC_CERTIFICACION_ID, organization_id: SEED_DATA.ORG_ESC_ID, title: 'Certificación QA', case_type: 'Certificación de firmas', status: 'active', created_by: SEED_DATA.ADMIN_ESC_ID, assigned_to: null },
       { id: SEED_DATA.CASE_ESC_ACTA_ID, organization_id: SEED_DATA.ORG_ESC_ID, title: 'Acta QA', case_type: 'Acta notarial', status: 'active', created_by: SEED_DATA.ADMIN_ESC_ID, assigned_to: null },
-      { id: SEED_DATA.CASE_ESC_SUCESION_ID, organization_id: SEED_DATA.ORG_ESC_ID, title: 'Sucesión QA', case_type: 'Sucesión', status: 'active', created_by: SEED_DATA.ADMIN_ESC_ID, assigned_to: SEED_DATA.CLIENT_ESC_ID }
+      { id: SEED_DATA.CASE_ESC_SUCESION_ID, organization_id: SEED_DATA.ORG_ESC_ID, title: 'Sucesión QA', case_type: 'Sucesión', status: 'active', created_by: SEED_DATA.ADMIN_ESC_ID, assigned_to: SEED_DATA.CLIENT_ESC_ID },
+      { id: SEED_DATA.CASE_RAG_LEGAL_OTHER_ID, organization_id: SEED_DATA.ORG_LEGAL_ID, title: 'RAG Legal Otro Caso', case_type: 'civil', status: 'active', created_by: SEED_DATA.ADMIN_LEGAL_ID, assigned_to: null },
+      { id: SEED_DATA.CASE_RAG_NO_EVIDENCE_ID, organization_id: SEED_DATA.ORG_LEGAL_ID, title: 'RAG Sin Evidencia', case_type: 'civil', status: 'active', created_by: SEED_DATA.ADMIN_LEGAL_ID, assigned_to: null }
     ]), 'cases');
 
     // 5. Documents (For RAG/RLS tests)
@@ -140,10 +153,66 @@ export async function seedSupabase() {
         file_mime_type: 'application/pdf',
         file_hash: 'mockhash123',
         uploaded_by: SEED_DATA.ADMIN_LEGAL_ID
+      },
+      {
+        id: SEED_DATA.DOC_RAG_LEGAL_ID,
+        organization_id: SEED_DATA.ORG_LEGAL_ID,
+        case_id: SEED_DATA.CASE_LEGAL_ID,
+        file_name: 'rag-juridico.pdf',
+        file_path: `${SEED_DATA.ORG_LEGAL_ID}/${SEED_DATA.CASE_LEGAL_ID}/rag-juridico.pdf`,
+        file_size: 1000,
+        file_mime_type: 'application/pdf',
+        file_hash: 'rag-e2e-legal',
+        uploaded_by: SEED_DATA.ADMIN_LEGAL_ID
+      },
+      {
+        id: SEED_DATA.DOC_RAG_LEGAL_OTHER_ID,
+        organization_id: SEED_DATA.ORG_LEGAL_ID,
+        case_id: SEED_DATA.CASE_RAG_LEGAL_OTHER_ID,
+        file_name: 'rag-juridico-otro-caso.pdf',
+        file_path: `${SEED_DATA.ORG_LEGAL_ID}/${SEED_DATA.CASE_RAG_LEGAL_OTHER_ID}/rag-juridico-otro-caso.pdf`,
+        file_size: 1000,
+        file_mime_type: 'application/pdf',
+        file_hash: 'rag-e2e-legal-other',
+        uploaded_by: SEED_DATA.ADMIN_LEGAL_ID
+      },
+      {
+        id: SEED_DATA.DOC_RAG_INM_ID,
+        organization_id: SEED_DATA.ORG_INM_ID,
+        case_id: SEED_DATA.CASE_INM_ID,
+        file_name: 'rag-inmobiliaria.pdf',
+        file_path: `${SEED_DATA.ORG_INM_ID}/${SEED_DATA.CASE_INM_ID}/rag-inmobiliaria.pdf`,
+        file_size: 1000,
+        file_mime_type: 'application/pdf',
+        file_hash: 'rag-e2e-inmobiliaria',
+        uploaded_by: SEED_DATA.ADMIN_INM_ID
+      },
+      {
+        id: SEED_DATA.DOC_RAG_ESC_ID,
+        organization_id: SEED_DATA.ORG_ESC_ID,
+        case_id: SEED_DATA.CASE_ESC_ID,
+        file_name: 'rag-escribania.pdf',
+        file_path: `${SEED_DATA.ORG_ESC_ID}/${SEED_DATA.CASE_ESC_ID}/rag-escribania.pdf`,
+        file_size: 1000,
+        file_mime_type: 'application/pdf',
+        file_hash: 'rag-e2e-escribania',
+        uploaded_by: SEED_DATA.ADMIN_ESC_ID
+      },
+      {
+        id: SEED_DATA.DOC_RAG_NO_EVIDENCE_ID,
+        organization_id: SEED_DATA.ORG_LEGAL_ID,
+        case_id: SEED_DATA.CASE_RAG_NO_EVIDENCE_ID,
+        file_name: 'rag-sin-indexar.pdf',
+        file_path: `${SEED_DATA.ORG_LEGAL_ID}/${SEED_DATA.CASE_RAG_NO_EVIDENCE_ID}/rag-sin-indexar.pdf`,
+        file_size: 1000,
+        file_mime_type: 'application/pdf',
+        file_hash: 'rag-e2e-no-evidence',
+        uploaded_by: SEED_DATA.ADMIN_LEGAL_ID
       }
     ]), 'documents');
 
     // 6. Document Chunks (for RPC RAG tests)
+    const deterministicEmbedding = [1, ...Array(767).fill(0)];
     await throwOnError(supabaseAdmin.from('document_chunks').upsert([
       {
         id: SEED_DATA.CHUNK_ID,
@@ -152,6 +221,38 @@ export async function seedSupabase() {
         chunk_index: 0,
         content: 'Este es un fragmento de prueba para RAG en caso legal.',
         embedding: Array(768).fill(0.01)
+      },
+      {
+        id: SEED_DATA.CHUNK_RAG_LEGAL_ID,
+        organization_id: SEED_DATA.ORG_LEGAL_ID,
+        document_id: SEED_DATA.DOC_RAG_LEGAL_ID,
+        chunk_index: 0,
+        content: 'RAG_E2E_LEGAL_MARKER: cláusula legal determinista del expediente principal.',
+        embedding: deterministicEmbedding
+      },
+      {
+        id: SEED_DATA.CHUNK_RAG_LEGAL_OTHER_ID,
+        organization_id: SEED_DATA.ORG_LEGAL_ID,
+        document_id: SEED_DATA.DOC_RAG_LEGAL_OTHER_ID,
+        chunk_index: 0,
+        content: 'RAG_E2E_LEGAL_OTHER_CASE_MARKER: evidencia que pertenece a otro expediente jurídico.',
+        embedding: deterministicEmbedding
+      },
+      {
+        id: SEED_DATA.CHUNK_RAG_INM_ID,
+        organization_id: SEED_DATA.ORG_INM_ID,
+        document_id: SEED_DATA.DOC_RAG_INM_ID,
+        chunk_index: 0,
+        content: 'RAG_E2E_INMOBILIARIA_MARKER: inmueble determinista de la operación inmobiliaria.',
+        embedding: deterministicEmbedding
+      },
+      {
+        id: SEED_DATA.CHUNK_RAG_ESC_ID,
+        organization_id: SEED_DATA.ORG_ESC_ID,
+        document_id: SEED_DATA.DOC_RAG_ESC_ID,
+        chunk_index: 0,
+        content: 'RAG_E2E_ESCRIBANIA_MARKER: matrícula determinista del acto notarial.',
+        embedding: deterministicEmbedding
       }
     ]), 'chunks');
 
