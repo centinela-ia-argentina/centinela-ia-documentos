@@ -20,8 +20,6 @@ WHERE title IS NULL;
 ALTER TABLE public.case_events
   ALTER COLUMN title SET NOT NULL;
 
-CREATE INDEX IF NOT EXISTS idx_case_events_case_id ON public.case_events(case_id);
-CREATE INDEX IF NOT EXISTS idx_case_events_organization_id ON public.case_events(organization_id);
 CREATE INDEX IF NOT EXISTS idx_case_events_event_date ON public.case_events(event_date);
 
 NOTIFY pgrst, 'reload schema';

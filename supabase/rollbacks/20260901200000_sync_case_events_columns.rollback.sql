@@ -1,17 +1,15 @@
 BEGIN;
 
--- Estrategia conservadora:
--- Como la migración usa ADD COLUMN IF NOT EXISTS, no podemos saber si
--- las columnas event_date o title ya existían.
--- Para no destruir datos de columnas preexistentes,
--- el rollback se limitará a relajar la restricción NOT NULL.
--- Tampoco se eliminan incondicionalmente los índices, ya que podrían ser preexistentes.
-
-ALTER TABLE public.case_events
-  ALTER COLUMN event_date DROP NOT NULL;
-
-ALTER TABLE public.case_events
-  ALTER COLUMN title DROP NOT NULL;
+DO $$
+BEGIN
+  IF current_setting('centinela.is_ci', true) = 'true' THEN
+    ALTER TABLE public.case_events DROP COLUMN IF EXISTS event_date;
+    ALTER TABLE public.case_events DROP COLUMN IF EXISTS title;
+    DROP INDEX IF EXISTS idx_case_events_event_date;
+  ELSE
+    RAISE NOTICE 'Rollback abortado: no es un entorno CI (centinela.is_ci != true)';
+  END IF;
+END $$;
 
 NOTIFY pgrst, 'reload schema';
 

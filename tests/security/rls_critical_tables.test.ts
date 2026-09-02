@@ -418,11 +418,21 @@ describe('RLS: ai_outputs', () => {
     }
   });
 
-  it('RELACIÓN PADRE-HIJO (case): negativo cruzado (Org A, Case B)', async () => {
+  it('RELACIÓN PADRE-HIJO (case): RLS deniega (Org A, Case B)', async () => {
     const id = crypto.randomUUID();
     const payload = { ...getPayload(id), case_id: CASE_B };
     try {
-      await expectIntegrityRejectedInsert('ai_outputs', adminA, payload);
+      await expectRlsDeniedInsert('ai_outputs', adminA, payload);
+    } finally {
+      await assertFixtureAbsent('ai_outputs', id);
+    }
+  });
+
+  it('RELACIÓN PADRE-HIJO (case): FK bloquea aislado (Org A, Case B)', async () => {
+    const id = crypto.randomUUID();
+    const payload = { ...getPayload(id), case_id: CASE_B };
+    try {
+      await expectIntegrityRejectedInsert('ai_outputs', serviceClient, payload);
     } finally {
       await assertFixtureAbsent('ai_outputs', id);
     }
@@ -559,11 +569,21 @@ describe('RLS: agent_messages', () => {
     }
   });
 
-  it('RELACIÓN PADRE-HIJO: negativo cruzado (Org A, Case B)', async () => {
+  it('RELACIÓN PADRE-HIJO: RLS deniega (Org A, Case B)', async () => {
     const id = crypto.randomUUID();
     const payload = { ...getPayload(id), case_id: CASE_B };
     try {
-      await expectIntegrityRejectedInsert('agent_messages', adminA, payload);
+      await expectRlsDeniedInsert('agent_messages', adminA, payload);
+    } finally {
+      await assertFixtureAbsent('agent_messages', id);
+    }
+  });
+
+  it('RELACIÓN PADRE-HIJO: FK bloquea aislado (Org A, Case B)', async () => {
+    const id = crypto.randomUUID();
+    const payload = { ...getPayload(id), case_id: CASE_B };
+    try {
+      await expectIntegrityRejectedInsert('agent_messages', serviceClient, payload);
     } finally {
       await assertFixtureAbsent('agent_messages', id);
     }
@@ -706,10 +726,8 @@ describe('RLS: reports', () => {
     id,
     organization_id: ORG_A,
     case_id: CASE_A,
-    report_type: 'test',
     title: 'test',
-    content: { key: 'value' },
-    created_by: SEED_DATA.ADMIN_LEGAL_ID,
+    data: { key: 'value' },
   });
 
   it('INSERT - permitidos', async () => {
@@ -948,9 +966,7 @@ describe('RLS: properties', () => {
   const getPayload = (id: string) => ({
     id,
     organization_id: ORG_A,
-    address: '123 Test St',
-    property_type: 'casa',
-    status: 'active',
+    title: 'Test property',
   });
 
   it('INSERT - permitidos', async () => {
@@ -1126,9 +1142,7 @@ describe('RLS: clients', () => {
   const getPayload = (id: string) => ({
     id,
     organization_id: ORG_A,
-    full_name: 'Test Client',
-    document_type: 'DNI',
-    document_number: '12345678',
+    name: 'Test Client',
   });
 
   it('INSERT - permitidos', async () => {
@@ -1242,16 +1256,12 @@ describe('RLS: rental_contracts', () => {
     id,
     organization_id: ORG_A,
     property_id: propId,
-    start_date: '2024-01-01',
-    end_date: '2026-01-01',
-    currency: 'ARS',
-    amount: 1000,
   });
 
   it('INSERT - permitidos', async () => {
     for (const client of [adminA, empA]) {
       const propId = crypto.randomUUID();
-      await insertFixtureOrFail('properties', { id: propId, organization_id: ORG_A, address: 'p', property_type: 'casa', status: 'active' });
+      await insertFixtureOrFail('properties', { id: propId, organization_id: ORG_A, title: 'p' });
       const id = crypto.randomUUID();
       const payload = getPayload(id, propId);
       try {
@@ -1266,7 +1276,7 @@ describe('RLS: rental_contracts', () => {
   it('INSERT - denegados', async () => {
     for (const client of [auditorA, clientAsignadoA, clientNoAsignadoA, inactivoA, adminB, adminC, anon]) {
       const propId = crypto.randomUUID();
-      await insertFixtureOrFail('properties', { id: propId, organization_id: ORG_A, address: 'p', property_type: 'casa', status: 'active' });
+      await insertFixtureOrFail('properties', { id: propId, organization_id: ORG_A, title: 'p' });
       const id = crypto.randomUUID();
       const payload = getPayload(id, propId);
       try {
@@ -1280,7 +1290,7 @@ describe('RLS: rental_contracts', () => {
 
   it('SELECT - permitidos', async () => {
     const propId = crypto.randomUUID();
-    await insertFixtureOrFail('properties', { id: propId, organization_id: ORG_A, address: 'p', property_type: 'casa', status: 'active' });
+    await insertFixtureOrFail('properties', { id: propId, organization_id: ORG_A, title: 'p' });
     const id = crypto.randomUUID();
     const payload = getPayload(id, propId);
     await insertFixtureOrFail('rental_contracts', payload);
@@ -1296,7 +1306,7 @@ describe('RLS: rental_contracts', () => {
 
   it('SELECT - denegados', async () => {
     const propId = crypto.randomUUID();
-    await insertFixtureOrFail('properties', { id: propId, organization_id: ORG_A, address: 'p', property_type: 'casa', status: 'active' });
+    await insertFixtureOrFail('properties', { id: propId, organization_id: ORG_A, title: 'p' });
     const id = crypto.randomUUID();
     const payload = getPayload(id, propId);
     await insertFixtureOrFail('rental_contracts', payload);
@@ -1313,7 +1323,7 @@ describe('RLS: rental_contracts', () => {
   it('UPDATE - permitidos', async () => {
     for (const client of [adminA, empA]) {
       const propId = crypto.randomUUID();
-      await insertFixtureOrFail('properties', { id: propId, organization_id: ORG_A, address: 'p', property_type: 'casa', status: 'active' });
+      await insertFixtureOrFail('properties', { id: propId, organization_id: ORG_A, title: 'p' });
       const id = crypto.randomUUID();
       const payload = getPayload(id, propId);
       await insertFixtureOrFail('rental_contracts', payload);
@@ -1329,7 +1339,7 @@ describe('RLS: rental_contracts', () => {
   it('UPDATE - denegados', async () => {
     for (const client of [auditorA, clientAsignadoA, clientNoAsignadoA, inactivoA, adminB, adminC, anon]) {
       const propId = crypto.randomUUID();
-      await insertFixtureOrFail('properties', { id: propId, organization_id: ORG_A, address: 'p', property_type: 'casa', status: 'active' });
+      await insertFixtureOrFail('properties', { id: propId, organization_id: ORG_A, title: 'p' });
       const id = crypto.randomUUID();
       const payload = getPayload(id, propId);
       await insertFixtureOrFail('rental_contracts', payload);
@@ -1345,7 +1355,7 @@ describe('RLS: rental_contracts', () => {
   it('DELETE - permitidos', async () => {
     for (const client of [adminA, empA]) {
       const propId = crypto.randomUUID();
-      await insertFixtureOrFail('properties', { id: propId, organization_id: ORG_A, address: 'p', property_type: 'casa', status: 'active' });
+      await insertFixtureOrFail('properties', { id: propId, organization_id: ORG_A, title: 'p' });
       const id = crypto.randomUUID();
       const payload = getPayload(id, propId);
       await insertFixtureOrFail('rental_contracts', payload);
@@ -1361,7 +1371,7 @@ describe('RLS: rental_contracts', () => {
   it('DELETE - denegados', async () => {
     for (const client of [auditorA, clientAsignadoA, clientNoAsignadoA, inactivoA, adminB, adminC, anon]) {
       const propId = crypto.randomUUID();
-      await insertFixtureOrFail('properties', { id: propId, organization_id: ORG_A, address: 'p', property_type: 'casa', status: 'active' });
+      await insertFixtureOrFail('properties', { id: propId, organization_id: ORG_A, title: 'p' });
       const id = crypto.randomUUID();
       const payload = getPayload(id, propId);
       await insertFixtureOrFail('rental_contracts', payload);
@@ -1379,41 +1389,69 @@ describe('RLS: rental_contracts', () => {
 // 11. rent_index_values
 // ==========================================
 describe('RLS: rent_index_values', () => {
-  const getPayload = (id: string) => ({
+  const getPayload = (id: string, contractId: string | null) => ({
     id,
     organization_id: ORG_A,
-    index_type: 'ICL',
-    date: '2024-01-01',
-    value: 1.5,
+    contract_id: contractId,
+  });
+
+  const getPropPayload = (id: string) => ({
+    id,
+    organization_id: ORG_A,
+    title: 'test property',
+  });
+
+  const getContractPayload = (id: string, propId: string) => ({
+    id,
+    organization_id: ORG_A,
+    property_id: propId,
   });
 
   it('INSERT - permitidos', async () => {
     for (const client of [adminA, empA]) {
+      const propId = crypto.randomUUID();
+      const contractId = crypto.randomUUID();
       const id = crypto.randomUUID();
-      const payload = getPayload(id);
+      await insertFixtureOrFail('properties', getPropPayload(propId));
+      await insertFixtureOrFail('rental_contracts', getContractPayload(contractId, propId));
+
+      const payload = getPayload(id, contractId);
       try {
         await expectAllowedInsert('rent_index_values', client, payload);
       } finally {
         await deleteFixtureOrFail('rent_index_values', id);
+        await deleteFixtureOrFail('rental_contracts', contractId);
+        await deleteFixtureOrFail('properties', propId);
       }
     }
   });
 
   it('INSERT - denegados', async () => {
-    for (const client of [auditorA, clientAsignadoA, clientNoAsignadoA, inactivoA, adminB, adminC, anon]) {
+    for (const client of [auditorA, clientAsignadoA, clientNoAsignadoA, inactivoA, anon, adminB, adminC]) {
+      const propId = crypto.randomUUID();
+      const contractId = crypto.randomUUID();
       const id = crypto.randomUUID();
-      const payload = getPayload(id);
+      await insertFixtureOrFail('properties', getPropPayload(propId));
+      await insertFixtureOrFail('rental_contracts', getContractPayload(contractId, propId));
+
+      const payload = getPayload(id, contractId);
       try {
         await expectRlsDeniedInsert('rent_index_values', client, payload);
       } finally {
         await assertFixtureAbsent('rent_index_values', id);
+        await deleteFixtureOrFail('rental_contracts', contractId);
+        await deleteFixtureOrFail('properties', propId);
       }
     }
   });
 
   it('SELECT - permitidos', async () => {
+    const propId = crypto.randomUUID();
+    const contractId = crypto.randomUUID();
     const id = crypto.randomUUID();
-    const payload = getPayload(id);
+    await insertFixtureOrFail('properties', getPropPayload(propId));
+    await insertFixtureOrFail('rental_contracts', getContractPayload(contractId, propId));
+    const payload = getPayload(id, contractId);
     await insertFixtureOrFail('rent_index_values', payload);
     try {
       for (const client of [adminA, empA, auditorA]) {
@@ -1421,75 +1459,117 @@ describe('RLS: rent_index_values', () => {
       }
     } finally {
       await deleteFixtureOrFail('rent_index_values', id);
+      await deleteFixtureOrFail('rental_contracts', contractId);
+      await deleteFixtureOrFail('properties', propId);
     }
   });
 
   it('SELECT - denegados', async () => {
+    const propId = crypto.randomUUID();
+    const contractId = crypto.randomUUID();
     const id = crypto.randomUUID();
-    const payload = getPayload(id);
+    await insertFixtureOrFail('properties', getPropPayload(propId));
+    await insertFixtureOrFail('rental_contracts', getContractPayload(contractId, propId));
+    const payload = getPayload(id, contractId);
     await insertFixtureOrFail('rent_index_values', payload);
     try {
-      for (const client of [clientAsignadoA, clientNoAsignadoA, inactivoA, adminB, adminC, anon]) {
+      for (const client of [clientAsignadoA, clientNoAsignadoA, inactivoA, anon, adminB, adminC]) {
         await expectDeniedSelect('rent_index_values', client, id);
       }
     } finally {
       await deleteFixtureOrFail('rent_index_values', id);
+      await deleteFixtureOrFail('rental_contracts', contractId);
+      await deleteFixtureOrFail('properties', propId);
     }
   });
 
   it('UPDATE - permitidos', async () => {
     for (const client of [adminA, empA]) {
+      const propId = crypto.randomUUID();
+      const contractId1 = crypto.randomUUID();
+      const contractId2 = crypto.randomUUID();
       const id = crypto.randomUUID();
-      const payload = getPayload(id);
+
+      await insertFixtureOrFail('properties', getPropPayload(propId));
+      await insertFixtureOrFail('rental_contracts', getContractPayload(contractId1, propId));
+      await insertFixtureOrFail('rental_contracts', getContractPayload(contractId2, propId));
+
+      const payload = getPayload(id, contractId1);
       await insertFixtureOrFail('rent_index_values', payload);
       try {
-        await expectAllowedUpdate('rent_index_values', client, id, { contract_id: null });
+        await expectAllowedUpdate('rent_index_values', client, id, { contract_id: contractId2 });
       } finally {
         await deleteFixtureOrFail('rent_index_values', id);
+        await deleteFixtureOrFail('rental_contracts', contractId1);
+        await deleteFixtureOrFail('rental_contracts', contractId2);
+        await deleteFixtureOrFail('properties', propId);
       }
     }
   });
 
-  it('UPDATE - denegados', async () => {
-    for (const client of [auditorA, clientAsignadoA, clientNoAsignadoA, inactivoA, adminB, adminC, anon]) {
+  it('UPDATE - denegados para todos', async () => {
+    for (const client of [auditorA, clientAsignadoA, clientNoAsignadoA, adminB, adminC, inactivoA, anon]) {
+      const propId = crypto.randomUUID();
+      const contractId1 = crypto.randomUUID();
+      const contractId2 = crypto.randomUUID();
       const id = crypto.randomUUID();
-      const payload = getPayload(id);
+
+      await insertFixtureOrFail('properties', getPropPayload(propId));
+      await insertFixtureOrFail('rental_contracts', getContractPayload(contractId1, propId));
+      await insertFixtureOrFail('rental_contracts', getContractPayload(contractId2, propId));
+
+      const payload = getPayload(id, contractId1);
       await insertFixtureOrFail('rent_index_values', payload);
       try {
-        await expectDeniedUpdate('rent_index_values', client, id, { contract_id: null }, payload);
+        await expectDeniedUpdate('rent_index_values', client, id, { contract_id: contractId2 }, payload);
       } finally {
         await deleteFixtureOrFail('rent_index_values', id);
+        await deleteFixtureOrFail('rental_contracts', contractId1);
+        await deleteFixtureOrFail('rental_contracts', contractId2);
+        await deleteFixtureOrFail('properties', propId);
       }
     }
   });
 
   it('DELETE - permitidos', async () => {
     for (const client of [adminA, empA]) {
+      const propId = crypto.randomUUID();
+      const contractId = crypto.randomUUID();
       const id = crypto.randomUUID();
-      const payload = getPayload(id);
+      await insertFixtureOrFail('properties', getPropPayload(propId));
+      await insertFixtureOrFail('rental_contracts', getContractPayload(contractId, propId));
+
+      const payload = getPayload(id, contractId);
       await insertFixtureOrFail('rent_index_values', payload);
       try {
         await expectAllowedDelete('rent_index_values', client, id);
       } finally {
-        await assertFixtureAbsent('rent_index_values', id);
+        await deleteFixtureOrFail('rental_contracts', contractId);
+        await deleteFixtureOrFail('properties', propId);
       }
     }
   });
 
   it('DELETE - denegados', async () => {
-    for (const client of [auditorA, clientAsignadoA, clientNoAsignadoA, inactivoA, adminB, adminC, anon]) {
+    for (const client of [auditorA, clientAsignadoA, clientNoAsignadoA, adminB, adminC, inactivoA, anon]) {
+      const propId = crypto.randomUUID();
+      const contractId = crypto.randomUUID();
       const id = crypto.randomUUID();
-      const payload = getPayload(id);
+      await insertFixtureOrFail('properties', getPropPayload(propId));
+      await insertFixtureOrFail('rental_contracts', getContractPayload(contractId, propId));
+
+      const payload = getPayload(id, contractId);
       await insertFixtureOrFail('rent_index_values', payload);
       try {
         await expectDeniedDelete('rent_index_values', client, id);
       } finally {
         await deleteFixtureOrFail('rent_index_values', id);
+        await deleteFixtureOrFail('rental_contracts', contractId);
+        await deleteFixtureOrFail('properties', propId);
       }
     }
   });
 });
-
 // ==========================================
 // 12. property_comparables
 // ==========================================
@@ -1506,7 +1586,7 @@ describe('RLS: property_comparables', () => {
   it('INSERT - permitidos', async () => {
     for (const client of [adminA, empA]) {
       const propId = crypto.randomUUID();
-      await insertFixtureOrFail('properties', { id: propId, organization_id: ORG_A, address: 'p', property_type: 'casa', status: 'active' });
+      await insertFixtureOrFail('properties', { id: propId, organization_id: ORG_A, title: 'p' });
       const id = crypto.randomUUID();
       const payload = getPayload(id, propId);
       try {
@@ -1521,7 +1601,7 @@ describe('RLS: property_comparables', () => {
   it('INSERT - denegados', async () => {
     for (const client of [auditorA, clientAsignadoA, clientNoAsignadoA, inactivoA, adminB, adminC, anon]) {
       const propId = crypto.randomUUID();
-      await insertFixtureOrFail('properties', { id: propId, organization_id: ORG_A, address: 'p', property_type: 'casa', status: 'active' });
+      await insertFixtureOrFail('properties', { id: propId, organization_id: ORG_A, title: 'p' });
       const id = crypto.randomUUID();
       const payload = getPayload(id, propId);
       try {
@@ -1535,7 +1615,7 @@ describe('RLS: property_comparables', () => {
 
   it('SELECT - permitidos', async () => {
     const propId = crypto.randomUUID();
-    await insertFixtureOrFail('properties', { id: propId, organization_id: ORG_A, address: 'p', property_type: 'casa', status: 'active' });
+    await insertFixtureOrFail('properties', { id: propId, organization_id: ORG_A, title: 'p' });
     const id = crypto.randomUUID();
     const payload = getPayload(id, propId);
     await insertFixtureOrFail('property_comparables', payload);
@@ -1551,7 +1631,7 @@ describe('RLS: property_comparables', () => {
 
   it('SELECT - denegados', async () => {
     const propId = crypto.randomUUID();
-    await insertFixtureOrFail('properties', { id: propId, organization_id: ORG_A, address: 'p', property_type: 'casa', status: 'active' });
+    await insertFixtureOrFail('properties', { id: propId, organization_id: ORG_A, title: 'p' });
     const id = crypto.randomUUID();
     const payload = getPayload(id, propId);
     await insertFixtureOrFail('property_comparables', payload);
@@ -1568,7 +1648,7 @@ describe('RLS: property_comparables', () => {
   it('UPDATE - permitidos', async () => {
     for (const client of [adminA, empA]) {
       const propId = crypto.randomUUID();
-      await insertFixtureOrFail('properties', { id: propId, organization_id: ORG_A, address: 'p', property_type: 'casa', status: 'active' });
+      await insertFixtureOrFail('properties', { id: propId, organization_id: ORG_A, title: 'p' });
       const id = crypto.randomUUID();
       const payload = getPayload(id, propId);
       await insertFixtureOrFail('property_comparables', payload);
@@ -1584,7 +1664,7 @@ describe('RLS: property_comparables', () => {
   it('UPDATE - denegados', async () => {
     for (const client of [auditorA, clientAsignadoA, clientNoAsignadoA, inactivoA, adminB, adminC, anon]) {
       const propId = crypto.randomUUID();
-      await insertFixtureOrFail('properties', { id: propId, organization_id: ORG_A, address: 'p', property_type: 'casa', status: 'active' });
+      await insertFixtureOrFail('properties', { id: propId, organization_id: ORG_A, title: 'p' });
       const id = crypto.randomUUID();
       const payload = getPayload(id, propId);
       await insertFixtureOrFail('property_comparables', payload);
@@ -1600,7 +1680,7 @@ describe('RLS: property_comparables', () => {
   it('DELETE - permitidos', async () => {
     for (const client of [adminA, empA]) {
       const propId = crypto.randomUUID();
-      await insertFixtureOrFail('properties', { id: propId, organization_id: ORG_A, address: 'p', property_type: 'casa', status: 'active' });
+      await insertFixtureOrFail('properties', { id: propId, organization_id: ORG_A, title: 'p' });
       const id = crypto.randomUUID();
       const payload = getPayload(id, propId);
       await insertFixtureOrFail('property_comparables', payload);
@@ -1616,7 +1696,7 @@ describe('RLS: property_comparables', () => {
   it('DELETE - denegados', async () => {
     for (const client of [auditorA, clientAsignadoA, clientNoAsignadoA, inactivoA, adminB, adminC, anon]) {
       const propId = crypto.randomUUID();
-      await insertFixtureOrFail('properties', { id: propId, organization_id: ORG_A, address: 'p', property_type: 'casa', status: 'active' });
+      await insertFixtureOrFail('properties', { id: propId, organization_id: ORG_A, title: 'p' });
       const id = crypto.randomUUID();
       const payload = getPayload(id, propId);
       await insertFixtureOrFail('property_comparables', payload);
