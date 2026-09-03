@@ -1230,7 +1230,7 @@ export async function archiveDocument(formData: FormData) {
   await createAuditLog({
     organizationId: profile.organization_id,
     userId: user.id,
-    action: 'document_archived' as any,
+    action: 'document_archived',
     resourceType: 'document',
     resourceId: documentId,
   });
@@ -1261,7 +1261,7 @@ export async function unarchiveDocument(formData: FormData) {
   await createAuditLog({
     organizationId: profile.organization_id,
     userId: user.id,
-    action: 'document_unarchived' as any,
+    action: 'document_unarchived',
     resourceType: 'document',
     resourceId: documentId,
   });
@@ -1325,7 +1325,7 @@ export async function deleteDocument(formData: FormData) {
   await createAuditLog({
     organizationId: profile.organization_id,
     userId: user.id,
-    action: 'document_deleted' as any,
+    action: 'document_deleted',
     resourceType: 'document',
     resourceId: documentId,
     metadata: { file_name: docData.file_name },
@@ -1402,7 +1402,7 @@ export async function deleteDocumentFromCase(formData: FormData) {
   await createAuditLog({
     organizationId: profile.organization_id,
     userId: user.id,
-    action: 'document_deleted' as any,
+    action: 'document_deleted',
     resourceType: 'document',
     resourceId: documentId,
     metadata: { file_name: docData.file_name },

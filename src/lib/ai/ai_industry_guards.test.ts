@@ -10,7 +10,13 @@ import {
 vi.mock("server-only", () => ({}));
 vi.mock("@/lib/auth/getUserProfile", () => ({ getUserProfile: vi.fn() }));
 vi.mock("@/lib/supabase/server", () => ({ createClient: vi.fn() }));
-vi.mock("@/lib/permissions/roles", () => ({ canUseAi: vi.fn() }));
+vi.mock("@/lib/permissions/roles", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/permissions/roles")>();
+  return {
+    ...actual,
+    canUseAi: vi.fn(),
+  };
+});
 vi.mock("@/lib/audit/createAuditLog", () => ({ createAuditLog: vi.fn() }));
 // Mock the next/navigation redirect to throw an error so we can catch it
 vi.mock("next/navigation", () => ({

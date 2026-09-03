@@ -1135,7 +1135,7 @@ export async function archiveCase(formData: FormData) {
   await createAuditLog({
     organizationId: profile.organization_id,
     userId: user.id,
-    action: 'case_archived' as any,
+    action: 'case_archived',
     resourceType: 'case',
     resourceId: caseId,
   });
@@ -1177,7 +1177,7 @@ export async function unarchiveCase(formData: FormData) {
   await createAuditLog({
     organizationId: profile.organization_id,
     userId: user.id,
-    action: 'case_unarchived' as any,
+    action: 'case_unarchived',
     resourceType: 'case',
     resourceId: caseId,
   });
@@ -1272,7 +1272,7 @@ export async function deleteCase(formData: FormData) {
   await createAuditLog({
     organizationId: profile.organization_id,
     userId: user.id,
-    action: 'case_deleted' as any,
+    action: 'case_deleted',
     resourceType: 'case',
     resourceId: caseId,
     metadata: { title: caseData.title },
@@ -1442,7 +1442,7 @@ export async function redactarAvisoExpediente(caseId: string) {
   await createAuditLog({
     organizationId: profile.organization_id,
     userId: user.id,
-    action: 'case_aviso_generated' as any,
+    action: 'case_aviso_generated',
     resourceType: 'case',
     resourceId: caseId,
     metadata: { model: result.model },
@@ -1542,7 +1542,7 @@ export async function redactarBorradorInmobiliaria(caseId: string) {
   await createAuditLog({
     organizationId: profile.organization_id,
     userId: user.id,
-    action: 'case_borrador_inmo_generated' as any,
+    action: 'case_borrador_inmo_generated',
     resourceType: 'case',
     resourceId: caseId,
     metadata: { model: result.model },
@@ -1626,7 +1626,7 @@ export async function autoMarcarChecklist(formData: FormData) {
   await createAuditLog({
     organizationId: profile.organization_id,
     userId: user.id,
-    action: 'checklist_auto_matched' as any,
+    action: 'checklist_auto_matched',
     resourceType: 'case',
     resourceId: caseId,
     metadata: { auto_marcados: marcados, desvinculados, evaluados: itemsCandidatos.length },
@@ -1731,7 +1731,7 @@ export async function calificarInquilinoExpediente(formData: FormData) {
   await createAuditLog({
     organizationId: profile.organization_id,
     userId: user.id,
-    action: 'prescore_generado' as any,
+    action: 'prescore_generado',
     resourceType: 'case',
     resourceId: caseId,
     metadata: { model: result.model, nivel: result.prescore.nivel_calificacion },

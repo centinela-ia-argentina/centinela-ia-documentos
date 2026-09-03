@@ -2,7 +2,7 @@
 
 import { getUserProfile } from '@/lib/auth/getUserProfile';
 import { getStrictIndustry, getStrictIndustryForOrganization } from '@/lib/auth/getStrictIndustry';
-import { canUseAi } from '@/lib/permissions/roles';
+import { canUseAi, isUserRole } from '@/lib/permissions/roles';
 import { createAuditLog } from '@/lib/audit/createAuditLog';
 import { createClient } from '@/lib/supabase/server';
 import { MODELOS, extractModelVars } from '@/lib/legal/modelos';
@@ -21,7 +21,7 @@ export async function redactarEscritoIA(input: {
 }): Promise<RedactarResult> {
   const { user, profile } = await getUserProfile();
   if (!user || !profile || !profile.organization_id) return { ok: false, motivo: 'sin_permiso' };
-  if (!canUseAi(profile.role as any)) return { ok: false, motivo: 'sin_permiso' };
+  if (!isUserRole(profile.role) || !canUseAi(profile.role)) return { ok: false, motivo: 'sin_permiso' };
 
   let industriaModelo: string;
   try {
@@ -99,7 +99,7 @@ export async function redactarEscritoIA(input: {
     await createAuditLog({
       organizationId: profile.organization_id,
       userId: user.id,
-      action: 'ai_model_generated' as any,
+      action: 'ai_model_generated',
       resourceType: 'organization',
       resourceId: profile.organization_id,
       metadata: { entity_id: input.titulo, details: { industria: industriaModelo } }
@@ -130,7 +130,7 @@ export type RevisionResult =
 export async function revisarEscritoIA(input: { texto: string }): Promise<RevisionResult> {
   const { user, profile } = await getUserProfile();
   if (!user || !profile || !profile.organization_id) return { ok: false, motivo: 'sin_permiso' };
-  if (!canUseAi(profile.role as any)) return { ok: false, motivo: 'sin_permiso' };
+  if (!isUserRole(profile.role) || !canUseAi(profile.role)) return { ok: false, motivo: 'sin_permiso' };
 
   try {
     const industry = await getStrictIndustryForOrganization(profile.organization_id);
@@ -239,7 +239,7 @@ export async function revisarEscritoIA(input: { texto: string }): Promise<Revisi
 export async function extraerDatosParaModelo(caseId: string, modeloId?: string | null): Promise<Record<string, string>> {
   const { user, profile } = await getUserProfile();
 
-  if (!user || !profile || !profile.organization_id || !canUseAi(profile.role as any)) {
+  if (!user || !profile || !profile.organization_id || !isUserRole(profile.role) || !canUseAi(profile.role)) {
     return {};
   }
 
