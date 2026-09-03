@@ -46,7 +46,7 @@ export async function preguntarAgente(input: {
       errIndustry = await getStrictIndustryForOrganization(profile.organization_id);
     } catch {}
     const errTerms = getIndustryTerms(errIndustry);
-    return { ok: false, motivo: `${errTerms.expedienteSingular} no encontrado.` };
+    return { ok: false, motivo: `${errTerms.expedienteSingular} no ${errTerms.adjetivoEncontrado}.` };
   }
 
   let industry: IndustryType;
@@ -152,7 +152,7 @@ export async function preguntarAgente(input: {
     })
     .filter(Boolean);
   if (camposRubro.length) {
-    partes.push(`\nDATOS DEL REGISTRO (cargados en el ${terms.expedienteSingular.toLowerCase()}, usalos como verdad):`);
+    partes.push(`\nDATOS DEL REGISTRO (cargados en ${terms.elExpediente}, usalos como verdad):`);
     partes.push(camposRubro.join('\n'));
   }
 
@@ -186,7 +186,7 @@ export async function preguntarAgente(input: {
   // un análisis, y para que pueda decidir con criterio si corresponde un ROS.
   const uifJson = (uifData?.result_json ?? null) as any;
   if (uifJson) {
-    partes.push(`\nANÁLISIS UIF / PLA (ya realizado por el sistema; usalo como VERDAD, no propongas volver a analizar salvo que el ${terms.expedienteSingular.toLowerCase()} haya cambiado):`);
+    partes.push(`\nANÁLISIS UIF / PLA (ya realizado por el sistema; usalo como VERDAD, no propongas volver a analizar salvo que ${terms.elExpediente} haya cambiado):`);
     if (uifJson.nivel_riesgo) partes.push(`Nivel de riesgo: ${String(uifJson.nivel_riesgo).toUpperCase()}`);
     partes.push(`¿Requiere ROS?: ${uifJson.requiere_ros ? 'SÍ' : 'NO'}`);
     if (uifJson.fundamento) partes.push(`Fundamento: ${uifJson.fundamento}`);
@@ -315,7 +315,7 @@ export async function preguntarAgente(input: {
 
   // Checklist en el contexto: marcamos cuáles se pueden vincular a un documento.
   if (checklistItemsCtx.length > 0) {
-    partes.push(`\n${terms.checklistDelLegajo} (los marcados "PENDIENTE (sin documento)" se pueden vincular con un documento del ${terms.expedienteSingular.toLowerCase()} que los cumpla):`);
+    partes.push(`\n${terms.checklistDelLegajo} (los marcados "PENDIENTE (sin documento)" se pueden vincular con un documento ${terms.delExpediente} que los cumpla):`);
     partes.push(
       checklistItemsCtx
         .map((it) => {
@@ -464,7 +464,12 @@ export async function preguntarAgente(input: {
     ]);
     if (insertError) {
       memoryPersisted = false;
-      console.error('Agente guardar memoria error:', insertError.message || insertError.code);
+      const correlationId = crypto.randomUUID();
+      console.error('Agente guardar memoria error:', {
+        correlationId,
+        errorCode: insertError.code ?? 'UNKNOWN',
+        motivo: insertError.code === '23505' ? 'duplicate_key' : 'database_insert_error',
+      });
       await createAuditLog({
         organizationId: profile.organization_id,
         userId: user.id,
@@ -473,14 +478,20 @@ export async function preguntarAgente(input: {
         resourceId: input.caseId,
         metadata: {
           caseId: input.caseId,
+          correlationId,
           errorCode: insertError.code ?? 'UNKNOWN',
           motivo: insertError.code === '23505' ? 'duplicate_key' : 'database_insert_error',
         },
       });
     }
-  } catch (e) {
+  } catch (_err) {
     memoryPersisted = false;
-    console.error('Agente guardar memoria error:', e);
+    const correlationId = crypto.randomUUID();
+    console.error('Agente guardar memoria error:', {
+      correlationId,
+      errorCode: 'EXCEPTION',
+      motivo: 'unexpected_persistence_exception',
+    });
     await createAuditLog({
       organizationId: profile.organization_id,
       userId: user.id,
@@ -489,6 +500,7 @@ export async function preguntarAgente(input: {
       resourceId: input.caseId,
       metadata: {
         caseId: input.caseId,
+        correlationId,
         errorCode: 'EXCEPTION',
         motivo: 'unexpected_persistence_exception',
       },
@@ -547,7 +559,7 @@ export async function ejecutarAccionAgenteInner(input: {
     return { ok: false, mensaje: 'La industria no está habilitada o la organización no es válida.' };
   }
   const terms = getIndustryTerms(industry);
-  if (!caseId) return { ok: false, mensaje: `Falta el ${terms.expedienteSingular.toLowerCase()}.` };
+  if (!caseId) return { ok: false, mensaje: `Falta ${terms.elExpediente}.` };
 
   const supabase = await createClient();
   const { data: caseRecord } = await supabase
@@ -556,7 +568,7 @@ export async function ejecutarAccionAgenteInner(input: {
     .eq('id', caseId)
     .eq('organization_id', profile.organization_id)
     .maybeSingle();
-  if (!caseRecord) return { ok: false, mensaje: `${terms.expedienteSingular} no encontrado.` };
+  if (!caseRecord) return { ok: false, mensaje: `${terms.expedienteSingular} no ${terms.adjetivoEncontrado}.` };
 
   const fechaValida =
     typeof accion.fecha === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(accion.fecha);
@@ -568,7 +580,7 @@ export async function ejecutarAccionAgenteInner(input: {
       const r = await guardarPlazoDetectado({
         titulo: accion.titulo,
         fecha: accion.fecha as string,
-        detalle: accion.motivo || `Propuesto por el Agente IA del ${terms.expedienteSingular.toLowerCase()}`,
+        detalle: accion.motivo || `Propuesto por el Agente IA ${terms.delExpediente}`,
         caseId,
       });
       return r.ok
@@ -590,7 +602,7 @@ export async function ejecutarAccionAgenteInner(input: {
         fecha: accion.fecha as string,
         hora: horaOk,
         tipo: esFirma ? 'firma' : 'turno',
-        detalle: accion.motivo || `Propuesto por el Agente IA del ${terms.expedienteSingular.toLowerCase()}`,
+        detalle: accion.motivo || `Propuesto por el Agente IA ${terms.delExpediente}`,
         caseId,
       });
       return r.ok
@@ -888,7 +900,7 @@ export async function ejecutarAccionAgenteInner(input: {
       revalidatePath(`/expedientes/${caseId}`);
       return {
         ok: true,
-        mensaje: `Análisis UIF actualizado. Ya podés descargar el "Borrador de ROS (PDF)" desde el panel 🛡️ Análisis UIF del ${terms.expedienteSingular.toLowerCase()} (actualizá la página si no lo ves).`,
+        mensaje: `Análisis UIF actualizado. Ya podés descargar el "Borrador de ROS (PDF)" desde el panel 🛡️ Análisis UIF ${terms.delExpediente} (actualizá la página si no lo ves).`,
       };
     }
 
@@ -907,7 +919,7 @@ export async function ejecutarAccionAgenteInner(input: {
       const doc =
         (docsVinc ?? []).find((d) => (d.file_name ?? '').trim().toLowerCase() === nombreDoc) ??
         (docsVinc ?? []).find((d) => (d.file_name ?? '').trim().toLowerCase().includes(nombreDoc));
-      if (!doc) return { ok: false, mensaje: `No encontré ese documento en el ${terms.expedienteSingular.toLowerCase()}.` };
+      if (!doc) return { ok: false, mensaje: `No encontré ese documento en ${terms.elExpediente}.` };
 
       // 2) Ítem del checklist por título exacto (preferí uno sin documento).
       const { data: checklistsVinc } = await supabase
@@ -916,7 +928,7 @@ export async function ejecutarAccionAgenteInner(input: {
         .eq('case_id', caseId)
         .eq('organization_id', profile.organization_id);
       const checklistIdsVinc = (checklistsVinc ?? []).map((c) => c.id);
-      if (checklistIdsVinc.length === 0) return { ok: false, mensaje: `El ${terms.expedienteSingular.toLowerCase()} no tiene checklist.` };
+      if (checklistIdsVinc.length === 0) return { ok: false, mensaje: `${terms.ElExpediente} no tiene checklist.` };
       const { data: itemsVinc } = await supabase
         .from('checklist_items')
         .select('id, title, document_id')
@@ -961,7 +973,7 @@ export async function ejecutarAccionAgenteInner(input: {
         return { ok: false, mensaje: 'No se pudo cambiar el estado.' };
       }
       revalidatePath(`/expedientes/${caseId}`);
-      return { ok: true, mensaje: `Estado del ${terms.expedienteSingular.toLowerCase()} actualizado.` };
+      return { ok: true, mensaje: `Estado ${terms.delExpediente} actualizado.` };
     }
     default:
       return { ok: false, mensaje: 'Acción no reconocida.' };
@@ -1017,7 +1029,7 @@ export async function diagnosticoLegajo(
 		const sinAnalizar = (docs ?? []).filter((d) => !analizados.has(d.id)).length;
 
 		if (totalDocs === 0) {
-			alertas.push(`Todavía no hay documentos cargados en el ${terms.expedienteSingular.toLowerCase()}.`);
+			alertas.push(`Todavía no hay documentos cargados en ${terms.elExpediente}.`);
 		} else if (sinAnalizar > 0) {
 			alertas.push(`${sinAnalizar} de ${totalDocs} documento(s) sin analizar con IA.`);
 		}
