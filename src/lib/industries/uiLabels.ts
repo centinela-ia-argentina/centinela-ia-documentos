@@ -341,5 +341,5 @@ const agendaLabelsByIndustry: Partial<Record<IndustryType, AgendaLabels>> = {
 };
 
 export function getAgendaLabels(industry: IndustryType): AgendaLabels {
-  return agendaLabelsByIndustry[industry] ?? agendaLabelsByIndustry.legal!;
+  return agendaLabelsByIndustry[industry] ?? agendaLabelsByIndustry.general!;
 }

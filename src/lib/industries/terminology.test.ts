@@ -63,4 +63,27 @@ describe('T-AUD-P2-012 & T-AUD-P2-013: Terminología transversal y etiquetas por
       }
     }
   });
+
+  it('5. AgenteChat: placeholders dinámicos no contienen el literal ${terms y se resuelven por vertical', () => {
+    const verticals = ['legal', 'escribania', 'inmobiliaria'] as const;
+    for (const v of verticals) {
+      const terms = getIndustryTerms(v);
+      const placeholder = `Escribí tu consulta sobre el ${terms.expedienteSingular.toLowerCase()}…`;
+      expect(placeholder).not.toContain('${terms');
+      if (v === 'legal') expect(placeholder).toBe('Escribí tu consulta sobre el expediente…');
+      if (v === 'escribania') expect(placeholder).toBe('Escribí tu consulta sobre el legajo…');
+      if (v === 'inmobiliaria') expect(placeholder).toBe('Escribí tu consulta sobre el operación…');
+    }
+  });
+
+  it('6. Agente Global: Reglas dinámicas se generan con template literals reales sin literales ${terms', () => {
+    const verticals = ['legal', 'escribania', 'inmobiliaria'] as const;
+    for (const v of verticals) {
+      const terms = getIndustryTerms(v);
+      const reglaNoEncontrados = `REGLA PARA ${terms.expedientePlural.toUpperCase()} NO ENCONTRADOS: Si el usuario pregunta por un ${terms.expedienteSingular.toLowerCase()} que no figura acá, respondé exactamente: "Ese ${terms.expedienteSingular.toLowerCase()} no aparece entre los 40 incluidos en el contexto actual. Puede estar fuera del recorte. Usá Buscar o abrí el ${terms.expedienteSingular.toLowerCase()} específico."`;
+      expect(reglaNoEncontrados).not.toContain('${terms');
+      expect(reglaNoEncontrados).toContain(terms.expedientePlural.toUpperCase());
+      expect(reglaNoEncontrados).toContain(terms.expedienteSingular.toLowerCase());
+    }
+  });
 });

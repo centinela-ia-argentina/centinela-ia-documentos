@@ -14,7 +14,6 @@ import { redactarAvisoConIA } from '@/lib/ai/aviso';
 import { analizarRiesgoUIF } from '@/lib/ai/uif';
 import { canUseAi } from '@/lib/permissions/roles';
 import {
-  getAllowedCaseStatuses,
   getCaseStatuses,
   getWritableCaseStatuses,
 } from '@/lib/industries/caseConfig';

@@ -115,6 +115,9 @@ export function AgenteChat({ caseId, caseTitle, industry, puedeUsarIA, historial
   const [input, setInput] = useState('');
   const [cargando, setCargando] = useState(false);
   const [avisoMemoria, setAvisoMemoria] = useState<string | null>(null);
+  const [memoriaEstado, setMemoriaEstado] = useState<'idle' | 'saved' | 'error'>(
+    historialInicial && historialInicial.length > 0 ? 'saved' : 'idle'
+  );
   const [error, setError] = useState<string | null>(null);
   const [accEstados, setAccEstados] = useState<Record<string, 'idle' | 'loading' | 'ok' | 'error' | 'descartado'>>({});
   const [saludo, setSaludo] = useState<{ alertas: string[] } | null>(null);
@@ -154,8 +157,10 @@ export function AgenteChat({ caseId, caseTitle, industry, puedeUsarIA, historial
       if (res.ok) {
         setMensajes((prev) => [...prev, { rol: 'model', texto: res.respuesta, acciones: res.acciones }]);
         if (res.memoryPersisted === false) {
-          setAvisoMemoria('La respuesta se generó correctamente, pero hubo un error al guardar la conversación en la memoria.');
+          setMemoriaEstado('error');
+          setAvisoMemoria('La respuesta se generó correctamente, pero no se pudo guardar la conversación en la memoria.');
         } else {
+          setMemoriaEstado('saved');
           setAvisoMemoria(null);
         }
       } else {
@@ -245,9 +250,16 @@ export function AgenteChat({ caseId, caseTitle, industry, puedeUsarIA, historial
             <span className="inline-flex items-center gap-1 rounded-full bg-cyan-500/15 px-2.5 py-0.5 text-xs font-medium text-cyan-300 border border-cyan-500/20">
               📁 Contexto: {caseTitle || 'Este caso'}
             </span>
-            <span className="inline-flex items-center gap-1 rounded-full bg-violet-500/15 px-2.5 py-0.5 text-xs font-medium text-violet-300 border border-violet-500/20">
-              💾 Memoria guardada
-            </span>
+            {memoriaEstado === 'saved' && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-violet-500/15 px-2.5 py-0.5 text-xs font-medium text-violet-300 border border-violet-500/20">
+                💾 Memoria guardada
+              </span>
+            )}
+            {memoriaEstado === 'error' && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/15 px-2.5 py-0.5 text-xs font-medium text-amber-300 border border-amber-500/20">
+                ⚠️ No se pudo guardar la conversación
+              </span>
+            )}
             <span className="flex items-center gap-1 rounded-full bg-cyan-500/15 px-2 py-0.5 text-[10px] font-medium text-cyan-300">
               <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-cyan-400" />
               En línea
@@ -453,6 +465,18 @@ export function AgenteChat({ caseId, caseTitle, industry, puedeUsarIA, historial
       </div>
 
       {error && <p className="mt-2 text-xs text-red-400">{error}</p>}
+      {avisoMemoria && (
+        <div className="mt-2 flex items-center justify-between rounded-xl border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-xs text-amber-300">
+          <span>⚠️ {avisoMemoria}</span>
+          <button
+            type="button"
+            onClick={() => setAvisoMemoria(null)}
+            className="ml-2 font-medium text-amber-400 underline hover:text-amber-200"
+          >
+            Cerrar
+          </button>
+        </div>
+      )}
 
       <form
         onSubmit={(e) => {
@@ -471,7 +495,7 @@ export function AgenteChat({ caseId, caseTitle, industry, puedeUsarIA, historial
             }
           }}
           rows={1}
-          placeholder="Escribí tu consulta sobre el ${terms.expedienteSingular.toLowerCase()}…"
+          placeholder={`Escribí tu consulta sobre el ${terms.expedienteSingular.toLowerCase()}…`}
           className="flex-1 resize-none rounded-lg border border-slate-700 bg-slate-950/60 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:border-cyan-500 focus:outline-none"
         />
         <button

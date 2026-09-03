@@ -50,16 +50,13 @@ describe('T-AUD-P2-017: Observabilidad ante fallos de persistencia de memoria de
       profile: { organization_id: 'org-1', role: 'admin' },
     } as any);
 
-    // Proxy chainable mock that handles any chained Supabase method seamlessly
     const createQueryProxy = (): any => {
       const target: any = {
         then: (resolve: any) => resolve({ data: [], error: null }),
       };
       return new Proxy(target, {
         get: (_t, prop) => {
-          if (prop === 'then') {
-            return target.then;
-          }
+          if (prop === 'then') return target.then;
           if (prop === 'single') {
             return () =>
               Promise.resolve({
@@ -109,7 +106,7 @@ describe('T-AUD-P2-017: Observabilidad ante fallos de persistencia de memoria de
     );
   });
 
-  it('2. Fallo de persistencia (error en insert): no rompe la respuesta, emite AI_AGENT_MEMORY_ERROR seguro y devuelve memoryPersisted: false', async () => {
+  it('2. Fallo de persistencia (error en insert): no rompe la respuesta, emite AI_AGENT_MEMORY_ERROR con motivo estático sanitizado y devuelve memoryPersisted: false', async () => {
     mockInsert.mockResolvedValue({
       error: { code: '23505', message: 'duplicate key value violates unique constraint' },
     });
@@ -120,15 +117,12 @@ describe('T-AUD-P2-017: Observabilidad ante fallos de persistencia de memoria de
       historial: [],
     });
 
-    // 1. La respuesta del agente no se rompe
     expect(res.ok).toBe(true);
     if (res.ok) {
       expect(res.respuesta).toBe('Esta es una respuesta generada por el Agente IA.');
-      // 2. El contrato devuelve memoryPersisted: false
       expect(res.memoryPersisted).toBe(false);
     }
 
-    // 3. Se crea el audit log con action AI_AGENT_MEMORY_ERROR y datos seguros sin contenido sensible
     expect(createAuditLog).toHaveBeenCalledWith(
       expect.objectContaining({
         organizationId: 'org-1',
@@ -139,20 +133,20 @@ describe('T-AUD-P2-017: Observabilidad ante fallos de persistencia de memoria de
         metadata: expect.objectContaining({
           caseId: 'case-1',
           errorCode: '23505',
-          motivo: 'duplicate key value violates unique constraint',
+          motivo: 'duplicate_key',
         }),
       })
     );
 
-    // Verificar que el log no contiene la pregunta ni la respuesta sensible
+    // Verificar que el log no guarda el mensaje crudo de PostgreSQL
     const memoryCall = vi.mocked(createAuditLog).mock.calls.find((c) => (c[0] as any).action === 'AI_AGENT_MEMORY_ERROR');
     expect(memoryCall).toBeDefined();
     const loggedDetails = (memoryCall![0] as any).metadata;
+    expect(JSON.stringify(loggedDetails)).not.toContain('duplicate key value violates unique constraint');
     expect(JSON.stringify(loggedDetails)).not.toContain('¿Hay algún vencimiento pendiente?');
-    expect(JSON.stringify(loggedDetails)).not.toContain('Esta es una respuesta generada por el Agente IA.');
   });
 
-  it('3. Fallo por excepción en insert: no rompe la respuesta y registra AI_AGENT_MEMORY_ERROR', async () => {
+  it('3. Fallo por excepción en insert: registra AI_AGENT_MEMORY_ERROR con motivo sanitizado y no rompe respuesta', async () => {
     mockInsert.mockRejectedValue(new Error('Network timeout in PostgreSQL connection'));
 
     const res = await preguntarAgente({
@@ -170,13 +164,15 @@ describe('T-AUD-P2-017: Observabilidad ante fallos de persistencia de memoria de
     expect(createAuditLog).toHaveBeenCalledWith(
       expect.objectContaining({
         action: 'AI_AGENT_MEMORY_ERROR',
-        resourceId: 'case-1',
         metadata: expect.objectContaining({
-          caseId: 'case-1',
           errorCode: 'EXCEPTION',
-          motivo: 'Network timeout in PostgreSQL connection',
+          motivo: 'unexpected_persistence_exception',
         }),
       })
     );
+
+    const memoryCall = vi.mocked(createAuditLog).mock.calls.find((c) => (c[0] as any).action === 'AI_AGENT_MEMORY_ERROR');
+    const loggedDetails = (memoryCall![0] as any).metadata;
+    expect(JSON.stringify(loggedDetails)).not.toContain('Network timeout in PostgreSQL connection');
   });
 });
