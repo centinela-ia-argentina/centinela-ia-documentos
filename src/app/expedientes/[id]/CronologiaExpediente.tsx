@@ -31,11 +31,11 @@ const ORIGEN_ICON: Record<string, string> = {
   agenda: '📌',
 };
 
-export function CronologiaExpediente({ items }: { items: ItemCronologia[] }) {
+export function CronologiaExpediente({ items, titulo = 'Cronología' }: { items: ItemCronologia[], titulo?: string }) {
   if (items.length === 0) {
     return (
       <section className="rounded-2xl border border-white/10 bg-white/[0.03] p-6">
-        <h2 className="font-display text-lg font-semibold text-white">🕒 Cronología del caso</h2>
+        <h2 className="font-display text-lg font-semibold text-white">{titulo}</h2>
         <p className="mt-2 text-sm text-slate-400">
           Todavía no hay fechas para mostrar. Se irá armando sola con las actuaciones, las fechas detectadas por la IA en los documentos y las cargas de archivos.
         </p>
@@ -46,7 +46,7 @@ export function CronologiaExpediente({ items }: { items: ItemCronologia[] }) {
   return (
     <section className="rounded-2xl border border-white/10 bg-white/[0.03] p-6">
       <div className="mb-1 flex items-center gap-2">
-        <h2 className="font-display text-lg font-semibold text-white">🕒 Cronología del caso</h2>
+        <h2 className="font-display text-lg font-semibold text-white">{titulo}</h2>
         <span className="rounded-full bg-white/10 px-2 py-0.5 text-xs text-slate-400">{items.length} hitos</span>
       </div>
       <p className="mb-5 text-sm text-slate-400">

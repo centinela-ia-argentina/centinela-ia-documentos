@@ -263,6 +263,10 @@ export function getCaseStatuses(industry: IndustryType): CaseStatusDef[] {
   return statuses && statuses.length ? statuses : caseStatusesByIndustry.general;
 }
 
+export function getWritableCaseStatuses(industry: IndustryType): string[] {
+  return getCaseStatuses(industry).map((s) => s.value);
+}
+
 export function getCaseTypes(industry: IndustryType): string[] {
   const types = caseTypesByIndustry[industry];
   return types && types.length ? types : caseTypesByIndustry.general;

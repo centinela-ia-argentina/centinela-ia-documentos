@@ -14,8 +14,8 @@ import { redactarAvisoConIA } from '@/lib/ai/aviso';
 import { analizarRiesgoUIF } from '@/lib/ai/uif';
 import { canUseAi } from '@/lib/permissions/roles';
 import {
-  getAllowedCaseStatuses,
   getCaseStatuses,
+  getWritableCaseStatuses,
 } from '@/lib/industries/caseConfig';
 import { getCaseTemplate } from '@/lib/industries/caseTemplates';
 import { normalizeIndustryType, type IndustryType } from '@/lib/industries/documentTypes';
@@ -84,18 +84,6 @@ async function getOrganizationIndustry(
   return normalizeIndustryType(data?.industry_type);
 }
 
-function resolveCaseStatus(
-  requestedStatus: string,
-  industry: ReturnType<typeof normalizeIndustryType>
-) {
-  const allowedStatuses = getAllowedCaseStatuses(industry);
-
-  if (allowedStatuses.includes(requestedStatus)) {
-    return requestedStatus;
-  }
-
-  return getCaseStatuses(industry)[0]?.value ?? 'active';
-}
 
 // Imported from helpers.ts
 // export function getChecklistItemsToInsert...
@@ -218,7 +206,11 @@ export async function createCase(formData: FormData) {
   }
 
   const { industry, caseType } = resolution;
-  const status = resolveCaseStatus(requestedStatus, industry);
+  const writableStatuses = getWritableCaseStatuses(industry);
+  if (!writableStatuses.includes(requestedStatus)) {
+    redirect('/expedientes/nuevo?error=invalid_status');
+  }
+  const status = requestedStatus;
 
   const { data, error } = await supabase
     .from('cases')
@@ -334,7 +326,11 @@ export async function updateCaseStatus(formData: FormData) {
 
   const supabase = await createClient();
   const industry = await getOrganizationIndustry(supabase, profile.organization_id);
-  const status = resolveCaseStatus(requestedStatus, industry);
+  const writableStatuses = getWritableCaseStatuses(industry);
+  if (!writableStatuses.includes(requestedStatus)) {
+    redirect(`/expedientes/${caseId}?error=invalid_status`);
+  }
+  const status = requestedStatus;
   const updatePayload: {
     status: string;
     metadata?: Record<string, string>;

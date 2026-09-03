@@ -25,12 +25,14 @@ export function getNavItemLabel(
 
 const navDescriptionOverrides: Partial<Record<IndustryType, Record<string, string>>> = {
   escribania: {
+    agenteSaludoGlobal: 'Soy tu Agente notarial. Vigilo certificados, vigencias y actos las 24 horas.',
     '/expedientes': 'Gestión operativa de legajos vinculados.',
     '/buscar': 'Búsqueda avanzada de legajos y documentos.',
     '/calculadoras': 'Sellos, ITI, honorarios y aportes notariales.',
     '/modelos': 'Escrituras, poderes, actas y autorizaciones notariales.',
   },
   inmobiliaria: {
+    agenteSaludoGlobal: 'Soy tu Agente inmobiliario. Vigilo operaciones, contratos y vencimientos las 24 horas.',
     '/modelos': 'Reservas, autorizaciones y boletos de compraventa.',
   },
 };
@@ -44,9 +46,40 @@ export function getNavItemDescription(
 
 // --- Terminología de entidades, por rubro (para pantallas internas) ---
 export type IndustryTerms = {
+  // Formas gramaticales completas (T-AUD-P2-012)
+  elExpediente: string;
+  ElExpediente: string;
+  losExpedientes: string;
+  LosExpedientes: string;
+  unExpediente: string;
+  UnExpediente: string;
+  eseExpediente: string;
+  EseExpediente: string;
+  delExpediente: string;
+  DelExpediente: string;
+  adjetivoActivo: string;
+  adjetivoActivos: string;
+  adjetivoEspecifico: string;
+  adjetivoEncontrado: string;
+
+  expedienteSinTitulo: string;
+  todosLosLegajosActivos: string;
+  legajosIncluidosContexto: string;
+  contextoDelLegajo: string;
+  cronologiaDelLegajo: string;
+  documentosDelLegajo: string;
+  checklistDelLegajo: string;
+  resumenIntegralDelExpediente: string;
+  recorteMensaje: string;
+  noEncontradoMensaje: string;
+  agenteSaludoGlobal: string;
+  agentePreguntasGlobales: string[];
+  agenteSugerenciasLocales: string[];
+  agenteEjemploPlazos: string;
   expedienteSingular: string;
   expedientePlural: string;
   partes: string;
+  feriaLabel: string;
   listaEyebrow: string;
   listaTitulo: string;
   listaSubtitulo: string;
@@ -88,9 +121,40 @@ export type IndustryTerms = {
 };
 
 const defaultTerms: IndustryTerms = {
-  expedienteSingular: 'Expediente',
+  elExpediente: 'el expediente',
+  ElExpediente: 'El expediente',
+  losExpedientes: 'los expedientes',
+  LosExpedientes: 'Los expedientes',
+  unExpediente: 'un expediente',
+  UnExpediente: 'Un expediente',
+  eseExpediente: 'ese expediente',
+  EseExpediente: 'Ese expediente',
+  delExpediente: 'del expediente',
+  DelExpediente: 'Del expediente',
+  adjetivoActivo: 'activo',
+  adjetivoActivos: 'activos',
+  adjetivoEspecifico: 'específico',
+  adjetivoEncontrado: 'encontrado',
+
+  agenteSaludoGlobal: 'Soy tu Agente jurídico. Vigilo tus expedientes, plazos y riesgos las 24 horas.',
+
+  agenteEjemploPlazos: '¿Cuáles son los plazos o vencimientos críticos?',
+    agentePreguntasGlobales: ['¿Qué vencimientos y plazos tengo esta semana?', '¿Qué expedientes necesitan atención urgente?', '¿Qué me recomendás priorizar hoy?'],
+    agenteSugerenciasLocales: ['¿Cuáles son los plazos o vencimientos críticos?', '¿Detectás alguna inconsistencia o riesgo procesal en los documentos?', '¿Qué próximos pasos me recomendás?'],
+      expedienteSinTitulo: 'Expediente sin título',
+    todosLosLegajosActivos: 'todos los expedientes activos',
+    legajosIncluidosContexto: 'EXPEDIENTES INCLUIDOS EN EL CONTEXTO',
+    contextoDelLegajo: 'CONTEXTO DEL EXPEDIENTE',
+    cronologiaDelLegajo: 'CRONOLOGÍA DEL EXPEDIENTE',
+    documentosDelLegajo: 'DOCUMENTOS DEL EXPEDIENTE',
+    checklistDelLegajo: 'CHECKLIST DEL EXPEDIENTE',
+    resumenIntegralDelExpediente: 'resumen integral del expediente',
+    recorteMensaje: '... [recortado] ...',
+    noEncontradoMensaje: '[No encontrado]',
+    expedienteSingular: 'Expediente',
   expedientePlural: 'Expedientes',
   partes: 'Partes',
+  feriaLabel: 'Feria judicial',
   listaEyebrow: 'EXPEDIENTES',
   listaTitulo: 'Gestión de Casos',
   listaSubtitulo: 'Todos tus casos, clientes, estados y documentación asociada en un único panel.',
@@ -128,12 +192,38 @@ const defaultTerms: IndustryTerms = {
 
 const termsByIndustry: Partial<Record<IndustryType, Partial<IndustryTerms>>> = {
   escribania: {
+    elExpediente: 'el legajo',
+    ElExpediente: 'El legajo',
+    losExpedientes: 'los legajos',
+    LosExpedientes: 'Los legajos',
+    unExpediente: 'un legajo',
+    UnExpediente: 'Un legajo',
+    eseExpediente: 'ese legajo',
+    EseExpediente: 'Ese legajo',
+    delExpediente: 'del legajo',
+    DelExpediente: 'Del legajo',
+    adjetivoActivo: 'activo',
+    adjetivoActivos: 'activos',
+    adjetivoEspecifico: 'específico',
+    adjetivoEncontrado: 'encontrado',
+    agenteSaludoGlobal: 'Soy tu Agente notarial. Vigilo certificados, vigencias y actos las 24 horas.',
+    expedienteSinTitulo: 'Legajo sin título',
+    todosLosLegajosActivos: 'todos los legajos activos',
+    legajosIncluidosContexto: 'LEGAJOS INCLUIDOS EN EL CONTEXTO',
+    contextoDelLegajo: 'CONTEXTO DEL LEGAJO',
+    cronologiaDelLegajo: 'CRONOLOGÍA DEL LEGAJO',
+    documentosDelLegajo: 'DOCUMENTOS DEL LEGAJO',
+    checklistDelLegajo: 'CHECKLIST DEL LEGAJO',
+    resumenIntegralDelExpediente: 'resumen integral del legajo',
+    recorteMensaje: '... [recortado] ...',
+    noEncontradoMensaje: '[No encontrado]',
     expedienteSingular: 'Legajo',
     expedientePlural: 'Legajos',
-    partes: 'Firmantes',
+    partes: 'Personas intervinientes',
+    feriaLabel: 'Feria notarial / Día inhábil',
     listaEyebrow: 'LEGAJOS',
     listaTitulo: 'Gestión de Legajos',
-    listaSubtitulo: 'Todos tus legajos, firmantes, estados y documentación asociada en un único panel.',
+    listaSubtitulo: 'Todos tus legajos, personas intervinientes, estados y documentación asociada en un único panel.',
     nuevoCta: 'Nuevo legajo',
     itemSinTitulo: 'Legajo sin título',
     vacioSinResultados: 'No se encontraron legajos para',
@@ -162,13 +252,39 @@ const termsByIndustry: Partial<Record<IndustryType, Partial<IndustryTerms>>> = {
     dashboardActivesHelper: 'Legajos actualmente en preparación o curso',
     dashboardPlazosHelper: 'Fechas clave y vencimientos',
     reportesSubtitulo: 'Análisis y visión de conjunto: métricas, actividad y auditoría del registro notarial.',
-    placeholderTitle: 'Ej. Escritura Compraventa Pérez c/ Gómez',
-    placeholderClient: 'Ej. Juan Pérez (Vendedor) y Ana Gómez (Compradora)',
+    placeholderTitle: 'Ej. Escritura de Compraventa - Pérez y Gómez',
+    placeholderClient: 'Ej. Juan Pérez y Ana Gómez',
   },
   inmobiliaria: {
+    elExpediente: 'la operación',
+    ElExpediente: 'La operación',
+    losExpedientes: 'las operaciones',
+    LosExpedientes: 'Las operaciones',
+    unExpediente: 'una operación',
+    UnExpediente: 'Una operación',
+    eseExpediente: 'esa operación',
+    EseExpediente: 'Esa operación',
+    delExpediente: 'de la operación',
+    DelExpediente: 'De la operación',
+    adjetivoActivo: 'activa',
+    adjetivoActivos: 'activas',
+    adjetivoEspecifico: 'específica',
+    adjetivoEncontrado: 'encontrada',
+    agenteSaludoGlobal: 'Soy tu Agente inmobiliario. Vigilo operaciones, contratos y vencimientos las 24 horas.',
+    expedienteSinTitulo: 'Operación sin título',
+    todosLosLegajosActivos: 'todas las operaciones activas',
+    legajosIncluidosContexto: 'OPERACIONES INCLUIDAS EN EL CONTEXTO',
+    contextoDelLegajo: 'CONTEXTO DE LA OPERACIÓN',
+    cronologiaDelLegajo: 'CRONOLOGÍA DE LA OPERACIÓN',
+    documentosDelLegajo: 'DOCUMENTOS DE LA OPERACIÓN',
+    checklistDelLegajo: 'CHECKLIST DE LA OPERACIÓN',
+    resumenIntegralDelExpediente: 'resumen integral de la operación',
+    recorteMensaje: '... [recortado] ...',
+    noEncontradoMensaje: '[No encontrado]',
     expedienteSingular: 'Operación',
     expedientePlural: 'Operaciones',
     partes: 'Partes',
+    feriaLabel: 'Feriado extendido',
     listaEyebrow: 'OPERACIONES',
     listaTitulo: 'Gestión de Operaciones',
     listaSubtitulo: 'Todas tus operaciones, clientes, estados y documentación asociada en un único panel.',
@@ -201,7 +317,39 @@ const termsByIndustry: Partial<Record<IndustryType, Partial<IndustryTerms>>> = {
     dashboardPlazosHelper: 'Fechas clave y vencimientos',
     reportesSubtitulo: 'Análisis y visión de conjunto: métricas, cartera y auditoría para leer el panorama general de la inmobiliaria.',
   },
+  empresa: {
+    elExpediente: 'el legajo',
+    ElExpediente: 'El legajo',
+    losExpedientes: 'los legajos',
+    LosExpedientes: 'Los legajos',
+    unExpediente: 'un legajo',
+    UnExpediente: 'Un legajo',
+    eseExpediente: 'ese legajo',
+    EseExpediente: 'Ese legajo',
+    delExpediente: 'del legajo',
+    DelExpediente: 'Del legajo',
+    adjetivoActivo: 'activo',
+    adjetivoActivos: 'activos',
+    adjetivoEspecifico: 'específico',
+    adjetivoEncontrado: 'encontrado',
+    expedienteSingular: 'Legajo',
+    expedientePlural: 'Legajos',
+  },
   legal: {
+    elExpediente: 'el expediente',
+    ElExpediente: 'El expediente',
+    losExpedientes: 'los expedientes',
+    LosExpedientes: 'Los expedientes',
+    unExpediente: 'un expediente',
+    UnExpediente: 'Un expediente',
+    eseExpediente: 'ese expediente',
+    EseExpediente: 'Ese expediente',
+    delExpediente: 'del expediente',
+    DelExpediente: 'Del expediente',
+    adjetivoActivo: 'activo',
+    adjetivoActivos: 'activos',
+    adjetivoEspecifico: 'específico',
+    adjetivoEncontrado: 'encontrado',
     expedienteSingular: 'Expediente',
     expedientePlural: 'Expedientes',
     partes: 'Partes',
@@ -261,7 +409,7 @@ const agendaLabelsByIndustry: Partial<Record<IndustryType, AgendaLabels>> = {
     eyebrow: 'Herramientas notariales',
     subtitulo: 'Feriados, turnos, firmas y vencimientos de certificados y legajos.',
     plazoLabel: 'Plazo / vencimiento',
-    feriaLabel: 'Feria judicial',
+    feriaLabel: 'Feria notarial / Día inhábil',
   },
   inmobiliaria: {
     eyebrow: 'Herramientas inmobiliarias',
@@ -284,5 +432,5 @@ const agendaLabelsByIndustry: Partial<Record<IndustryType, AgendaLabels>> = {
 };
 
 export function getAgendaLabels(industry: IndustryType): AgendaLabels {
-  return agendaLabelsByIndustry[industry] ?? agendaLabelsByIndustry.legal!;
+  return agendaLabelsByIndustry[industry] ?? agendaLabelsByIndustry.general!;
 }

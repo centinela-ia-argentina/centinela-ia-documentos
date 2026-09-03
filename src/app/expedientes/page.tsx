@@ -298,6 +298,7 @@ export default async function CasesPage({
                 isArchived={item.status === 'archived' || item.status === 'Archivado'}
                 canArchive={canArchive}
                 canDelete={canDelete}
+                industry={organizationIndustry}
               />
             )}
           </div>

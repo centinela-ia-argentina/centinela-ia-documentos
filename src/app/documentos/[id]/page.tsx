@@ -3,6 +3,7 @@ import { notFound, redirect } from 'next/navigation';
 import { AppShell } from '@/components/layout/AppShell';
 import { createClient } from '@/lib/supabase/server';
 import { getUserProfile } from '@/lib/auth/getUserProfile';
+import { canUseAi } from '@/lib/permissions/roles';
 import { createAuditLog } from '@/lib/audit/createAuditLog';
 import { getDocumentTypeLabel, normalizeIndustryType } from '@/lib/industries/documentTypes';
 import { formatFileSize } from '@/lib/format/fileSize';
@@ -146,7 +147,7 @@ function getRiskAssessment(
       className: 'bg-rose-50 text-rose-700 border-rose-200',
       barClassName: 'bg-rose-500',
       description:
-        'Documento de alta sensibilidad. Conviene mantener acceso restringido, revisar permisos y asociarlo correctamente al expediente.',
+        `Documento de alta sensibilidad. Conviene mantener acceso restringido, revisar permisos y asociarlo correctamente al expediente/legajo/operación.`,
     };
   }
 
@@ -223,7 +224,7 @@ function buildSuggestedChecklist(
       'Verificar identificación de las partes intervinientes.',
       'Controlar fechas, firmas y vigencia del documento.',
       'Revisar montos, condiciones, cláusulas y anexos asociados.',
-      'Confirmar que el documento esté vinculado al expediente correcto.',
+      `Confirmar que el documento esté vinculado al expediente/legajo/operación correcto.`,
       'Validar si corresponde marcarlo como documento sensible.',
     ];
   }
@@ -239,14 +240,14 @@ function buildSuggestedChecklist(
       'Revisar materias, carga horaria, correlatividades y fechas.',
       'Confirmar si el documento requiere certificación o firma institucional.',
       'Clasificar el archivo como académico o curricular.',
-      'Asociar el documento al expediente correspondiente si aplica.',
+      `Asociar el documento al expediente/legajo/operación correspondiente si aplica.`,
     ];
   }
 
   return [
     'Verificar nombre del archivo y tipo documental.',
     'Revisar si contiene datos personales, financieros o institucionales.',
-    'Confirmar que esté asociado al expediente correcto.',
+    `Confirmar que esté asociado al expediente/legajo/operación correcto.`,
     'Validar nivel de sensibilidad asignado.',
     'Registrar observaciones si requiere revisión manual.',
   ];
@@ -313,7 +314,7 @@ function buildSecurityRecommendations(
 
   return [
     'Mantener clasificación documental actualizada.',
-    'Revisar permisos si el documento se asocia a un expediente sensible.',
+    `Revisar permisos si el documento se asocia a un expediente/legajo/operación sensible.`,
     'Usar enlaces temporales únicamente cuando sea necesario.',
   ];
 }
@@ -329,11 +330,11 @@ function buildOperationalOpinion(
   const risk = getRiskAssessment(document, aiResult);
 
   if (risk.score >= 80) {
-    return 'Dictamen IA: documento crítico. Requiere revisión prioritaria, control de acceso estricto y validación manual antes de compartir o cerrar el expediente.';
+    return `Dictamen IA: documento crítico. Requiere revisión prioritaria, control de acceso estricto y validación manual antes de compartir o cerrar el expediente/legajo/operación.`;
   }
 
   if (risk.score >= 60) {
-    return 'Dictamen IA: documento sensible. Conviene revisar contenido, faltantes y permisos antes de considerarlo completo dentro del expediente.';
+    return `Dictamen IA: documento sensible. Conviene revisar contenido, faltantes y permisos antes de considerarlo completo dentro del expediente/legajo/operación.`;
   }
 
   if (risk.score >= 35) {
@@ -351,6 +352,7 @@ export default async function DocumentDetailPage({
   const query = await searchParams;
 
   const { user, profile } = await getUserProfile();
+  const puedeUsarIA = profile ? canUseAi(profile.role) : false;
 
   if (!user) redirect('/login');
   if (!profile) redirect('/onboarding');
@@ -495,7 +497,7 @@ export default async function DocumentDetailPage({
         </div>
 
         <div className="flex flex-col gap-3 sm:flex-row">
-          <AnalyzeDetailButtonClient documentId={document.id} label={analyzeButtonLabel} />
+          {puedeUsarIA && <AnalyzeDetailButtonClient documentId={document.id} label={analyzeButtonLabel} />}
 
           {document.case_id ? (
             <Link
@@ -822,7 +824,7 @@ Dictamen IA documental
                           Revisión notarial del instrumento: facultades, vigencia y representación.
                         </p>
                       </div>
-                      <AnalizarPoderButton documentId={document.id} yaAnalizado={!!poderData} />
+                      {puedeUsarIA && <AnalizarPoderButton documentId={document.id} yaAnalizado={!!poderData} />}
                     </div>
 
                     {poderData?.result_json ? (

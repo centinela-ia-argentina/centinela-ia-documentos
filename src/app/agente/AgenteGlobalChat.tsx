@@ -2,51 +2,15 @@
 
 import { useState, useRef, useEffect, type ReactNode } from 'react';
 import { preguntarAgenteGlobal } from './actions';
+import { getIndustryTerms } from '@/lib/industries/uiLabels';
+import type { IndustryType } from '@/lib/industries/documentTypes';
 import type { MensajeChat, AccionPropuesta } from '@/lib/ai/agente';
 import { MaquinaEscribir } from '@/components/MaquinaEscribir';
 import { AiDisclaimer } from '@/lib/industries/disclaimers';
 
 type MensajeUI = MensajeChat & { acciones?: AccionPropuesta[] };
 
-const PRESENTACION: Record<string, { saludo: string; preguntas: string[] }> = {
-  legal: {
-    saludo: 'Soy tu Agente jurídico. Vigilo tus expedientes, plazos y riesgos las 24 horas.',
-    preguntas: [
-      '¿Qué vencimientos y plazos tengo esta semana?',
-      '¿Qué legajos necesitan atención urgente?',
-      '¿Qué me recomendás priorizar hoy?',
-    ],
-  },
-  escribania: {
-    saludo: 'Soy tu Agente notarial. Vigilo certificados, vigencias y actos las 24 horas.',
-    preguntas: [
-      '¿Qué certificados están por vencer?',
-      '¿Qué legajos están listos para escriturar?',
-      '¿Qué debería revisar hoy?',
-    ],
-  },
-  inmobiliaria: {
-    saludo: 'Soy tu Agente inmobiliario. Vigilo operaciones, contratos y vencimientos las 24 horas.',
-    preguntas: [
-      '¿Qué operaciones tienen vencimientos próximos?',
-      '¿Qué contratos requieren atención?',
-      '¿En qué conviene que me enfoque hoy?',
-    ],
-  },
-};
 
-function presentacionDe(industry: string) {
-  return (
-    PRESENTACION[industry] ?? {
-      saludo: 'Soy tu Agente de Centinela. Vigilo tus legajos, plazos y documentos.',
-      preguntas: [
-        '¿Qué vencimientos próximos tengo?',
-        '¿Qué necesita mi atención hoy?',
-        '¿Qué me recomendás priorizar?',
-      ],
-    }
-  );
-}
 
 function renderInline(text: string, keyPrefix: string): ReactNode[] {
   return text.split(/(\*\*[^*]+\*\*)/g).map((p, i) => {
@@ -109,7 +73,9 @@ function MensajeTexto({ texto }: { texto: string }) {
 type Props = { industry: string; puedeUsarIA: boolean };
 
 export function AgenteGlobalChat({ industry, puedeUsarIA }: Props) {
-  const { preguntas } = presentacionDe(industry);
+  const terms = getIndustryTerms(industry as IndustryType);
+  const saludo = terms.agenteSaludoGlobal;
+  const preguntas = terms.agentePreguntasGlobales;
   const [mensajes, setMensajes] = useState<MensajeUI[]>([]);
   const [input, setInput] = useState('');
   const [cargando, setCargando] = useState(false);
@@ -195,7 +161,7 @@ export function AgenteGlobalChat({ industry, puedeUsarIA }: Props) {
         </p>
         <div className="mt-3 flex flex-col items-center gap-1.5 text-xs text-slate-400 max-w-lg">
           <p className="rounded-lg bg-slate-950/50 border border-slate-800 px-3 py-2 text-slate-300 w-full text-center">
-            ℹ️ Para trabajar sobre documentos o ejecutar acciones, abrí un expediente, legajo u operación y usá su Agente IA.
+            ℹ️ Para trabajar sobre documentos o ejecutar acciones, abrí un registro y usá su Agente IA.
           </p>
           <p className="text-slate-500">
             ⌛ Por privacidad, esta conversación no se guarda en Centinela IA y se reinicia al salir o recargar.
@@ -218,7 +184,7 @@ export function AgenteGlobalChat({ industry, puedeUsarIA }: Props) {
       {/* Preguntas sugeridas (solo antes de empezar) */}
       {!iniciado && (
         <div className="mt-4 flex flex-wrap justify-center gap-2">
-          {preguntas.map((q, i) => (
+          {preguntas.map((q: string, i: number) => (
             <button
               key={i}
               onClick={() => enviar(q)}

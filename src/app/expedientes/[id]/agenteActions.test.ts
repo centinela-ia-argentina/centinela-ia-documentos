@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { ejecutarAccionAgenteInner } from './agenteActions';
 import { getUserProfile } from '@/lib/auth/getUserProfile';
+import { getStrictIndustryForOrganization } from '@/lib/auth/getStrictIndustry';
 import { canUseAi } from '@/lib/permissions/roles';
 import { redactarBorradorInmobiliaria, redactarEscrituraExpediente } from '@/app/expedientes/actions';
 
@@ -32,6 +33,10 @@ vi.mock('@/lib/auth/getUserProfile', () => ({
   getUserProfile: vi.fn(),
 }));
 
+vi.mock('@/lib/auth/getStrictIndustry', () => ({
+  getStrictIndustryForOrganization: vi.fn(),
+}));
+
 vi.mock('@/lib/permissions/roles', () => ({
   canUseAi: vi.fn(),
   isUserRole: vi.fn().mockReturnValue(true),
@@ -53,6 +58,7 @@ describe('ejecutarAccionAgenteInner - redactar_borrador', () => {
       profile: { organization_id: 'org1', role } as any,
     });
     vi.mocked(canUseAi).mockReturnValue(canAi);
+    vi.mocked(getStrictIndustryForOrganization).mockResolvedValue(industry as any);
     mockMaybeSingle.mockResolvedValue({ data: { industry_type: industry } });
   };
 

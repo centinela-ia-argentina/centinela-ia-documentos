@@ -5,6 +5,8 @@ import { getStrictIndustry, getStrictIndustryForOrganization } from '@/lib/auth/
 import { canUseAi } from '@/lib/permissions/roles';
 import { createAuditLog } from '@/lib/audit/createAuditLog';
 import { createClient } from '@/lib/supabase/server';
+import { MODELOS, extractModelVars } from '@/lib/legal/modelos';
+import type { IndustryType } from '@/lib/industries/documentTypes';
 
 export type RedactarResult =
   | { ok: true; texto: string }
@@ -234,10 +236,39 @@ export async function revisarEscritoIA(input: { texto: string }): Promise<Revisi
   }
 }
 
-export async function extraerDatosParaModelo(caseId: string): Promise<Record<string, string>> {
+export async function extraerDatosParaModelo(caseId: string, modeloId?: string | null): Promise<Record<string, string>> {
   const { user, profile } = await getUserProfile();
 
   if (!user || !profile || !profile.organization_id || !canUseAi(profile.role as any)) {
+    return {};
+  }
+
+  // 1. Fail-closed ante modelo inexistente, ausente o manipulado
+  if (!modeloId || typeof modeloId !== 'string') {
+    return {};
+  }
+
+  // 2. Prohibido inicializar industria con 'legal'; fallo cerrado ante error
+  let industry: IndustryType;
+  try {
+    industry = await getStrictIndustryForOrganization(profile.organization_id);
+  } catch {
+    return {};
+  }
+
+  // 3. Validar modeloId contra registro server-side y verificar que corresponda a la industria
+  const modelo = MODELOS.find((m) => m.id === modeloId);
+  if (!modelo) {
+    return {};
+  }
+  const modelIndustries = modelo.industries ?? ['legal'];
+  if (!modelIndustries.includes(industry)) {
+    return {};
+  }
+
+  // 4. Claves aprobadas: derivadas estrictamente de las variables del cuerpo del modelo
+  const allowedKeys = new Set(extractModelVars(modelo.cuerpo));
+  if (allowedKeys.size === 0) {
     return {};
   }
 
@@ -252,32 +283,21 @@ export async function extraerDatosParaModelo(caseId: string): Promise<Record<str
   if (!aiData || aiData.length === 0) return {};
 
   const rawJson = aiData.map(d => JSON.stringify(d.result_json)).join('\n');
-  // Trim to avoid hitting limits
   const chunk = rawJson.substring(0, 15000);
 
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) return {};
 
+  const schemaObj: Record<string, string> = {};
+  for (const k of allowedKeys) {
+    schemaObj[k] = '';
+  }
+  const schema = JSON.stringify(schemaObj, null, 2);
+
   const prompt = [
-    'Extraé la siguiente información de los análisis provistos (documentos analizados del expediente).',
+    'Extraé la siguiente información de los análisis provistos.',
     'Devolvé SOLO un JSON válido con estas claves exactas si las encontrás. Si no está la información exacta, dejá el valor vacío "". NO inventes datos.',
-    '{',
-    '  "vendedor": "",',
-    '  "dni_vendedor": "",',
-    '  "cuit_vendedor": "",',
-    '  "comprador": "",',
-    '  "dni_comprador": "",',
-    '  "cuit_comprador": "",',
-    '  "ubicacion_inmueble": "",',
-    '  "nomenclatura_catastral": "",',
-    '  "matricula": "",',
-    '  "superficie": "",',
-    '  "precio": "",',
-    '  "monto": "",',
-    '  "titulo_antecedente": "",',
-    '  "fecha_boleto": "",',
-    '  "ciudad": ""',
-    '}',
+    schema,
     '',
     'ANÁLISIS:',
     chunk
@@ -301,7 +321,8 @@ export async function extraerDatosParaModelo(caseId: string): Promise<Record<str
     const parsed = JSON.parse(raw);
     const result: Record<string, string> = {};
     for (const [k, v] of Object.entries(parsed)) {
-      if (typeof v === 'string' && v.trim() !== '') {
+      // Descartar cualquier clave no aprobada
+      if (allowedKeys.has(k) && typeof v === 'string' && v.trim() !== '') {
         result[k] = v.trim();
       }
     }

@@ -83,11 +83,13 @@ export function ModelosClient({
   modeloInicialId = null,
   expedienteInicialId = null,
   industria = 'legal',
+  puedeIA = true,
 }: {
   expedientes: ExpedienteLite[];
   modeloInicialId?: string | null;
   expedienteInicialId?: string | null;
   industria?: string;
+  puedeIA?: boolean;
 }) {
   const expInicial = expedientes.find((e) => e.id === expedienteInicialId) ?? null;
   const idInicial =
@@ -151,6 +153,7 @@ export function ModelosClient({
   const textoParaMostrar = textoIA ?? textoFinal;
 
   const redactarIA = async () => {
+    if (!puedeIA) return;
     if (!seleccionado) return;
     setRedactando(true);
     setAvisoIA(null);
@@ -205,15 +208,21 @@ export function ModelosClient({
     if (!exp) {
       setCargandoPrellenado(false);
       setValores({});
-      setErrorPrellenado('No pudimos encontrar el legajo seleccionado.');
+      setErrorPrellenado(`No pudimos encontrar ${esInmobiliaria ? 'la operación' : esEscribania ? 'el legajo' : 'el expediente'} seleccionado.`);
       return;
     }
 
     setValores(datosDeExpediente(exp));
+
+    if (!puedeIA) {
+      setCargandoPrellenado(false);
+      return;
+    }
+
     setCargandoPrellenado(true);
 
     try {
-      const extr = await extraerDatosParaModelo(id);
+      const extr = await extraerDatosParaModelo(id, seleccionadoId);
 
       if (solicitudActual !== solicitudPrellenadoRef.current) return;
 
@@ -413,7 +422,7 @@ export function ModelosClient({
                         >
                           <Loader2 className="h-3.5 w-3.5 animate-spin" />
                           <span>
-                            Analizando los documentos del legajo y preparando el modelo… Esto puede demorar unos segundos.
+                            Analizando los documentos y preparando el modelo… Esto puede demorar unos segundos.
                           </span>
                         </div>
                       ) : errorPrellenado ? (
@@ -488,40 +497,42 @@ export function ModelosClient({
                   );
                 })}
 
-                <div className="mt-4 rounded-xl border border-brandviolet/20 bg-brandviolet/10 p-3">
-                  <label className="flex items-center gap-2 text-xs font-semibold text-brandviolet">
-                    <Sparkles className="h-3.5 w-3.5" />
-                    Redactar con IA (opcional)
-                  </label>
-                  <textarea
-                    value={instruccion}
-                    onChange={(e) => setInstruccion(e.target.value)}
-                    rows={3}
-                    placeholder={placeholderIA}
-                    className="mt-2 w-full rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2 text-sm text-white placeholder-slate-500 outline-none focus:border-brandviolet focus:ring-1 focus:ring-brandviolet"
-                  />
-                  <MotionButton
-                    type="button"
-                    onClick={redactarIA}
-                    disabled={redactando}
-                    className="mt-2 inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-accent to-brandviolet px-3 py-1.5 text-xs font-semibold text-white transition disabled:opacity-60"
-                  >
-                    {redactando ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
-                    {redactando ? 'Redactando…' : 'Redactar con IA'}
-                  </MotionButton>
-                  {avisoIA && <p className="mt-2 text-[11px] text-amber-500">{avisoIA}</p>}
-                  {textoIA && (
-                    <div className="mt-2 space-y-2">
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="text-[11px] font-medium text-brandviolet">✨ Borrador generado con IA — revisalo antes de presentar.</span>
-                        <button type="button" onClick={() => setTextoIA(null)} className="shrink-0 text-[11px] font-semibold text-slate-400 hover:text-white underline">
-                          Volver al relleno manual
-                        </button>
+                {puedeIA && (
+                  <div className="mt-4 rounded-xl border border-brandviolet/20 bg-brandviolet/10 p-3">
+                    <label className="flex items-center gap-2 text-xs font-semibold text-brandviolet">
+                      <Sparkles className="h-3.5 w-3.5" />
+                      Redactar con IA (opcional)
+                    </label>
+                    <textarea
+                      value={instruccion}
+                      onChange={(e) => setInstruccion(e.target.value)}
+                      rows={3}
+                      placeholder={placeholderIA}
+                      className="mt-2 w-full rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2 text-sm text-white placeholder-slate-500 outline-none focus:border-brandviolet focus:ring-1 focus:ring-brandviolet"
+                    />
+                    <MotionButton
+                      type="button"
+                      onClick={redactarIA}
+                      disabled={redactando}
+                      className="mt-2 inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-accent to-brandviolet px-3 py-1.5 text-xs font-semibold text-white transition disabled:opacity-60"
+                    >
+                      {redactando ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+                      {redactando ? 'Redactando…' : 'Redactar con IA'}
+                    </MotionButton>
+                    {avisoIA && <p className="mt-2 text-[11px] text-amber-500">{avisoIA}</p>}
+                    {textoIA && (
+                      <div className="mt-2 space-y-2">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-[11px] font-medium text-brandviolet">✨ Borrador generado con IA — {esEscribania ? 'revisalo antes de otorgar o firmar.' : esInmobiliaria ? 'revisalo antes de utilizarlo.' : 'revisalo antes de presentar.'}</span>
+                          <button type="button" onClick={() => setTextoIA(null)} className="shrink-0 text-[11px] font-semibold text-slate-400 hover:text-white underline">
+                            Volver al relleno manual
+                          </button>
+                        </div>
+                        <AiDisclaimer industry={industria} />
                       </div>
-                      <AiDisclaimer industry={industria} />
-                    </div>
-                  )}
-                </div>
+                    )}
+                  </div>
+                )}
               </div>
             </MotionCard>
 
