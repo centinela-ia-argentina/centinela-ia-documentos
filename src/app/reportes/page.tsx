@@ -435,8 +435,8 @@ if (
   let auditLogs: AuditLogRecordForReport[] = [];
   let profiles: ProfileRecordForReport[] = [];
 
-  const rawPage = Number(query.pagina ?? query.page ?? 1);
-  const currentPage = Number.isInteger(rawPage) && rawPage > 0 ? rawPage : 1;
+  const rawPage = Number.parseInt(String(query.pagina ?? query.page ?? '1'), 10);
+  const currentPage = Number.isNaN(rawPage) || rawPage < 1 ? 1 : rawPage;
   const PAGE_SIZE = 50;
   const from = (currentPage - 1) * PAGE_SIZE;
   const to = from + PAGE_SIZE - 1;
@@ -534,10 +534,16 @@ if (
 
     const res = await auditQuery
       .order('created_at', { ascending: false })
+      .order('id', { ascending: false })
       .range(from, to);
 
     auditLogs = (res.data ?? []) as AuditLogRecordForReport[];
     totalFilteredCount = res.count ?? auditLogs.length;
+
+    const totalPages = Math.max(1, Math.ceil(totalFilteredCount / PAGE_SIZE));
+    if (currentPage > totalPages && totalFilteredCount > 0) {
+      redirect(`/reportes?vista=auditoria&tipo=${activeAuditFilter}&pagina=${totalPages}`);
+    }
 
     const auditUserIds = Array.from(new Set(auditLogs.map((log) => log.user_id).filter(Boolean))) as string[];
 
@@ -1115,7 +1121,7 @@ if (
 
             <div className="rounded-2xl bg-white/[0.04] p-4">
               <p className="text-xs font-bold uppercase tracking-wide text-slate-500">
-                Usuarios detectados
+                Usuarios en esta página
               </p>
               <p className="mt-2 text-3xl font-bold text-white">
                 {auditedUsers}
