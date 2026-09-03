@@ -4,7 +4,7 @@
 > Si el código contradice este documento, el código manda; avisá la discrepancia.
 
 ## 1. Qué es
-SaaS web multi-organización de gestión documental inteligente para rubros con documentación sensible (jurídico, escribanía, inmobiliaria, empresa). Centraliza expedientes + PDFs, control de acceso por rol, auditoría de acciones y análisis documental beta en entorno controlado (sin IA externa paga todavía). Etapa: beta operativa comercial, producto online.
+SaaS web multi-organización de gestión documental inteligente para rubros con documentación sensible (jurídico, escribanía, inmobiliaria). Centraliza expedientes + PDFs, control de acceso por rol, auditoría de acciones y análisis documental beta en entorno controlado (sin IA externa paga todavía). Etapa: beta operativa comercial, producto online.
 
 ## 2. Stack
 - Next.js 16.3.1 (App Router), TypeScript, Tailwind CSS
@@ -16,7 +16,7 @@ SaaS web multi-organización de gestión documental inteligente para rubros con 
 ## 3. Arquitectura: núcleo común + configuración por rubro (CLAVE)
 NO se hace una app por rubro. Una sola base; lo que cambia por rubro se resuelve por configuración según organizations.industry_type. Llenar los arrays de config verticaliza automáticamente la UI (tipos, estados, campos, checklists, tipos documentales, tarjetas). Los componentes leen funciones de config; no hardcodear listas en las páginas.
 Archivos de config:
-- src/lib/industries/documentTypes.ts (IndustryType, ACTIVE_INDUSTRY_TYPES = ['general','legal','escribania','inmobiliaria','empresa'], industryLabels, documentTypesByIndustry, getDocumentTypes, getDocumentTypeLabel, isIndustryType, normalizeIndustryType)
+- src/lib/industries/documentTypes.ts (IndustryType, ACTIVE_INDUSTRY_TYPES = ['legal','escribania','inmobiliaria'], industryLabels, documentTypesByIndustry, getDocumentTypes, getDocumentTypeLabel, isIndustryType, normalizeIndustryType)
 - src/lib/industries/caseConfig.ts (CaseFieldDef, caseFieldsByIndustry, caseTypesByIndustry, caseStatusesByIndustry, dashboardCardsByIndustry, getCaseStatusLabel(status, industry))
 - src/lib/industries/caseTemplates.ts (caseTemplatesByType: checklists por nombre de tipo de expediente)
 Regla de estados: la constraint cases_status_check solo permite 5 valores en inglés: 'new','active','in_review','waiting_client','archived'. Los estados por rubro son SOLO etiquetas (relabel) vía getCaseStatusLabel. Nunca guardar estado en español en la DB. Patrón general: valores en inglés en la base, etiquetas en español en la UI.
@@ -30,7 +30,7 @@ Tablas: organizations (tiene industry_type), profiles (id, role, organization_id
 Usuario: Administrador (admin), Operador (employee), Auditor (auditor), Cliente (client). platform_owner / tabla platform_admins: solo server-side. Cambiar rubro de una organización es "set once + lock": el admin lo define una vez mientras está en general; luego queda bloqueado y solo platform_owner puede cambiarlo.
 
 ## 6. Estado actual
-Landing, login, dashboard, expedientes, documentos, análisis beta, reportes, auditoría, usuarios/roles/invitaciones: OK. Seguridad multi-organización validada. Fase 0 (industry_type + diccionario documental) OK. Fase 1 verticalización VALIDADA en 4 rubros: legal, inmobiliaria, escribania, empresa.
+Landing, login, dashboard, expedientes, documentos, análisis beta, reportes, auditoría, usuarios/roles/invitaciones: OK. Seguridad multi-organización validada. Fase 0 (industry_type + diccionario documental) OK. Fase 1 verticalización VALIDADA en 3 rubros comerciales: legal, inmobiliaria, escribania.
 
 ## 7. Estado actual de las capacidades jurídicas
 

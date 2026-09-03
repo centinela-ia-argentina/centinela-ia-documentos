@@ -2,7 +2,7 @@
 
 **Centinela IA** es una plataforma web en beta operativa para gestión documental inteligente, expedientes, documentos PDF, usuarios, permisos, auditoría, reportes y análisis documental en entorno beta controlado.
 
-El proyecto está orientado inicialmente a organizaciones que manejan documentación sensible o dispersa, como estudios jurídicos, escribanías, inmobiliarias, gestorías, estudios contables, áreas administrativas y PyMEs.
+El proyecto está orientado comercialmente a organizaciones que manejan documentación sensible o dispersa en tres verticales activas: estudios jurídicos, escribanías e inmobiliarias.
 
 Demo online:
 https://centinela-ia-documentos.vercel.app/
@@ -116,15 +116,15 @@ Gestión de contratos de alquiler, boletos de compraventa, reservas, documentaci
 
 Orden documental por trámite, escritura, poder, certificado, compraventa o documentación crítica.
 
-### Empresas y áreas administrativas
+### Otras verticales (previstas para fases futuras)
 
-Gestión documental para áreas legales, contables, comerciales, administrativas o de recursos humanos.
+Gestión documental para áreas de compliance, contables y administrativas (mantenidas en tipos base pero no habilitadas en la oferta comercial activa).
 
 ---
 
 ## Stack técnico
 
-* **Frontend:** Next.js 16.2.6, React, TypeScript, Tailwind CSS.
+* **Frontend:** Next.js 16.3.1, React, TypeScript, Tailwind CSS.
 * **Backend / BaaS:** Supabase.
 * **Base de datos:** PostgreSQL.
 * **Autenticación:** Supabase Auth.
