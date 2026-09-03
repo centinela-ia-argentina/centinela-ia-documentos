@@ -1,5 +1,9 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
+
+vi.mock('server-only', () => ({}));
+
 import { getIndustryTerms } from './uiLabels';
+import { buildAgentSystemInstruction } from '@/lib/ai/agente';
 
 describe('T-AUD-P2-012 & T-AUD-P2-013: Terminología transversal y etiquetas por industria', () => {
   it('1. Legal: devuelve términos de expediente y etiquetas judiciales consistentes', () => {
@@ -111,20 +115,24 @@ describe('T-AUD-P2-012 & T-AUD-P2-013: Terminología transversal y etiquetas por
     expect(allStringValues).not.toContain('ese operación');
     expect(allStringValues).not.toContain('del operación');
     expect(allStringValues).not.toContain('operaciones activos');
+    expect(allStringValues).not.toContain('contexto del operación');
 
     // Validación sobre strings compuestos generados en acciones y chat
     const consultaStr = `Escribí tu consulta sobre ${terms.elExpediente}…`.toLowerCase();
     const noEncontradoStr = `${terms.EseExpediente} no aparece entre ${terms.losExpedientes} ${terms.adjetivoActivos}`.toLowerCase();
     const unCasoStr = `cambiar estado de ${terms.unExpediente}`.toLowerCase();
     const delCasoStr = `documentos ${terms.delExpediente}`.toLowerCase();
+    const reglaStr = `basáte únicamente en el ${terms.contextoDelLegajo}`.toLowerCase();
+    const accionStr = `proponé una acción cuando surja con claridad del ${terms.contextoDelLegajo}`.toLowerCase();
 
-    for (const evaluated of [consultaStr, noEncontradoStr, unCasoStr, delCasoStr]) {
+    for (const evaluated of [consultaStr, noEncontradoStr, unCasoStr, delCasoStr, reglaStr, accionStr]) {
       expect(evaluated).not.toContain('el operación');
       expect(evaluated).not.toContain('los operaciones');
       expect(evaluated).not.toContain('un operación');
       expect(evaluated).not.toContain('ese operación');
       expect(evaluated).not.toContain('del operación');
       expect(evaluated).not.toContain('operaciones activos');
+      expect(evaluated).not.toContain('contexto del operación');
     }
   });
 
@@ -137,5 +145,27 @@ describe('T-AUD-P2-012 & T-AUD-P2-013: Terminología transversal y etiquetas por
     // El subtítulo del listado debe reflejar "personas intervinientes" y no "otorgantes"
     expect(escribaniaTerms.listaSubtitulo.toLowerCase()).not.toContain('otorgantes');
     expect(escribaniaTerms.listaSubtitulo.toLowerCase()).toContain('personas intervinientes');
+  });
+
+  it('8. T-AUD-P2-012: Constructor real del system prompt (buildAgentSystemInstruction) — afirmaciones positivas y regresiones negativas', () => {
+    const promptLegal = buildAgentSystemInstruction({ industry: 'legal' });
+    const promptEscribania = buildAgentSystemInstruction({ industry: 'escribania' });
+    const promptInmobiliaria = buildAgentSystemInstruction({ industry: 'inmobiliaria' });
+
+    // Afirmaciones positivas obligatorias:
+    expect(promptLegal).toContain('CONTEXTO DEL EXPEDIENTE');
+    expect(promptEscribania).toContain('CONTEXTO DEL LEGAJO');
+    expect(promptInmobiliaria).toContain('CONTEXTO DE LA OPERACIÓN');
+
+    // Regresiones negativas obligatorias sobre la salida completa de Inmobiliaria (case-insensitive / normalizada):
+    const normInmob = promptInmobiliaria.toUpperCase();
+    expect(normInmob).not.toContain('EL OPERACIÓN');
+    expect(normInmob).not.toContain('LOS OPERACIONES');
+    expect(normInmob).not.toContain('UN OPERACIÓN');
+    expect(normInmob).not.toContain('ESE OPERACIÓN');
+    expect(normInmob).not.toContain('DEL OPERACIÓN');
+    expect(normInmob).not.toContain('OPERACIONES ACTIVOS');
+    expect(normInmob).not.toContain('CONTEXTO DEL OPERACIÓN');
+    expect(promptInmobiliaria).not.toContain('${terms');
   });
 });

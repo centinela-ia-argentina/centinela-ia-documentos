@@ -63,7 +63,7 @@ function getAgentPersona(industry: IndustryType, terms: IndustryTerms): string {
 
 function getReglas(terms: IndustryTerms): string {
   return `REGLAS INQUEBRANTABLES:
-- Basáte ÚNICAMENTE en el CONTEXTO DEL ${terms.expedienteSingular.toUpperCase()} y en la conversación. NO inventes datos, montos, fechas, nombres ni artículos. (Calcular una liquidación con las fórmulas legales, a partir de datos reales ${terms.delExpediente} o que te dio el usuario, NO es "inventar un monto": es una estimación válida que SÍ podés proponer.)
+- Basáte ÚNICAMENTE en el ${terms.contextoDelLegajo} y en la conversación. NO inventes datos, montos, fechas, nombres ni artículos. (Calcular una liquidación con las fórmulas legales, a partir de datos reales ${terms.delExpediente} o que te dio el usuario, NO es "inventar un monto": es una estimación válida que SÍ podés proponer.)
 - Si te consultan conceptualmente sobre "UMA", "UHOM" o "JUS", explicá qué son (unidades arancelarias) y de qué dependen (jurisdicción, fuero, fecha, organismo), pero TENÉS ESTRICTAMENTE PROHIBIDO informar su valor monetario actual, su cifra, su equivalencia o su vigencia exacta. (Ej: aclaralo así: "UMA rige en el ámbito nacional/federal, JUS puede variar por provincia, UHOM según el régimen aplicable. Verificá su valor en la fuente oficial").
 - Antes de decir que un dato no está, buscalo también por SINÓNIMOS, RÓTULOS y ABREVIATURAS en los fragmentos (ej: "matrícula" puede venir como "F.R.I."/"Folio Real"; "hipoteca"/"embargo" como "gravamen"; "superficie" como "sup."). Solo si realmente no aparece de ninguna forma, decilo con claridad ("No tengo ese dato cargado en ${terms.elExpediente}").
 - Si el CONTEXTO incluye una sección "FRAGMENTOS TEXTUALES RELEVANTES", tratá esos fragmentos como la fuente MÁS confiable para responder detalles concretos (nombres, montos, matrículas, superficies, gravámenes, cláusulas): son extractos del texto real del documento. Cuando uses un dato que sale de un fragmento, aclará entre paréntesis el nombre del documento (ej: "según el Certificado de Dominio.pdf").
@@ -76,7 +76,7 @@ function getReglas(terms: IndustryTerms): string {
 function reglasAcciones(hoy: string, estadosValidos: string, terms: IndustryTerms): string {
   return `ACCIONES QUE PODÉS PROPONER (campo "acciones"):
 - FECHA DE HOY: ${hoy}. Usala para evaluar vencimientos.
-- Proponé una acción cuando surja con claridad del CONTEXTO DEL ${terms.expedienteSingular.toUpperCase()} O de la conversación con el usuario (por ejemplo, un dato que el usuario te acaba de dar en el chat). Si no corresponde ninguna, devolvé "acciones" como lista vacía.
+- Proponé una acción cuando surja con claridad del ${terms.contextoDelLegajo} O de la conversación con el usuario (por ejemplo, un dato que el usuario te acaba de dar en el chat). Si no corresponde ninguna, devolvé "acciones" como lista vacía.
 - Cada acción lleva: "tipo", "titulo" (breve y claro), "motivo" (una línea de dónde surge) y, cuando corresponda, "fecha" en formato YYYY-MM-DD.
 - Podés proponer MÁS DE UNA acción a la vez.
 - Tipos disponibles:
@@ -494,6 +494,42 @@ function detectarMontoJuicio(texto: string): number | null {
   return Math.max(...candidatos);
 }
 
+export function buildAgentSystemInstruction(params: {
+  industry: IndustryType;
+  terms?: IndustryTerms;
+  hoy?: string;
+  estadosTexto?: string;
+  intencionRiesgo?: boolean;
+  contextoLegajo?: string;
+}): string {
+  const terms = params.terms ?? getIndustryTerms(params.industry);
+  const hoy = params.hoy ?? new Date().toISOString().slice(0, 10);
+  const estadosTexto =
+    params.estadosTexto ??
+    getCaseStatuses(params.industry)
+      .map((e) => `"${e.value}" (${e.label})`)
+      .join(', ');
+  const intencionRiesgo = params.intencionRiesgo ?? false;
+  const contextoLegajo = params.contextoLegajo || '(sin información cargada)';
+
+  return [
+    getAgentPersona(params.industry, terms),
+    '',
+    getReglas(terms),
+    '',
+    reglasAcciones(hoy, estadosTexto, terms),
+    '',
+    intencionRiesgo
+      ? 'REGLAS PARA ANÁLISIS DE RIESGO:\n- Esta es una consulta exclusivamente informativa y de lectura. Analizá la evidencia documental disponible. No generes acciones ni tarjetas. No propongas mutaciones. Devuelve siempre acciones como un arreglo vacío.\n- Diferenciá hechos, posibles riesgos y datos faltantes.\n- Identificá el documento o fragmento que sustenta cada observación.\n- No declares ausencia total de riesgos como certeza profesional.\n- Si detectás una inconsistencia o riesgo, iniciá tu respuesta con una frase como: "Detecté las siguientes inconsistencias o puntos que requieren revisión..."\n- Si no detectás inconsistencias, respondé: "No detecté inconsistencias con la evidencia documental disponible. Esta revisión es orientativa y no reemplaza el control profesional integral."\n- Si faltan datos, respondé: "No hay evidencia suficiente para concluir sobre los siguientes puntos..."'
+      : '',
+    '',
+    terms.contextoDelLegajo + ':',
+    contextoLegajo,
+  ]
+    .filter(Boolean)
+    .join('\n');
+}
+
 export async function responderAgenteLegajo(input: {
   industry: IndustryType;
   contextoLegajo: string;
@@ -518,18 +554,14 @@ export async function responderAgenteLegajo(input: {
   const pNorm = normalizarParaIntencion(input.pregunta);
   const intencionRiesgo = /(inconsistencia|riesgo|peligro)\b.*?(procesal|documento|legajo|expediente|operacion|operación)/i.test(pNorm);
 
-  const systemInstruction = [
-    getAgentPersona(input.industry, terms),
-    '',
-    getReglas(terms),
-    '',
-    reglasAcciones(hoy, estadosTexto, terms),
-    '',
-    intencionRiesgo ? 'REGLAS PARA ANÁLISIS DE RIESGO:\n- Esta es una consulta exclusivamente informativa y de lectura. Analizá la evidencia documental disponible. No generes acciones ni tarjetas. No propongas mutaciones. Devuelve siempre acciones como un arreglo vacío.\n- Diferenciá hechos, posibles riesgos y datos faltantes.\n- Identificá el documento o fragmento que sustenta cada observación.\n- No declares ausencia total de riesgos como certeza profesional.\n- Si detectás una inconsistencia o riesgo, iniciá tu respuesta con una frase como: "Detecté las siguientes inconsistencias o puntos que requieren revisión..."\n- Si no detectás inconsistencias, respondé: "No detecté inconsistencias con la evidencia documental disponible. Esta revisión es orientativa y no reemplaza el control profesional integral."\n- Si faltan datos, respondé: "No hay evidencia suficiente para concluir sobre los siguientes puntos..."' : '',
-    '',
-    terms.contextoDelLegajo + ':',
-    input.contextoLegajo || '(sin información cargada)',
-  ].filter(Boolean).join('\n');
+  const systemInstruction = buildAgentSystemInstruction({
+    industry: input.industry,
+    terms,
+    hoy,
+    estadosTexto,
+    intencionRiesgo,
+    contextoLegajo: input.contextoLegajo,
+  });
 
   const contents = [
     ...input.historial.map((m) => ({ role: m.rol, parts: [{ text: m.texto }] })),
