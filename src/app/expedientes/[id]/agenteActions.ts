@@ -462,9 +462,9 @@ export async function preguntarAgente(input: {
         organizationId: profile.organization_id,
         userId: user.id,
         action: 'AI_AGENT_MEMORY_ERROR',
-        entityType: 'case',
-        entityId: input.caseId,
-        details: {
+        resourceType: 'case',
+        resourceId: input.caseId,
+        metadata: {
           caseId: input.caseId,
           errorCode: insertError.code ?? 'UNKNOWN',
           motivo: insertError.message || 'insert_failed',
@@ -478,9 +478,9 @@ export async function preguntarAgente(input: {
       organizationId: profile.organization_id,
       userId: user.id,
       action: 'AI_AGENT_MEMORY_ERROR',
-      entityType: 'case',
-      entityId: input.caseId,
-      details: {
+      resourceType: 'case',
+      resourceId: input.caseId,
+      metadata: {
         caseId: input.caseId,
         errorCode: 'EXCEPTION',
         motivo: e instanceof Error ? e.message : 'insert_exception',

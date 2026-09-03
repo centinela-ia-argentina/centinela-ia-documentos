@@ -134,9 +134,9 @@ describe('T-AUD-P2-017: Observabilidad ante fallos de persistencia de memoria de
         organizationId: 'org-1',
         userId: 'user-1',
         action: 'AI_AGENT_MEMORY_ERROR',
-        entityType: 'case',
-        entityId: 'case-1',
-        details: expect.objectContaining({
+        resourceType: 'case',
+        resourceId: 'case-1',
+        metadata: expect.objectContaining({
           caseId: 'case-1',
           errorCode: '23505',
           motivo: 'duplicate key value violates unique constraint',
@@ -147,7 +147,7 @@ describe('T-AUD-P2-017: Observabilidad ante fallos de persistencia de memoria de
     // Verificar que el log no contiene la pregunta ni la respuesta sensible
     const memoryCall = vi.mocked(createAuditLog).mock.calls.find((c) => (c[0] as any).action === 'AI_AGENT_MEMORY_ERROR');
     expect(memoryCall).toBeDefined();
-    const loggedDetails = (memoryCall![0] as any).details;
+    const loggedDetails = (memoryCall![0] as any).metadata;
     expect(JSON.stringify(loggedDetails)).not.toContain('¿Hay algún vencimiento pendiente?');
     expect(JSON.stringify(loggedDetails)).not.toContain('Esta es una respuesta generada por el Agente IA.');
   });
@@ -170,8 +170,8 @@ describe('T-AUD-P2-017: Observabilidad ante fallos de persistencia de memoria de
     expect(createAuditLog).toHaveBeenCalledWith(
       expect.objectContaining({
         action: 'AI_AGENT_MEMORY_ERROR',
-        entityId: 'case-1',
-        details: expect.objectContaining({
+        resourceId: 'case-1',
+        metadata: expect.objectContaining({
           caseId: 'case-1',
           errorCode: 'EXCEPTION',
           motivo: 'Network timeout in PostgreSQL connection',

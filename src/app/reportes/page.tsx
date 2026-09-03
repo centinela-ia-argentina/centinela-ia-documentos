@@ -16,7 +16,7 @@ type ReportView = 'general' | 'gestion' | 'documentos' | 'auditoria';
 type AuditFilter = 'todos' | 'documentos' | 'ia' | 'expedientes' | 'invitaciones';
 
 interface ReportsPageProps {
-  searchParams: Promise<{ vista?: string; tipo?: string }>;
+  searchParams: Promise<{ vista?: string; tipo?: string; pagina?: string; page?: string }>;
 }
 
 interface CaseRecord {
@@ -435,6 +435,19 @@ if (
   let auditLogs: AuditLogRecordForReport[] = [];
   let profiles: ProfileRecordForReport[] = [];
 
+  const rawPage = Number(query.pagina ?? query.page ?? 1);
+  const currentPage = Number.isInteger(rawPage) && rawPage > 0 ? rawPage : 1;
+  const PAGE_SIZE = 50;
+  const from = (currentPage - 1) * PAGE_SIZE;
+  const to = from + PAGE_SIZE - 1;
+
+  let totalAuditLogsCount = 0;
+  let docAuditLogsCount = 0;
+  let iaAuditLogsCount = 0;
+  let caseAuditLogsCount = 0;
+  let invAuditLogsCount = 0;
+  let totalFilteredCount = 0;
+
   if (activeView === 'general') {
     const [casesResult, documentsResult, aiOutputsResult] = await Promise.all([
       supabase
@@ -484,14 +497,47 @@ if (
     documents = (documentsResult.data ?? []) as DocumentRecordForReport[];
     aiOutputs = (aiOutputsResult.data ?? []) as AiOutputRecordForReport[];
   } else if (activeView === 'auditoria') {
-    const res = await supabase
+    const [
+      allCountRes,
+      docCountRes,
+      iaCountRes,
+      invCountRes,
+      caseCountRes,
+    ] = await Promise.all([
+      supabase.from('audit_logs').select('*', { count: 'exact', head: true }).eq('organization_id', profile.organization_id),
+      supabase.from('audit_logs').select('*', { count: 'exact', head: true }).eq('organization_id', profile.organization_id).or('resource_type.eq.document,action.ilike.document_%'),
+      supabase.from('audit_logs').select('*', { count: 'exact', head: true }).eq('organization_id', profile.organization_id).or('action.ilike.%analyzed%,metadata->>output_type.eq.document_analysis'),
+      supabase.from('audit_logs').select('*', { count: 'exact', head: true }).eq('organization_id', profile.organization_id).or('resource_type.in.(user_invitation,invitation),action.ilike.%invitation%,action.ilike.%invitacion%'),
+      supabase.from('audit_logs').select('*', { count: 'exact', head: true }).eq('organization_id', profile.organization_id).or('resource_type.eq.case,action.ilike.case_%'),
+    ]);
+
+    totalAuditLogsCount = allCountRes.count ?? 0;
+    docAuditLogsCount = docCountRes.count ?? 0;
+    iaAuditLogsCount = iaCountRes.count ?? 0;
+    invAuditLogsCount = invCountRes.count ?? 0;
+    caseAuditLogsCount = caseCountRes.count ?? 0;
+
+    let auditQuery = supabase
       .from('audit_logs')
-      .select('id, organization_id, user_id, action, resource_type, resource_id, metadata, created_at')
-      .eq('organization_id', profile.organization_id)
+      .select('id, organization_id, user_id, action, resource_type, resource_id, metadata, created_at', { count: 'exact' })
+      .eq('organization_id', profile.organization_id);
+
+    if (activeAuditFilter === 'documentos') {
+      auditQuery = auditQuery.or('resource_type.eq.document,action.ilike.document_%');
+    } else if (activeAuditFilter === 'ia') {
+      auditQuery = auditQuery.or('action.ilike.%analyzed%,metadata->>output_type.eq.document_analysis');
+    } else if (activeAuditFilter === 'expedientes') {
+      auditQuery = auditQuery.or('resource_type.eq.case,action.ilike.case_%');
+    } else if (activeAuditFilter === 'invitaciones') {
+      auditQuery = auditQuery.or('resource_type.in.(user_invitation,invitation),action.ilike.%invitation%,action.ilike.%invitacion%');
+    }
+
+    const res = await auditQuery
       .order('created_at', { ascending: false })
-      
+      .range(from, to);
 
     auditLogs = (res.data ?? []) as AuditLogRecordForReport[];
+    totalFilteredCount = res.count ?? auditLogs.length;
 
     const auditUserIds = Array.from(new Set(auditLogs.map((log) => log.user_id).filter(Boolean))) as string[];
 
@@ -536,7 +582,8 @@ if (
   const iaAuditLogs = auditLogs.filter(isAiAudit);
   const caseAuditLogs = auditLogs.filter(isCaseAudit);
   const invitationAuditLogs = auditLogs.filter(isInvitationAudit);
-  const filteredAuditLogs = filterAuditLogs(auditLogs, activeAuditFilter);
+  const filteredAuditLogs = auditLogs;
+  const totalPages = Math.max(1, Math.ceil(totalFilteredCount / PAGE_SIZE));
 
   const auditedUsers = new Set(auditLogs.map((log) => log.user_id).filter(Boolean)).size;
 
@@ -648,31 +695,31 @@ if (
       label: 'Todos',
       value: 'todos',
       href: '/reportes?vista=auditoria',
-      count: auditLogs.length,
+      count: totalAuditLogsCount,
     },
     {
       label: 'Documentos',
       value: 'documentos',
       href: '/reportes?vista=auditoria&tipo=documentos',
-      count: documentAuditLogs.length,
+      count: docAuditLogsCount,
     },
     {
       label: 'IA',
       value: 'ia',
       href: '/reportes?vista=auditoria&tipo=ia',
-      count: iaAuditLogs.length,
+      count: iaAuditLogsCount,
     },
     {
       label: terms.expedientePlural,
       value: 'expedientes',
       href: '/reportes?vista=auditoria&tipo=expedientes',
-      count: caseAuditLogs.length,
+      count: caseAuditLogsCount,
     },
     {
       label: 'Invitaciones',
       value: 'invitaciones',
       href: '/reportes?vista=auditoria&tipo=invitaciones',
-      count: invitationAuditLogs.length,
+      count: invAuditLogsCount,
     },
   ];
 
@@ -1025,7 +1072,7 @@ if (
             </div>
 
             <span className="rounded-full bg-white/[0.04] px-4 py-2 text-sm font-bold text-slate-300">
-              {auditLogs.length} eventos totales
+              {totalAuditLogsCount} eventos totales
             </span>
           </div>
 
@@ -1035,7 +1082,7 @@ if (
                 Eventos auditados
               </p>
               <p className="mt-2 text-3xl font-bold text-white">
-                {auditLogs.length}
+                {totalAuditLogsCount}
               </p>
             </div>
 
@@ -1044,7 +1091,7 @@ if (
                 Eventos documentales
               </p>
               <p className="mt-2 text-3xl font-bold text-white">
-                {documentAuditLogs.length}
+                {docAuditLogsCount}
               </p>
             </div>
 
@@ -1053,7 +1100,7 @@ if (
                 Eventos IA
               </p>
               <p className="mt-2 text-3xl font-bold text-white">
-                {iaAuditLogs.length}
+                {iaAuditLogsCount}
               </p>
             </div>
 
@@ -1062,7 +1109,7 @@ if (
                 Invitaciones
               </p>
               <p className="mt-2 text-3xl font-bold text-white">
-                {invitationAuditLogs.length}
+                {invAuditLogsCount}
               </p>
             </div>
 
@@ -1154,6 +1201,46 @@ if (
               </div>
             ) : null}
           </div>
+
+          {totalPages > 1 && (
+            <div className="mt-4 flex flex-col sm:flex-row items-center justify-between gap-3 px-2 py-3 border-t border-white/10 text-xs text-slate-400">
+              <div>
+                Mostrando <span className="font-semibold text-white">{from + 1}</span> a{' '}
+                <span className="font-semibold text-white">{Math.min(to + 1, totalFilteredCount)}</span> de{' '}
+                <span className="font-semibold text-white">{totalFilteredCount}</span> eventos
+              </div>
+              <div className="flex items-center gap-2">
+                {currentPage > 1 ? (
+                  <Link
+                    href={`/reportes?vista=auditoria&tipo=${activeAuditFilter}&pagina=${currentPage - 1}`}
+                    className="rounded-lg border border-white/10 bg-white/[0.04] px-3 py-1.5 font-medium text-slate-200 hover:bg-white/[0.08]"
+                  >
+                    ← Anterior
+                  </Link>
+                ) : (
+                  <span className="rounded-lg border border-white/5 bg-white/[0.02] px-3 py-1.5 font-medium text-slate-600 cursor-not-allowed">
+                    ← Anterior
+                  </span>
+                )}
+                <span className="px-2 text-slate-300">
+                  Página <span className="font-bold text-white">{currentPage}</span> de{' '}
+                  <span className="font-bold text-white">{totalPages}</span>
+                </span>
+                {currentPage < totalPages ? (
+                  <Link
+                    href={`/reportes?vista=auditoria&tipo=${activeAuditFilter}&pagina=${currentPage + 1}`}
+                    className="rounded-lg border border-white/10 bg-white/[0.04] px-3 py-1.5 font-medium text-slate-200 hover:bg-white/[0.08]"
+                  >
+                    Siguiente →
+                  </Link>
+                ) : (
+                  <span className="rounded-lg border border-white/5 bg-white/[0.02] px-3 py-1.5 font-medium text-slate-600 cursor-not-allowed">
+                    Siguiente →
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
         </MotionCard>
       ) : null}
 
