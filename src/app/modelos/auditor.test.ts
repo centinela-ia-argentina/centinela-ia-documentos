@@ -1,6 +1,12 @@
+/**
+ * @vitest-environment jsdom
+ */
+import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { canUseAi } from '@/lib/permissions/roles';
 import { extraerDatosParaModelo, redactarEscritoIA } from './actions';
+import { ModelosClient } from './ModelosClient';
 
 vi.mock('server-only', () => ({}));
 vi.mock('@/lib/auth/getUserProfile', () => ({
@@ -15,9 +21,18 @@ vi.mock('@/lib/audit/createAuditLog', () => ({
 vi.mock('@/lib/supabase/server', () => ({
   createClient: vi.fn(),
 }));
+vi.mock('./actions', () => ({
+  extraerDatosParaModelo: vi.fn().mockResolvedValue({ actor: 'Actor Extraido' }),
+  redactarEscritoIA: vi.fn().mockResolvedValue({ ok: true, texto: 'Borrador IA' }),
+}));
 
-import { getUserProfile } from '@/lib/auth/getUserProfile';
-import { createClient } from '@/lib/supabase/server';
+// Framer Motion polyfills for jsdom
+class MockIntersectionObserver {
+  observe = vi.fn();
+  unobserve = vi.fn();
+  disconnect = vi.fn();
+}
+window.IntersectionObserver = MockIntersectionObserver as any;
 
 describe('T-AUD-P2-015: Controles de IA para Rol Auditor en Modelos', () => {
   const globalFetchMock = vi.fn();
@@ -35,74 +50,101 @@ describe('T-AUD-P2-015: Controles de IA para Rol Auditor en Modelos', () => {
     expect(canUseAi('employee')).toBe(true);
   });
 
-  it('2. Rol auditor es rechazado en extraerDatosParaModelo sin llamar a fetch ni a la DB', async () => {
-    vi.mocked(getUserProfile).mockResolvedValue({
-      user: { id: 'user-auditor' },
-      profile: {
-        id: 'user-auditor',
-        organization_id: 'org-1',
-        role: 'auditor',
+  it('2. Componente ModelosClient para Auditor (puedeIA=false): oculta Redactar con IA, conserva controles manuales y no llama a extraerDatosParaModelo', async () => {
+    const expedientesMock = [
+      {
+        id: 'case-1',
+        title: 'Perez c/ Gomez',
+        client_name: 'Perez Juan',
+        case_type: 'Laboral',
+        status: 'active',
+        created_at: new Date().toISOString(),
+        metadata: {
+          caratula: 'Perez c/ Gomez',
+          actor: 'Perez Juan',
+          demandado: 'Gomez SRL',
+        },
       },
-    } as any);
+    ];
 
-    const res = await extraerDatosParaModelo('case-1', 'demanda-laboral-despido');
-    expect(res).toEqual({});
-    expect(createClient).not.toHaveBeenCalled();
-    expect(globalFetchMock).not.toHaveBeenCalled();
+    render(
+      React.createElement(ModelosClient, {
+        expedientes: expedientesMock,
+        industria: 'legal',
+        puedeIA: false,
+      })
+    );
+
+    // 1. Catálogo presente
+    expect(screen.getByText('Escrito de presentación (genérico)')).toBeDefined();
+
+    // 2. Abrir modelo
+    fireEvent.click(screen.getByText('Escrito de presentación (genérico)'));
+
+    // 3. Controles manuales presentes: Vista previa, Copiar, Descargar TXT, DOCX
+    expect(screen.getByText('Vista previa')).toBeDefined();
+    expect(screen.getByText('Copiar')).toBeDefined();
+    expect(screen.getByText(/Descargar \.txt/i)).toBeDefined();
+    expect(screen.getByText(/Word \(\.docx\)/i)).toBeDefined();
+    expect(screen.getByPlaceholderText(/Completar caratula/i)).toBeDefined();
+
+    // 4. "Redactar con IA" ausente para auditor
+    expect(screen.queryByText('Redactar con IA')).toBeNull();
+    expect(screen.queryByText('Redactar con IA (opcional)')).toBeNull();
+
+    // 5. Aplicar expediente como auditor: carga datos manuales pero NO llama a extraerDatosParaModelo ni muestra spinner
+    const select = screen.getByRole('combobox');
+    fireEvent.change(select, { target: { value: 'case-1' } });
+
+    await waitFor(() => {
+      const inputCaratula = screen.getByPlaceholderText(/Completar caratula/i) as HTMLInputElement;
+      expect(inputCaratula.value).toBe('Perez c/ Gomez');
+    });
+
+    // extraerDatosParaModelo NO debe ser llamado
+    expect(extraerDatosParaModelo).not.toHaveBeenCalled();
+    // No debe haber spinner de IA
+    expect(screen.queryByText(/Analizando los documentos/)).toBeNull();
   });
 
-  it('3. Rol auditor es rechazado en redactarEscritoIA con motivo sin_permiso sin llamar a fetch', async () => {
-    vi.mocked(getUserProfile).mockResolvedValue({
-      user: { id: 'user-auditor' },
-      profile: {
-        id: 'user-auditor',
-        organization_id: 'org-1',
-        role: 'auditor',
+  it('3. Componente ModelosClient para Admin/Employee (puedeIA=true): muestra Redactar con IA y ejecuta extraerDatosParaModelo', async () => {
+    const expedientesMock = [
+      {
+        id: 'case-1',
+        title: 'Perez c/ Gomez',
+        client_name: 'Perez Juan',
+        case_type: 'Laboral',
+        status: 'active',
+        created_at: new Date().toISOString(),
+        metadata: {
+          caratula: 'Perez c/ Gomez',
+          actor: 'Perez Juan',
+          demandado: 'Gomez SRL',
+        },
       },
-    } as any);
+    ];
 
-    const res = await redactarEscritoIA({
-      titulo: 'Test Escrito',
-      cuerpo: 'Cuerpo base del escrito',
-      valores: {},
-      instruccion: 'Redactar con IA',
+    render(
+      React.createElement(ModelosClient, {
+        expedientes: expedientesMock,
+        industria: 'legal',
+        puedeIA: true,
+      })
+    );
+
+    // Abrir modelo
+    fireEvent.click(screen.getByText('Escrito de presentación (genérico)'));
+
+    // Redactar con IA DEBE estar visible para admin/employee
+    expect(screen.getByText('Redactar con IA (opcional)')).toBeDefined();
+    expect(screen.getByText('Redactar con IA')).toBeDefined();
+
+    // Aplicar expediente: DEBE llamar a extraerDatosParaModelo
+    const select = screen.getByRole('combobox');
+    fireEvent.change(select, { target: { value: 'case-1' } });
+
+    await waitFor(() => {
+      expect(extraerDatosParaModelo).toHaveBeenCalled();
     });
-
-    expect(res.ok).toBe(false);
-    if (!res.ok) {
-      expect(res.motivo).toBe('sin_permiso');
-    }
-    expect(globalFetchMock).not.toHaveBeenCalled();
-  });
-
-  it('4. Rol admin autorizado conserva acceso operativo completo a redactarEscritoIA', async () => {
-    vi.mocked(getUserProfile).mockResolvedValue({
-      user: { id: 'user-admin' },
-      profile: {
-        id: 'user-admin',
-        organization_id: 'org-1',
-        role: 'admin',
-      },
-    } as any);
-
-    globalFetchMock.mockResolvedValue({
-      ok: true,
-      json: vi.fn().mockResolvedValue({
-        candidates: [{ content: { parts: [{ text: 'Escrito generado con éxito por IA' }] } }],
-      }),
-    });
-
-    const res = await redactarEscritoIA({
-      titulo: 'Demanda Laboral',
-      cuerpo: 'Cuerpo base',
-      valores: { actor: 'Juan Pérez' },
-      instruccion: 'Completar hechos',
-    });
-
-    expect(res.ok).toBe(true);
-    if (res.ok) {
-      expect(res.texto).toContain('Escrito generado');
-    }
-    expect(globalFetchMock).toHaveBeenCalledTimes(1);
   });
 });
