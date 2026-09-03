@@ -2134,6 +2134,38 @@ Doy fe de la autenticidad de la/s firma/s y de la identidad del/de los firmante/
 {{escribano}}
 Registro Notarial N° {{registro}} de {{jurisdiccion}}`,
 	},
+	{
+		id: 'notarial-cesion-derechos-hereditarios',
+		titulo: 'Escritura de cesión de derechos hereditarios',
+		categoria: 'Sucesiones',
+		descripcion: 'Escritura pública de cesión de derechos y acciones hereditarias conforme art. 2302 y concordantes del CCyC.',
+		industries: ['escribania'],
+		cuerpo: `ESCRITURA NÚMERO {{numero_escritura}}. CESIÓN DE DERECHOS HEREDITARIOS.
+
+En la Ciudad de {{ciudad}}, a {{fecha}}, ante mí, {{escribano}}, titular del Registro Notarial N° {{registro}} de {{jurisdiccion}}, COMPARECEN:
+
+Por una parte, como CEDENTE: {{cedente}}, DNI {{dni_cedente}}, CUIT/CUIL {{cuit_cedente}}, de nacionalidad {{nacionalidad_cedente}}, estado civil {{estado_civil_cedente}}, con domicilio en {{domicilio_cedente}}.
+
+Y por la otra parte, como CESIONARIO: {{cesionario}}, DNI {{dni_cesionario}}, CUIT/CUIL {{cuit_cesionario}}, de nacionalidad {{nacionalidad_cesionario}}, estado civil {{estado_civil_cesionario}}, con domicilio en {{domicilio_cesionario}}.
+
+Los comparecientes son personas hábiles, de mi conocimiento conforme art. 306 del Código Civil y Comercial de la Nación, y DICEN:
+
+PRIMERO — ANTECEDENTES. Declara el CEDENTE que es heredero legítimo en los autos caratulados "{{caratula_sucesion}}", en trámite ante el Juzgado {{juzgado}} Secretaría {{secretaria}} de la jurisdicción {{jurisdiccion_judicial}}, en virtud del fallecimiento del causante don/doña {{causante}}, ocurrido en fecha {{fecha_fallecimiento}}.
+
+SEGUNDO — CESIÓN. Por este acto, el CEDENTE CEDE Y TRANSFIERE a favor del CESIONARIO, quien ACEPTA, la totalidad de los derechos y acciones hereditarias que le corresponden o puedan corresponderle en la sucesión del causante precitado.
+
+TERCERO — PRECIO Y FORMA DE PAGO. La presente cesión se realiza por el precio total y convenido de {{precio}} ({{precio_en_letras}}), importe que el CEDENTE declara haber recibido íntegramente con anterioridad a este acto en dinero en efectivo/transferencia, otorgando por la presente formal y eficaz recibo y carta de pago.
+
+CUARTO — GARANTÍA Y EVICCIÓN. El CEDENTE garantiza su calidad de heredero conforme a las previsiones del art. 2305 del Código Civil y Comercial de la Nación, respondiendo por evicción en los términos legales.
+
+QUINTO — PRESENTACIÓN EN AUTOS. Se faculta al CESIONARIO o al letrado que este designe para presentar testimonio de la presente escritura en el expediente sucesorio a fin de su agregación y toma de razón judicial.
+
+LEÍDA que fue a los comparecientes, se ratifican de su contenido y la firman ante mí, doy fe.
+
+{{cedente}}        {{cesionario}}
+
+Ante mí: {{escribano}}`,
+	},
 ];
 
 // 🔗 Sugiere el modelo de escrito más adecuado según el tipo de documento
@@ -2255,6 +2287,12 @@ export function sugerirModeloNotarialPorTipo(tipo?: string): ModeloEscrito | nul
     id = 'notarial-certificacion-firmas';
   } else if (t.includes('acta')) {
     id = 'notarial-acta-constatacion';
+  } else if (
+    t.includes('sucesi') ||
+    t.includes('herencia') ||
+    t.includes('hereditari')
+  ) {
+    id = 'notarial-cesion-derechos-hereditarios';
   }
 
   if (!id) return null;
