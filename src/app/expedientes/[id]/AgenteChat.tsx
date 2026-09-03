@@ -495,7 +495,7 @@ export function AgenteChat({ caseId, caseTitle, industry, puedeUsarIA, historial
             }
           }}
           rows={1}
-          placeholder={`Escribí tu consulta sobre el ${terms.expedienteSingular.toLowerCase()}…`}
+          placeholder={`Escribí tu consulta sobre ${terms.elExpediente}…`}
           className="flex-1 resize-none rounded-lg border border-slate-700 bg-slate-950/60 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:border-cyan-500 focus:outline-none"
         />
         <button

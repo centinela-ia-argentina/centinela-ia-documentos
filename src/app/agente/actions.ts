@@ -84,36 +84,36 @@ const GLOBAL_AGENT_CASE_CONTEXT_LIMIT = 40;
   for (const c of cases) caseTitleById.set(c.id, c.title || terms.itemSinTitulo);
 
   const partes: string[] = [];
-  partes.push(`VISTA GLOBAL DE LA ORGANIZACIÓN (todos los ${terms.expedientePlural.toLowerCase()} activos).`);
+  partes.push(`VISTA GLOBAL DE LA ORGANIZACIÓN (${terms.todosLosLegajosActivos}).`);
   partes.push(
     `REGLAS INNEGOCIABLES DE RESPUESTA Y LÍMITES DE EJECUCIÓN:\n` +
       `Estás operando exclusivamente como Agente IA general de orientación y panorama organizacional.\n\n` +
-      `1. CONSULTAS INFORMATIVAS: Si el usuario hace una pregunta informativa (ej. "¿Qué información tenés sobre el ${terms.expedienteSingular.toLowerCase()} X?"), NO apliques la limitación de ejecución. Respondé con los datos disponibles. Si el ${terms.expedienteSingular.toLowerCase()} consultado no figura en tu contexto, aplicá estrictamente las reglas de no encontrado detalladas más abajo.\n\n` +
-      `2. SOLICITUDES OPERATIVAS: Ante pedidos de ejecución o modificación (por ejemplo: cambiar estado de un ${terms.expedienteSingular.toLowerCase()}, agendar un plazo, modificar un ${terms.expedienteSingular.toLowerCase()}, vincular documentos, eliminar o cargar un documento desde acá), TENÉS ESTRICTAMENTE PROHIBIDO:\n` +
+      `1. CONSULTAS INFORMATIVAS: Si el usuario hace una pregunta informativa (ej. "¿Qué información tenés sobre ${terms.elExpediente} X?"), NO apliques la limitación de ejecución. Respondé con los datos disponibles. Si ${terms.elExpediente} consultado no figura en tu contexto, aplicá estrictamente las reglas de no encontrado detalladas más abajo.\n\n` +
+      `2. SOLICITUDES OPERATIVAS: Ante pedidos de ejecución o modificación (por ejemplo: cambiar estado de ${terms.unExpediente}, agendar un plazo, modificar ${terms.unExpediente}, vincular documentos, eliminar o cargar un documento desde acá), TENÉS ESTRICTAMENTE PROHIBIDO:\n` +
       `- Pedir parámetros de ejecución, fechas o el ID del caso.\n` +
       `- Prometer o dar a entender que podrás realizar la acción luego.\n` +
       `- Devolver tokens o bloques de acción.\n` +
       `Ante pedidos operativos, DEBÉS RESPONDER EXACTA Y CLARAMENTE CON ESTE TEXTO:\n` +
-      `“Desde el Agente IA general no puedo modificar casos ni ejecutar acciones concretas. Abrí el ${terms.expedienteSingular.toLowerCase()} correspondiente y utilizá su Agente IA.”`
+      `“Desde el Agente IA general no puedo modificar casos ni ejecutar acciones concretas. Abrí ${terms.elExpediente} correspondiente y utilizá su Agente IA.”`
   );
 
   if (countIsUnknown && includedCaseCount === GLOBAL_AGENT_CASE_CONTEXT_LIMIT) {
     partes.push(
-      `Contexto limitado a un máximo de ${GLOBAL_AGENT_CASE_CONTEXT_LIMIT} ${terms.expedientePlural.toLowerCase()} activos creados más recientemente.\n` +
-      `REGLA PARA ${terms.expedientePlural.toUpperCase()} NO ENCONTRADOS: Si el usuario pregunta por un ${terms.expedienteSingular.toLowerCase()} que no figura acá, respondé exactamente: "Ese ${terms.expedienteSingular.toLowerCase()} no aparece entre los ${GLOBAL_AGENT_CASE_CONTEXT_LIMIT} incluidos en el contexto actual. Puede estar fuera del recorte. Usá Buscar o abrí el ${terms.expedienteSingular.toLowerCase()} específico."\n` +
+      `Contexto limitado a un máximo de ${GLOBAL_AGENT_CASE_CONTEXT_LIMIT} ${terms.expedientePlural.toLowerCase()} ${terms.adjetivoActivos} creados más recientemente.\n` +
+      `REGLA PARA ${terms.expedientePlural.toUpperCase()} NO ENCONTRADOS: Si el usuario pregunta por ${terms.unExpediente} que no figura acá, respondé exactamente: "${terms.EseExpediente} no aparece entre los ${GLOBAL_AGENT_CASE_CONTEXT_LIMIT} incluidos en el contexto actual. Puede estar fuera del recorte. Usá Buscar o abrí ${terms.elExpediente} ${terms.adjetivoEspecifico}."\n` +
       `Si el usuario hace peticiones exhaustivas (ej. "todos mis casos", "panorama completo"), TENÉS ESTRICTAMENTE PROHIBIDO presentar este análisis parcial como total.`
     );
   } else if (isCaseContextPartial) {
     partes.push(
-      `La organización tiene ${totalActiveCases} ${terms.expedientePlural.toLowerCase()} activos. En esta conversación disponés únicamente de los ${GLOBAL_AGENT_CASE_CONTEXT_LIMIT} ${terms.expedientePlural.toLowerCase()} creados más recientemente.\n` +
-      `REGLA PARA ${terms.expedientePlural.toUpperCase()} NO ENCONTRADOS: Si el usuario pregunta por un ${terms.expedienteSingular.toLowerCase()} que no figura acá, respondé exactamente: "Ese ${terms.expedienteSingular.toLowerCase()} no aparece entre los ${GLOBAL_AGENT_CASE_CONTEXT_LIMIT} incluidos en el contexto actual. Puede estar fuera del recorte. Usá Buscar o abrí el ${terms.expedienteSingular.toLowerCase()} específico."\n` +
+      `La organización tiene ${totalActiveCases} ${terms.expedientePlural.toLowerCase()} ${terms.adjetivoActivos}. En esta conversación disponés únicamente de los ${GLOBAL_AGENT_CASE_CONTEXT_LIMIT} ${terms.expedientePlural.toLowerCase()} creados más recientemente.\n` +
+      `REGLA PARA ${terms.expedientePlural.toUpperCase()} NO ENCONTRADOS: Si el usuario pregunta por ${terms.unExpediente} que no figura acá, respondé exactamente: "${terms.EseExpediente} no aparece entre los ${GLOBAL_AGENT_CASE_CONTEXT_LIMIT} incluidos en el contexto actual. Puede estar fuera del recorte. Usá Buscar o abrí ${terms.elExpediente} ${terms.adjetivoEspecifico}."\n` +
       `Si el usuario hace peticiones exhaustivas (ej. "todos mis casos", "panorama completo", "resumen de todos"), TENÉS ESTRICTAMENTE PROHIBIDO presentar un análisis parcial como total. DEBÉS INCLUIR EXACTAMENTE ESTA ADVERTENCIA:\n` +
-      `“Esta vista del Agente General incluye los ${GLOBAL_AGENT_CASE_CONTEXT_LIMIT} ${terms.expedientePlural.toLowerCase()} creados más recientemente de ${totalActiveCases} activos. No puedo afirmar que el análisis cubra la totalidad. Para localizar un ${terms.expedienteSingular.toLowerCase()} fuera de este contexto, usá Buscar o abrí el ${terms.expedienteSingular.toLowerCase()} específico.”`
+      `“Esta vista del Agente General incluye los ${GLOBAL_AGENT_CASE_CONTEXT_LIMIT} ${terms.expedientePlural.toLowerCase()} creados más recientemente de ${totalActiveCases} ${terms.adjetivoActivos}. No puedo afirmar que el análisis cubra la totalidad. Para localizar ${terms.unExpediente} fuera de este contexto, usá Buscar o abrí ${terms.elExpediente} ${terms.adjetivoEspecifico}.”`
     );
   } else {
     partes.push(
-      `Disponés de detalles de los ${totalActiveCases} ${terms.expedientePlural.toLowerCase()} activos de esta organización.\n` +
-      `REGLA PARA ${terms.expedientePlural.toUpperCase()} NO ENCONTRADOS: Si el usuario pregunta por un ${terms.expedienteSingular.toLowerCase()} que no aparece en este contexto, respondé exactamente: "Ese ${terms.expedienteSingular.toLowerCase()} no aparece entre los ${terms.expedientePlural.toLowerCase()} activos disponibles en este contexto. No puedo concluir que no exista. Verificá el nombre con Buscar o abrí el ${terms.expedienteSingular.toLowerCase()} específico."`
+      `Disponés de detalles de los ${totalActiveCases} ${terms.expedientePlural.toLowerCase()} ${terms.adjetivoActivos} de esta organización.\n` +
+      `REGLA PARA ${terms.expedientePlural.toUpperCase()} NO ENCONTRADOS: Si el usuario pregunta por ${terms.unExpediente} que no aparece en este contexto, respondé exactamente: "${terms.EseExpediente} no aparece entre ${terms.losExpedientes} ${terms.adjetivoActivos} disponibles en este contexto. No puedo concluir que no exista. Verificá el nombre con Buscar o abrí ${terms.elExpediente} ${terms.adjetivoEspecifico}."`
     );
   }
 
