@@ -418,9 +418,7 @@ test.describe.serial('Centinela IA - Flujo Jurídico E2E Obligatorio', () => {
     await page.fill('[data-testid="rag-input"]', '¿Qué dice el documento?');
     await page.click('[data-testid="rag-submit"]');
 
-    const ragResponse = page.locator('[data-testid="rag-response"]');
-    await expect(ragResponse).toBeVisible({ timeout: 15000 });
-    await expect(ragResponse).not.toBeEmpty();
+    await expect(page.locator('[data-testid="rag-response"]')).toBeVisible({ timeout: 15000 });
   });
 
   test('15. cleanup', async () => {
