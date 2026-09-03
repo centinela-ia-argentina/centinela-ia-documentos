@@ -145,8 +145,7 @@ export function ModelosClient({
       grupos.set(m.categoria, arr);
     }
     return Array.from(grupos.entries());
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [busqueda, provincia]);
+  }, [busqueda, provincia, industria]);
 
   const variables = seleccionado ? extractVars(seleccionado.cuerpo) : [];
   const textoFinal = seleccionado ? fillTemplate(seleccionado.cuerpo, valores) : '';
