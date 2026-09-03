@@ -4,7 +4,7 @@
 > Si el código contradice este documento, el código manda; avisá la discrepancia.
 
 ## 1. Qué es
-SaaS web multi-organización de gestión documental inteligente para rubros con documentación sensible (jurídico, escribanía, inmobiliaria). Centraliza expedientes + PDFs, control de acceso por rol, auditoría de acciones y análisis documental beta en entorno controlado (sin IA externa paga todavía). Etapa: beta operativa comercial, producto online.
+SaaS web multi-organización de gestión documental inteligente para rubros con documentación sensible (jurídico, escribanía, inmobiliaria). Centraliza expedientes + PDFs, control de acceso por rol, auditoría de acciones y análisis documental beta en entorno controlado, con funciones IA integradas server-side condicionadas por configuración, permisos y guardrails. Etapa: beta operativa comercial, producto online.
 
 ## 2. Stack
 - Next.js 16.3.1 (App Router), TypeScript, Tailwind CSS
@@ -18,7 +18,7 @@ NO se hace una app por rubro. Una sola base; lo que cambia por rubro se resuelve
 Archivos de config:
 - src/lib/industries/documentTypes.ts (IndustryType, ACTIVE_INDUSTRY_TYPES = ['legal','escribania','inmobiliaria'], industryLabels, documentTypesByIndustry, getDocumentTypes, getDocumentTypeLabel, isIndustryType, normalizeIndustryType)
 - src/lib/industries/caseConfig.ts (CaseFieldDef, caseFieldsByIndustry, caseTypesByIndustry, caseStatusesByIndustry, dashboardCardsByIndustry, getCaseStatusLabel(status, industry))
-- src/lib/industries/caseTemplates.ts (caseTemplatesByType: checklists por nombre de tipo de expediente)
+- src/lib/industries/caseTemplates.ts (caseTemplatesByIndustryAndType: checklists por rubro y tipo de expediente)
 Regla de estados: la constraint cases_status_check solo permite 5 valores en inglés: 'new','active','in_review','waiting_client','archived'. Los estados por rubro son SOLO etiquetas (relabel) vía getCaseStatusLabel. Nunca guardar estado en español en la DB. Patrón general: valores en inglés en la base, etiquetas en español en la UI.
 
 ## 4. Datos (Supabase)

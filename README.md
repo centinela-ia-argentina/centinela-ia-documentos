@@ -92,7 +92,7 @@ Incluye:
 * módulos principales;
 * seguridad y trazabilidad;
 * análisis documental en entorno beta;
-* plan beta cerrada;
+* plan de beta operativa comercial;
 * botón de WhatsApp;
 * acceso al sistema por `/login`.
 
@@ -131,7 +131,7 @@ Gestión documental para áreas de compliance, contables y administrativas (mant
 * **Storage:** Supabase Storage.
 * **Deploy:** Vercel.
 * **Control de versiones:** GitHub.
-* **Análisis documental:** entorno beta controlado, preparado para futuras integraciones con proveedores IA externos.
+* **Análisis documental e IA:** entorno controlado con funciones server-side integradas (auditoría, asistencia y análisis documental beta), preparado para incorporar proveedores o modelos adicionales.
 
 ---
 
@@ -260,7 +260,7 @@ Validaciones realizadas:
 
 ## Estado comercial
 
-Centinela IA se encuentra en etapa de beta cerrada para primeros clientes.
+Centinela IA se encuentra en etapa de beta operativa comercial en entorno controlado para primeros clientes.
 
 Modelo comercial inicial:
 
@@ -275,7 +275,7 @@ Propuesta base sugerida:
 * **Mensualidad beta:** AR$ 45.000 por mes.
 * **Desarrollo a medida:** presupuesto según alcance.
 
-La beta cerrada está pensada para validar el sistema con clientes reales, recopilar feedback y adaptar el flujo documental según necesidades concretas.
+La etapa de beta operativa comercial está pensada para validar el sistema con clientes reales en entorno controlado, recopilar feedback y adaptar el flujo documental según necesidades concretas.
 
 ---
 
@@ -344,7 +344,7 @@ Bloques completados:
 * Demo guiada comercial.
 * Guion oral de demo.
 * Pitch de WhatsApp.
-* Propuesta beta cerrada.
+* Propuesta comercial beta.
 * PDF comercial.
 * Planilla comercial de seguimiento.
 * Datos demo profesionales.
@@ -387,7 +387,7 @@ Mejoras futuras recomendadas:
 * auditoría avanzada por acción;
 * nuevos reportes comerciales;
 * más reglas documentales por rubro;
-* integración futura con proveedores IA externos;
+* integración futura con proveedores o modelos IA adicionales;
 * módulo de clientes;
 * exportación PDF de reportes;
 * panel comercial interno.
