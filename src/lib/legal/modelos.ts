@@ -2138,7 +2138,7 @@ Registro Notarial N° {{registro}} de {{jurisdiccion}}`,
 		id: 'notarial-cesion-derechos-hereditarios',
 		titulo: 'Escritura de cesión de derechos hereditarios',
 		categoria: 'Sucesiones',
-		descripcion: 'Escritura pública de cesión de derechos y acciones hereditarias conforme art. 2302 y concordantes del CCyC.',
+		descripcion: 'Minuta base orientativa de cesión onerosa de derechos y acciones hereditarias (arts. 2302 y ss. CCyC). No aplicable a partición ni a toda sucesión.',
 		industries: ['escribania'],
 		cuerpo: `ESCRITURA NÚMERO {{numero_escritura}}. CESIÓN DE DERECHOS HEREDITARIOS.
 
@@ -2288,9 +2288,8 @@ export function sugerirModeloNotarialPorTipo(tipo?: string): ModeloEscrito | nul
   } else if (t.includes('acta')) {
     id = 'notarial-acta-constatacion';
   } else if (
-    t.includes('sucesi') ||
-    t.includes('herencia') ||
-    t.includes('hereditari')
+    /(?:^|[^\p{L}])(cesi[oó]n|ceder)(?:[^\p{L}]|$)/iu.test(t) &&
+    /(?:^|[^\p{L}])(hereditari[oa]s?|herencia|sucesor(?:i[oa]s?)?|sucesi[oó]n)(?:[^\p{L}]|$)/iu.test(t)
   ) {
     id = 'notarial-cesion-derechos-hereditarios';
   }
