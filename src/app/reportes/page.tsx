@@ -261,6 +261,15 @@ function getActorLabel(
   return `Usuario ${log.user_id.slice(0, 8)}...`;
 }
 
+export function parseStrictPositiveInteger(val: unknown): number | null {
+  if (val === null || val === undefined) return null;
+  const s = String(val).trim();
+  if (!/^[1-9]\d*$/.test(s)) return null;
+  const num = Number(s);
+  if (!Number.isSafeInteger(num) || num <= 0) return null;
+  return num;
+}
+
 function getActorRole(
   log: AuditLogRecordForReport,
   profilesById: Map<string, ProfileRecordForReport>
@@ -435,11 +444,10 @@ if (
   let auditLogs: AuditLogRecordForReport[] = [];
   let profiles: ProfileRecordForReport[] = [];
 
-  const rawPage = Number.parseInt(String(query.pagina ?? query.page ?? '1'), 10);
-  const currentPage = Number.isNaN(rawPage) || rawPage < 1 ? 1 : rawPage;
   const PAGE_SIZE = 50;
-  const from = (currentPage - 1) * PAGE_SIZE;
-  const to = from + PAGE_SIZE - 1;
+  let currentPage = 1;
+  let from = 0;
+  let to = PAGE_SIZE - 1;
 
   let totalAuditLogsCount = 0;
   let docAuditLogsCount = 0;
@@ -517,6 +525,41 @@ if (
     invAuditLogsCount = invCountRes.count ?? 0;
     caseAuditLogsCount = caseCountRes.count ?? 0;
 
+    if (activeAuditFilter === 'documentos') {
+      totalFilteredCount = docAuditLogsCount;
+    } else if (activeAuditFilter === 'ia') {
+      totalFilteredCount = iaAuditLogsCount;
+    } else if (activeAuditFilter === 'expedientes') {
+      totalFilteredCount = caseAuditLogsCount;
+    } else if (activeAuditFilter === 'invitaciones') {
+      totalFilteredCount = invAuditLogsCount;
+    } else {
+      totalFilteredCount = totalAuditLogsCount;
+    }
+
+    const totalPagesBeforeRange = Math.max(1, Math.ceil(totalFilteredCount / PAGE_SIZE));
+    const rawParam = query.pagina ?? query.page;
+
+    if (rawParam !== undefined && rawParam !== null) {
+      const parsed = parseStrictPositiveInteger(rawParam);
+      if (parsed === null) {
+        redirect(`/reportes?vista=auditoria&tipo=${activeAuditFilter}&pagina=1`);
+        return null as any;
+      }
+      if (totalFilteredCount > 0 && parsed > totalPagesBeforeRange) {
+        redirect(`/reportes?vista=auditoria&tipo=${activeAuditFilter}&pagina=${totalPagesBeforeRange}`);
+        return null as any;
+      }
+      if (totalFilteredCount === 0 && parsed > 1) {
+        redirect(`/reportes?vista=auditoria&tipo=${activeAuditFilter}&pagina=1`);
+        return null as any;
+      }
+      currentPage = parsed;
+    }
+
+    from = (currentPage - 1) * PAGE_SIZE;
+    to = from + PAGE_SIZE - 1;
+
     let auditQuery = supabase
       .from('audit_logs')
       .select('id, organization_id, user_id, action, resource_type, resource_id, metadata, created_at', { count: 'exact' })
@@ -538,11 +581,8 @@ if (
       .range(from, to);
 
     auditLogs = (res.data ?? []) as AuditLogRecordForReport[];
-    totalFilteredCount = res.count ?? auditLogs.length;
-
-    const totalPages = Math.max(1, Math.ceil(totalFilteredCount / PAGE_SIZE));
-    if (currentPage > totalPages && totalFilteredCount > 0) {
-      redirect(`/reportes?vista=auditoria&tipo=${activeAuditFilter}&pagina=${totalPages}`);
+    if (res.count !== null && res.count !== undefined) {
+      totalFilteredCount = res.count;
     }
 
     const auditUserIds = Array.from(new Set(auditLogs.map((log) => log.user_id).filter(Boolean))) as string[];
