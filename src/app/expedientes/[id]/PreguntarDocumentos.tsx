@@ -10,8 +10,8 @@ function RespuestaConCitas({ texto }: { texto: string }) {
     <div className="space-y-2">
       {parrafos.map((p, pi) => (
         <p key={pi} className="leading-relaxed">
-          {p.split(/(\[\d+\])/g).map((parte, i) =>
-            /^\[\d+\]$/.test(parte) ? (
+          {p.split(/(\[[0-9,\s]+\])/g).map((parte, i) =>
+            /^\[[0-9,\s]+\]$/.test(parte) ? (
               <sup
                 key={i}
                 className="mx-0.5 inline-flex items-center rounded bg-cyan-500/20 px-1 text-[10px] font-semibold text-cyan-300 ring-1 ring-cyan-500/30"

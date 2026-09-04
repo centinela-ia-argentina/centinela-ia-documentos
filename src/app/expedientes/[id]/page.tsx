@@ -254,13 +254,25 @@ export default async function CaseDetailPage({ params, searchParams }: CaseDetai
 
   let checklistItemsData: any[] = [];
   if (caseChecklist) {
-    const { data, error } = await supabase
+    let { data, error } = await supabase
       .from('checklist_items')
       .select('id, checklist_id, title, status, document_id, match_source, notes, created_at, documents(id, file_name)')
       .eq('checklist_id', caseChecklist.id)
       .eq('organization_id', profile.organization_id)
       .order('created_at', { ascending: true })
       .order('id', { ascending: true });
+
+    if (error && (error.code === '42703' || error.message?.includes('match_source') || error.details?.includes('match_source'))) {
+      const fallbackRes = await supabase
+        .from('checklist_items')
+        .select('id, checklist_id, title, status, document_id, notes, created_at, documents(id, file_name)')
+        .eq('checklist_id', caseChecklist.id)
+        .eq('organization_id', profile.organization_id)
+        .order('created_at', { ascending: true })
+        .order('id', { ascending: true });
+      data = (fallbackRes.data ?? []).map((item: any) => ({ ...item, match_source: null }));
+      error = fallbackRes.error;
+    }
 
     if (error) {
       console.error('Error fetching checklist items:', error);

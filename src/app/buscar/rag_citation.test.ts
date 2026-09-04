@@ -14,7 +14,12 @@ vi.mock('@/lib/ai/embeddings', () => ({
 import { preguntarADocumentos } from './actions';
 import { createClient } from '@/lib/supabase/server';
 import { getUserProfile } from '@/lib/auth/getUserProfile';
-import { parseAndAlignRagResponse, esRespuestaNegativa } from '@/lib/ai/ragAlignment';
+import {
+  parseAndAlignRagResponse,
+  esRespuestaNegativa,
+  RESPUETA_NEGATIVA_ESTANDAR,
+  normalizarMarkdownTexto,
+} from '@/lib/ai/ragAlignment';
 
 describe('C-M3-J-003 & C-M3-J-006: Search & RAG citation filtering and negative queries', () => {
   beforeEach(() => {
@@ -354,6 +359,64 @@ describe('C-M3-J-003 & C-M3-J-006: Search & RAG citation filtering and negative 
       expect(aligned.fuentes[0].documentId).toBe('d2');
       expect(aligned.fuentes[1].documentId).toBe('d3');
       expect(aligned.respuesta).toBe('Primer hecho probado en [1] y segundo hecho en [2].');
+    });
+
+    it('maneja citas compuestas [1, 7] cuando solo hay 1 fuente disponible -> texto queda [1] y fuentes tiene 1 elemento', () => {
+      const singleSource = [mockSources[0]];
+      const json = JSON.stringify({
+        answer: 'Dato corroborado en [1, 7].',
+        hasEvidence: true,
+        citedSourceIndexes: [1, 7],
+      });
+      const aligned = parseAndAlignRagResponse(json, singleSource);
+      expect(aligned.hasEvidence).toBe(true);
+      expect(aligned.respuesta).toBe('Dato corroborado en [1].');
+      expect(aligned.fuentes).toHaveLength(1);
+      expect(aligned.fuentes[0].documentId).toBe('d1');
+    });
+
+    it('maneja citas compuestas con múltiples índices válidos y renumera [3, 1, 3] y [1,2]', () => {
+      const json = JSON.stringify({
+        answer: 'Evidencia inicial [3, 1, 3] y respaldo complementario [1,2].',
+        hasEvidence: true,
+        citedSourceIndexes: [1, 2, 3],
+      });
+      const aligned = parseAndAlignRagResponse(json, mockSources);
+      expect(aligned.hasEvidence).toBe(true);
+      // [3, 1] orden de aparición: primero 3 -> [1], luego 1 -> [2], luego 2 -> [3]
+      expect(aligned.respuesta).toBe('Evidencia inicial [1, 2] y respaldo complementario [2, 3].');
+      expect(aligned.fuentes).toHaveLength(3);
+      expect(aligned.fuentes[0].documentId).toBe('d3');
+      expect(aligned.fuentes[1].documentId).toBe('d1');
+      expect(aligned.fuentes[2].documentId).toBe('d2');
+    });
+
+    it('minimiza respuestas negativas evitando fuga de PII (DNI, pasaporte, etc.)', () => {
+      const jsonWithPII = JSON.stringify({
+        answer: 'No se menciona el número de pasaporte, pero el DNI es 30.123.456 perteneciente a Juan Pérez.',
+        hasEvidence: false,
+        citedSourceIndexes: [1],
+      });
+      const aligned = parseAndAlignRagResponse(jsonWithPII, mockSources);
+      expect(aligned.hasEvidence).toBe(false);
+      expect(aligned.fuentes).toEqual([]);
+      expect(aligned.respuesta).toBe(RESPUETA_NEGATIVA_ESTANDAR);
+      expect(aligned.respuesta).not.toContain('30.123.456');
+      expect(aligned.respuesta).not.toContain('Juan Pérez');
+    });
+
+    it('normaliza markdown crudo eliminando asteriscos como **Laura Pérez**', () => {
+      const rawText = 'La titular de dominio es **Laura Pérez** según constancia [1].';
+      const aligned = parseAndAlignRagResponse(rawText, mockSources);
+      expect(aligned.hasEvidence).toBe(true);
+      expect(aligned.respuesta).toBe('La titular de dominio es Laura Pérez según constancia [1].');
+      expect(aligned.respuesta).not.toContain('**');
+    });
+
+    it('normalizarMarkdownTexto limpia negritas, cursivas, encabezados y código en línea', () => {
+      expect(normalizarMarkdownTexto('El comprador es **Juan Carlos López**')).toBe('El comprador es Juan Carlos López');
+      expect(normalizarMarkdownTexto('### Informe Final')).toBe('Informe Final');
+      expect(normalizarMarkdownTexto('El valor es `1500 USD` y fue pagado')).toBe('El valor es 1500 USD y fue pagado');
     });
   });
 });

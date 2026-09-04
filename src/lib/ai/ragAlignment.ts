@@ -31,6 +31,47 @@ export function esRespuestaNegativa(texto: string): boolean {
   return NEGATIVE_PATTERNS.some((pattern) => pattern.test(t));
 }
 
+export const RESPUETA_NEGATIVA_ESTANDAR =
+  'La información solicitada no surge de los documentos disponibles.';
+
+/**
+ * Remueve formato markdown ruidoso del texto (negritas, itálicas, encabezados, bloques de código en línea)
+ * para presentar un texto limpio y seguro, sin asteriscos crudos.
+ */
+export function normalizarMarkdownTexto(texto: string): string {
+  if (!texto) return '';
+  return texto
+    // Negrita / cursiva combinada (*** o ___): ***texto*** -> texto
+    .replace(/(\*{3}|_{3})(.*?)\1/g, '$2')
+    // Negrita (** o __): **texto** -> texto
+    .replace(/(\*{2}|_{2})(.*?)\1/g, '$2')
+    // Cursiva (* o _): *texto* -> texto (evitando romper guiones bajos dentro de identificadores si se usan solos)
+    .replace(/(^|[^\w])(\*|_)(.*?)\2([^\w]|$)/g, '$1$3$4')
+    // Código en línea (`code` -> code)
+    .replace(/`([^`]+)`/g, '$1')
+    // Encabezados markdown (# Titulo -> Titulo)
+    .replace(/^#{1,6}\s+/gm, '')
+    // Múltiples espacios
+    .replace(/[ \t]{2,}/g, ' ')
+    .trim();
+}
+
+/**
+ * Extrae todos los números enteros de citas dentro de corchetes compuestos o simples:
+ * e.g. [1], [1, 7], [1, 2], [3, 1, 3]
+ */
+function extraerIndicesDeCorchete(bracketContent: string): number[] {
+  const parts = bracketContent.split(',');
+  const numbers: number[] = [];
+  for (const part of parts) {
+    const val = parseInt(part.trim(), 10);
+    if (Number.isInteger(val) && val > 0) {
+      numbers.push(val);
+    }
+  }
+  return numbers;
+}
+
 export function parseAndAlignRagResponse<T>(
   rawText: string,
   rawSources: T[]
@@ -38,7 +79,7 @@ export function parseAndAlignRagResponse<T>(
   const trimmed = (rawText || '').trim();
   if (!trimmed) {
     return {
-      respuesta: 'No se pudo obtener información suficiente en los documentos para responder a la consulta.',
+      respuesta: RESPUETA_NEGATIVA_ESTANDAR,
       hasEvidence: false,
       fuentes: [],
     };
@@ -112,14 +153,13 @@ export function parseAndAlignRagResponse<T>(
       };
     }
 
-    const answer = parsed.answer.trim();
+    const answer = normalizarMarkdownTexto(parsed.answer);
     const explicitNoEvidence = parsed.hasEvidence === false;
 
-    // Si hasEvidence es false o la respuesta es negativa: fuentes[] DEBE ser [] y se eliminan citas
+    // Si hasEvidence es false o la respuesta es negativa: fuentes[] DEBE ser [] y se minimiza estrictamente sin PII
     if (explicitNoEvidence || esRespuestaNegativa(answer)) {
-      const cleanAnswer = answer.replace(/\[\d+\]/g, '').replace(/\s{2,}/g, ' ').trim();
       return {
-        respuesta: cleanAnswer || 'No surge información suficiente en los documentos consultados.',
+        respuesta: RESPUETA_NEGATIVA_ESTANDAR,
         hasEvidence: false,
         fuentes: [],
       };
@@ -134,19 +174,21 @@ export function parseAndAlignRagResponse<T>(
       }
     }
 
-    // Extraer citas inline en orden de aparición en el texto
+    // Extraer citas inline (soporta compuestas como [1, 7], [1,2], etc.) en orden de aparición en el texto
     const inlineIndexes: number[] = [];
-    for (const m of answer.matchAll(/\[(\d+)\]/g)) {
-      const idx = parseInt(m[1], 10);
-      if (Number.isInteger(idx) && !inlineIndexes.includes(idx)) {
-        inlineIndexes.push(idx);
+    for (const m of answer.matchAll(/\[([0-9,\s]+)\]/g)) {
+      const nums = extraerIndicesDeCorchete(m[1]);
+      for (const idx of nums) {
+        if (!inlineIndexes.includes(idx)) {
+          inlineIndexes.push(idx);
+        }
       }
     }
 
     // Validación cruzada estricta:
     // - Las fuentes devueltas deben estar citadas tanto inline como en rango válido
     // - Si citedSourceIndexes contiene [1, 2] pero el texto solo cita [1] -> se conserva sólo la 1
-    // - Si el texto cita [1, 3] pero fuentes tiene 2 elementos -> [3] queda dangling y se descarta
+    // - Si el texto cita [1, 7] pero fuentes tiene 1 elemento -> [7] queda dangling y se descarta
     const validUniqueIndexes: number[] = [];
     for (const idx of inlineIndexes) {
       if (
@@ -160,7 +202,7 @@ export function parseAndAlignRagResponse<T>(
     }
 
     if (validUniqueIndexes.length === 0) {
-      const cleanAnswer = answer.replace(/\[\d+\]/g, '').replace(/\s{2,}/g, ' ').trim();
+      const cleanAnswer = answer.replace(/\[([0-9,\s]+)\]/g, '').replace(/\s{2,}/g, ' ').trim();
       return {
         respuesta: cleanAnswer,
         hasEvidence: true,
@@ -174,10 +216,16 @@ export function parseAndAlignRagResponse<T>(
       indexMapping.set(oldIdx, i + 1);
     });
 
-    let renumberedAnswer = answer.replace(/\[(\d+)\]/g, (_match: string, p1: string) => {
-      const oldIdx = parseInt(p1, 10);
-      const newIdx = indexMapping.get(oldIdx);
-      return newIdx ? `[${newIdx}]` : '';
+    let renumberedAnswer = answer.replace(/\[([0-9,\s]+)\]/g, (_match: string, p1: string) => {
+      const nums = extraerIndicesDeCorchete(p1);
+      const renumberedMapped: number[] = [];
+      for (const n of nums) {
+        const newIdx = indexMapping.get(n);
+        if (newIdx !== undefined && !renumberedMapped.includes(newIdx)) {
+          renumberedMapped.push(newIdx);
+        }
+      }
+      return renumberedMapped.length > 0 ? `[${renumberedMapped.join(', ')}]` : '';
     });
     renumberedAnswer = renumberedAnswer.replace(/\s{2,}/g, ' ').trim();
 
@@ -191,26 +239,28 @@ export function parseAndAlignRagResponse<T>(
   }
 
   // 2. Modo texto plano estándar (no JSON)
-  if (esRespuestaNegativa(trimmed)) {
-    const cleanAnswer = trimmed.replace(/\[\d+\]/g, '').replace(/\s{2,}/g, ' ').trim();
+  const normalizedText = normalizarMarkdownTexto(trimmed);
+  if (esRespuestaNegativa(normalizedText)) {
     return {
-      respuesta: cleanAnswer,
+      respuesta: RESPUETA_NEGATIVA_ESTANDAR,
       hasEvidence: false,
       fuentes: [],
     };
   }
 
   const validUniqueIndexes: number[] = [];
-  const matchesCitation = trimmed.matchAll(/\[(\d+)\]/g);
+  const matchesCitation = normalizedText.matchAll(/\[([0-9,\s]+)\]/g);
   for (const m of matchesCitation) {
-    const idx = parseInt(m[1], 10);
-    if (Number.isInteger(idx) && idx >= 1 && idx <= rawSources.length && !validUniqueIndexes.includes(idx)) {
-      validUniqueIndexes.push(idx);
+    const nums = extraerIndicesDeCorchete(m[1]);
+    for (const idx of nums) {
+      if (idx >= 1 && idx <= rawSources.length && !validUniqueIndexes.includes(idx)) {
+        validUniqueIndexes.push(idx);
+      }
     }
   }
 
   if (validUniqueIndexes.length === 0) {
-    const cleanAnswer = trimmed.replace(/\[\d+\]/g, '').replace(/\s{2,}/g, ' ').trim();
+    const cleanAnswer = normalizedText.replace(/\[([0-9,\s]+)\]/g, '').replace(/\s{2,}/g, ' ').trim();
     return {
       respuesta: cleanAnswer,
       hasEvidence: true,
@@ -223,10 +273,16 @@ export function parseAndAlignRagResponse<T>(
     indexMapping.set(oldIdx, i + 1);
   });
 
-  let renumberedAnswer = trimmed.replace(/\[(\d+)\]/g, (_match: string, p1: string) => {
-    const oldIdx = parseInt(p1, 10);
-    const newIdx = indexMapping.get(oldIdx);
-    return newIdx ? `[${newIdx}]` : '';
+  let renumberedAnswer = normalizedText.replace(/\[([0-9,\s]+)\]/g, (_match: string, p1: string) => {
+    const nums = extraerIndicesDeCorchete(p1);
+    const renumberedMapped: number[] = [];
+    for (const n of nums) {
+      const newIdx = indexMapping.get(n);
+      if (newIdx !== undefined && !renumberedMapped.includes(newIdx)) {
+        renumberedMapped.push(newIdx);
+      }
+    }
+    return renumberedMapped.length > 0 ? `[${renumberedMapped.join(', ')}]` : '';
   });
   renumberedAnswer = renumberedAnswer.replace(/\s{2,}/g, ' ').trim();
 
