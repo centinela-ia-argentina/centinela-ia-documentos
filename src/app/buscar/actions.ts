@@ -7,6 +7,7 @@ import { generarEmbedding } from '@/lib/ai/embeddings';
 import { indexarDocumento } from '@/lib/ai/indexarDocumento';
 import { normalizeIndustryType } from '@/lib/industries/documentTypes';
 import { getRagSystemPrompt } from '@/lib/industries/aiConfig';
+import { parseAndAlignRagResponse } from '@/lib/ai/ragAlignment';
 
 export type FuenteBusqueda = {
   documentId: string;
@@ -130,7 +131,8 @@ export async function preguntarADocumentos(pregunta: string): Promise<RespuestaB
   const { data: docs } = await supabase
     .from('documents')
     .select('id, file_name')
-    .in('id', docIds);
+    .in('id', docIds)
+    .eq('organization_id', profile.organization_id);
   const nombrePorId = new Map((docs ?? []).map((d: any) => [d.id, d.file_name]));
 
   const fuentes: FuenteBusqueda[] = filteredMatches.map((m) => ({
@@ -184,27 +186,8 @@ RESPUESTA:`;
       data?.candidates?.[0]?.content?.parts?.map((p: any) => p.text).join('') ??
       'No se pudo generar una respuesta.';
 
-    const esNegativa = /no (surge|se encuentra|consta|contiene|se menciona|hay información|figura|se desprende)/i.test(respuesta);
-
-    const citedIndices = new Set<number>();
-    const matchesCitation = respuesta.matchAll(/\[(\d+)\]/g);
-    for (const m of matchesCitation) {
-      const idx = parseInt(m[1], 10);
-      if (!isNaN(idx) && idx >= 1 && idx <= fuentes.length) {
-        citedIndices.add(idx);
-      }
-    }
-
-    let fuentesValidas: FuenteBusqueda[] = [];
-    if (!esNegativa && citedIndices.size > 0) {
-      fuentesValidas = fuentes.filter((_, idx) => citedIndices.has(idx + 1));
-    } else if (!esNegativa && fuentes.length > 0 && (fuentes[0].similitud ?? 0) >= 0.65) {
-      fuentesValidas = [fuentes[0]];
-    } else {
-      fuentesValidas = [];
-    }
-
-    return { ok: true, respuesta, fuentes: fuentesValidas };
+    const aligned = parseAndAlignRagResponse(respuesta, fuentes);
+    return { ok: true, respuesta: aligned.respuesta, fuentes: aligned.fuentes };
   } catch (e) {
     return { ok: false, error: 'Error de red: ' + String(e).slice(0, 160) };
   }

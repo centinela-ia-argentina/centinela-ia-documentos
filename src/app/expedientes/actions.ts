@@ -1578,7 +1578,8 @@ export async function autoMarcarChecklist(formData: FormData) {
   const { data: items } = await supabase
     .from('checklist_items')
     .select('id, title, status, document_id, match_source')
-    .eq('checklist_id', checklist.id);
+    .eq('checklist_id', checklist.id)
+    .eq('organization_id', profile.organization_id);
 
   let manualOverridesSkipped = 0;
   const itemsCandidatos: Array<{ id: string; title: string; status: string; document_id: string | null; match_source?: string | null }> = [];
@@ -1635,13 +1636,15 @@ export async function autoMarcarChecklist(formData: FormData) {
         const { error } = await supabase
           .from('checklist_items')
           .update({ document_id: null, match_source: null, status: 'pending' })
-          .eq('id', item.id);
+          .eq('id', item.id)
+          .eq('organization_id', profile.organization_id);
         if (!error) desvinculados += 1;
       } else if (sugerencia.documentId !== item.document_id) {
         const { error } = await supabase
           .from('checklist_items')
           .update({ document_id: sugerencia.documentId, match_source: 'automatic', status: 'received' })
-          .eq('id', item.id);
+          .eq('id', item.id)
+          .eq('organization_id', profile.organization_id);
         if (!error) marcados += 1;
       }
     } else if (item.status === 'pending' && !item.document_id) {
@@ -1649,7 +1652,8 @@ export async function autoMarcarChecklist(formData: FormData) {
         const { error } = await supabase
           .from('checklist_items')
           .update({ document_id: sugerencia.documentId, match_source: 'automatic', status: 'received' })
-          .eq('id', item.id);
+          .eq('id', item.id)
+          .eq('organization_id', profile.organization_id);
         if (!error) marcados += 1;
       }
     }

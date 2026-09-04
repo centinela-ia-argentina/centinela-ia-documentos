@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { MODELOS, getModeloReviewStatus } from './modelos';
+import { MODELOS, getModeloReviewStatus, getModelosInventory } from './modelos';
 import { redactarEscritoIA, extraerDatosParaModelo } from '@/app/modelos/actions';
 import { getUserProfile } from '@/lib/auth/getUserProfile';
 import { getStrictIndustryForOrganization } from '@/lib/auth/getStrictIndustry';
@@ -94,5 +94,27 @@ describe('C-M3-J-005 & Governance: Legal models review status and blocking', () 
         }),
       })
     );
+  });
+
+  it('getModelosInventory() lists all 84 catalog models with complete governance metadata', () => {
+    const inventory = getModelosInventory();
+    expect(inventory.length).toBe(84);
+
+    const outdated = inventory.filter((m) => m.reviewStatus === 'outdated');
+    const pending = inventory.filter((m) => m.reviewStatus === 'pending_review');
+    const verified = inventory.filter((m) => m.reviewStatus === 'verified');
+
+    expect(outdated.length).toBe(1);
+    expect(outdated[0].id).toBe('intimacion-laboral-registracion');
+    expect(pending.length).toBe(83);
+    expect(verified.length).toBe(0);
+
+    for (const item of inventory) {
+      expect(item.id).toBeTruthy();
+      expect(item.titulo).toBeTruthy();
+      expect(item.categoria).toBeTruthy();
+      expect(item.jurisdiction).toBeTruthy();
+      expect(item.version).toBe('1.0');
+    }
   });
 });

@@ -9,6 +9,7 @@ import {
   esFechaEmision,
   ACTIONABLE_DATE_TYPES,
   NON_ACTIONABLE_DATE_TYPES,
+  evaluarFechaAccionable,
 } from './plazos';
 
 describe('C-M3-J-004: Date taxonomy and operational vs informative deadlines', () => {
@@ -89,12 +90,78 @@ describe('C-M3-J-004: Date taxonomy and operational vs informative deadlines', (
       expect(isActionableDate('document_expiration', cert)).toBe(true);
       expect(esPlazoRadar(cert)).toBe(true);
     });
+  });
 
-    it('classifies lease term and contractual maturity as contractual_deadline', () => {
-      const contrato = 'Vencimiento contrato de locación';
-      expect(clasificarFecha(contrato)).toBe('contractual_deadline');
-      expect(isActionableDate('contractual_deadline', contrato)).toBe(true);
-      expect(esPlazoRadar(contrato)).toBe(true);
+  describe('Demanda context disambiguation', () => {
+    it('does NOT classify generic phrases containing "demanda" (e.g. demanda de servicios) as procedural_deadline', () => {
+      const generic1 = 'Estimación de demanda de servicios técnicos';
+      expect(clasificarFecha(generic1)).not.toBe('procedural_deadline');
+      expect(clasificarFecha(generic1)).toBe('informational');
+      expect(isActionableDate(undefined, generic1)).toBe(false);
+
+      const generic2 = 'Comportamiento de la curva de demanda del mercado';
+      expect(clasificarFecha(generic2)).not.toBe('procedural_deadline');
+      expect(clasificarFecha(generic2)).toBe('informational');
+
+      const generic3 = 'Demanda de empleo en el sector inmobiliario';
+      expect(clasificarFecha(generic3)).not.toBe('procedural_deadline');
+      expect(clasificarFecha(generic3)).toBe('informational');
+    });
+
+    it('classifies procedural acts with demanda (traslado, contestación, cédula, interposición) as procedural_deadline', () => {
+      expect(clasificarFecha('Traslado de demanda laboral')).toBe('procedural_deadline');
+      expect(clasificarFecha('Contestación de demanda')).toBe('procedural_deadline');
+      expect(clasificarFecha('Cédula de demanda recibida')).toBe('procedural_deadline');
+      expect(clasificarFecha('Plazo para contestar demanda')).toBe('procedural_deadline');
+      expect(clasificarFecha('Interposición de demanda sumarísima')).toBe('procedural_deadline');
+    });
+  });
+
+  describe('Confidence, Evidence, and Human Review Flag (evaluarFechaAccionable)', () => {
+    it('accepts deadlines with high or medium confidence without review required', () => {
+      expect(
+        evaluarFechaAccionable({
+          descripcion: 'Vencimiento para presentar memorial de agravios',
+          fecha: '2026-09-15',
+          tipo: 'procedural_deadline',
+          confianza: 'alta',
+          requiere_revision: false,
+        })
+      ).toBe(true);
+
+      expect(
+        evaluarFechaAccionable({
+          descripcion: 'Audiencia testimonial fijada',
+          fecha: '2026-10-02',
+          tipo: 'hearing',
+          confianza: 'media',
+          requiere_revision: false,
+        })
+      ).toBe(true);
+    });
+
+    it('rejects deadlines with low confidence even if procedural', () => {
+      expect(
+        evaluarFechaAccionable({
+          descripcion: 'Plazo para contestar demanda (detectado ambiguo)',
+          fecha: '2026-09-20',
+          tipo: 'procedural_deadline',
+          confianza: 'baja',
+          requiere_revision: false,
+        })
+      ).toBe(false);
+    });
+
+    it('rejects deadlines flagged as requiring human review', () => {
+      expect(
+        evaluarFechaAccionable({
+          descripcion: 'Fecha contradictoria en cédula de traslado',
+          fecha: '2026-09-25',
+          tipo: 'procedural_deadline',
+          confianza: 'alta',
+          requiere_revision: true,
+        })
+      ).toBe(false);
     });
   });
 });

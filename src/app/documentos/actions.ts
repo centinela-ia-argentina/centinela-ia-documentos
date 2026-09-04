@@ -12,7 +12,7 @@ import { indexarDocumento } from '@/lib/ai/indexarDocumento';
 import { analizarPoderConIA } from '@/lib/ai/poderes';
 import { normalizeIndustryType, type IndustryType } from '@/lib/industries/documentTypes';
 import { getAnalysisSystemPrompt } from '@/lib/industries/aiConfig';
-import { esPlazoRadar } from '@/lib/plazos/plazos';
+import { esPlazoRadar, evaluarFechaAccionable } from '@/lib/plazos/plazos';
 import { validateFileContent, MAGIC_BYTES } from '@/lib/documents/fileValidation';
 import {
   canUploadDocument,
@@ -1062,9 +1062,14 @@ const updateFields: any = {
 };
 
 if (!documentRecord.expires_at && analysis.fechas_plazos && analysis.fechas_plazos.length > 0) {
-  const radarPlazos = analysis.fechas_plazos.filter((fp: any) => esPlazoRadar(fp.descripcion || '', fp.tipo));
-  if (radarPlazos.length > 0 && radarPlazos[0].fecha) {
-    updateFields.expires_at = String(radarPlazos[0].fecha).slice(0, 10);
+  const plazosAccionables = analysis.fechas_plazos.filter((fp: any) =>
+    evaluarFechaAccionable({
+      ...fp,
+      documento_origen: documentRecord.file_name,
+    })
+  );
+  if (plazosAccionables.length > 0 && plazosAccionables[0].fecha) {
+    updateFields.expires_at = String(plazosAccionables[0].fecha).slice(0, 10);
   }
 }
 

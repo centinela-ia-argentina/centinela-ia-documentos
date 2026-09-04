@@ -148,17 +148,17 @@ export function ModelosClient({
     return Array.from(grupos.entries());
   }, [busqueda, provincia, industria]);
 
-  const variables = seleccionado ? extractVars(seleccionado.cuerpo) : [];
+  const isOutdatedOrRetired =
+    seleccionado?.reviewStatus === 'outdated' || seleccionado?.reviewStatus === 'retired';
+  const variables = seleccionado && !isOutdatedOrRetired ? extractVars(seleccionado.cuerpo) : [];
   const textoFinal = seleccionado ? fillTemplate(seleccionado.cuerpo, valores) : '';
-  const textoParaMostrar = textoIA ?? textoFinal;
+  const textoParaMostrar = isOutdatedOrRetired
+    ? `[FICHA HISTÓRICA — MODELO FUERA DE USO PRODUCTIVO]\n\n${seleccionado?.cuerpo ?? ''}`
+    : (textoIA ?? textoFinal);
 
   const redactarIA = async () => {
     if (!puedeIA) return;
-    if (!seleccionado) return;
-    if (seleccionado.reviewStatus === 'outdated' || seleccionado.reviewStatus === 'retired') {
-      setAvisoIA('Este modelo está normativamente desactualizado (Ley 27.742). La redacción automatizada con IA se encuentra bloqueada.');
-      return;
-    }
+    if (!seleccionado || isOutdatedOrRetired) return;
     setRedactando(true);
     setAvisoIA(null);
     try {
@@ -188,8 +188,9 @@ export function ModelosClient({
 
   const abrir = (m: ModeloEscrito) => {
     setSeleccionadoId(m.id);
+    const isOut = m.reviewStatus === 'outdated' || m.reviewStatus === 'retired';
     const exp = expedientes.find((e) => e.id === expedienteId);
-    setValores(exp ? datosDeExpediente(exp) : {});
+    setValores(!isOut && exp ? datosDeExpediente(exp) : {});
     setCopiado(false);
     setTextoIA(null);
     setInstruccion('');
@@ -202,7 +203,7 @@ export function ModelosClient({
     setExpedienteId(id);
     setErrorPrellenado(null);
 
-    if (!id) {
+    if (!id || isOutdatedOrRetired) {
       setCargandoPrellenado(false);
       setValores({});
       return;
@@ -263,6 +264,7 @@ export function ModelosClient({
   };
 
   const copiar = async () => {
+    if (isOutdatedOrRetired) return;
     try {
       await navigator.clipboard.writeText(textoParaMostrar);
       setCopiado(true);
@@ -273,7 +275,7 @@ export function ModelosClient({
   };
 
   const descargar = () => {
-    if (!seleccionado) return;
+    if (!seleccionado || isOutdatedOrRetired) return;
     const blob = new Blob([textoParaMostrar], { type: 'text/plain;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -286,7 +288,7 @@ export function ModelosClient({
   };
 
   const descargarDocx = async () => {
-    if (!seleccionado) return;
+    if (!seleccionado || isOutdatedOrRetired) return;
     const parrafos = textoParaMostrar.split('\n').map(
       (linea) =>
         new Paragraph({
@@ -381,6 +383,17 @@ export function ModelosClient({
                           </div>
                           <span className="text-sm font-semibold text-white">{m.titulo}</span>
                           <span className="mt-1 text-xs text-slate-400">{m.descripcion}</span>
+                          <div className="mt-2.5 flex flex-wrap items-center gap-2 text-[11px] text-slate-400">
+                            <span className="rounded bg-white/5 px-1.5 py-0.5 font-medium">{m.jurisdiction ?? 'Nacional'}</span>
+                            <span>•</span>
+                            <span>v{m.version ?? '1.0'}</span>
+                            {m.lastVerifiedAt && (
+                              <>
+                                <span>•</span>
+                                <span>Rev: {m.lastVerifiedAt}</span>
+                              </>
+                            )}
+                          </div>
                         </button>
                       </MotionCard>
                     ))}
@@ -405,130 +418,151 @@ export function ModelosClient({
           <div className="grid gap-4 lg:grid-cols-2">
             <MotionCard index={1} className="flex flex-col gap-4">
               <h2 className="text-base font-semibold text-white">{seleccionado.titulo}</h2>
-              <p className="mt-1 text-sm text-slate-400">{seleccionado.descripcion}</p>
-
-              {seleccionado.reviewStatus === 'outdated' && (
-                <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-4">
-                  <div className="flex items-center gap-2">
-                    <Badge tone="danger">Desactualizado — Requiere adecuación profesional</Badge>
+              {isOutdatedOrRetired ? (
+                <div className="space-y-4" data-testid="ficha-historica">
+                  <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-4">
+                    <div className="flex items-center gap-2">
+                      <Badge tone="danger">Modelo fuera de uso productivo</Badge>
+                      <span className="text-xs text-red-300 font-semibold uppercase tracking-wide">
+                        {seleccionado.reviewStatus === 'outdated' ? 'Desactualizado' : 'Retirado'}
+                      </span>
+                    </div>
+                    <p className="mt-2 text-xs leading-relaxed text-red-200">
+                      {seleccionado.professionalDisclaimer ||
+                        'La Ley 27.742 derogó el régimen sancionatorio de la Ley 24.013 y del art. 80 LCT. Este modelo se conserva en la biblioteca exclusivamente con fines históricos y de trazabilidad.'}
+                    </p>
                   </div>
-                  <p className="mt-2 text-xs leading-relaxed text-red-200">
-                    {seleccionado.professionalDisclaimer || 'La Ley 27.742 derogó el régimen sancionatorio de la Ley 24.013 y del art. 80 LCT. Este modelo se conserva en la biblioteca con fines históricos y de trazabilidad. La generación automatizada con IA está deshabilitada y cualquier uso requiere revisión y adaptación letrada.'}
-                  </p>
+
+                  <div className="rounded-xl border border-white/10 bg-white/[0.02] p-4 text-xs space-y-2.5 text-slate-300">
+                    <div className="flex justify-between border-b border-white/5 pb-2">
+                      <span className="text-slate-400">Jurisdicción:</span>
+                      <span className="font-semibold text-white">{seleccionado.jurisdiction ?? 'Nacional'}</span>
+                    </div>
+                    <div className="flex justify-between border-b border-white/5 pb-2">
+                      <span className="text-slate-400">Estado normativo:</span>
+                      <span className="font-semibold text-red-400">Bloqueado para uso productivo</span>
+                    </div>
+                    <div className="flex justify-between border-b border-white/5 pb-2">
+                      <span className="text-slate-400">Versión de catálogo:</span>
+                      <span className="font-semibold text-white">v{seleccionado.version ?? '1.0'}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-400">Última revisión:</span>
+                      <span className="font-semibold text-white">{seleccionado.lastVerifiedAt ?? 'No registrada'}</span>
+                    </div>
+                  </div>
+
+                  <div className="rounded-xl border border-amber-500/20 bg-amber-500/10 p-3.5 text-xs text-amber-200 leading-relaxed">
+                    🔒 <strong>Ficha histórica restringida:</strong> No se admite edición manual, carga de variables, prellenado desde legajo, redacción asistida con IA ni exportación (TXT / Word). Este escrito se mantiene exclusivamente para fines de consulta histórica.
+                  </div>
                 </div>
-              )}
-
-              <div className="mt-4 space-y-3">
-                {expedientes.length > 0 && (
-                  <div className="mb-4 rounded-xl border border-cyan-500/20 bg-cyan-500/10 p-3">
-                    <label className="flex items-center gap-2 text-xs font-semibold text-cyan-400">
-                      <FolderKanban className="h-3.5 w-3.5" />
-                      Prellenar desde {industria === 'inmobiliaria' ? 'una operación' : industria === 'escribania' ? 'un legajo' : 'un expediente'}
-                    </label>
-                    <select
-                      value={expedienteId}
-                      onChange={(e) => aplicarExpediente(e.target.value)}
-                      disabled={cargandoPrellenado}
-                      aria-busy={cargandoPrellenado}
-                      className="mt-2 w-full rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2 text-sm text-white outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400 disabled:cursor-wait disabled:opacity-60"
-                    >
-                      <option value="" className="text-slate-900">— Sin selección (completar a mano) —</option>
-                      {expedientes.map((exp) => (
-                        <option key={exp.id} value={exp.id} className="text-slate-900">
-                          {exp.title || 'Sin título'}{exp.client_name ? ` — ${exp.client_name}` : ''}
-                        </option>
-                      ))}
-                    </select>
-                    {expedienteId ? (
-                      cargandoPrellenado ? (
-                        <div
-                          className="mt-2 flex items-center gap-2 text-[11px] text-cyan-300"
-                          role="status"
-                          aria-live="polite"
-                        >
-                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                          <span>
-                            Analizando los documentos y preparando el modelo… Esto puede demorar unos segundos.
-                          </span>
-                        </div>
-                      ) : errorPrellenado ? (
-                        <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-amber-400">
-                          <span>{errorPrellenado}</span>
-                          <button
-                            type="button"
-                            onClick={() => aplicarExpediente(expedienteId)}
-                            className="font-semibold underline hover:text-amber-300"
+              ) : (
+                <div className="mt-4 space-y-3">
+                  {expedientes.length > 0 && (
+                    <div className="mb-4 rounded-xl border border-cyan-500/20 bg-cyan-500/10 p-3">
+                      <label className="flex items-center gap-2 text-xs font-semibold text-cyan-400">
+                        <FolderKanban className="h-3.5 w-3.5" />
+                        Prellenar desde {industria === 'inmobiliaria' ? 'una operación' : industria === 'escribania' ? 'un legajo' : 'un expediente'}
+                      </label>
+                      <select
+                        value={expedienteId}
+                        onChange={(e) => aplicarExpediente(e.target.value)}
+                        disabled={cargandoPrellenado}
+                        aria-busy={cargandoPrellenado}
+                        className="mt-2 w-full rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2 text-sm text-white outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400 disabled:cursor-wait disabled:opacity-60"
+                      >
+                        <option value="" className="text-slate-900">— Sin selección (completar a mano) —</option>
+                        {expedientes.map((exp) => (
+                          <option key={exp.id} value={exp.id} className="text-slate-900">
+                            {exp.title || 'Sin título'}{exp.client_name ? ` — ${exp.client_name}` : ''}
+                          </option>
+                        ))}
+                      </select>
+                      {expedienteId ? (
+                        cargandoPrellenado ? (
+                          <div
+                            className="mt-2 flex items-center gap-2 text-[11px] text-cyan-300"
+                            role="status"
+                            aria-live="polite"
                           >
-                            Reintentar
-                          </button>
-                        </div>
-                      ) : (() => {
-                        const filledCount = variables.filter(
-                          (key) => valores[key] && valores[key].trim() !== ''
-                        ).length;
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            <span>
+                              Analizando los documentos y preparando el modelo… Esto puede demorar unos segundos.
+                            </span>
+                          </div>
+                        ) : errorPrellenado ? (
+                          <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-amber-400">
+                            <span>{errorPrellenado}</span>
+                            <button
+                              type="button"
+                              onClick={() => aplicarExpediente(expedienteId)}
+                              className="font-semibold underline hover:text-amber-300"
+                            >
+                              Reintentar
+                            </button>
+                          </div>
+                        ) : (() => {
+                          const filledCount = variables.filter(
+                            (key) => valores[key] && valores[key].trim() !== ''
+                          ).length;
 
-                        if (filledCount === 0) {
-                          return (
-                            <p className="mt-1.5 text-[11px] text-amber-400">
-                              No encontramos datos suficientes para prellenar este modelo. Podés completarlo manualmente.
-                            </p>
-                          );
-                        }
+                          if (filledCount === 0) {
+                            return (
+                              <p className="mt-1.5 text-[11px] text-amber-400">
+                                No encontramos datos suficientes para prellenar este modelo. Podés completarlo manualmente.
+                              </p>
+                            );
+                          }
 
-                        if (filledCount < variables.length) {
+                          if (filledCount < variables.length) {
+                            return (
+                              <p className="mt-1.5 text-[11px] text-emerald-400">
+                                Se completaron los datos disponibles. Revisá y completá los campos pendientes.
+                              </p>
+                            );
+                          }
+
                           return (
                             <p className="mt-1.5 text-[11px] text-emerald-400">
-                              Se completaron los datos disponibles. Revisá y completá los campos pendientes.
+                              Se completaron todos los campos requeridos con éxito.
                             </p>
                           );
-                        }
-
-                        return (
-                          <p className="mt-1.5 text-[11px] text-emerald-400">
-                            Se completaron todos los campos requeridos con éxito.
-                          </p>
-                        );
-                      })()
-                    ) : (
-                      <p className="mt-1.5 text-[11px] text-slate-400">
-                        Completa carátula, parte y datos disponibles automáticamente. Podés editar todo abajo.
-                      </p>
-                    )}
-                  </div>
-                )}
-                {variables.length === 0 && <p className="text-sm text-slate-500">Este modelo no tiene campos para completar.</p>}
-                {variables.map((key) => {
-                  const datosBase = expedienteId ? expedientes.find(e => e.id === expedienteId) : null;
-                  const extracted = datosBase ? datosDeExpediente(datosBase) : {};
-                  const isPreloaded = !!extracted[key];
-                  const hasValue = !!valores[key];
-
-                  return (
-                    <label key={key} className="block relative">
-                      <div className="flex justify-between items-end mb-1">
-                        <span className="block text-xs font-semibold text-slate-400">{humanize(key)}</span>
-                        {isPreloaded ? (
-                          <span className="text-[10px] font-medium text-emerald-400 bg-emerald-400/10 px-1.5 py-0.5 rounded">Precargado</span>
-                        ) : !hasValue ? (
-                          <span className="text-[10px] font-medium text-amber-400 bg-amber-400/10 px-1.5 py-0.5 rounded">Faltante</span>
-                        ) : null}
-                      </div>
-                      <input
-                        value={valores[key] ?? ''}
-                        onChange={(e) => setValores((prev) => ({ ...prev, [key]: e.target.value }))}
-                        placeholder={`Completar ${humanize(key).toLowerCase()}`}
-                        className="w-full rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2 text-sm text-white outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400"
-                      />
-                    </label>
-                  );
-                })}
-
-                {puedeIA && (
-                  seleccionado.reviewStatus === 'outdated' || seleccionado.reviewStatus === 'retired' ? (
-                    <div className="mt-4 rounded-xl border border-white/10 bg-white/[0.02] p-3 text-xs text-slate-400">
-                      🔒 La redacción con IA está deshabilitada para modelos desactualizados (Ley 27.742). Podés editar el modelo manualmente completando los campos superiores.
+                        })()
+                      ) : (
+                        <p className="mt-1.5 text-[11px] text-slate-400">
+                          Completa carátula, parte y datos disponibles automáticamente. Podés editar todo abajo.
+                        </p>
+                      )}
                     </div>
-                  ) : (
+                  )}
+                  {variables.length === 0 && <p className="text-sm text-slate-500">Este modelo no tiene campos para completar.</p>}
+                  {variables.map((key) => {
+                    const datosBase = expedienteId ? expedientes.find(e => e.id === expedienteId) : null;
+                    const extracted = datosBase ? datosDeExpediente(datosBase) : {};
+                    const isPreloaded = !!extracted[key];
+                    const hasValue = !!valores[key];
+
+                    return (
+                      <label key={key} className="block relative">
+                        <div className="flex justify-between items-end mb-1">
+                          <span className="block text-xs font-semibold text-slate-400">{humanize(key)}</span>
+                          {isPreloaded ? (
+                            <span className="text-[10px] font-medium text-emerald-400 bg-emerald-400/10 px-1.5 py-0.5 rounded">Precargado</span>
+                          ) : !hasValue ? (
+                            <span className="text-[10px] font-medium text-amber-400 bg-amber-400/10 px-1.5 py-0.5 rounded">Faltante</span>
+                          ) : null}
+                        </div>
+                        <input
+                          value={valores[key] ?? ''}
+                          onChange={(e) => setValores((prev) => ({ ...prev, [key]: e.target.value }))}
+                          placeholder={`Completar ${humanize(key).toLowerCase()}`}
+                          className="w-full rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2 text-sm text-white outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400"
+                        />
+                      </label>
+                    );
+                  })}
+
+                  {puedeIA && (
                     <div className="mt-4 rounded-xl border border-brandviolet/20 bg-brandviolet/10 p-3">
                       <label className="flex items-center gap-2 text-xs font-semibold text-brandviolet">
                         <Sparkles className="h-3.5 w-3.5" />
@@ -563,9 +597,9 @@ export function ModelosClient({
                         </div>
                       )}
                     </div>
-                  )
-                )}
-              </div>
+                  )}
+                </div>
+              )}
             </MotionCard>
 
             <MotionCard index={2} className="flex flex-col">
@@ -575,7 +609,13 @@ export function ModelosClient({
                   <button
                     type="button"
                     onClick={copiar}
-                    className="inline-flex items-center gap-1.5 rounded-xl border border-white/10 bg-white/[0.02] px-3 py-1.5 text-xs font-semibold text-slate-300 transition hover:bg-white/[0.04]"
+                    disabled={isOutdatedOrRetired}
+                    title={isOutdatedOrRetired ? 'Bloqueado para uso productivo' : 'Copiar'}
+                    className={`inline-flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-semibold transition ${
+                      isOutdatedOrRetired
+                        ? 'border-white/5 bg-white/[0.01] text-slate-500 cursor-not-allowed opacity-50'
+                        : 'border-white/10 bg-white/[0.02] text-slate-300 hover:bg-white/[0.04]'
+                    }`}
                   >
                     {copiado ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <Copy className="h-3.5 w-3.5" />}
                     {copiado ? 'Copiado' : 'Copiar'}
@@ -583,14 +623,26 @@ export function ModelosClient({
                   <button
                     type="button"
                     onClick={descargar}
-                    className="inline-flex items-center gap-1.5 rounded-xl border border-white/10 bg-white/[0.02] px-3 py-1.5 text-xs font-semibold text-slate-300 transition hover:bg-white/[0.04]"
+                    disabled={isOutdatedOrRetired}
+                    title={isOutdatedOrRetired ? 'Bloqueado para uso productivo' : 'Descargar .txt'}
+                    className={`inline-flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-semibold transition ${
+                      isOutdatedOrRetired
+                        ? 'border-white/5 bg-white/[0.01] text-slate-500 cursor-not-allowed opacity-50'
+                        : 'border-white/10 bg-white/[0.02] text-slate-300 hover:bg-white/[0.04]'
+                    }`}
                   >
                     <Download className="h-3.5 w-3.5" /> Descargar .txt
                   </button>
                   <MotionButton
                     type="button"
                     onClick={descargarDocx}
-                    className="inline-flex items-center gap-1.5 rounded-xl bg-cyan-500/10 border border-cyan-500/20 px-3 py-1.5 text-xs font-semibold text-cyan-400 transition hover:bg-cyan-500/20"
+                    disabled={isOutdatedOrRetired}
+                    title={isOutdatedOrRetired ? 'Bloqueado para uso productivo' : 'Descargar Word'}
+                    className={`inline-flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-semibold transition ${
+                      isOutdatedOrRetired
+                        ? 'border-white/5 bg-white/[0.01] text-slate-500 cursor-not-allowed opacity-50'
+                        : 'bg-cyan-500/10 border-cyan-500/20 text-cyan-400 hover:bg-cyan-500/20'
+                    }`}
                   >
                     <FileDown className="h-3.5 w-3.5" />
                     Word (.docx)

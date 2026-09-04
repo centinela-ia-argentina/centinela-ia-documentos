@@ -23,7 +23,7 @@ export type ModeloEscrito = {
   professionalDisclaimer?: string;
 };
 
-export const MODELOS: ModeloEscrito[] = [
+const RAW_MODELOS: ModeloEscrito[] = [
   {
     id: 'reserva-oferta-compra',
     titulo: 'Reserva / Oferta de compra',
@@ -396,7 +396,7 @@ SERÁ JUSTICIA.
     titulo: 'Intimación laboral — registración (Ley 24.013)',
     categoria: 'Laboral',
     descripcion: 'Intima al empleador a registrar correctamente la relación laboral. (DESACTUALIZADO: sujeto a Ley 27.742)',
-    jurisdiction: 'nacion',
+    jurisdiction: 'Nacional',
     practiceArea: 'laboral',
     courtLevel: 'extrajudicial',
     proceduralStage: 'previa',
@@ -404,7 +404,8 @@ SERÁ JUSTICIA.
     legalBasis: 'Ley 20.744 art. 80; Ley 24.013 (Régimen indemnizatorio y multas derogados por Ley 27.742 art. 99 y conc.)',
     version: '1.0',
     reviewStatus: 'outdated',
-    professionalDisclaimer: 'DESACTUALIZADO: La Ley 27.742 derogó las multas de la Ley 24.013 y del art. 80 LCT. Este modelo se conserva con fines históricos y de trazabilidad; no debe utilizarse sin adecuación letrada.',
+    lastVerifiedAt: '2026-09-04',
+    professionalDisclaimer: 'La Ley 27.742 derogó los arts. 8 a 15 de la Ley 24.013, el art. 45 de la Ley 25.345 (art. 80 LCT) y las multas de la Ley 25.323. Este modelo se conserva exclusivamente como ficha histórica de archivo. Se encuentra bloqueado para uso productivo, redacción asistida y descarga.',
     cuerpo: `{{fecha}}
 
 Sr./Sra. Empleador/a {{destinatario}}
@@ -2186,8 +2187,26 @@ LEÍDA que fue a los comparecientes, se ratifican de su contenido y la firman an
 {{cedente}}        {{cesionario}}
 
 Ante mí: {{escribano}}`,
-	},
+  },
 ];
+
+export const MODELOS: ModeloEscrito[] = RAW_MODELOS.map((m) => {
+  const t = (m.titulo + ' ' + m.id).toLowerCase();
+  const jurisdiction =
+    m.jurisdiction ??
+    (t.includes('corrientes')
+      ? 'Corrientes'
+      : t.includes('baires') || t.includes('buenos aires') || t.includes('pba')
+      ? 'Provincia de Buenos Aires'
+      : 'Nacional');
+
+  return {
+    ...m,
+    jurisdiction,
+    version: m.version ?? '1.0',
+    reviewStatus: m.reviewStatus ?? 'pending_review',
+  };
+});
 
 // 🔗 Sugiere el modelo de escrito más adecuado según el tipo de documento
 // detectado por la IA. Devuelve null si no hay una sugerencia clara.
@@ -2329,4 +2348,28 @@ export function extractModelVars(cuerpo: string): string[] {
 
 export function getModeloReviewStatus(m: ModeloEscrito): ReviewStatus {
   return m.reviewStatus ?? 'pending_review';
+}
+
+export interface ModeloInventoryItem {
+  id: string;
+  titulo: string;
+  categoria: string;
+  jurisdiction: string;
+  reviewStatus: ReviewStatus;
+  version: string;
+  lastVerifiedAt?: string;
+  isOutdatedOrRetired: boolean;
+}
+
+export function getModelosInventory(): ModeloInventoryItem[] {
+  return MODELOS.map((m) => ({
+    id: m.id,
+    titulo: m.titulo,
+    categoria: m.categoria,
+    jurisdiction: m.jurisdiction ?? 'Nacional',
+    reviewStatus: m.reviewStatus ?? 'pending_review',
+    version: m.version ?? '1.0',
+    lastVerifiedAt: m.lastVerifiedAt,
+    isOutdatedOrRetired: m.reviewStatus === 'outdated' || m.reviewStatus === 'retired',
+  }));
 }

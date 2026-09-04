@@ -211,7 +211,7 @@ function EscrituraCalc() {
         <Field label="Aporte Colegio/Caja (sobre honorarios)" value={aporteAlic} onChange={setAporteAlic} suffix="%" />
         <Field label="ITI" value={itiAlic} onChange={setItiAlic} suffix="%" />
         <Check checked={conIti} onChange={setConIti}>
-          Incluir ITI (solo para actos previos al 08/07/2024 — derogado por Ley 27.742)
+          Incluir ITI (solo para actos previos al 08/07/2024 — derogado por Ley 27.743 art. 67)
         </Check>
         <Check checked={conIva} onChange={setConIva}>
           Sumar IVA 21% sobre honorarios
@@ -261,7 +261,7 @@ function ItiCalc() {
       subtitle="Aplica a personas humanas que venden inmuebles no alcanzados por Impuesto a las Ganancias (adquiridos antes del 01/01/2018)."
     >
       <div className="rounded-xl border border-amber-500/20 bg-amber-500/10 p-3 text-xs text-amber-200">
-        ⚠️ <strong>Atención normativa:</strong> La Ley 27.742 derogó el Impuesto a la Transferencia de Inmuebles (ITI) para las operaciones y transferencias formalizadas a partir del 8 de julio de 2024. Este cálculo se conserva como referencia histórica para operaciones anteriores a dicha fecha.
+        ⚠️ <strong>Atención normativa:</strong> El art. 67 de la Ley 27.743 (B.O. 08/07/2024) derogó el Título VII de la Ley 23.905 (Impuesto a la Transferencia de Inmuebles - ITI) para las transferencias y operaciones formalizadas a partir del 8 de julio de 2024. Este cálculo se conserva como referencia histórica para operaciones formalizadas u obligaciones devengadas con anterioridad a dicha fecha.
       </div>
       <Field label="Valor de transferencia" value={monto} onChange={setMonto} suffix="ARS" placeholder="Ej: 85000000" />
       <Field label="Alícuota" value={alic} onChange={setAlic} suffix="%" />

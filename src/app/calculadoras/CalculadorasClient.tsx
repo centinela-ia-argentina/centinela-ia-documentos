@@ -6,7 +6,7 @@ import { CalendarClock, Coins, Scale, AlertTriangle, CalendarPlus, Check, Loader
 import { MotionCard } from '@/components/ui/MotionCard';
 import { MotionButton } from '@/components/ui/MotionButton';
 import { guardarPlazoEnAgenda } from './actions';
-import { UMA_VALOR, UMA_VIGENCIA, TASA_JUSTICIA_PORCENTAJE, UHOM_VALOR, JUS_BA_MEDIACION, JUS_CORRIENTES, LegalJurisdiction, LEGAL_CALENDARS, JURISDICTION_LABELS } from '@/lib/legal/config';
+import { UMA_VALOR, UMA_VIGENCIA, TASA_JUSTICIA_PORCENTAJE, UHOM_VALOR, JUS_BA_MEDIACION, JUS_CORRIENTES, LegalJurisdiction, LEGAL_CALENDARS, JURISDICTION_LABELS, LEGAL_PARAMETERS } from '@/lib/legal/config';
 import { parseISODate, sumarDiasCorridos, calcularVencimientoProcesal, esDiaHabilJudicial } from '@/lib/legal/plazos';
 import { type NationalJusticeFeeCaseType } from '@/lib/legal/tasaJusticia';
 
@@ -375,10 +375,10 @@ function HonorariosCalc() {
 
       <div className="mt-4 p-3 bg-yellow-500/10 border border-yellow-500/20 rounded-md">
         <p className="text-xs text-yellow-600/90 font-medium">
-          ⚠️ Valor de referencia precargado. Verificá su vigencia, jurisdicción y fuente oficial antes de utilizarlo.
+          ⚠️ Parámetro normativo: UMA ({LEGAL_PARAMETERS.uma.status}) — Verificá su vigencia y acordada oficial antes de utilizarlo.
         </p>
-        <p className="text-xs text-slate-500 mt-2">
-          UMA de referencia: {currency(UMA_VALOR)} ({UMA_VIGENCIA}). La escala del art. 21 es acumulativa
+        <p className="text-xs text-slate-400 mt-2">
+          UMA de referencia: {currency(UMA_VALOR)} ({UMA_VIGENCIA}). Fuente: {LEGAL_PARAMETERS.uma.sourceName}. Estado normativo: <span className="font-semibold text-amber-300">{LEGAL_PARAMETERS.uma.status}</span>. La escala del art. 21 es acumulativa
           (cada tramo de UMA se calcula con su alícuota). 2ª instancia = 30–35% de lo de 1ª si se
           confirma; 30–40% si se revoca. Apoderado sin patrocinio = 140%; procurador = 40% (art. 20).
         </p>
@@ -720,6 +720,9 @@ function InteresesJudicialesCalc() {
         <p className="mt-1 text-xs text-slate-500">
           Elegí el tipo de tasa según el fuero y cargá el valor anual vigente (BCRA). El cálculo usa interés simple.
         </p>
+        <div className="mt-2 rounded-lg border border-amber-500/20 bg-amber-500/10 p-2.5 text-[11px] text-amber-300">
+          ℹ️ Centinela IA no computa cálculos automáticos sobre series históricas no cargadas. La tasa debe ser ingresada manualmente por el profesional según la normativa aplicable o la liquidación judicial.
+        </div>
       </div>
 
       <MotionButton onClick={calcular} className={btnClass}>Calcular intereses</MotionButton>
@@ -1123,45 +1126,58 @@ function calcMediacionCorrientes(o: {
 }
 
 function MediacionTab() {
-  const [juris, setJuris] = useState<"nacion" | "baires" | "corrientes">("nacion")
+  const [juris, setJuris] = useState<"nacion" | "baires" | "corrientes">("nacion");
+  const [confirmado, setConfirmado] = useState(false);
 
   // Nación
-  const [uhom, setUhom] = useState(String(UHOM_VALOR))
-  const [tipoNac, setTipoNac] = useState<TipoNacion>("patrimonial")
-  const [montoNac, setMontoNac] = useState("")
-  const [audNac, setAudNac] = useState("1")
+  const [uhom, setUhom] = useState(String(UHOM_VALOR));
+  const [tipoNac, setTipoNac] = useState<TipoNacion>("patrimonial");
+  const [montoNac, setMontoNac] = useState("");
+  const [audNac, setAudNac] = useState("1");
 
   // Buenos Aires
-  const [jusBA, setJusBA] = useState(String(JUS_BA_MEDIACION))
-  const [indetBA, setIndetBA] = useState(false)
-  const [montoBA, setMontoBA] = useState("")
+  const [jusBA, setJusBA] = useState(String(JUS_BA_MEDIACION));
+  const [indetBA, setIndetBA] = useState(false);
+  const [montoBA, setMontoBA] = useState("");
 
   // Corrientes
-  const [jusC, setJusC] = useState(String(JUS_CORRIENTES))
-  const [resC, setResC] = useState<ResultadoCtes>("acuerdo")
-  const [tipoC, setTipoC] = useState<TipoCtes>("patrimonial")
-  const [montoC, setMontoC] = useState("")
-  const [cuotaC, setCuotaC] = useState("")
+  const [jusC, setJusC] = useState(String(JUS_CORRIENTES));
+  const [resC, setResC] = useState<ResultadoCtes>("acuerdo");
+  const [tipoC, setTipoC] = useState<TipoCtes>("patrimonial");
+  const [montoC, setMontoC] = useState("");
+  const [cuotaC, setCuotaC] = useState("");
 
-  const rNac = Number.isFinite(parseMonto(montoNac)) && parseMonto(montoNac) > 0 ? calcMediacionNacion({
+  const rNac = confirmado && Number.isFinite(parseMonto(montoNac)) && parseMonto(montoNac) > 0 ? calcMediacionNacion({
     tipo: tipoNac, monto: parseMonto(montoNac), audiencias: Number(audNac) || 1, valorUHOM: Number(uhom) || UHOM_VALOR,
-  }) : null
-  const rBA = Number.isFinite(parseMonto(montoBA)) && parseMonto(montoBA) > 0 ? calcMediacionBA({
+  }) : null;
+  const rBA = confirmado ? (Number.isFinite(parseMonto(montoBA)) && parseMonto(montoBA) > 0 ? calcMediacionBA({
     monto: parseMonto(montoBA), indeterminado: indetBA, valorJus: Number(jusBA) || JUS_BA_MEDIACION,
-  }) : (indetBA ? calcMediacionBA({ monto: 0, indeterminado: indetBA, valorJus: Number(jusBA) || JUS_BA_MEDIACION }) : null)
-  const rC = (Number.isFinite(parseMonto(montoC)) && parseMonto(montoC) > 0) || (tipoC === 'alimentaria' && Number.isFinite(parseMonto(cuotaC)) && parseMonto(cuotaC) > 0) || tipoC === 'sin_valor' ? calcMediacionCorrientes({
+  }) : (indetBA ? calcMediacionBA({ monto: 0, indeterminado: indetBA, valorJus: Number(jusBA) || JUS_BA_MEDIACION }) : null)) : null;
+  const rC = confirmado && ((Number.isFinite(parseMonto(montoC)) && parseMonto(montoC) > 0) || (tipoC === 'alimentaria' && Number.isFinite(parseMonto(cuotaC)) && parseMonto(cuotaC) > 0) || tipoC === 'sin_valor') ? calcMediacionCorrientes({
     resultado: resC, tipo: tipoC, monto: parseMonto(montoC), cuotaMensual: parseMonto(cuotaC), valorJus: Number(jusC) || JUS_CORRIENTES,
-  }) : null
+  }) : null;
 
   return (
     <Card title="Honorarios de mediación">
-      <div className="mb-4 p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl">
+      <div className="mb-4 rounded-xl border border-amber-500/30 bg-amber-500/10 p-4">
         <p className="text-xs font-semibold text-amber-300">
-          ⚠️ Parámetros orientativos sujetos a verificación reglamentaria
+          ⚠️ Parámetros en estado <code>pending</code> — Cálculo bloqueado por defecto
         </p>
-        <p className="mt-1 text-xs text-amber-200/80">
-          Los valores base de UHOM ({currency(UHOM_VALOR)}), Jus PBA ({currency(JUS_BA_MEDIACION)}) y Jus Corrientes ({currency(JUS_CORRIENTES)}) son valores referenciales precargados y se encuentran clasificados como pendientes de verificación reglamentaria periódica. Podés editar el valor aplicable según la acordada o resolución vigente en tu jurisdicción. Los resultados son estrictamente orientativos y no vinculantes.
+        <p className="mt-1 text-xs text-amber-200/90">
+          Los parámetros normativos UHOM ({currency(UHOM_VALOR)}), Jus PBA ({currency(JUS_BA_MEDIACION)}) y Jus Corrientes ({currency(JUS_CORRIENTES)}) se encuentran clasificados como <strong>pending</strong> de verificación reglamentaria. Se requiere confirmación explícita para habilitar el cálculo orientativo. Podés además editar el valor aplicable según la acordada o resolución vigente en tu jurisdicción.
         </p>
+        <label className="mt-3 flex items-start gap-2.5 cursor-pointer text-xs text-slate-200 font-medium">
+          <input
+            type="checkbox"
+            data-testid="mediacion-confirmar-checkbox"
+            checked={confirmado}
+            onChange={(e) => setConfirmado(e.target.checked)}
+            className="mt-0.5 rounded border-amber-400/50 bg-slate-900 text-amber-500 focus:ring-amber-400"
+          />
+          <span>
+            Confirmo que revisé la resolución o acordada arancelaria vigente en la jurisdicción correspondiente y habilito el cálculo orientativo bajo supervisión profesional.
+          </span>
+        </label>
       </div>
 
       <div className="block mb-4">
@@ -1200,7 +1216,11 @@ function MediacionTab() {
             <input className={inputClass} value={audNac} onChange={(e) => setAudNac(e.target.value)} type="number" />
           </Field>
 
-          {rNac ? (
+          {!confirmado ? (
+            <div data-testid="mediacion-bloqueada" className="mt-4 rounded-xl border border-amber-500/20 bg-amber-500/5 p-3 text-xs text-amber-300">
+              🔒 Cálculo bloqueado: confirmá la revisión del parámetro normativo en la casilla superior para calcular.
+            </div>
+          ) : rNac ? (
             <div className="mt-4 grid gap-3 sm:grid-cols-2">
               <ResultBox label="Ítem de escala" value={rNac.item} />
               <ResultBox label="Honorario básico" value={`${rNac.basicoUHOM.toFixed(2)} UHOM`} subtitle={fmtARS(rNac.basicoPesos)} />
@@ -1232,7 +1252,11 @@ function MediacionTab() {
             </Field>
           )}
 
-          {rBA ? (
+          {!confirmado ? (
+            <div data-testid="mediacion-bloqueada" className="mt-4 rounded-xl border border-amber-500/20 bg-amber-500/5 p-3 text-xs text-amber-300">
+              🔒 Cálculo bloqueado: confirmá la revisión del parámetro normativo en la casilla superior para calcular.
+            </div>
+          ) : rBA ? (
             <>
               <div className="mt-4 grid gap-3 sm:grid-cols-2">
                 <ResultBox label="Tramo (art. 31 Dec. 600/21)" value={rBA.tramo} />
@@ -1285,7 +1309,11 @@ function MediacionTab() {
             </Field>
           )}
 
-          {rC ? (
+          {!confirmado ? (
+            <div data-testid="mediacion-bloqueada" className="mt-4 rounded-xl border border-amber-500/20 bg-amber-500/5 p-3 text-xs text-amber-300">
+              🔒 Cálculo bloqueado: confirmá la revisión del parámetro normativo en la casilla superior para calcular.
+            </div>
+          ) : rC ? (
             <div className="mt-4 grid gap-3 sm:grid-cols-2">
               <ResultBox label="Cálculo" value={rC.detalle} />
               <ResultBox label="Honorario" value={`${rC.honJus.toFixed(2)} Jus`} subtitle={fmtARS(rC.honPesos)} highlight={true} />
@@ -1307,7 +1335,7 @@ function MediacionTab() {
         </p>
       </div>
     </Card>
-  )
+  );
 }
 
 export function CalculadorasClient({ puedeGuardar = true }: { puedeGuardar?: boolean }) {

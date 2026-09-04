@@ -23,7 +23,7 @@ vi.mock('@/lib/auth/getUserProfile', () => ({
   getUserProfile: vi.fn(),
 }));
 
-import { autoMarcarChecklist } from './actions';
+import { autoMarcarChecklist, linkChecklistItemDocument } from './actions';
 import { createClient } from '@/lib/supabase/server';
 import { createAuditLog } from '@/lib/audit/createAuditLog';
 import { getUserProfile } from '@/lib/auth/getUserProfile';
@@ -75,6 +75,9 @@ describe('C-M3-J-001: Checklist manual match persistence over auto-match', () =>
       },
     ];
 
+    const checklistItemsEqOrg = vi.fn().mockResolvedValue({ data: itemsData });
+    const checklistItemsEqCheck = vi.fn().mockReturnValue({ eq: checklistItemsEqOrg });
+
     fromHandler = vi.fn((table: string) => {
       if (table === 'checklists') {
         return {
@@ -94,7 +97,7 @@ describe('C-M3-J-001: Checklist manual match persistence over auto-match', () =>
       if (table === 'checklist_items') {
         return {
           select: vi.fn().mockReturnValue({
-            eq: vi.fn().mockResolvedValue({ data: itemsData }),
+            eq: checklistItemsEqCheck,
           }),
           update: mockUpdate,
         };
@@ -118,11 +121,26 @@ describe('C-M3-J-001: Checklist manual match persistence over auto-match', () =>
 
     await autoMarcarChecklist(formData);
 
+    // Defensive check: organization_id was filtered in checklist_items query
+    expect(checklistItemsEqOrg).toHaveBeenCalledWith('organization_id', 'org-1');
+
     // item-manual must NOT have been unlinked
     const updateCalls = mockUpdate.mock.calls;
     for (const call of updateCalls) {
       expect(call[0]).not.toEqual(expect.objectContaining({ document_id: null }));
     }
+
+    // Auto-match marks candidate item with match_source: 'automatic'
+    expect(mockUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        document_id: 'doc-dni',
+        match_source: 'automatic',
+        status: 'received',
+      })
+    );
+
+    // Defensive check: organization_id was filtered on update
+    expect(mockEq).toHaveBeenCalledWith('organization_id', 'org-1');
 
     // Must emit checklist_auto_match_override_skipped
     expect(createAuditLog).toHaveBeenCalledWith(
@@ -141,5 +159,75 @@ describe('C-M3-J-001: Checklist manual match persistence over auto-match', () =>
         }),
       })
     );
+  });
+
+  it('linkChecklistItemDocument sets match_source="manual" when linking and null when unlinking', async () => {
+    const itemData = { id: 'item-1', checklist_id: 'check-1', status: 'pending' };
+    const docData = { id: 'doc-1', file_name: 'DNI.pdf', case_id: 'case-1' };
+
+    fromHandler = vi.fn((table: string) => {
+      if (table === 'checklist_items') {
+        const query: any = {
+          eq: vi.fn().mockImplementation(() => query),
+          maybeSingle: vi.fn().mockResolvedValue({ data: itemData }),
+        };
+        return {
+          select: vi.fn().mockReturnValue(query),
+          update: mockUpdate,
+        };
+      }
+      if (table === 'checklists') {
+        const query: any = {
+          eq: vi.fn().mockImplementation(() => query),
+          order: vi.fn().mockImplementation(() => query),
+          limit: vi.fn().mockImplementation(() => query),
+          maybeSingle: vi.fn().mockResolvedValue({ data: { id: 'check-1', case_id: 'case-1' } }),
+        };
+        return {
+          select: vi.fn().mockReturnValue(query),
+        };
+      }
+      if (table === 'documents') {
+        const query: any = {
+          eq: vi.fn().mockImplementation(() => query),
+          maybeSingle: vi.fn().mockResolvedValue({ data: docData }),
+        };
+        return {
+          select: vi.fn().mockReturnValue(query),
+        };
+      }
+      return {};
+    });
+
+    vi.mocked(createClient).mockResolvedValue({ from: fromHandler } as any);
+
+    // 1. Manual link
+    const linkForm = new FormData();
+    linkForm.append('case_id', 'case-1');
+    linkForm.append('item_id', 'item-1');
+    linkForm.append('document_id', 'doc-1');
+
+    await expect(linkChecklistItemDocument(linkForm)).rejects.toThrow('NEXT_REDIRECT');
+
+    expect(mockUpdate).toHaveBeenCalledWith({
+      document_id: 'doc-1',
+      match_source: 'manual',
+      status: 'received',
+    });
+
+    // 2. Unlink
+    mockUpdate.mockClear();
+    const unlinkForm = new FormData();
+    unlinkForm.append('case_id', 'case-1');
+    unlinkForm.append('item_id', 'item-1');
+    unlinkForm.append('document_id', '');
+
+    await expect(linkChecklistItemDocument(unlinkForm)).rejects.toThrow('NEXT_REDIRECT');
+
+    expect(mockUpdate).toHaveBeenCalledWith({
+      document_id: null,
+      match_source: null,
+      status: 'pending',
+    });
   });
 });

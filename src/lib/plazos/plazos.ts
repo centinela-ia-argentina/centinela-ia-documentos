@@ -45,7 +45,14 @@ const PATRONES_PRESCRIPCION = [
 ];
 
 const PATRONES_PROCESAL = [
-  /\b(?:traslado|contestaci[oó]n|apelaci[oó]n|recurso|expresi[oó]n\s+de\s+agravios|c[eé]dula|intimaci[oó]n|plazo\s+procesal|alegato|memorial|demanda)\b/i,
+  /\b(?:traslado|contestaci[oó]n|apelaci[oó]n|recurso|expresi[oó]n\s+de\s+agravios|c[eé]dula|intimaci[oó]n|plazo\s+procesal|alegato|memorial)\b/i,
+  /\b(?:traslado\s+(?:de\s+)?demanda|notificaci[oó]n\s+(?:de\s+(?:la\s+)?)?demanda|c[eé]dula\s+(?:de\s+)?demanda|contestar\s+demanda|contestaci[oó]n\s+(?:de\s+)?demanda|plazo\s+(?:para\s+)?contestar\s+demanda|interposici[oó]n\s+de\s+demanda|ampliaci[oó]n\s+de\s+demanda)\b/i,
+];
+
+const PATRONES_DEMANDA_NO_PROCESAL = [
+  /\bdemanda\s+de\s+(?:servicios|bienes|productos|mercado|empleo|consumo)\b/i,
+  /\bcurva\s+de\s+demanda\b/i,
+  /\boferta\s+y\s+demanda\b/i,
 ];
 
 const PATRONES_VENCIMIENTO_DOC = [
@@ -76,16 +83,23 @@ const PATRONES_CONTRACTUAL = [
 
 /** Clasifica una fecha según su descripción y tipo sugerido. */
 export function clasificarFecha(descripcion?: string | null, tipoSugerido?: string | null): DateType {
+  const d = (descripcion || '').trim();
+
+  // Descarte explícito de frases genéricas no procesales que contienen "demanda"
+  if (d && PATRONES_DEMANDA_NO_PROCESAL.some((re) => re.test(d))) {
+    return 'informational';
+  }
+
   if (tipoSugerido && (ACTIONABLE_DATE_TYPES as readonly string[]).includes(tipoSugerido)) {
     const isExplicitlyActionable =
-      descripcion &&
-      (PATRONES_PRESCRIPCION.some((re) => re.test(descripcion)) ||
-        PATRONES_AUDIENCIA.some((re) => re.test(descripcion)) ||
-        PATRONES_PROCESAL.some((re) => re.test(descripcion)) ||
-        PATRONES_VENCIMIENTO_DOC.some((re) => re.test(descripcion)));
+      d &&
+      (PATRONES_PRESCRIPCION.some((re) => re.test(d)) ||
+        PATRONES_AUDIENCIA.some((re) => re.test(d)) ||
+        PATRONES_PROCESAL.some((re) => re.test(d)) ||
+        PATRONES_VENCIMIENTO_DOC.some((re) => re.test(d)));
 
-    if (!isExplicitlyActionable && descripcion && (esFechaPago(descripcion) || esFechaNacimiento(descripcion))) {
-      return esFechaNacimiento(descripcion) ? 'informational' : 'payment_date';
+    if (!isExplicitlyActionable && d && (esFechaPago(d) || esFechaNacimiento(d))) {
+      return esFechaNacimiento(d) ? 'informational' : 'payment_date';
     }
     return tipoSugerido as DateType;
   }
@@ -93,7 +107,6 @@ export function clasificarFecha(descripcion?: string | null, tipoSugerido?: stri
     return tipoSugerido as DateType;
   }
 
-  const d = (descripcion || '').trim();
   if (!d) return 'informational';
 
   if (PATRONES_FECHA_INFORMATIVA.some((re) => re.test(d))) return 'informational';
@@ -132,14 +145,43 @@ export function isActionableDate(tipo?: DateType | string | null, descripcion?: 
   return (ACTIONABLE_DATE_TYPES as readonly string[]).includes(tipoEfectivo);
 }
 
-/** Un plazo es "accionable" (para la cronología) si NO es una fecha meramente informativa o de pago. */
+export interface FechaExtraida {
+  fecha: string;
+  descripcion: string;
+  tipo: DateType;
+  confianza: 'alta' | 'media' | 'baja';
+  evidencia_textual?: string;
+  requiere_revision: boolean;
+  documento_origen?: string;
+}
+
+/**
+ * Evalúa si una fecha extraída es apta para activar vencimientos procesales (Radar, Agenda, expires_at).
+ * Requiere tipo accionable, descartando baja confianza o indicación de requerir revisión profesional.
+ */
+export function evaluarFechaAccionable(fecha?: {
+  descripcion?: string | null;
+  fecha?: string | null;
+  tipo?: string | null;
+  confianza?: 'alta' | 'media' | 'baja' | string | null;
+  requiere_revision?: boolean | null;
+  documento_origen?: string | null;
+} | null): boolean {
+  if (!fecha || !fecha.descripcion) return false;
+  if (fecha.confianza === 'baja') return false;
+  if (fecha.requiere_revision === true) return false;
+  return isActionableDate(fecha.tipo, fecha.descripcion);
+}
+
+/** Un plazo es "accionable" (para la cronología) si NO es una fecha meramente informativa o de pago y no tiene baja confianza/requiere revisión. */
 export function esPlazoAccionable(plazo?: {
   descripcion?: string | null;
   fecha?: string | null;
   tipo?: string | null;
+  confianza?: string | null;
+  requiere_revision?: boolean | null;
 }): boolean {
-  if (!plazo?.descripcion) return false;
-  return isActionableDate(plazo.tipo, plazo.descripcion);
+  return evaluarFechaAccionable(plazo);
 }
 
 /** Un plazo entra al Radar (vencimientos, plazos operativos) si es accionable. */
