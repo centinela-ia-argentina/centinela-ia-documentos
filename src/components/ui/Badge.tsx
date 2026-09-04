@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import type { ComponentPropsWithoutRef } from 'react';
 
 type Tone = 'neutral' | 'accent' | 'warning' | 'danger' | 'success';
 
@@ -10,9 +10,23 @@ const tones: Record<Tone, string> = {
   success: 'border-emerald-400/30 bg-emerald-400/[0.10] text-emerald-200',
 };
 
-export function Badge({ tone = 'neutral', children }: { tone?: Tone; children: ReactNode }) {
+export type BadgeProps = ComponentPropsWithoutRef<'span'> & {
+  tone?: Tone;
+  'data-testid'?: string;
+  [key: `data-${string}`]: unknown;
+};
+
+export function Badge({
+  tone = 'neutral',
+  children,
+  className = '',
+  ...props
+}: BadgeProps) {
+  const toneClass = tones[tone] ?? tones.neutral;
+  const classes = `inline-flex whitespace-nowrap items-center rounded-full border px-2.5 py-0.5 text-xs font-medium ${toneClass}${className ? ` ${className}` : ''}`;
+
   return (
-    <span className={`inline-flex whitespace-nowrap items-center rounded-full border px-2.5 py-0.5 text-xs font-medium ${tones[tone]}`}>
+    <span {...props} className={classes}>
       {children}
     </span>
   );
