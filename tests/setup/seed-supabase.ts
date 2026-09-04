@@ -130,15 +130,15 @@ export async function seedSupabase() {
 
     // 4. Cases
     await throwOnError(supabaseAdmin.from('cases').upsert([
-      { id: SEED_DATA.CASE_LEGAL_ID, organization_id: SEED_DATA.ORG_LEGAL_ID, title: 'Caso Legal 1', case_type: 'civil', status: 'active', created_by: SEED_DATA.ADMIN_LEGAL_ID, assigned_to: SEED_DATA.CLIENT_ASSIGNED_ID },
-      { id: SEED_DATA.CASE_INM_ID, organization_id: SEED_DATA.ORG_INM_ID, title: 'Propiedad 1', case_type: 'venta', status: 'active', created_by: SEED_DATA.ADMIN_INM_ID, assigned_to: null },
+      { id: SEED_DATA.CASE_LEGAL_ID, organization_id: SEED_DATA.ORG_LEGAL_ID, title: 'Caso Legal 1', case_type: 'Demanda', status: 'active', created_by: SEED_DATA.ADMIN_LEGAL_ID, assigned_to: SEED_DATA.CLIENT_ASSIGNED_ID },
+      { id: SEED_DATA.CASE_INM_ID, organization_id: SEED_DATA.ORG_INM_ID, title: 'Propiedad 1', case_type: 'Compraventa de inmueble', status: 'active', created_by: SEED_DATA.ADMIN_INM_ID, assigned_to: null },
       { id: SEED_DATA.CASE_ESC_ID, organization_id: SEED_DATA.ORG_ESC_ID, title: 'Escritura 1', case_type: 'Escritura', status: 'active', created_by: SEED_DATA.ADMIN_ESC_ID, assigned_to: null },
       { id: SEED_DATA.CASE_ESC_PODER_ID, organization_id: SEED_DATA.ORG_ESC_ID, title: 'Poder QA', case_type: 'Poder', status: 'active', created_by: SEED_DATA.ADMIN_ESC_ID, assigned_to: null },
       { id: SEED_DATA.CASE_ESC_CERTIFICACION_ID, organization_id: SEED_DATA.ORG_ESC_ID, title: 'Certificación QA', case_type: 'Certificación de firmas', status: 'active', created_by: SEED_DATA.ADMIN_ESC_ID, assigned_to: null },
       { id: SEED_DATA.CASE_ESC_ACTA_ID, organization_id: SEED_DATA.ORG_ESC_ID, title: 'Acta QA', case_type: 'Acta notarial', status: 'active', created_by: SEED_DATA.ADMIN_ESC_ID, assigned_to: null },
       { id: SEED_DATA.CASE_ESC_SUCESION_ID, organization_id: SEED_DATA.ORG_ESC_ID, title: 'Sucesión QA', case_type: 'Sucesión', status: 'active', created_by: SEED_DATA.ADMIN_ESC_ID, assigned_to: SEED_DATA.CLIENT_ESC_ID },
-      { id: SEED_DATA.CASE_RAG_LEGAL_OTHER_ID, organization_id: SEED_DATA.ORG_LEGAL_ID, title: 'RAG Legal Otro Caso', case_type: 'civil', status: 'active', created_by: SEED_DATA.ADMIN_LEGAL_ID, assigned_to: null },
-      { id: SEED_DATA.CASE_RAG_NO_EVIDENCE_ID, organization_id: SEED_DATA.ORG_LEGAL_ID, title: 'RAG Sin Evidencia', case_type: 'civil', status: 'active', created_by: SEED_DATA.ADMIN_LEGAL_ID, assigned_to: null }
+      { id: SEED_DATA.CASE_RAG_LEGAL_OTHER_ID, organization_id: SEED_DATA.ORG_LEGAL_ID, title: 'RAG Legal Otro Caso', case_type: 'Demanda', status: 'active', created_by: SEED_DATA.ADMIN_LEGAL_ID, assigned_to: null },
+      { id: SEED_DATA.CASE_RAG_NO_EVIDENCE_ID, organization_id: SEED_DATA.ORG_LEGAL_ID, title: 'RAG Sin Evidencia', case_type: 'Demanda', status: 'active', created_by: SEED_DATA.ADMIN_LEGAL_ID, assigned_to: null }
     ]), 'cases');
 
     // 5. Documents (For RAG/RLS tests)

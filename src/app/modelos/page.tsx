@@ -2,7 +2,8 @@ import { redirect } from 'next/navigation';
 import { AppShell } from '@/components/layout/AppShell';
 import { createClient } from '@/lib/supabase/server';
 import { getUserProfile } from '@/lib/auth/getUserProfile';
-import { normalizeIndustryType } from '@/lib/industries/documentTypes';
+import { getStrictIndustryForOrganization } from '@/lib/auth/getStrictIndustry';
+import { isCaseTypeCompatibleWithIndustry } from '@/lib/industries/caseConfig';
 import { ModelosClient, type ExpedienteLite } from './ModelosClient';
 import { canUseAi } from '@/lib/permissions/roles';
 import { RevisarEscrito } from './RevisarEscrito';
@@ -18,22 +19,21 @@ export default async function ModelosPage({
   if (profile.role === 'client') redirect('/acceso-denegado?motivo=rol');
 
   const supabase = await createClient();
-  const { data: cases } = await supabase
-    .from('cases')
-    .select('id, title, client_name, case_type, metadata')
-    .eq('organization_id', profile.organization_id)
-    .neq('status', 'archived')
-    .neq('status', 'Archivado')
-    .order('created_at', { ascending: false });
+  const [industria, { data: cases }] = await Promise.all([
+    getStrictIndustryForOrganization(profile.organization_id),
+    supabase
+      .from('cases')
+      .select('id, title, client_name, case_type, metadata')
+      .eq('organization_id', profile.organization_id)
+      .neq('status', 'archived')
+      .neq('status', 'Archivado')
+      .order('created_at', { ascending: false }),
+  ]);
 
-  const expedientes = (cases ?? []) as ExpedienteLite[];
-
-  const { data: org } = await supabase
-    .from('organizations')
-    .select('industry_type')
-    .eq('id', profile.organization_id)
-    .maybeSingle();
-  const industria = normalizeIndustryType(org?.industry_type);
+  // Filtrado estricto por industria para evitar contaminación entre verticales
+  const expedientes = ((cases ?? []).filter((c) =>
+    isCaseTypeCompatibleWithIndustry(c.case_type, industria)
+  )) as ExpedienteLite[];
 
   const sp = await searchParams;
   const modeloInicialId = typeof sp.modelo === 'string' ? sp.modelo : null;

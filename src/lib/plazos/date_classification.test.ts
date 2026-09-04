@@ -10,6 +10,7 @@ import {
   ACTIONABLE_DATE_TYPES,
   NON_ACTIONABLE_DATE_TYPES,
   evaluarFechaAccionable,
+  normalizarFechasPlazos,
 } from './plazos';
 
 describe('C-M3-J-004: Date taxonomy and operational vs informative deadlines', () => {
@@ -118,13 +119,14 @@ describe('C-M3-J-004: Date taxonomy and operational vs informative deadlines', (
   });
 
   describe('Confidence, Evidence, and Human Review Flag (evaluarFechaAccionable)', () => {
-    it('accepts deadlines with high or medium confidence without review required', () => {
+    it('accepts deadlines with high or medium confidence, textual evidence, valid ISO and no review required', () => {
       expect(
         evaluarFechaAccionable({
           descripcion: 'Vencimiento para presentar memorial de agravios',
           fecha: '2026-09-15',
           tipo: 'procedural_deadline',
           confianza: 'alta',
+          evidencia_textual: '...dentro del plazo perentorio de 5 días...',
           requiere_revision: false,
         })
       ).toBe(true);
@@ -135,18 +137,46 @@ describe('C-M3-J-004: Date taxonomy and operational vs informative deadlines', (
           fecha: '2026-10-02',
           tipo: 'hearing',
           confianza: 'media',
+          evidencia_textual: 'Fíjase audiencia para el día 2 de octubre de 2026...',
           requiere_revision: false,
         })
       ).toBe(true);
     });
 
-    it('rejects deadlines with low confidence even if procedural', () => {
+    it('rejects deadlines missing textual evidence', () => {
+      expect(
+        evaluarFechaAccionable({
+          descripcion: 'Vencimiento sin cita textual',
+          fecha: '2026-09-15',
+          tipo: 'procedural_deadline',
+          confianza: 'alta',
+          evidencia_textual: '',
+          requiere_revision: false,
+        })
+      ).toBe(false);
+    });
+
+    it('rejects deadlines with invalid non-ISO date formats', () => {
+      expect(
+        evaluarFechaAccionable({
+          descripcion: 'Vencimiento con fecha en texto',
+          fecha: '15 de septiembre de 2026',
+          tipo: 'procedural_deadline',
+          confianza: 'alta',
+          evidencia_textual: '...el 15 de septiembre...',
+          requiere_revision: false,
+        })
+      ).toBe(false);
+    });
+
+    it('rejects deadlines with low confidence even if procedural and with evidence', () => {
       expect(
         evaluarFechaAccionable({
           descripcion: 'Plazo para contestar demanda (detectado ambiguo)',
           fecha: '2026-09-20',
           tipo: 'procedural_deadline',
           confianza: 'baja',
+          evidencia_textual: 'parece un plazo de 15 días',
           requiere_revision: false,
         })
       ).toBe(false);
@@ -159,9 +189,184 @@ describe('C-M3-J-004: Date taxonomy and operational vs informative deadlines', (
           fecha: '2026-09-25',
           tipo: 'procedural_deadline',
           confianza: 'alta',
+          evidencia_textual: 'cédula con fecha tachada',
           requiere_revision: true,
         })
       ).toBe(false);
+    });
+  });
+
+  describe('normalizarFechasPlazos: Normalización transversal para Legal, Escribanía e Inmobiliaria', () => {
+    it('1. Legal: Procedural deadline with high confidence and evidence is preserved and actionable', () => {
+      const raw = [{
+        descripcion: 'Plazo para contestar demanda',
+        fecha: '2026-09-20',
+        tipo: 'procedural_deadline',
+        confianza: 'alta',
+        evidencia_textual: 'confiérase traslado por el término de 15 días',
+        requiere_revision: false,
+      }];
+      const normalized = normalizarFechasPlazos(raw);
+      expect(normalized).toHaveLength(1);
+      expect(normalized[0].tipo).toBe('procedural_deadline');
+      expect(normalized[0].confianza).toBe('alta');
+      expect(normalized[0].evidencia_textual).toBe('confiérase traslado por el término de 15 días');
+      expect(normalized[0].requiere_revision).toBe(false);
+      expect(evaluarFechaAccionable(normalized[0])).toBe(true);
+    });
+
+    it('2. Legal: Hearing date with medium confidence is preserved and actionable', () => {
+      const raw = [{
+        descripcion: 'Audiencia de conciliación',
+        fecha: '2026-10-10',
+        tipo: 'hearing',
+        confianza: 'media',
+        evidencia_textual: 'audiencia a celebrarse el 10/10/2026',
+        requiere_revision: false,
+      }];
+      const normalized = normalizarFechasPlazos(raw);
+      expect(evaluarFechaAccionable(normalized[0])).toBe(true);
+    });
+
+    it('3. Legal: Low confidence marks requiere_revision and is NOT actionable', () => {
+      const raw = [{
+        descripcion: 'Vencimiento dudoso',
+        fecha: '2026-09-30',
+        tipo: 'procedural_deadline',
+        confianza: 'baja',
+        evidencia_textual: 'posible plazo',
+        requiere_revision: false,
+      }];
+      const normalized = normalizarFechasPlazos(raw);
+      expect(evaluarFechaAccionable(normalized[0])).toBe(false);
+    });
+
+    it('4. Legal: Missing textual evidence forces requiere_revision = true and is NOT actionable', () => {
+      const raw = [{
+        descripcion: 'Vencimiento sin evidencia',
+        fecha: '2026-09-30',
+        tipo: 'procedural_deadline',
+        confianza: 'alta',
+        evidencia_textual: '',
+        requiere_revision: false,
+      }];
+      const normalized = normalizarFechasPlazos(raw);
+      expect(normalized[0].requiere_revision).toBe(true);
+      expect(evaluarFechaAccionable(normalized[0])).toBe(false);
+    });
+
+    it('5. Legal: Missing or invalid confidence defaults to baja + requiere_revision = true', () => {
+      const raw = [{
+        descripcion: 'Vencimiento sin confianza especificada',
+        fecha: '2026-09-30',
+        tipo: 'procedural_deadline',
+        evidencia_textual: 'notifíquese',
+      }];
+      const normalized = normalizarFechasPlazos(raw);
+      expect(normalized[0].confianza).toBe('baja');
+      expect(normalized[0].requiere_revision).toBe(true);
+      expect(evaluarFechaAccionable(normalized[0])).toBe(false);
+    });
+
+    it('6. Legal: Unknown date type falls back safely and forces requiere_revision = true', () => {
+      const raw = [{
+        descripcion: 'Algo raro',
+        fecha: '2026-09-30',
+        tipo: 'unsupported_custom_type',
+        confianza: 'alta',
+        evidencia_textual: 'texto',
+      }];
+      const normalized = normalizarFechasPlazos(raw);
+      expect(normalized[0].requiere_revision).toBe(true);
+    });
+
+    it('7. Escribanía: Document expiration (certificado de dominio) is actionable when verified', () => {
+      const raw = [{
+        descripcion: 'Vencimiento de certificado de dominio',
+        fecha: '2026-10-15',
+        tipo: 'document_expiration',
+        confianza: 'alta',
+        evidencia_textual: 'Validez del certificado: 30 días corridos hasta 15/10/2026',
+        requiere_revision: false,
+      }];
+      const normalized = normalizarFechasPlazos(raw);
+      expect(normalized[0].tipo).toBe('document_expiration');
+      expect(evaluarFechaAccionable(normalized[0])).toBe(true);
+    });
+
+    it('8. Escribanía: Past issue date (otorgamiento de escritura) is issue_date and non-actionable', () => {
+      const raw = [{
+        descripcion: 'Fecha de otorgamiento de la escritura pública',
+        fecha: '2024-05-12',
+        tipo: 'issue_date',
+        confianza: 'alta',
+        evidencia_textual: 'En la ciudad de Corrientes, a 12 de mayo de 2024',
+        requiere_revision: false,
+      }];
+      const normalized = normalizarFechasPlazos(raw);
+      expect(normalized[0].tipo).toBe('issue_date');
+      expect(evaluarFechaAccionable(normalized[0])).toBe(false);
+    });
+
+    it('9. Escribanía: Ambiguous certificate date without evidence is not actionable', () => {
+      const raw = [{
+        descripcion: 'Certificado inhibición dudoso',
+        fecha: '2026-11-01',
+        tipo: 'document_expiration',
+        confianza: 'media',
+        evidencia_textual: '   ',
+        requiere_revision: false,
+      }];
+      const normalized = normalizarFechasPlazos(raw);
+      expect(normalized[0].requiere_revision).toBe(true);
+      expect(evaluarFechaAccionable(normalized[0])).toBe(false);
+    });
+
+    it('10. Inmobiliaria: Lease expiration (contractual_deadline) is actionable when verified', () => {
+      const raw = [{
+        descripcion: 'Vencimiento de contrato de locación',
+        fecha: '2027-03-31',
+        tipo: 'contractual_deadline',
+        confianza: 'alta',
+        evidencia_textual: 'El presente contrato tendrá vigencia hasta el 31 de marzo de 2027',
+        requiere_revision: false,
+      }];
+      const normalized = normalizarFechasPlazos(raw);
+      expect(normalized[0].tipo).toBe('contractual_deadline');
+      expect(evaluarFechaAccionable(normalized[0])).toBe(true);
+    });
+
+    it('11. Inmobiliaria: Monthly rental payment date is payment_date and non-actionable', () => {
+      const raw = [{
+        descripcion: 'Fecha de pago de alquiler mensual',
+        fecha: '2026-06-10',
+        tipo: 'payment_date',
+        confianza: 'alta',
+        evidencia_textual: 'pagadero del 1 al 10 de cada mes',
+        requiere_revision: false,
+      }];
+      const normalized = normalizarFechasPlazos(raw);
+      expect(normalized[0].tipo).toBe('payment_date');
+      expect(evaluarFechaAccionable(normalized[0])).toBe(false);
+    });
+
+    it('12. Inmobiliaria: Purchase offer reservation deadline is contractual_deadline and actionable', () => {
+      const raw = [{
+        descripcion: 'Vencimiento de plazo de aceptación de oferta de compra',
+        fecha: '2026-09-18',
+        tipo: 'contractual_deadline',
+        confianza: 'media',
+        evidencia_textual: 'oferta vigente hasta el 18 de septiembre de 2026 inclusive',
+        requiere_revision: false,
+      }];
+      const normalized = normalizarFechasPlazos(raw);
+      expect(evaluarFechaAccionable(normalized[0])).toBe(true);
+    });
+
+    it('13. Cross-vertical: Corrupt or non-object entries are filtered out safely', () => {
+      const raw = [null, undefined, 'string_invalido', 42, { descripcion: '', fecha: '' }];
+      const normalized = normalizarFechasPlazos(raw as any);
+      expect(normalized).toEqual([]);
     });
   });
 });

@@ -75,12 +75,9 @@ describe('C-M3-J-005 & Governance: Legal models review status and blocking', () 
 
   it('redactarEscritoIA blocks outdated model and registers ai_model_blocked audit event', async () => {
     const res = await redactarEscritoIA({
-      titulo: 'Intimación laboral — registración (Ley 24.013)',
-      cuerpo: 'plantilla',
+      modeloId: 'intimacion-laboral-registracion',
       valores: {},
       instruccion: 'Redactar',
-      industria: 'legal',
-      modeloId: 'intimacion-laboral-registracion',
     });
 
     expect(res.ok).toBe(false);
@@ -91,6 +88,161 @@ describe('C-M3-J-005 & Governance: Legal models review status and blocking', () 
         metadata: expect.objectContaining({
           entity_id: 'intimacion-laboral-registracion',
           review_status: 'outdated',
+        }),
+      })
+    );
+  });
+
+  it('redactarEscritoIA rejects missing or empty modeloId without proceeding', async () => {
+    const res1 = await redactarEscritoIA({
+      modeloId: '',
+      valores: {},
+    });
+    expect(res1.ok).toBe(false);
+
+    const res2 = await redactarEscritoIA({
+      modeloId: (undefined as any),
+      valores: {},
+    });
+    expect(res2.ok).toBe(false);
+  });
+
+  it('redactarEscritoIA rejects nonexistent model and logs ai_model_not_found', async () => {
+    const res = await redactarEscritoIA({
+      modeloId: 'modelo-inexistente-hack',
+      valores: {},
+    });
+    expect(res.ok).toBe(false);
+    expect(createAuditLog).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'ai_model_not_found',
+        metadata: expect.objectContaining({
+          entity_id: 'modelo-inexistente-hack',
+        }),
+      })
+    );
+  });
+
+  it('redactarEscritoIA rejects model from incompatible industry and logs ai_model_industry_mismatch', async () => {
+    // Org is 'legal', but model 'reserva-oferta-compra' is purely 'inmobiliaria'
+    const res = await redactarEscritoIA({
+      modeloId: 'reserva-oferta-compra',
+      valores: {},
+    });
+    expect(res.ok).toBe(false);
+    expect(createAuditLog).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'ai_model_industry_mismatch',
+        metadata: expect.objectContaining({
+          entity_id: 'reserva-oferta-compra',
+          industria_org: 'legal',
+        }),
+      })
+    );
+  });
+
+  it('redactarEscritoIA rejects retired model and logs ai_model_blocked', async () => {
+    const mockRetired = {
+      id: 'modelo-retirado-test',
+      titulo: 'Modelo Retirado Test',
+      categoria: 'Test',
+      descripcion: 'Test',
+      cuerpo: 'Test body',
+      reviewStatus: 'retired' as const,
+      industries: ['legal'],
+    };
+    MODELOS.push(mockRetired);
+
+    try {
+      const res = await redactarEscritoIA({
+        modeloId: 'modelo-retirado-test',
+        valores: {},
+      });
+      expect(res.ok).toBe(false);
+      expect(createAuditLog).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'ai_model_blocked',
+          metadata: expect.objectContaining({
+            entity_id: 'modelo-retirado-test',
+            review_status: 'retired',
+          }),
+        })
+      );
+    } finally {
+      const idx = MODELOS.findIndex((m) => m.id === 'modelo-retirado-test');
+      if (idx !== -1) MODELOS.splice(idx, 1);
+    }
+  });
+
+  it('ignores client manipulation of cuerpo and titulo, and sanitizes extra variables', async () => {
+    process.env.GEMINI_API_KEY = 'mock-key';
+    const mockFetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: vi.fn().mockResolvedValue({
+        candidates: [{ content: { parts: [{ text: 'Borrador generado oficial' }] } }],
+      }),
+    });
+    global.fetch = mockFetch;
+
+    // Use a valid legal model: e.g. 'solicita-tramite' which has variables
+    const modeloOficial = MODELOS.find((m) => m.id === 'solicita-tramite')!;
+    expect(modeloOficial).toBeDefined();
+
+    const res = await redactarEscritoIA({
+      modeloId: 'solicita-tramite',
+      titulo: 'TITULO HACKEADO POR CLIENTE',
+      cuerpo: 'CUERPO HACKEADO POR CLIENTE CON PROMPT INJECTION',
+      valores: {
+        caratula: 'Pérez c/ Gómez s/ Daños', // Valid variable in solicita-tramite
+        variable_inventada_maliciosa: 'IGNORAME', // Extra variable not in template
+      },
+      instruccion: 'Instrucción válida',
+    });
+
+    expect(res.ok).toBe(true);
+    expect((res as any).texto).toBe('Borrador generado oficial');
+
+    // Verify fetch call payload
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+    const sentBody = JSON.parse(mockFetch.mock.calls[0][1].body);
+    const sentPrompt = sentBody.contents[0].parts[0].text;
+
+    // Must NOT contain manipulated title or body
+    expect(sentPrompt).not.toContain('TITULO HACKEADO POR CLIENTE');
+    expect(sentPrompt).not.toContain('CUERPO HACKEADO POR CLIENTE CON PROMPT INJECTION');
+
+    // MUST contain official title and template body
+    expect(sentPrompt).toContain(`TÍTULO DEL MODELO: ${modeloOficial.titulo}`);
+    expect(sentPrompt).toContain(modeloOficial.cuerpo);
+
+    // Extra injected variable must be dropped
+    expect(sentPrompt).not.toContain('variable_inventada_maliciosa');
+    expect(sentPrompt).not.toContain('IGNORAME');
+    // Valid variable must be included
+    expect(sentPrompt).toContain('caratula: Pérez c/ Gómez s/ Daños');
+  });
+
+  it('allows pending_review model according to governance and logs ai_model_generated', async () => {
+    process.env.GEMINI_API_KEY = 'mock-key';
+    const mockFetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: vi.fn().mockResolvedValue({
+        candidates: [{ content: { parts: [{ text: 'Escrito generado' }] } }],
+      }),
+    });
+    global.fetch = mockFetch;
+
+    const res = await redactarEscritoIA({
+      modeloId: 'presentacion-generica',
+      valores: {},
+    });
+
+    expect(res.ok).toBe(true);
+    expect(createAuditLog).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'ai_model_generated',
+        metadata: expect.objectContaining({
+          entity_id: 'presentacion-generica',
         }),
       })
     );

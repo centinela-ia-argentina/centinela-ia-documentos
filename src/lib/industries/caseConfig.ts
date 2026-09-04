@@ -134,6 +134,22 @@ export const caseTypesByIndustry: Record<IndustryType, string[]> = {
   seguridad_documental: [],
 };
 
+/**
+ * Determina de forma estricta y conservadora si un case_type pertenece a los tipos canónicos
+ * configurados para la industria indicada (caseTypesByIndustry).
+ * Registros preexistentes o atípicos que no coincidan son descartados para evitar contaminación vertical.
+ */
+export function isCaseTypeCompatibleWithIndustry(
+  caseType: string | null | undefined,
+  industry: IndustryType
+): boolean {
+  if (!caseType || typeof caseType !== 'string') return false;
+  const canonicalTypes = caseTypesByIndustry[industry];
+  if (!canonicalTypes || canonicalTypes.length === 0) return false;
+  const normalized = caseType.trim().toLowerCase();
+  return canonicalTypes.some((t) => t.trim().toLowerCase() === normalized);
+}
+
 export type DashboardCardKey =
   | 'expedientes_activos'
   | 'proximos_plazos'

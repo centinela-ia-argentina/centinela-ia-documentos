@@ -25,16 +25,23 @@ describe('Legal Parameters Governance', () => {
     }
   });
 
-  it('verifies that UHOM, Jus PBA, Jus Corrientes and UMA have status "pending"', () => {
+  it('verifies that UHOM, Jus PBA, Jus Corrientes, UMA and tasa_activa_bna have status "pending" without fake verification', () => {
     expect(LEGAL_PARAMETERS.uhom.status).toBe('pending');
     expect(LEGAL_PARAMETERS.jus_pba.status).toBe('pending');
     expect(LEGAL_PARAMETERS.jus_corrientes.status).toBe('pending');
     expect(LEGAL_PARAMETERS.uma.status).toBe('pending');
+    expect(LEGAL_PARAMETERS.uma.verifiedAt).toBe('');
+    expect(LEGAL_PARAMETERS.uma.lastCheckedAt).toBe('2026-09-04');
+
+    expect(LEGAL_PARAMETERS.tasa_activa_bna.status).toBe('pending');
+    expect(LEGAL_PARAMETERS.tasa_activa_bna.verifiedAt).toBe('');
+    expect(LEGAL_PARAMETERS.tasa_activa_bna.lastCheckedAt).toBe('2026-09-04');
   });
 
-  it('verifies that tasa_justicia_nacion has status "verified" with valid source', () => {
+  it('verifies that only truly verified parameters (tasa_justicia_nacion) have status "verified" with valid source', () => {
     const tasaNac = LEGAL_PARAMETERS.tasa_justicia_nacion;
     expect(tasaNac.status).toBe('verified');
+    expect(tasaNac.verifiedAt).toBe('2026-09-04');
     expect(tasaNac.value).toBe(3);
     expect(tasaNac.sourceName).toContain('Ley 23.898');
     expect(tasaNac.sourceUrl).toContain('infoleg');

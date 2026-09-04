@@ -12,7 +12,7 @@ import { indexarDocumento } from '@/lib/ai/indexarDocumento';
 import { analizarPoderConIA } from '@/lib/ai/poderes';
 import { normalizeIndustryType, type IndustryType } from '@/lib/industries/documentTypes';
 import { getAnalysisSystemPrompt } from '@/lib/industries/aiConfig';
-import { esPlazoRadar, evaluarFechaAccionable } from '@/lib/plazos/plazos';
+import { esPlazoRadar, evaluarFechaAccionable, normalizarFechasPlazos, type FechaExtraida } from '@/lib/plazos/plazos';
 import { validateFileContent, MAGIC_BYTES } from '@/lib/documents/fileValidation';
 import {
   canUploadDocument,
@@ -729,7 +729,7 @@ async function analizarConIA(texto: string, industry: IndustryType): Promise<{
   clausulas_riesgos: string[];
   alertas: string[];
   proximas_acciones: string[];
-  fechas_plazos: { descripcion: string; fecha: string }[];
+  fechas_plazos: FechaExtraida[];
   transcripcion?: string;
 } | null> {
   const apiKey = process.env.GEMINI_API_KEY;
@@ -775,9 +775,7 @@ async function analizarConIA(texto: string, industry: IndustryType): Promise<{
       Array.isArray(v) ? v.map(toText).filter((s) => s.trim().length > 0) : [];
 
     const rawFechas = Array.isArray(parsed.fechas_plazos) ? parsed.fechas_plazos : [];
-    const fechas_plazos = rawFechas.filter((f: any) =>
-      f && typeof f.descripcion === 'string' && typeof f.fecha === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(f.fecha)
-    ).map((f: any) => ({ descripcion: f.descripcion, fecha: f.fecha }));
+    const fechas_plazos = normalizarFechasPlazos(rawFechas);
 
     return {
       model: `analisis-ia-${modelo}`,
@@ -812,7 +810,7 @@ async function analizarConIAMultimodal(
   clausulas_riesgos: string[];
   alertas: string[];
   proximas_acciones: string[];
-  fechas_plazos: { descripcion: string; fecha: string }[];
+  fechas_plazos: FechaExtraida[];
   transcripcion?: string;
 } | null> {
   const apiKey = process.env.GEMINI_API_KEY;
@@ -863,9 +861,7 @@ async function analizarConIAMultimodal(
       Array.isArray(v) ? v.map(toText).filter((s) => s.trim().length > 0) : [];
 
     const rawFechas = Array.isArray(parsed.fechas_plazos) ? parsed.fechas_plazos : [];
-    const fechas_plazos = rawFechas.filter((f: any) =>
-      f && typeof f.descripcion === 'string' && typeof f.fecha === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(f.fecha)
-    ).map((f: any) => ({ descripcion: f.descripcion, fecha: f.fecha }));
+    const fechas_plazos = normalizarFechasPlazos(rawFechas);
 
     return {
       model: `analisis-ia-mm-${modelo}`,

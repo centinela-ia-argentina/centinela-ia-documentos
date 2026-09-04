@@ -150,26 +150,103 @@ export interface FechaExtraida {
   descripcion: string;
   tipo: DateType;
   confianza: 'alta' | 'media' | 'baja';
-  evidencia_textual?: string;
+  evidencia_textual: string;
   requiere_revision: boolean;
   documento_origen?: string;
 }
 
+export function normalizarFechasPlazos(rawFechas: unknown[]): FechaExtraida[] {
+  if (!Array.isArray(rawFechas)) return [];
+
+  const KNOWN_TYPES: readonly string[] = [
+    'procedural_deadline',
+    'hearing',
+    'limitation',
+    'contractual_deadline',
+    'document_expiration',
+    'informational',
+    'issue_date',
+    'payment_date',
+  ];
+
+  const resultado: FechaExtraida[] = [];
+
+  for (const item of rawFechas) {
+    if (!item || typeof item !== 'object') continue;
+    const f = item as Record<string, unknown>;
+
+    const descripcion = String(f.descripcion ?? '').trim();
+    const fecha = String(f.fecha ?? '').trim();
+    if (!descripcion || !fecha) continue;
+
+    let requiere_revision = Boolean(f.requiere_revision);
+
+    // 1. Clasificación / normalización de tipo
+    let tipo: DateType;
+    const rawTipo = typeof f.tipo === 'string' ? f.tipo.trim() : '';
+    if (rawTipo && KNOWN_TYPES.includes(rawTipo)) {
+      tipo = rawTipo as DateType;
+    } else {
+      const clasificado = clasificarFecha(descripcion, rawTipo);
+      tipo = clasificado || 'informational';
+      if (!rawTipo || !KNOWN_TYPES.includes(rawTipo)) {
+        requiere_revision = true;
+      }
+    }
+
+    // 2. Confianza: 'alta' | 'media' | 'baja'
+    let confianza: 'alta' | 'media' | 'baja';
+    const rawConfianza = typeof f.confianza === 'string' ? f.confianza.trim().toLowerCase() : '';
+    if (rawConfianza === 'alta' || rawConfianza === 'media' || rawConfianza === 'baja') {
+      confianza = rawConfianza;
+    } else {
+      confianza = 'baja';
+      requiere_revision = true;
+    }
+
+    // 3. Evidencia textual
+    const evidencia_textual = String(f.evidencia_textual ?? '').trim();
+    if (!evidencia_textual) {
+      requiere_revision = true;
+    }
+
+    resultado.push({
+      descripcion,
+      fecha,
+      tipo,
+      confianza,
+      evidencia_textual,
+      requiere_revision,
+      documento_origen: typeof f.documento_origen === 'string' ? f.documento_origen : undefined,
+    });
+  }
+
+  return resultado;
+}
+
 /**
- * Evalúa si una fecha extraída es apta para activar vencimientos procesales (Radar, Agenda, expires_at).
- * Requiere tipo accionable, descartando baja confianza o indicación de requerir revisión profesional.
+ * Evalúa si una fecha extraída es apta para activar vencimientos procesales/operativos (Radar, Agenda, expires_at).
+ * Solo genera vencimiento activo si:
+ * 1) el tipo es operativo / accionable (no puramente informativo ni desconocido)
+ * 2) confianza es 'alta' o 'media' (nunca 'baja')
+ * 3) requiere_revision es false
+ * 4) evidencia_textual tiene texto real
+ * 5) fecha es un ISO válido YYYY-MM-DD
  */
 export function evaluarFechaAccionable(fecha?: {
   descripcion?: string | null;
   fecha?: string | null;
   tipo?: string | null;
   confianza?: 'alta' | 'media' | 'baja' | string | null;
+  evidencia_textual?: string | null;
   requiere_revision?: boolean | null;
   documento_origen?: string | null;
 } | null): boolean {
   if (!fecha || !fecha.descripcion) return false;
-  if (fecha.confianza === 'baja') return false;
+  if (!fecha.fecha || !/^\d{4}-\d{2}-\d{2}$/.test(fecha.fecha)) return false;
+  if (fecha.confianza !== 'alta' && fecha.confianza !== 'media') return false;
   if (fecha.requiere_revision === true) return false;
+  if (!fecha.evidencia_textual || !fecha.evidencia_textual.trim()) return false;
   return isActionableDate(fecha.tipo, fecha.descripcion);
 }
 
@@ -179,6 +256,7 @@ export function esPlazoAccionable(plazo?: {
   fecha?: string | null;
   tipo?: string | null;
   confianza?: string | null;
+  evidencia_textual?: string | null;
   requiere_revision?: boolean | null;
 }): boolean {
   return evaluarFechaAccionable(plazo);

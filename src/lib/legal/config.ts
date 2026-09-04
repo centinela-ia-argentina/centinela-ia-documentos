@@ -88,6 +88,7 @@ export interface GovernedParameter {
   sourceUrl: string;
   effectiveFrom: string;
   verifiedAt: string;
+  lastCheckedAt?: string;
   status: ParameterStatus;
   legalScope: string;
   orientative: boolean;
@@ -188,8 +189,9 @@ export const LEGAL_PARAMETERS: Record<string, GovernedParameter> = {
     sourceName: 'Banco de la Nación Argentina',
     sourceUrl: 'https://bna.com.ar/Home/InformacionAlUsuarioFinanciero',
     effectiveFrom: '2026-07-30',
-    verifiedAt: '2026-09-04',
-    status: 'verified',
+    verifiedAt: '',
+    lastCheckedAt: '2026-09-04',
+    status: 'pending',
     legalScope: 'Referencia vigente BNA. No aplicada automáticamente. No constituye serie histórica.',
     orientative: true,
     identificador: 'tasa_activa_bna',
@@ -200,7 +202,7 @@ export const LEGAL_PARAMETERS: Record<string, GovernedParameter> = {
     vigencia_desde: '2026-07-30',
     fuente: 'Banco de la Nación Argentina',
     url: 'https://bna.com.ar/Home/InformacionAlUsuarioFinanciero',
-    verification_status: 'verificada',
+    verification_status: 'pendiente',
     aplicabilidad_juridica: 'Referencia general sin serie histórica automática',
     caracter_orientativo: true,
   },
@@ -212,7 +214,8 @@ export const LEGAL_PARAMETERS: Record<string, GovernedParameter> = {
     sourceName: 'CSJN (Res. 1352/26)',
     sourceUrl: 'https://www.csjn.gov.ar/',
     effectiveFrom: '2026-04-01',
-    verifiedAt: '2026-09-04',
+    verifiedAt: '',
+    lastCheckedAt: '2026-09-04',
     status: 'pending',
     legalScope: 'Honorarios profesionales Ley 27.423 - Justicia Nacional y Federal',
     orientative: true,

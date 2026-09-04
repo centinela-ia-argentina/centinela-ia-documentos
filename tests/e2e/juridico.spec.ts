@@ -421,6 +421,54 @@ test.describe.serial('Centinela IA - Flujo Jurídico E2E Obligatorio', () => {
     await expect(page.locator('[data-testid="rag-response"]')).toBeVisible({ timeout: 15000 });
   });
 
+  test('14b. vinculación manual discordante en checklist y persistencia tras reload', async () => {
+    await page.goto(`${caseUrl}?tab=checklist`);
+    const checklistContainer = page.locator('[data-testid="checklist-items"]');
+    await expect(checklistContainer).toBeVisible({ timeout: 15000 });
+
+    const selectLink = page.locator('[data-testid^="select-doc-"]').first();
+    if ((await selectLink.count()) > 0) {
+      const options = await selectLink.locator('option').all();
+      if (options.length > 1) {
+        const targetVal = await options[1].getAttribute('value');
+        if (targetVal) {
+          await selectLink.selectOption(targetVal);
+          await page.reload();
+          await expect(checklistContainer).toBeVisible({ timeout: 15000 });
+          await expect(selectLink).toHaveValue(targetVal);
+        }
+      }
+    }
+  });
+
+  test('14c. modelo outdated en /modelos sin campos editables, sin copiar, sin descargar', async () => {
+    await page.goto('/modelos?modelo=intimacion-laboral-registracion');
+    await expect(page.locator('[data-testid="ficha-historica-outdated"]')).toBeVisible({ timeout: 15000 });
+    await expect(page.locator('[data-testid="btn-copiar-modelo"]')).toHaveCount(0);
+    await expect(page.locator('[data-testid="btn-descargar-txt"]')).toHaveCount(0);
+    await expect(page.locator('[data-testid="btn-descargar-docx"]')).toHaveCount(0);
+    await expect(page.locator('[data-testid="btn-redactar-ia"]')).toHaveCount(0);
+    await expect(page.locator('body')).not.toContainText('Podés editar el modelo manualmente');
+  });
+
+  test('14d. selectores de Agenda y Modelos segregados por vertical', async () => {
+    await page.goto('/agenda');
+    const caseSelect = page.locator('[data-testid="agenda-case-select"]');
+    if ((await caseSelect.count()) > 0) {
+      const text = await caseSelect.innerText();
+      expect(text).not.toContain('Propiedad 1');
+      expect(text).not.toContain('Escritura 1');
+    }
+
+    await page.goto('/modelos');
+    const modeloCaseSelect = page.locator('[data-testid="modelos-expediente-select"]');
+    if ((await modeloCaseSelect.count()) > 0) {
+      const text = await modeloCaseSelect.innerText();
+      expect(text).not.toContain('Propiedad 1');
+      expect(text).not.toContain('Escritura 1');
+    }
+  });
+
   test('15. cleanup', async () => {
     // 1. Obtener file_paths de todos los documentos creados
     const { data: docs } = await serviceClient.from('documents').select('id, file_path').eq('case_id', caseId);

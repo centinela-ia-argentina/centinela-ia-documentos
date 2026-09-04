@@ -11,12 +11,21 @@ Analizá el DOCUMENTO y devolvé SOLO un objeto JSON válido (sin texto adiciona
   "clausulas_riesgos": ["cláusulas u obligaciones importantes y riesgos detectados"],
   "alertas": ["alertas jurídicas o de sensibilidad"],
   "proximas_acciones": ["acciones concretas sugeridas para el abogado"],
-  "fechas_plazos": [{"descripcion": "...", "fecha": "YYYY-MM-DD", "tipo": "procedural_deadline"}]
+  "fechas_plazos": [
+    {
+      "descripcion": "descripción concreta del plazo o fecha",
+      "fecha": "YYYY-MM-DD",
+      "tipo": "procedural_deadline | hearing | limitation | contractual_deadline | document_expiration | informational | issue_date | payment_date",
+      "confianza": "alta | media | baja",
+      "evidencia_textual": "cita textual exacta del documento",
+      "requiere_revision": false
+    }
+  ]
 }
 REGLAS:
 - Basáte SOLO en el contenido del documento. NO inventes datos, montos, fechas ni artículos.
 - Si algún dato no aparece, devolvé un array vacío para esa clave.
-- fechas_plazos: Incluí SOLO fechas concretas en formato ISO YYYY-MM-DD con su "tipo" exacto ("procedural_deadline", "hearing", "limitation", "contractual_deadline", "document_expiration", "informational", "issue_date", "payment_date"). Fechas de recibos, sueldos o pagos van como "payment_date"; emisión/otorgamiento como "issue_date"; nacimientos o datos biográficos como "informational". Solo vencimientos procesales y audiencias como plazos operativos. Si la fecha es ambigua o relativa, omitila.
+- fechas_plazos: Incluí SOLO fechas concretas en formato ISO YYYY-MM-DD con su "tipo" exacto ("procedural_deadline", "hearing", "limitation", "contractual_deadline", "document_expiration", "informational", "issue_date", "payment_date"). Debe incluir "confianza" ("alta" si el texto es indubitable, "media" si requiere cotejo, "baja" si es dudosa), "evidencia_textual" (fragmento literal exacto) y "requiere_revision" (true si es dudosa o ambigua). Fechas de recibos, sueldos o pagos van como "payment_date"; emisión/otorgamiento como "issue_date"; nacimientos o datos biográficos como "informational". Solo vencimientos procesales y audiencias como plazos operativos. Si la fecha es ambigua o relativa, omitila.
 - sensibilidad_detectada: "critical" si hay datos personales/financieros fuertes (DNI, CUIT, cuentas, historia clínica); "high" si hay nombres/contratos; "medium" o "low" si es genérico.`;
 
 const ESCRIBANIA_ANALYSIS_PROMPT = `Sos un asistente notarial argentino experto en documentación registral, inmobiliaria y
@@ -37,8 +46,7 @@ Devolvé SIEMPRE un JSON válido con estos campos (NO cambies los nombres):
   documentos.
 - proximas_acciones: acciones concretas PARA EL ESCRIBANO (ej: solicitar libre deuda
   municipal, actualizar certificado de dominio, verificar identidad).
-- fechas_plazos: fechas relevantes como {"descripcion": "...", "fecha": "YYYY-MM-DD"} — incluí emisión
-  y vencimiento de certificados y fecha de firma si aparecen.
+- fechas_plazos: lista de objetos [{"descripcion": "...", "fecha": "YYYY-MM-DD", "tipo": "document_expiration | issue_date | informational | contractual_deadline", "confianza": "alta | media | baja", "evidencia_textual": "fragmento literal", "requiere_revision": false}] — incluí emisión y vencimiento de certificados y fecha de firma si aparecen.
 
 Reglas: no inventes datos; si algo no está en el documento, no lo afirmes. Priorizá la
 vigencia de certificados y la coherencia entre documentos (boleto vs título vs certificado).
@@ -56,7 +64,7 @@ Devolvé SIEMPRE un JSON válido con estos campos (NO cambies los nombres):
 - clausulas_riesgos: gravámenes, hipotecas, embargos, inhibiciones, cláusulas de rescisión o penalidad, ajustes de alquiler, estado de ocupación del inmueble.
 - alertas: contratos de alquiler próximos a vencer, documentación o certificados faltantes, discrepancias entre reserva, boleto, contrato y título.
 - proximas_acciones: acciones concretas PARA LA INMOBILIARIA (ej: solicitar libre deuda / certificado de dominio, actualizar tasación, agendar visita, enviar propuesta de renovación, derivar a escribanía para la escritura).
-- fechas_plazos: fechas relevantes como {"descripcion": "...", "fecha": "YYYY-MM-DD"} — incluí vencimiento del contrato de alquiler, fecha de escrituración, vencimiento de la reserva y fechas de pago si aparecen.
+- fechas_plazos: lista de objetos [{"descripcion": "...", "fecha": "YYYY-MM-DD", "tipo": "contractual_deadline | payment_date | document_expiration | informational", "confianza": "alta | media | baja", "evidencia_textual": "fragmento literal", "requiere_revision": false}] — incluí vencimiento del contrato de alquiler, fecha de escrituración, vencimiento de la reserva y fechas de pago si aparecen.
 
 Reglas: no inventes datos; si algo no está en el documento, no lo afirmes. Priorizá la coherencia entre reserva / boleto / contrato / título y los vencimientos de los contratos de alquiler. Respondé en español rioplatense.`;
 

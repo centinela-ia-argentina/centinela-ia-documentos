@@ -163,12 +163,9 @@ export function ModelosClient({
     setAvisoIA(null);
     try {
       const r = await redactarEscritoIA({
-        titulo: seleccionado.titulo,
-        cuerpo: seleccionado.cuerpo,
+        modeloId: seleccionado.id,
         valores,
         instruccion,
-        industria,
-        modeloId: seleccionado.id,
       });
       if (r.ok) {
         setTextoIA(r.texto);

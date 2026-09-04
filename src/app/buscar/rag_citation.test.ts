@@ -277,11 +277,83 @@ describe('C-M3-J-003 & C-M3-J-006: Search & RAG citation filtering and negative 
       expect(alignedNeg.fuentes).toEqual([]);
     });
 
-    it('falls back safely on invalid JSON string', () => {
+    it('JSON inválido que contiene [1] -> no devuelve fuentes y falla cerrado', () => {
       const invalidJson = '{"answer": "Incompleto... [1]';
       const aligned = parseAndAlignRagResponse(invalidJson, mockSources);
+      expect(aligned.hasEvidence).toBe(false);
+      expect(aligned.fuentes).toEqual([]);
+      expect(aligned.respuesta).toContain('No se pudo procesar la respuesta estructurada');
+    });
+
+    it('bloque ```json roto -> falla cerrado', () => {
+      const brokenBlock = '```json\n{"answer": "roto",\n```';
+      const aligned = parseAndAlignRagResponse(brokenBlock, mockSources);
+      expect(aligned.hasEvidence).toBe(false);
+      expect(aligned.fuentes).toEqual([]);
+    });
+
+    it('JSON sin hasEvidence -> falla cerrado', () => {
+      const missingField = JSON.stringify({
+        answer: 'Dato sin bandera de evidencia [1].',
+        citedSourceIndexes: [1],
+      });
+      const aligned = parseAndAlignRagResponse(missingField, mockSources);
+      expect(aligned.hasEvidence).toBe(false);
+      expect(aligned.fuentes).toEqual([]);
+    });
+
+    it('citedSourceIndexes contiene [1, 2] pero el texto solo cita [1] -> fuentes contiene solo la 1, texto queda [1]', () => {
+      const json = JSON.stringify({
+        answer: 'Solo se respalda el hecho con el documento [1].',
+        hasEvidence: true,
+        citedSourceIndexes: [1, 2],
+      });
+      const aligned = parseAndAlignRagResponse(json, mockSources);
       expect(aligned.hasEvidence).toBe(true);
       expect(aligned.fuentes).toHaveLength(1);
+      expect(aligned.fuentes[0].documentId).toBe('d1');
+      expect(aligned.respuesta).toBe('Solo se respalda el hecho con el documento [1].');
+    });
+
+    it('texto cita [1, 3] pero fuentes tiene 2 elementos -> descarta [3] dangling y renumera', () => {
+      const twoSources = mockSources.slice(0, 2);
+      const json = JSON.stringify({
+        answer: 'Punto respaldado [1] y afirmación colgada sin fuente válida [3].',
+        hasEvidence: true,
+        citedSourceIndexes: [1, 3],
+      });
+      const aligned = parseAndAlignRagResponse(json, twoSources);
+      expect(aligned.hasEvidence).toBe(true);
+      expect(aligned.fuentes).toHaveLength(1);
+      expect(aligned.fuentes[0].documentId).toBe('d1');
+      expect(aligned.respuesta).toBe('Punto respaldado [1] y afirmación colgada sin fuente válida .');
+      expect(aligned.respuesta).not.toContain('[3]');
+    });
+
+    it('respuesta negativa con hasEvidence: false y fuentes no vacías en prompt -> fuentes queda []', () => {
+      const json = JSON.stringify({
+        answer: 'No surge información sobre la póliza de caución [1].',
+        hasEvidence: false,
+        citedSourceIndexes: [1],
+      });
+      const aligned = parseAndAlignRagResponse(json, mockSources);
+      expect(aligned.hasEvidence).toBe(false);
+      expect(aligned.fuentes).toEqual([]);
+      expect(aligned.respuesta).not.toContain('[1]');
+    });
+
+    it('respuesta positiva con citas válidas -> preserva texto y fuentes alineadas 1 a 1', () => {
+      const json = JSON.stringify({
+        answer: 'Primer hecho probado en [2] y segundo hecho en [3].',
+        hasEvidence: true,
+        citedSourceIndexes: [2, 3],
+      });
+      const aligned = parseAndAlignRagResponse(json, mockSources);
+      expect(aligned.hasEvidence).toBe(true);
+      expect(aligned.fuentes).toHaveLength(2);
+      expect(aligned.fuentes[0].documentId).toBe('d2');
+      expect(aligned.fuentes[1].documentId).toBe('d3');
+      expect(aligned.respuesta).toBe('Primer hecho probado en [1] y segundo hecho en [2].');
     });
   });
 });

@@ -2,7 +2,8 @@ import { redirect } from 'next/navigation';
 import { AppShell } from '@/components/layout/AppShell';
 import { createClient } from '@/lib/supabase/server';
 import { getUserProfile } from '@/lib/auth/getUserProfile';
-import { normalizeIndustryType } from '@/lib/industries/documentTypes';
+import { getStrictIndustryForOrganization } from '@/lib/auth/getStrictIndustry';
+import { isCaseTypeCompatibleWithIndustry } from '@/lib/industries/caseConfig';
 import { getAgendaLabels } from '@/lib/industries/uiLabels';
 import { AgendaClient, type AgendaEvento } from './AgendaClient';
 
@@ -13,7 +14,8 @@ export default async function AgendaPage() {
 
   const supabase = await createClient();
 
-  const [documentsResult, casesResult, plazosResult, orgResult] = await Promise.all([
+  const [industry, documentsResult, casesResult, plazosResult] = await Promise.all([
+    getStrictIndustryForOrganization(profile.organization_id),
     supabase
       .from('documents')
       .select('id, file_name, expires_at')
@@ -21,7 +23,7 @@ export default async function AgendaPage() {
       .not('expires_at', 'is', null),
     supabase
       .from('cases')
-      .select('id, title, metadata')
+      .select('id, title, metadata, case_type')
       .eq('organization_id', profile.organization_id)
       .neq('status', 'archived')
       .neq('status', 'Archivado'),
@@ -29,19 +31,16 @@ export default async function AgendaPage() {
       .from('agenda_plazos')
       .select('id, titulo, fecha, hora, detalle, categoria, case_id')
       .eq('organization_id', profile.organization_id),
-    supabase
-      .from('organizations')
-      .select('industry_type')
-      .eq('id', profile.organization_id)
-      .single(),
   ]);
 
-  const industry = normalizeIndustryType(orgResult.data?.industry_type);
   const agendaLabels = getAgendaLabels(industry);
 
   const documents = documentsResult.data ?? [];
-  const cases = casesResult.data ?? [];
+  const allCases = casesResult.data ?? [];
   const plazos = plazosResult.data ?? [];
+
+  // Filtrado estricto por industria para evitar contaminación entre verticales
+  const cases = allCases.filter((c) => isCaseTypeCompatibleWithIndustry(c.case_type, industry));
 
   const eventos: AgendaEvento[] = [];
 

@@ -44,32 +44,78 @@ export function parseAndAlignRagResponse<T>(
     };
   }
 
-  // 1. Intentar parsear como salida estructurada JSON si tiene formato JSON
-  let structuredData: { answer?: string; hasEvidence?: boolean; citedSourceIndexes?: number[] } | null = null;
-  if (trimmed.startsWith('{') || trimmed.includes('```json') || trimmed.includes('```')) {
-    try {
-      let jsonStr = trimmed;
-      if (jsonStr.includes('```json')) {
-        const match = jsonStr.match(/```json\s*([\s\S]*?)\s*```/);
-        if (match) jsonStr = match[1];
-      } else if (jsonStr.includes('```')) {
-        const match = jsonStr.match(/```\s*([\s\S]*?)\s*```/);
-        if (match) jsonStr = match[1];
+  // 1. Detección de salida estructurada JSON (fail-closed si tiene formato JSON pero falla parsing)
+  const looksLikeJson = trimmed.startsWith('{') || trimmed.includes('```json') || trimmed.includes('```');
+
+  if (looksLikeJson) {
+    let jsonStr = trimmed;
+    if (jsonStr.includes('```json')) {
+      const match = jsonStr.match(/```json\s*([\s\S]*?)\s*```/);
+      if (match) {
+        jsonStr = match[1];
+      } else {
+        // Bloque ```json incompleto o roto -> fallar cerrado
+        return {
+          respuesta: 'No se pudo procesar la respuesta estructurada o la información no surge de los documentos disponibles.',
+          hasEvidence: false,
+          fuentes: [],
+        };
       }
-      const parsed = JSON.parse(jsonStr.trim());
-      if (typeof parsed === 'object' && parsed !== null) {
-        structuredData = parsed;
+    } else if (jsonStr.includes('```')) {
+      const match = jsonStr.match(/```\s*([\s\S]*?)\s*```/);
+      if (match) {
+        jsonStr = match[1];
+      } else {
+        // Bloque de código roto -> fallar cerrado
+        return {
+          respuesta: 'No se pudo procesar la respuesta estructurada o la información no surge de los documentos disponibles.',
+          hasEvidence: false,
+          fuentes: [],
+        };
       }
-    } catch {
-      // JSON inválido: continuar a modo texto plano de forma segura
     }
-  }
 
-  // Si se obtuvo JSON estructurado
-  if (structuredData) {
-    const answer = typeof structuredData.answer === 'string' ? structuredData.answer.trim() : trimmed;
-    const explicitNoEvidence = structuredData.hasEvidence === false;
+    let parsed: any;
+    try {
+      parsed = JSON.parse(jsonStr.trim());
+    } catch {
+      // JSON inválido: NO hacer fallback a texto plano; fallar cerrado
+      return {
+        respuesta: 'No se pudo procesar la respuesta estructurada o la información no surge de los documentos disponibles.',
+        hasEvidence: false,
+        fuentes: [],
+      };
+    }
 
+    // Validar estructura requerida de JSON parseado
+    if (!parsed || typeof parsed !== 'object') {
+      return {
+        respuesta: 'No se pudo validar la estructura de la respuesta o la información no surge de los documentos disponibles.',
+        hasEvidence: false,
+        fuentes: [],
+      };
+    }
+
+    if (typeof parsed.answer !== 'string' || !parsed.answer.trim()) {
+      return {
+        respuesta: 'No se pudo validar la estructura de la respuesta o la información no surge de los documentos disponibles.',
+        hasEvidence: false,
+        fuentes: [],
+      };
+    }
+
+    if (typeof parsed.hasEvidence !== 'boolean') {
+      return {
+        respuesta: 'No se pudo validar la estructura de la respuesta o la información no surge de los documentos disponibles.',
+        hasEvidence: false,
+        fuentes: [],
+      };
+    }
+
+    const answer = parsed.answer.trim();
+    const explicitNoEvidence = parsed.hasEvidence === false;
+
+    // Si hasEvidence es false o la respuesta es negativa: fuentes[] DEBE ser [] y se eliminan citas
     if (explicitNoEvidence || esRespuestaNegativa(answer)) {
       const cleanAnswer = answer.replace(/\[\d+\]/g, '').replace(/\s{2,}/g, ' ').trim();
       return {
@@ -79,27 +125,41 @@ export function parseAndAlignRagResponse<T>(
       };
     }
 
-    const rawIndexes = Array.isArray(structuredData.citedSourceIndexes)
-      ? structuredData.citedSourceIndexes
-      : [];
-
-    const extractedFromText: number[] = [];
-    const matchesCitation = answer.matchAll(/\[(\d+)\]/g);
-    for (const m of matchesCitation) {
-      const idx = parseInt(m[1], 10);
-      if (Number.isFinite(idx)) extractedFromText.push(idx);
+    const declaredIndexes: number[] = [];
+    if (Array.isArray(parsed.citedSourceIndexes)) {
+      for (const item of parsed.citedSourceIndexes) {
+        if (Number.isInteger(item) && item > 0 && !declaredIndexes.includes(item)) {
+          declaredIndexes.push(item);
+        }
+      }
     }
 
-    const candidateIndexes = rawIndexes.length > 0 ? rawIndexes : extractedFromText;
+    // Extraer citas inline en orden de aparición en el texto
+    const inlineIndexes: number[] = [];
+    for (const m of answer.matchAll(/\[(\d+)\]/g)) {
+      const idx = parseInt(m[1], 10);
+      if (Number.isInteger(idx) && !inlineIndexes.includes(idx)) {
+        inlineIndexes.push(idx);
+      }
+    }
+
+    // Validación cruzada estricta:
+    // - Las fuentes devueltas deben estar citadas tanto inline como en rango válido
+    // - Si citedSourceIndexes contiene [1, 2] pero el texto solo cita [1] -> se conserva sólo la 1
+    // - Si el texto cita [1, 3] pero fuentes tiene 2 elementos -> [3] queda dangling y se descarta
     const validUniqueIndexes: number[] = [];
-    for (const idx of candidateIndexes) {
-      if (Number.isInteger(idx) && idx >= 1 && idx <= rawSources.length && !validUniqueIndexes.includes(idx)) {
+    for (const idx of inlineIndexes) {
+      if (
+        idx >= 1 &&
+        idx <= rawSources.length &&
+        (declaredIndexes.length === 0 || declaredIndexes.includes(idx)) &&
+        !validUniqueIndexes.includes(idx)
+      ) {
         validUniqueIndexes.push(idx);
       }
     }
 
     if (validUniqueIndexes.length === 0) {
-      // Respuesta positiva sin citas válidas -> NO FALLBACK (fuentes: [])
       const cleanAnswer = answer.replace(/\[\d+\]/g, '').replace(/\s{2,}/g, ' ').trim();
       return {
         respuesta: cleanAnswer,
@@ -114,7 +174,7 @@ export function parseAndAlignRagResponse<T>(
       indexMapping.set(oldIdx, i + 1);
     });
 
-    let renumberedAnswer = answer.replace(/\[(\d+)\]/g, (_match, p1) => {
+    let renumberedAnswer = answer.replace(/\[(\d+)\]/g, (_match: string, p1: string) => {
       const oldIdx = parseInt(p1, 10);
       const newIdx = indexMapping.get(oldIdx);
       return newIdx ? `[${newIdx}]` : '';
@@ -130,7 +190,7 @@ export function parseAndAlignRagResponse<T>(
     };
   }
 
-  // 2. Modo texto plano estándar
+  // 2. Modo texto plano estándar (no JSON)
   if (esRespuestaNegativa(trimmed)) {
     const cleanAnswer = trimmed.replace(/\[\d+\]/g, '').replace(/\s{2,}/g, ' ').trim();
     return {
@@ -140,7 +200,6 @@ export function parseAndAlignRagResponse<T>(
     };
   }
 
-  // Extraer citas [n] respetando orden de aparición
   const validUniqueIndexes: number[] = [];
   const matchesCitation = trimmed.matchAll(/\[(\d+)\]/g);
   for (const m of matchesCitation) {
@@ -151,7 +210,6 @@ export function parseAndAlignRagResponse<T>(
   }
 
   if (validUniqueIndexes.length === 0) {
-    // Si la respuesta positiva no contiene citas válidas, fuentes = [] (NO FALLBACK)
     const cleanAnswer = trimmed.replace(/\[\d+\]/g, '').replace(/\s{2,}/g, ' ').trim();
     return {
       respuesta: cleanAnswer,
@@ -160,13 +218,12 @@ export function parseAndAlignRagResponse<T>(
     };
   }
 
-  // Renumeración simultánea 1-a-1
   const indexMapping = new Map<number, number>();
   validUniqueIndexes.forEach((oldIdx, i) => {
     indexMapping.set(oldIdx, i + 1);
   });
 
-  let renumberedAnswer = trimmed.replace(/\[(\d+)\]/g, (_match, p1) => {
+  let renumberedAnswer = trimmed.replace(/\[(\d+)\]/g, (_match: string, p1: string) => {
     const oldIdx = parseInt(p1, 10);
     const newIdx = indexMapping.get(oldIdx);
     return newIdx ? `[${newIdx}]` : '';
