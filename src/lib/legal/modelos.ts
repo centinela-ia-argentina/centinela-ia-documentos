@@ -2,6 +2,8 @@
 // Las variables se escriben entre llaves dobles, por ejemplo {{nombre_parte}},
 // y se detectan y completan solas. Agregá, quitá o editá modelos libremente.
 
+export type ReviewStatus = 'verified' | 'pending_review' | 'outdated' | 'retired';
+
 export type ModeloEscrito = {
   id: string;
   titulo: string;
@@ -9,6 +11,16 @@ export type ModeloEscrito = {
   descripcion: string;
   cuerpo: string;
   industries?: string[];
+  jurisdiction?: string;
+  practiceArea?: string;
+  courtLevel?: string;
+  proceduralStage?: string;
+  purpose?: string;
+  legalBasis?: string;
+  lastVerifiedAt?: string;
+  version?: string;
+  reviewStatus?: ReviewStatus;
+  professionalDisclaimer?: string;
 };
 
 export const MODELOS: ModeloEscrito[] = [
@@ -383,13 +395,22 @@ SERÁ JUSTICIA.
     id: 'intimacion-laboral-registracion',
     titulo: 'Intimación laboral — registración (Ley 24.013)',
     categoria: 'Laboral',
-    descripcion: 'Intima al empleador a registrar correctamente la relación laboral.',
+    descripcion: 'Intima al empleador a registrar correctamente la relación laboral. (DESACTUALIZADO: sujeto a Ley 27.742)',
+    jurisdiction: 'nacion',
+    practiceArea: 'laboral',
+    courtLevel: 'extrajudicial',
+    proceduralStage: 'previa',
+    purpose: 'Intimación previa de registración laboral',
+    legalBasis: 'Ley 20.744 art. 80; Ley 24.013 (Régimen indemnizatorio y multas derogados por Ley 27.742 art. 99 y conc.)',
+    version: '1.0',
+    reviewStatus: 'outdated',
+    professionalDisclaimer: 'DESACTUALIZADO: La Ley 27.742 derogó las multas de la Ley 24.013 y del art. 80 LCT. Este modelo se conserva con fines históricos y de trazabilidad; no debe utilizarse sin adecuación letrada.',
     cuerpo: `{{fecha}}
 
 Sr./Sra. Empleador/a {{destinatario}}
 Domicilio: {{domicilio_destinatario}}
 
-Intimo a Ud. en el plazo de 30 días corridos a registrar correctamente mi relación laboral, consignando la real fecha de ingreso {{fecha_ingreso}}, la categoría {{categoria_laboral}} y la remuneración de $ {{remuneracion}}, bajo apercibimiento de las multas previstas en la Ley 24.013 y el art. 80 LCT. Hago reserva de considerarme despedido/a por su exclusiva culpa ante el silencio o la negativa. Remito copia a la AFIP en los términos legales.
+Intimo a Ud. en el plazo de 30 días corridos a registrar correctamente mi relación laboral, consignando la real fecha de ingreso {{fecha_ingreso}}, la categoría {{categoria_laboral}} y la remuneración de $ {{remuneracion}}, bajo apercibimiento de las acciones legales que correspondan. Hago reserva de considerarme despedido/a por su exclusiva culpa ante el silencio o la negativa.
 
 {{remitente}}`,
   },
@@ -2304,4 +2325,8 @@ export function extractModelVars(cuerpo: string): string[] {
   let m: RegExpExecArray | null;
   while ((m = re.exec(cuerpo)) !== null) set.add(m[1]);
   return Array.from(set);
+}
+
+export function getModeloReviewStatus(m: ModeloEscrito): ReviewStatus {
+  return m.reviewStatus ?? 'pending_review';
 }

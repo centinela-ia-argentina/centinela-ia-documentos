@@ -392,7 +392,10 @@ export async function toggleChecklistItem(formData: FormData) {
 
   const { error } = await supabase
     .from('checklist_items')
-    .update({ status: nextStatus })
+    .update({
+      status: nextStatus,
+      ...(checklistItem.document_id ? { match_source: 'manual' } : {}),
+    })
     .eq('id', itemId)
     .eq('organization_id', profile.organization_id)
     .eq('checklist_id', checklistItem.checklist_id);
@@ -467,6 +470,8 @@ export async function linkChecklistItemDocument(formData: FormData) {
     .from('checklist_items')
     .update({
       document_id: linkedDocumentId,
+      match_source: linkedDocumentId ? 'manual' : null,
+      status: linkedDocumentId ? 'received' : 'pending',
     })
     .eq('id', itemId)
     .eq('organization_id', profile.organization_id)
@@ -1572,12 +1577,38 @@ export async function autoMarcarChecklist(formData: FormData) {
   }
   const { data: items } = await supabase
     .from('checklist_items')
-    .select('id, title, status, document_id')
+    .select('id, title, status, document_id, match_source')
     .eq('checklist_id', checklist.id);
-  const itemsCandidatos = (items ?? []).filter(
-    (it) => (it.status === 'pending' && !it.document_id) || (it.status === 'received' && it.document_id)
-  );
+
+  let manualOverridesSkipped = 0;
+  const itemsCandidatos: Array<{ id: string; title: string; status: string; document_id: string | null; match_source?: string | null }> = [];
+
+  for (const it of (items ?? [])) {
+    // Los ítems revisados o no requeridos no se tocan jamás
+    if (it.status === 'reviewed' || it.status === 'not_required') {
+      continue;
+    }
+    // Si fue vinculado manualmente o tiene documento previo sin match_source, prevalece el usuario
+    if (it.match_source === 'manual' || (it.document_id && it.match_source !== 'automatic')) {
+      manualOverridesSkipped += 1;
+      continue;
+    }
+    if ((it.status === 'pending' && !it.document_id) || (it.status === 'received' && it.document_id && it.match_source === 'automatic')) {
+      itemsCandidatos.push(it);
+    }
+  }
+
   if (itemsCandidatos.length === 0) {
+    if (manualOverridesSkipped > 0) {
+      await createAuditLog({
+        organizationId: profile.organization_id,
+        userId: user.id,
+        action: 'checklist_auto_match_override_skipped',
+        resourceType: 'case',
+        resourceId: caseId,
+        metadata: { skipped_count: manualOverridesSkipped },
+      });
+    }
     revalidatePath(`/expedientes/${caseId}`);
     return;
   }
@@ -1599,17 +1630,17 @@ export async function autoMarcarChecklist(formData: FormData) {
   for (const item of itemsCandidatos) {
     const sugerencia = sugerencias.get(item.title);
     
-    if (item.status === 'received' && item.document_id) {
+    if (item.status === 'received' && item.document_id && item.match_source === 'automatic') {
       if (!sugerencia) {
         const { error } = await supabase
           .from('checklist_items')
-          .update({ document_id: null, status: 'pending' })
+          .update({ document_id: null, match_source: null, status: 'pending' })
           .eq('id', item.id);
         if (!error) desvinculados += 1;
       } else if (sugerencia.documentId !== item.document_id) {
         const { error } = await supabase
           .from('checklist_items')
-          .update({ document_id: sugerencia.documentId, status: 'received' })
+          .update({ document_id: sugerencia.documentId, match_source: 'automatic', status: 'received' })
           .eq('id', item.id);
         if (!error) marcados += 1;
       }
@@ -1617,19 +1648,36 @@ export async function autoMarcarChecklist(formData: FormData) {
       if (sugerencia) {
         const { error } = await supabase
           .from('checklist_items')
-          .update({ document_id: sugerencia.documentId, status: 'received' })
+          .update({ document_id: sugerencia.documentId, match_source: 'automatic', status: 'received' })
           .eq('id', item.id);
         if (!error) marcados += 1;
       }
     }
   }
+
+  if (manualOverridesSkipped > 0) {
+    await createAuditLog({
+      organizationId: profile.organization_id,
+      userId: user.id,
+      action: 'checklist_auto_match_override_skipped',
+      resourceType: 'case',
+      resourceId: caseId,
+      metadata: { skipped_count: manualOverridesSkipped },
+    });
+  }
+
   await createAuditLog({
     organizationId: profile.organization_id,
     userId: user.id,
     action: 'checklist_auto_matched',
     resourceType: 'case',
     resourceId: caseId,
-    metadata: { auto_marcados: marcados, desvinculados, evaluados: itemsCandidatos.length },
+    metadata: {
+      auto_marcados: marcados,
+      desvinculados,
+      evaluados: itemsCandidatos.length,
+      manual_overrides_preserved: manualOverridesSkipped,
+    },
   });
   revalidatePath(`/expedientes/${caseId}`);
 }

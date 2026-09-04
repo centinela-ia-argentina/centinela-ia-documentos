@@ -221,7 +221,27 @@ RESPUESTA:`;
       }
     });
 
-    return { ok: true, respuesta, fuentes, correlationId };
+    const esNegativa = /no (surge|se encuentra|consta|contiene|se menciona|hay información|figura|se desprende)/i.test(respuesta);
+
+    const citedIndices = new Set<number>();
+    const matchesCitation = respuesta.matchAll(/\[(\d+)\]/g);
+    for (const m of matchesCitation) {
+      const idx = parseInt(m[1], 10);
+      if (!isNaN(idx) && idx >= 1 && idx <= fuentes.length) {
+        citedIndices.add(idx);
+      }
+    }
+
+    let fuentesValidas: FuenteLegajo[] = [];
+    if (!esNegativa && citedIndices.size > 0) {
+      fuentesValidas = fuentes.filter((_, idx) => citedIndices.has(idx + 1));
+    } else if (!esNegativa && fuentes.length > 0 && (fuentes[0].similitud ?? 0) >= 0.65) {
+      fuentesValidas = [fuentes[0]];
+    } else {
+      fuentesValidas = [];
+    }
+
+    return { ok: true, respuesta, fuentes: fuentesValidas, correlationId };
   } catch (e) {
     console.error('RAG Unhandled Error:', e);
     const supabase = await createClient();

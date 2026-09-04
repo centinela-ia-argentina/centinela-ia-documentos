@@ -18,6 +18,7 @@ export async function redactarEscritoIA(input: {
   valores: Record<string, string>;
   instruccion: string;
   industria?: string;
+  modeloId?: string;
 }): Promise<RedactarResult> {
   const { user, profile } = await getUserProfile();
   if (!user || !profile || !profile.organization_id) return { ok: false, motivo: 'sin_permiso' };
@@ -28,6 +29,25 @@ export async function redactarEscritoIA(input: {
     industriaModelo = await getStrictIndustryForOrganization(profile.organization_id);
   } catch (e) {
     return { ok: false, motivo: 'sin_permiso' };
+  }
+
+  // Validación de modelo y status de revisión (bloqueo fail-closed de modelos desactualizados o retirados)
+  const modeloEncontrado = MODELOS.find((m) => (input.modeloId ? m.id === input.modeloId : m.titulo === input.titulo));
+  if (modeloEncontrado && (modeloEncontrado.reviewStatus === 'outdated' || modeloEncontrado.reviewStatus === 'retired')) {
+    await createAuditLog({
+      organizationId: profile.organization_id,
+      userId: user.id,
+      action: 'ai_model_blocked',
+      resourceType: 'organization',
+      resourceId: profile.organization_id,
+      metadata: {
+        entity_id: modeloEncontrado.id,
+        titulo: modeloEncontrado.titulo,
+        motivo: 'Modelo desactualizado o retirado (Ley 27.742 derogó multas de Ley 24.013). Requiere revisión profesional.',
+        review_status: modeloEncontrado.reviewStatus,
+      },
+    });
+    return { ok: false, motivo: 'error' };
   }
 
   const apiKey = process.env.GEMINI_API_KEY;
@@ -263,6 +283,24 @@ export async function extraerDatosParaModelo(caseId: string, modeloId?: string |
   }
   const modelIndustries = modelo.industries ?? ['legal'];
   if (!modelIndustries.includes(industry)) {
+    return {};
+  }
+
+  // 3.1 Bloqueo fail-closed de modelos desactualizados o retirados
+  if (modelo.reviewStatus === 'outdated' || modelo.reviewStatus === 'retired') {
+    await createAuditLog({
+      organizationId: profile.organization_id,
+      userId: user.id,
+      action: 'ai_model_blocked',
+      resourceType: 'organization',
+      resourceId: profile.organization_id,
+      metadata: {
+        entity_id: modelo.id,
+        titulo: modelo.titulo,
+        motivo: 'Modelo desactualizado o retirado (Ley 27.742 derogó multas de Ley 24.013). Requiere revisión profesional.',
+        review_status: modelo.reviewStatus,
+      },
+    });
     return {};
   }
 

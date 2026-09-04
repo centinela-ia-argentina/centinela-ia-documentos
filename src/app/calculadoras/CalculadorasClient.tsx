@@ -1155,8 +1155,17 @@ function MediacionTab() {
 
   return (
     <Card title="Honorarios de mediación">
+      <div className="mb-4 p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl">
+        <p className="text-xs font-semibold text-amber-300">
+          ⚠️ Parámetros orientativos sujetos a verificación reglamentaria
+        </p>
+        <p className="mt-1 text-xs text-amber-200/80">
+          Los valores base de UHOM ({currency(UHOM_VALOR)}), Jus PBA ({currency(JUS_BA_MEDIACION)}) y Jus Corrientes ({currency(JUS_CORRIENTES)}) son valores referenciales precargados y se encuentran clasificados como pendientes de verificación reglamentaria periódica. Podés editar el valor aplicable según la acordada o resolución vigente en tu jurisdicción. Los resultados son estrictamente orientativos y no vinculantes.
+        </p>
+      </div>
+
       <div className="block mb-4">
-        <span className="mb-1 block text-xs font-semibold text-slate-600">Jurisdicción</span>
+        <span className="mb-1 block text-xs font-semibold text-slate-400">Jurisdicción</span>
         <div className="mt-1 flex flex-wrap gap-2">
           <RadioPill active={juris === 'nacion'} onClick={() => setJuris('nacion')} label="Nación" />
           <RadioPill active={juris === 'baires'} onClick={() => setJuris('baires')} label="Buenos Aires" />

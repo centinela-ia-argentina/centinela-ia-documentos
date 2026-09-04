@@ -76,15 +76,64 @@ export async function preguntarADocumentos(pregunta: string): Promise<RespuestaB
     };
   }
 
+  // 2.1) Priorizar expediente si la consulta lo individualiza para evitar contaminación cruzada
+  const { data: orgCases } = await supabase
+    .from('cases')
+    .select('id, title, client_name')
+    .eq('organization_id', profile.organization_id);
+
+  let targetCaseDocIds: Set<string> | null = null;
+  const textoLower = texto.toLowerCase();
+  for (const c of (orgCases ?? [])) {
+    const titleMatch = c.title && c.title.trim().length >= 4 && textoLower.includes(c.title.toLowerCase().trim());
+    const clientMatch = c.client_name && c.client_name.trim().length >= 4 && textoLower.includes(c.client_name.toLowerCase().trim());
+    if (titleMatch || clientMatch) {
+      const { data: cDocs } = await supabase
+        .from('documents')
+        .select('id')
+        .eq('case_id', c.id)
+        .eq('organization_id', profile.organization_id);
+      if (cDocs && cDocs.length > 0) {
+        targetCaseDocIds = new Set(cDocs.map((d: any) => d.id));
+      }
+      break;
+    }
+  }
+
+  let filteredMatches = matches;
+  if (targetCaseDocIds && targetCaseDocIds.size > 0) {
+    const caseMatches = filteredMatches.filter((m) => targetCaseDocIds!.has(m.document_id));
+    if (caseMatches.length > 0) {
+      filteredMatches = caseMatches;
+    } else {
+      return {
+        ok: true,
+        respuesta: 'No encontré información relacionada en los documentos del expediente consultado.',
+        fuentes: [],
+      };
+    }
+  }
+
+  // Descartar fragmentos con similitud insuficiente
+  filteredMatches = filteredMatches.filter((m) => (m.similarity ?? 0) >= 0.40);
+  if (filteredMatches.length === 0) {
+    return {
+      ok: true,
+      respuesta:
+        'No encontré información relacionada en tus documentos indexados. Probá reanalizar algún documento o reformular la pregunta.',
+      fuentes: [],
+    };
+  }
+
   // 3) Nombres de archivo para citar
-  const docIds = [...new Set(matches.map((m) => m.document_id))];
+  const docIds = [...new Set(filteredMatches.map((m) => m.document_id))];
   const { data: docs } = await supabase
     .from('documents')
     .select('id, file_name')
     .in('id', docIds);
   const nombrePorId = new Map((docs ?? []).map((d: any) => [d.id, d.file_name]));
 
-  const fuentes: FuenteBusqueda[] = matches.map((m) => ({
+  const fuentes: FuenteBusqueda[] = filteredMatches.map((m) => ({
     documentId: m.document_id,
     fileName: nombrePorId.get(m.document_id) ?? 'Documento',
     fragmento: m.content,
@@ -135,7 +184,27 @@ RESPUESTA:`;
       data?.candidates?.[0]?.content?.parts?.map((p: any) => p.text).join('') ??
       'No se pudo generar una respuesta.';
 
-    return { ok: true, respuesta, fuentes };
+    const esNegativa = /no (surge|se encuentra|consta|contiene|se menciona|hay información|figura|se desprende)/i.test(respuesta);
+
+    const citedIndices = new Set<number>();
+    const matchesCitation = respuesta.matchAll(/\[(\d+)\]/g);
+    for (const m of matchesCitation) {
+      const idx = parseInt(m[1], 10);
+      if (!isNaN(idx) && idx >= 1 && idx <= fuentes.length) {
+        citedIndices.add(idx);
+      }
+    }
+
+    let fuentesValidas: FuenteBusqueda[] = [];
+    if (!esNegativa && citedIndices.size > 0) {
+      fuentesValidas = fuentes.filter((_, idx) => citedIndices.has(idx + 1));
+    } else if (!esNegativa && fuentes.length > 0 && (fuentes[0].similitud ?? 0) >= 0.65) {
+      fuentesValidas = [fuentes[0]];
+    } else {
+      fuentesValidas = [];
+    }
+
+    return { ok: true, respuesta, fuentes: fuentesValidas };
   } catch (e) {
     return { ok: false, error: 'Error de red: ' + String(e).slice(0, 160) };
   }

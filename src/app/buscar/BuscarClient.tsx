@@ -8,12 +8,21 @@ import { AiDisclaimer } from '@/lib/industries/disclaimers';
 import { MotionButton } from '@/components/ui/MotionButton';
 import { MotionCard } from '@/components/ui/MotionCard';
 
-export function BuscarClient() {
+import { IndustryType } from '@/lib/industries/documentTypes';
+
+export function BuscarClient({ industry = 'legal' }: { industry?: IndustryType }) {
   const [pregunta, setPregunta] = useState('');
   const [cargando, setCargando] = useState(false);
   const [respuesta, setRespuesta] = useState<string | null>(null);
   const [fuentes, setFuentes] = useState<FuenteBusqueda[]>([]);
   const [error, setError] = useState<string | null>(null);
+
+  const placeholder =
+    industry === 'legal'
+      ? 'Ej: ¿Qué plazo procesal surge de la cédula de notificación?'
+      : industry === 'escribania'
+      ? 'Ej: ¿Qué antecedentes dominiales constan en la escritura?'
+      : 'Ej: ¿Qué plazo de vigencia tiene el contrato de locación?';
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -39,13 +48,13 @@ export function BuscarClient() {
   return (
     <div>
       <AvisoPrivacidadIA contexto="responder tu pregunta" />
-      <AiDisclaimer industry="inmobiliaria" className="mb-4" />
+      <AiDisclaimer industry={industry} className="mb-4" />
       <form onSubmit={onSubmit} className="flex flex-col gap-3 sm:flex-row">
         <input
           type="text"
           value={pregunta}
           onChange={(e) => setPregunta(e.target.value)}
-          placeholder="Ej: ¿Qué plazo tiene la notificación de Tiendas Tech?"
+          placeholder={placeholder}
           className="flex-1 rounded-xl border border-white/10 bg-white/[0.02] px-4 py-2.5 text-sm text-white shadow-sm outline-none placeholder-slate-500 focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400"
         />
         <MotionButton

@@ -78,6 +78,7 @@ type ChecklistItemRecord = {
   title: string;
   status: string;
   document_id: string | null;
+  match_source?: 'manual' | 'automatic' | null;
   notes: string | null;
   created_at: string;
   documents: {
@@ -255,7 +256,7 @@ export default async function CaseDetailPage({ params, searchParams }: CaseDetai
   if (caseChecklist) {
     const { data, error } = await supabase
       .from('checklist_items')
-      .select('id, checklist_id, title, status, document_id, notes, created_at, documents(id, file_name)')
+      .select('id, checklist_id, title, status, document_id, match_source, notes, created_at, documents(id, file_name)')
       .eq('checklist_id', caseChecklist.id)
       .eq('organization_id', profile.organization_id)
       .order('created_at', { ascending: true })
@@ -1663,9 +1664,16 @@ export default async function CaseDetailPage({ params, searchParams }: CaseDetai
                       </div>
 
                     {item.documents && !isNotRequired ? (
-                      <p className="rounded-xl bg-sky-50 px-3 py-2 text-xs font-semibold text-sky-700">
-                        Vinculado: {item.documents.file_name}
-                      </p>
+                      <div className="flex items-center gap-2">
+                        <p className="rounded-xl bg-sky-50 px-3 py-2 text-xs font-semibold text-sky-700">
+                          Vinculado: {item.documents.file_name}
+                        </p>
+                        {item.match_source === 'manual' ? (
+                          <Badge tone="accent">Manual</Badge>
+                        ) : item.match_source === 'automatic' ? (
+                          <Badge tone="neutral">Auto</Badge>
+                        ) : null}
+                      </div>
                     ) : null}
 
                     {!isNotRequired && (
