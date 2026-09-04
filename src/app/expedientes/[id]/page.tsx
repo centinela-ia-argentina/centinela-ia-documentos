@@ -1558,6 +1558,7 @@ export default async function CaseDetailPage({ params, searchParams }: CaseDetai
                           <input type="hidden" name="case_id" value={caseRecord.id} />
                           <button
                             type="submit"
+                            data-testid="btn-auto-match"
                             className="rounded-lg bg-gradient-to-r from-cyan-500 to-violet-500 px-3 py-1.5 text-sm font-medium text-white transition hover:opacity-90"
                           >
                             ✨ Detectar documentos ya cargados
@@ -1592,14 +1593,14 @@ export default async function CaseDetailPage({ params, searchParams }: CaseDetai
                   )}
                 </div>
 
-                <div className="mt-5 space-y-3">
+                <div className="mt-5 space-y-3" data-testid="checklist-items">
                   {checklistItems.map((item, idx) => {
                     const isDone = item.status === 'received' || item.status === 'reviewed';
                     const isMissing = item.status === 'pending' || item.status === 'rejected';
                     const isNotRequired = item.status === 'not_required';
 
                     return (
-                      <div key={item.id} className={`space-y-3 ${isNotRequired ? 'opacity-60' : ''}`}>
+                      <div key={item.id} data-testid={`checklist-item-${idx}`} className={`space-y-3 ${isNotRequired ? 'opacity-60' : ''}`}>
                       <div className={`flex items-center gap-3 rounded-2xl border p-3 transition-colors ${
                           isMissing
                             ? 'border-[#F59E0B] bg-white/[0.04]'
@@ -1641,7 +1642,7 @@ export default async function CaseDetailPage({ params, searchParams }: CaseDetai
                             {item.title}
                           </p>
                           <div className="mt-1 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                            <Badge tone={isDone ? 'success' : isNotRequired ? 'neutral' : 'warning'}>{checklistStatusLabel(item.status)}</Badge>
+                            <Badge tone={isDone ? 'success' : isNotRequired ? 'neutral' : 'warning'} data-testid={`checklist-status-badge-${idx}`}>{checklistStatusLabel(item.status)}</Badge>
                             <span>•</span>
                             <form action={toggleChecklistItemNotRequired} className="inline-block">
                               <input type="hidden" name="case_id" value={caseRecord.id} />
@@ -1664,14 +1665,14 @@ export default async function CaseDetailPage({ params, searchParams }: CaseDetai
                       </div>
 
                     {item.documents && !isNotRequired ? (
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2" data-testid={`checklist-linked-info-${idx}`}>
                         <p className="rounded-xl bg-sky-50 px-3 py-2 text-xs font-semibold text-sky-700">
                           Vinculado: {item.documents.file_name}
                         </p>
                         {item.match_source === 'manual' ? (
-                          <Badge tone="accent">Manual</Badge>
+                          <Badge tone="accent" data-testid={`checklist-badge-manual-${idx}`}>Manual</Badge>
                         ) : item.match_source === 'automatic' ? (
-                          <Badge tone="neutral">Auto</Badge>
+                          <Badge tone="neutral" data-testid={`checklist-badge-auto-${idx}`}>Auto</Badge>
                         ) : null}
                       </div>
                     ) : null}
@@ -1696,6 +1697,7 @@ export default async function CaseDetailPage({ params, searchParams }: CaseDetai
                             <select
                               name="document_id"
                               defaultValue={item.document_id ?? ''}
+                              data-testid={`select-doc-${idx}`}
                               className="w-full rounded-xl border border-slate-200 bg-[#0C2340] px-3 py-2 text-sm text-white outline-none focus:ring-2 focus:ring-sky-400"
                             >
                               <option
@@ -1717,7 +1719,11 @@ export default async function CaseDetailPage({ params, searchParams }: CaseDetai
                               ))}
                             </select>
 
-                            <button className="rounded-xl border border-white/10 px-3 py-2 text-sm font-bold text-slate-300 hover:border-sky-400 hover:text-sky-400">
+                            <button
+                              type="submit"
+                              data-testid={`btn-guardar-doc-${idx}`}
+                              className="rounded-xl border border-white/10 px-3 py-2 text-sm font-bold text-slate-300 hover:border-sky-400 hover:text-sky-400"
+                            >
                               Guardar
                             </button>
                           </div>

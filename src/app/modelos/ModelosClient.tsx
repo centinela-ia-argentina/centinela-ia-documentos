@@ -416,7 +416,7 @@ export function ModelosClient({
             <MotionCard index={1} className="flex flex-col gap-4">
               <h2 className="text-base font-semibold text-white">{seleccionado.titulo}</h2>
               {isOutdatedOrRetired ? (
-                <div className="space-y-4" data-testid="ficha-historica">
+                <div className="space-y-4" data-testid="ficha-historica-outdated">
                   <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-4">
                     <div className="flex items-center gap-2">
                       <Badge tone="danger">Modelo fuera de uso productivo</Badge>
@@ -466,6 +466,7 @@ export function ModelosClient({
                         onChange={(e) => aplicarExpediente(e.target.value)}
                         disabled={cargandoPrellenado}
                         aria-busy={cargandoPrellenado}
+                        data-testid="modelos-expediente-select"
                         className="mt-2 w-full rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2 text-sm text-white outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400 disabled:cursor-wait disabled:opacity-60"
                       >
                         <option value="" className="text-slate-900">— Sin selección (completar a mano) —</option>
@@ -576,6 +577,7 @@ export function ModelosClient({
                         type="button"
                         onClick={redactarIA}
                         disabled={redactando}
+                        data-testid="btn-redactar-ia"
                         className="mt-2 inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-accent to-brandviolet px-3 py-1.5 text-xs font-semibold text-white transition disabled:opacity-60"
                       >
                         {redactando ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
@@ -607,6 +609,7 @@ export function ModelosClient({
                     type="button"
                     onClick={copiar}
                     disabled={isOutdatedOrRetired}
+                    data-testid="btn-copiar-modelo"
                     title={isOutdatedOrRetired ? 'Bloqueado para uso productivo' : 'Copiar'}
                     className={`inline-flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-semibold transition ${
                       isOutdatedOrRetired
@@ -621,6 +624,7 @@ export function ModelosClient({
                     type="button"
                     onClick={descargar}
                     disabled={isOutdatedOrRetired}
+                    data-testid="btn-descargar-txt"
                     title={isOutdatedOrRetired ? 'Bloqueado para uso productivo' : 'Descargar .txt'}
                     className={`inline-flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-semibold transition ${
                       isOutdatedOrRetired
@@ -634,6 +638,7 @@ export function ModelosClient({
                     type="button"
                     onClick={descargarDocx}
                     disabled={isOutdatedOrRetired}
+                    data-testid="btn-descargar-docx"
                     title={isOutdatedOrRetired ? 'Bloqueado para uso productivo' : 'Descargar Word'}
                     className={`inline-flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-semibold transition ${
                       isOutdatedOrRetired

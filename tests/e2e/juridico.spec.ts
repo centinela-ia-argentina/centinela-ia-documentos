@@ -426,47 +426,97 @@ test.describe.serial('Centinela IA - Flujo Jurídico E2E Obligatorio', () => {
     const checklistContainer = page.locator('[data-testid="checklist-items"]');
     await expect(checklistContainer).toBeVisible({ timeout: 15000 });
 
-    const selectLink = page.locator('[data-testid^="select-doc-"]').first();
-    if ((await selectLink.count()) > 0) {
-      const options = await selectLink.locator('option').all();
-      if (options.length > 1) {
-        const targetVal = await options[1].getAttribute('value');
-        if (targetVal) {
-          await selectLink.selectOption(targetVal);
-          await page.reload();
-          await expect(checklistContainer).toBeVisible({ timeout: 15000 });
-          await expect(selectLink).toHaveValue(targetVal);
-        }
-      }
+    const toggleButton = page.locator('[data-testid="checklist-link-toggle-0"]');
+    await expect(toggleButton).toBeVisible();
+    await toggleButton.click();
+
+    const selectLink = page.locator('[data-testid="select-doc-0"]');
+    await expect(selectLink).toBeVisible();
+
+    const options = await selectLink.locator('option').all();
+    expect(options.length).toBeGreaterThan(1);
+    const targetVal = await options[1].getAttribute('value');
+    expect(targetVal).toBeTruthy();
+
+    // 1. Vincular manualmente
+    await selectLink.selectOption(targetVal!);
+    await page.locator('[data-testid="btn-guardar-doc-0"]').click();
+
+    // status cambia a RECIBIDO y badge cambia a Manual
+    await expect(page.locator('[data-testid="checklist-status-badge-0"]')).toHaveText(/Recibido/i);
+    await expect(page.locator('[data-testid="checklist-badge-manual-0"]')).toBeVisible();
+
+    // 2. Recargar (reload)
+    await page.reload();
+    await expect(checklistContainer).toBeVisible({ timeout: 15000 });
+
+    // 3. Comprobar que persiste: mismo documento, status RECIBIDO, badge Manual
+    await expect(page.locator('[data-testid="checklist-status-badge-0"]')).toHaveText(/Recibido/i);
+    await expect(page.locator('[data-testid="checklist-badge-manual-0"]')).toBeVisible();
+    if (!await selectLink.isVisible()) {
+      await page.locator('[data-testid="checklist-link-toggle-0"]').click();
     }
+    await expect(selectLink).toHaveValue(targetVal!);
+
+    // 4. Disparar AutoMatch
+    const autoMatchBtn = page.locator('[data-testid="btn-auto-match"]');
+    if (await autoMatchBtn.isVisible()) {
+      await autoMatchBtn.click();
+      await expect(checklistContainer).toBeVisible({ timeout: 15000 });
+    }
+
+    // 5. Comprobar que NO se revierte a Pendiente y NO se sobreescribe la vinculación manual
+    await expect(page.locator('[data-testid="checklist-status-badge-0"]')).toHaveText(/Recibido/i);
+    await expect(page.locator('[data-testid="checklist-badge-manual-0"]')).toBeVisible();
+
+    // 6. Desvincular manualmente
+    if (!await selectLink.isVisible()) {
+      await page.locator('[data-testid="checklist-link-toggle-0"]').click();
+    }
+    await selectLink.selectOption('');
+    await page.locator('[data-testid="btn-guardar-doc-0"]').click();
+
+    // status vuelve a PENDIENTE y select vuelve a vacío
+    await expect(page.locator('[data-testid="checklist-status-badge-0"]')).toHaveText(/Pendiente/i);
+    if (!await selectLink.isVisible()) {
+      await page.locator('[data-testid="checklist-link-toggle-0"]').click();
+    }
+    await expect(selectLink).toHaveValue('');
   });
 
   test('14c. modelo outdated en /modelos sin campos editables, sin copiar, sin descargar', async () => {
     await page.goto('/modelos?modelo=intimacion-laboral-registracion');
     await expect(page.locator('[data-testid="ficha-historica-outdated"]')).toBeVisible({ timeout: 15000 });
-    await expect(page.locator('[data-testid="btn-copiar-modelo"]')).toHaveCount(0);
-    await expect(page.locator('[data-testid="btn-descargar-txt"]')).toHaveCount(0);
-    await expect(page.locator('[data-testid="btn-descargar-docx"]')).toHaveCount(0);
+    // Botones de exportación disabled según política B
+    await expect(page.locator('[data-testid="btn-copiar-modelo"]')).toBeDisabled();
+    await expect(page.locator('[data-testid="btn-descargar-txt"]')).toBeDisabled();
+    await expect(page.locator('[data-testid="btn-descargar-docx"]')).toBeDisabled();
+    // Botón de redacción IA ausente
     await expect(page.locator('[data-testid="btn-redactar-ia"]')).toHaveCount(0);
+    // Selector de expedientes y campos editables ausentes
+    await expect(page.locator('[data-testid="modelos-expediente-select"]')).toHaveCount(0);
+    await expect(page.locator('[data-testid="ficha-historica-outdated"] input')).toHaveCount(0);
+    // Aviso de edición manual ausente
     await expect(page.locator('body')).not.toContainText('Podés editar el modelo manualmente');
   });
 
   test('14d. selectores de Agenda y Modelos segregados por vertical', async () => {
     await page.goto('/agenda');
+    await page.getByRole('button', { name: 'Nuevo evento' }).click();
     const caseSelect = page.locator('[data-testid="agenda-case-select"]');
-    if ((await caseSelect.count()) > 0) {
-      const text = await caseSelect.innerText();
-      expect(text).not.toContain('Propiedad 1');
-      expect(text).not.toContain('Escritura 1');
-    }
+    await expect(caseSelect).toBeVisible();
+    const agendaText = await caseSelect.innerText();
+    expect(agendaText).not.toContain('Propiedad 1');
+    expect(agendaText).not.toContain('Escritura 1');
+    expect(agendaText).not.toContain('Compraventa');
 
-    await page.goto('/modelos');
+    await page.goto('/modelos?modelo=solicita-tramite');
     const modeloCaseSelect = page.locator('[data-testid="modelos-expediente-select"]');
-    if ((await modeloCaseSelect.count()) > 0) {
-      const text = await modeloCaseSelect.innerText();
-      expect(text).not.toContain('Propiedad 1');
-      expect(text).not.toContain('Escritura 1');
-    }
+    await expect(modeloCaseSelect).toBeVisible();
+    const modeloText = await modeloCaseSelect.innerText();
+    expect(modeloText).not.toContain('Propiedad 1');
+    expect(modeloText).not.toContain('Escritura 1');
+    expect(modeloText).not.toContain('Compraventa');
   });
 
   test('15. cleanup', async () => {
