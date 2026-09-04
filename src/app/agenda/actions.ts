@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { getUserProfile } from '@/lib/auth/getUserProfile';
-import { canUpdateCase } from '@/lib/permissions/roles';
+import { canUpdateCase, isUserRole } from '@/lib/permissions/roles';
 import { createAuditLog } from '@/lib/audit/createAuditLog';
 import { normalizeDateLocal, normalizeTitle, validateTime } from './helpers';
 
@@ -34,7 +34,7 @@ async function deduplicateAndInsert(input: {
     return { ok: false, motivo: 'error', mensaje: 'Faltan datos.' };
   }
 
-  if (!canUpdateCase(profile.role as any)) {
+  if (!isUserRole(profile.role) || !canUpdateCase(profile.role)) {
     return { ok: false, motivo: 'no_auth', mensaje: 'No tenés permisos para esta acción.' };
   }
 
@@ -83,7 +83,7 @@ async function deduplicateAndInsert(input: {
       await createAuditLog({
         organizationId: profile.organization_id,
         userId: user.id,
-        action: 'agenda_event_duplicate_prevented' as any,
+        action: 'agenda_event_duplicate_prevented',
         resourceType: input.caseId ? 'case' : 'organization',
         resourceId: input.caseId || profile.organization_id,
         metadata: { titulo: tituloInput, fecha: fechaNorm, hora: horaValida, categoria: input.categoria },
@@ -108,7 +108,7 @@ async function deduplicateAndInsert(input: {
       await createAuditLog({
         organizationId: profile.organization_id,
         userId: user.id,
-        action: 'agenda_event_duplicate_prevented' as any,
+        action: 'agenda_event_duplicate_prevented',
         resourceType: input.caseId ? 'case' : 'organization',
         resourceId: input.caseId || profile.organization_id,
         metadata: { titulo: tituloInput, fecha: fechaNorm, hora: horaValida, categoria: input.categoria },
@@ -121,7 +121,7 @@ async function deduplicateAndInsert(input: {
   await createAuditLog({
     organizationId: profile.organization_id,
     userId: user.id,
-    action: 'agenda_event_created' as any,
+    action: 'agenda_event_created',
     resourceType: input.caseId ? 'case' : 'organization',
     resourceId: input.caseId || profile.organization_id,
     metadata: {

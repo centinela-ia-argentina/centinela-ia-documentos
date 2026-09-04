@@ -144,8 +144,8 @@ const GLOBAL_AGENT_CASE_CONTEXT_LIMIT = 40;
 
   for (const p of plazos) {
     if (!p.fecha) continue;
-    const cid = (p as any).case_id ?? null;
-    const categoria = (p as any).categoria ?? '__sin_categoria__';
+    const cid = p.case_id ?? null;
+    const categoria = p.categoria ?? '__sin_categoria__';
     const tituloString = p.titulo ?? 'Plazo';
     const tituloNorm = tituloString.normalize('NFC').trim().toLowerCase().replace(/\s+/g, ' ');
     const f = String(p.fecha).slice(0, 10);

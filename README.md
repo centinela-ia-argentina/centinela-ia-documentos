@@ -2,7 +2,7 @@
 
 **Centinela IA** es una plataforma web en beta operativa para gestión documental inteligente, expedientes, documentos PDF, usuarios, permisos, auditoría, reportes y análisis documental en entorno beta controlado.
 
-El proyecto está orientado inicialmente a organizaciones que manejan documentación sensible o dispersa, como estudios jurídicos, escribanías, inmobiliarias, gestorías, estudios contables, áreas administrativas y PyMEs.
+El proyecto está orientado comercialmente a organizaciones que manejan documentación sensible o dispersa en tres verticales activas: estudios jurídicos, escribanías e inmobiliarias.
 
 Demo online:
 https://centinela-ia-documentos.vercel.app/
@@ -92,7 +92,7 @@ Incluye:
 * módulos principales;
 * seguridad y trazabilidad;
 * análisis documental en entorno beta;
-* plan beta cerrada;
+* plan de beta operativa comercial;
 * botón de WhatsApp;
 * acceso al sistema por `/login`.
 
@@ -116,22 +116,22 @@ Gestión de contratos de alquiler, boletos de compraventa, reservas, documentaci
 
 Orden documental por trámite, escritura, poder, certificado, compraventa o documentación crítica.
 
-### Empresas y áreas administrativas
+### Otras verticales (previstas para fases futuras)
 
-Gestión documental para áreas legales, contables, comerciales, administrativas o de recursos humanos.
+Gestión documental para áreas de compliance, contables y administrativas (mantenidas en tipos base pero no habilitadas en la oferta comercial activa).
 
 ---
 
 ## Stack técnico
 
-* **Frontend:** Next.js 16.2.6, React, TypeScript, Tailwind CSS.
+* **Frontend:** Next.js 16.3.1, React, TypeScript, Tailwind CSS.
 * **Backend / BaaS:** Supabase.
 * **Base de datos:** PostgreSQL.
 * **Autenticación:** Supabase Auth.
 * **Storage:** Supabase Storage.
 * **Deploy:** Vercel.
 * **Control de versiones:** GitHub.
-* **Análisis documental:** entorno beta controlado, preparado para futuras integraciones con proveedores IA externos.
+* **Análisis documental e IA:** entorno controlado con funciones server-side integradas (auditoría, asistencia y análisis documental beta), preparado para incorporar proveedores o modelos adicionales.
 
 ---
 
@@ -260,7 +260,7 @@ Validaciones realizadas:
 
 ## Estado comercial
 
-Centinela IA se encuentra en etapa de beta cerrada para primeros clientes.
+Centinela IA se encuentra en etapa de beta operativa comercial en entorno controlado para primeros clientes.
 
 Modelo comercial inicial:
 
@@ -275,7 +275,7 @@ Propuesta base sugerida:
 * **Mensualidad beta:** AR$ 45.000 por mes.
 * **Desarrollo a medida:** presupuesto según alcance.
 
-La beta cerrada está pensada para validar el sistema con clientes reales, recopilar feedback y adaptar el flujo documental según necesidades concretas.
+La etapa de beta operativa comercial está pensada para validar el sistema con clientes reales en entorno controlado, recopilar feedback y adaptar el flujo documental según necesidades concretas.
 
 ---
 
@@ -344,7 +344,7 @@ Bloques completados:
 * Demo guiada comercial.
 * Guion oral de demo.
 * Pitch de WhatsApp.
-* Propuesta beta cerrada.
+* Propuesta comercial beta.
 * PDF comercial.
 * Planilla comercial de seguimiento.
 * Datos demo profesionales.
@@ -387,7 +387,7 @@ Mejoras futuras recomendadas:
 * auditoría avanzada por acción;
 * nuevos reportes comerciales;
 * más reglas documentales por rubro;
-* integración futura con proveedores IA externos;
+* integración futura con proveedores o modelos IA adicionales;
 * módulo de clientes;
 * exportación PDF de reportes;
 * panel comercial interno.
