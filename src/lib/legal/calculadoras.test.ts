@@ -4,6 +4,7 @@ import { diasAmpliacionPorDistancia } from './plazos';
 import {
   calcularCaducidadBase,
   sumarMesesControlado,
+  parseMesesEnterosPositivos,
   calcularEscalaArt21,
   calcularDanosPunitivos,
   calcularIncapacidad,
@@ -146,6 +147,77 @@ describe('Calculadoras Jurídicas: Funciones Productivas Oficiales', () => {
       expect(res.norma).toBe('Art. 310 inc. 4 CPCCN');
       expect(res.detalle).toContain('Incidente de caducidad');
       expect(res.fechaBaseEstimadaISO).toBe('2026-04-15');
+    });
+
+    it('strict parsing and validation of meses enteros positivos (parseMesesEnterosPositivos)', () => {
+      // 1. '1e2' does not convert to 1 and is rejected
+      expect(() => parseMesesEnterosPositivos('1e2')).toThrow(
+        'Ingresá un número entero positivo de meses, usando únicamente dígitos.'
+      );
+
+      // Rejects scientific notation variations
+      expect(() => parseMesesEnterosPositivos('1e0')).toThrow('únicamente dígitos');
+      expect(() => parseMesesEnterosPositivos('2E1')).toThrow('únicamente dígitos');
+
+      // 2. '1.5' is rejected
+      expect(() => parseMesesEnterosPositivos('1.5')).toThrow('únicamente dígitos');
+      expect(() => parseMesesEnterosPositivos('1,5')).toThrow('únicamente dígitos');
+
+      // Rejects signs, zero, internal spaces, non-digits
+      expect(() => parseMesesEnterosPositivos('+1')).toThrow('únicamente dígitos');
+      expect(() => parseMesesEnterosPositivos('-1')).toThrow('únicamente dígitos');
+      expect(() => parseMesesEnterosPositivos('0')).toThrow('únicamente dígitos');
+      expect(() => parseMesesEnterosPositivos('01')).toThrow('únicamente dígitos');
+      expect(() => parseMesesEnterosPositivos('1 2')).toThrow('únicamente dígitos');
+      expect(() => parseMesesEnterosPositivos('Infinity')).toThrow('únicamente dígitos');
+      expect(() => parseMesesEnterosPositivos('NaN')).toThrow('únicamente dígitos');
+      expect(() => parseMesesEnterosPositivos('')).toThrow('únicamente dígitos');
+      expect(() => parseMesesEnterosPositivos('   ')).toThrow('únicamente dígitos');
+
+      // 3. '1' is accepted
+      expect(parseMesesEnterosPositivos('1')).toBe(1);
+      expect(parseMesesEnterosPositivos('  1  ')).toBe(1);
+
+      // 4. '2' is accepted
+      expect(parseMesesEnterosPositivos('2')).toBe(2);
+
+      // 5. '3' parses as 3, but is rejected by ordinary term rule in calcularCaducidadBase
+      const parsedTres = parseMesesEnterosPositivos('3');
+      expect(parsedTres).toBe(3);
+      expect(() =>
+        calcularCaducidadBase({
+          fechaUltimoActo: '2026-01-31',
+          tipo: 'prescripcion_menor',
+          mesesPrescripcionMenor: parsedTres,
+          plazoOrdinarioReferencia: 3,
+        })
+      ).toThrow('debe ser inferior al plazo procesal ordinario aplicable (3 meses)');
+    });
+
+    it('end-to-end simulation: input 1e2 on 31/01/2026 never calculates 28/02/2026', () => {
+      const fecha = '2026-01-31';
+      const inputRaw = '1e2';
+
+      // Ensure that raw '1e2' throws and does NOT silently evaluate to 1 month
+      expect(() => {
+        const mp = parseMesesEnterosPositivos(inputRaw);
+        return calcularCaducidadBase({
+          fechaUltimoActo: fecha,
+          tipo: 'prescripcion_menor',
+          mesesPrescripcionMenor: mp,
+          plazoOrdinarioReferencia: 3,
+        });
+      }).toThrow('Ingresá un número entero positivo de meses, usando únicamente dígitos.');
+
+      // In contrast, valid '1' produces 2026-02-28
+      const mpValido = parseMesesEnterosPositivos('1');
+      const resValido = calcularCaducidadBase({
+        fechaUltimoActo: fecha,
+        tipo: 'prescripcion_menor',
+        mesesPrescripcionMenor: mpValido,
+        plazoOrdinarioReferencia: 3,
+      });
+      expect(resValido.fechaBaseEstimadaISO).toBe('2026-02-28');
     });
 
     it('controls end-of-month clamping without Date.setMonth overshoot (e.g. 31 Jan)', () => {

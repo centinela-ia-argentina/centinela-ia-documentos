@@ -55,6 +55,32 @@ export function sumarMesesControlado(fecha: Date, meses: number): Date {
   return new Date(targetAnio, targetMes, targetDia);
 }
 
+/**
+ * Parsea y valida estrictamente una representación decimal entera positiva de meses.
+ * Rechaza notación científica (ej: '1e2'), decimales (ej: '1.5', '1,5'), signos ('+1', '-1'),
+ * cero, espacios internos, NaN e Infinity.
+ * Solo acepta enteros positivos escritos exclusivamente con dígitos (ej: '1', '2').
+ */
+export function parseMesesEnterosPositivos(raw: string): number {
+  const rawMeses = raw.trim();
+
+  if (!/^[1-9]\d*$/.test(rawMeses)) {
+    throw new Error(
+      'Ingresá un número entero positivo de meses, usando únicamente dígitos.'
+    );
+  }
+
+  const parsed = Number(rawMeses);
+
+  if (!Number.isSafeInteger(parsed) || parsed <= 0) {
+    throw new Error(
+      'Ingresá un número entero positivo de meses, usando únicamente dígitos.'
+    );
+  }
+
+  return parsed;
+}
+
 export function calcularCaducidadBase(input: CaducidadInput): CaducidadResultado {
   const d = parseDateStrict(input.fechaUltimoActo);
 

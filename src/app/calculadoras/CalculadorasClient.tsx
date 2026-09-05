@@ -38,6 +38,7 @@ import { parseISODate, sumarDiasCorridos, calcularVencimientoProcesal } from '@/
 import { type NationalJusticeFeeCaseType } from '@/lib/legal/tasaJusticia';
 import {
   calcularCaducidadBase,
+  parseMesesEnterosPositivos,
   type CaducidadTipo,
   type CaducidadResultado,
   calcularEscalaArt21,
@@ -977,14 +978,19 @@ function CaducidadInstanciaCalc() {
 
     let mp: number | undefined = undefined;
     if (instancia === 'prescripcion_menor') {
-      if (!mesesPrescripcion.trim()) {
+      const rawMeses = mesesPrescripcion.trim();
+      if (!rawMeses) {
         return setError('Indicá el plazo de prescripción menor (en meses) correspondiente a la acción.');
       }
-      const parsed = parseInt(mesesPrescripcion.trim(), 10);
-      if (!Number.isInteger(parsed) || parsed <= 0 || mesesPrescripcion.includes('.') || mesesPrescripcion.includes(',')) {
-        return setError('Ingresá un número entero positivo de meses para el plazo de prescripción.');
+      try {
+        mp = parseMesesEnterosPositivos(rawMeses);
+      } catch (err: unknown) {
+        return setError(
+          err instanceof Error
+            ? err.message
+            : 'Ingresá un número entero positivo de meses, usando únicamente dígitos.'
+        );
       }
-      mp = parsed;
     }
 
     try {
