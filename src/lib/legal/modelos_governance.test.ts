@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { MODELOS, getModeloReviewStatus, getModelosInventory } from './modelos';
+import { MODELOS, getModeloReviewStatus, getModelosInventory, sugerirModeloPorTipo } from './modelos';
 import { redactarEscritoIA, extraerDatosParaModelo } from '@/app/modelos/actions';
 import { getUserProfile } from '@/lib/auth/getUserProfile';
 import { getStrictIndustryForOrganization } from '@/lib/auth/getStrictIndustry';
@@ -252,6 +252,9 @@ describe('C-M3-J-005 & Governance: Legal models review status and blocking', () 
     const inventory = getModelosInventory();
     expect(inventory.length).toBe(84);
 
+    const ids = new Set(inventory.map((m) => m.id));
+    expect(ids.size).toBe(84); // 84 IDs únicos
+
     const outdated = inventory.filter((m) => m.reviewStatus === 'outdated');
     const pending = inventory.filter((m) => m.reviewStatus === 'pending_review');
     const verified = inventory.filter((m) => m.reviewStatus === 'verified');
@@ -261,6 +264,18 @@ describe('C-M3-J-005 & Governance: Legal models review status and blocking', () 
     expect(pending.length).toBe(83);
     expect(verified.length).toBe(0);
 
+    // Conteo por rubro
+    const legalModels = MODELOS.filter((m) => (m.industries ?? ['legal']).includes('legal'));
+    const inmoModels = MODELOS.filter((m) => (m.industries ?? []).includes('inmobiliaria'));
+    const notarialModels = MODELOS.filter((m) => (m.industries ?? []).includes('escribania'));
+
+    expect(legalModels.length).toBe(73); // 72 operativos + 1 outdated
+    expect(inmoModels.length).toBe(4);
+    expect(notarialModels.length).toBe(7);
+
+    const legalOperativos = legalModels.filter((m) => m.reviewStatus !== 'outdated' && m.reviewStatus !== 'retired');
+    expect(legalOperativos.length).toBe(72);
+
     for (const item of inventory) {
       expect(item.id).toBeTruthy();
       expect(item.titulo).toBeTruthy();
@@ -268,5 +283,14 @@ describe('C-M3-J-005 & Governance: Legal models review status and blocking', () 
       expect(item.jurisdiction).toBeTruthy();
       expect(item.version).toBe('1.0');
     }
+  });
+
+  it('sugerirModeloPorTipo never suggests outdated or retired models', () => {
+    // intimacion-laboral-registracion is outdated, so a search that could match it must return null or an operative model
+    const sug = sugerirModeloPorTipo('despido');
+    expect(sug).toBeDefined();
+    expect(sug?.id).toBe('demanda-laboral-despido');
+    expect(sug?.reviewStatus).not.toBe('outdated');
+    expect(sug?.reviewStatus).not.toBe('retired');
   });
 });

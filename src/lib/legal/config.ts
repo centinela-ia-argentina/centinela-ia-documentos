@@ -3,8 +3,8 @@
 // Fuentes: argentina.gob.ar/jefatura/feriados-nacionales-2026 · csjn.gov.ar · cpacf.org.ar
 
 // Valor de la UMA (Unidad de Medida Arancelaria) — Ley 27.423
-export const UMA_VALOR = 98112; // vigente desde 01/04/2026 (Res. CSJN 1352/26)
-export const UMA_VIGENCIA = 'abril 2026';
+export const UMA_VALOR = 98112; // vigente desde 01/04/2026 (Res. CSJN SGA 1352/2026)
+export const UMA_VIGENCIA = '1 de abril de 2026';
 
 // Tasa de justicia (Ley 23.898) — Nación
 export const TASA_JUSTICIA_PORCENTAJE = 3; // % del monto del proceso
@@ -68,14 +68,12 @@ export const LEGAL_CALENDARS: Record<LegalJurisdiction, LegalCalendar> = {
 };
 
 // ── Honorarios de mediación (valores actualizables mensualmente) ──
-// Nación: UHOM (Ley 26.589, Dec. 1467/2011 mod. 2536/2015). $12.150 desde 1/5/2026 (CPACF).
-export const UHOM_VALOR = 12150;
-// Buenos Aires: Jus arancelario Ley 14.967 (art. 9). $49.750 desde 1/4/2026 (SCBA).
-export const JUS_BA_MEDIACION = 49750;
+// Nación: UHOM (Ley 26.589, Dec. 1467/2011 mod. 2536/2015). $12.960 desde 1/8/2026 (CPACF tabla agosto 2026).
+export const UHOM_VALOR = 12960;
+// Buenos Aires: Jus arancelario Ley 14.967 (art. 9). $53.232 desde 1/8/2026 (SCBA Res. RP 873/26).
+export const JUS_BA_MEDIACION = 53232;
 // Corrientes: Jus provincial (STJ). $58.519,61 desde 1/5/2026.
 export const JUS_CORRIENTES = 58519.61;
-
-
 
 export type ParameterStatus = 'verified' | 'pending' | 'expired' | 'unavailable';
 
@@ -92,6 +90,9 @@ export interface GovernedParameter {
   status: ParameterStatus;
   legalScope: string;
   orientative: boolean;
+  label?: string;
+  editable?: boolean;
+  notes?: string;
   // Compatibilidad con contratos previos
   identificador: string;
   concepto: string;
@@ -119,8 +120,11 @@ export const LEGAL_PARAMETERS: Record<string, GovernedParameter> = {
     effectiveFrom: '1990-10-24',
     verifiedAt: '2026-09-04',
     status: 'verified',
-    legalScope: 'Justicia Nacional / Federal en lo Civil y Comercial',
+    legalScope: 'Justicia Nacional / Federal en lo Civil y Comercial (pretensión pecuniaria general)',
     orientative: true,
+    label: 'Tasa de Justicia Nacional (Ley 23.898)',
+    editable: false,
+    notes: 'Aplica únicamente a pretensiones pecuniarias generales en Justicia Nacional/Federal.',
     identificador: 'tasa_justicia_nacion',
     concepto: 'Tasa de Justicia Nacional (Ley 23.898)',
     jurisdiccion: 'nacion',
@@ -145,6 +149,9 @@ export const LEGAL_PARAMETERS: Record<string, GovernedParameter> = {
     status: 'unavailable',
     legalScope: 'Provincia de Buenos Aires (cobertura no implementada)',
     orientative: true,
+    label: 'Tasa de Justicia PBA',
+    editable: false,
+    notes: 'Cobertura no implementada.',
     identificador: 'tasa_justicia_pba',
     concepto: 'Tasa de Justicia PBA',
     jurisdiccion: 'pba',
@@ -169,6 +176,9 @@ export const LEGAL_PARAMETERS: Record<string, GovernedParameter> = {
     status: 'unavailable',
     legalScope: 'Provincia de Corrientes (cobertura no implementada)',
     orientative: true,
+    label: 'Tasa de Justicia Corrientes',
+    editable: false,
+    notes: 'Cobertura no implementada.',
     identificador: 'tasa_justicia_corrientes',
     concepto: 'Tasa de Justicia Corrientes',
     jurisdiccion: 'corrientes',
@@ -184,22 +194,25 @@ export const LEGAL_PARAMETERS: Record<string, GovernedParameter> = {
   tasa_activa_bna: {
     identifier: 'tasa_activa_bna',
     jurisdiction: 'nacion',
-    value: 26.62,
+    value: 27.60,
     unit: '% TNA vencida',
     sourceName: 'Banco de la Nación Argentina',
     sourceUrl: 'https://bna.com.ar/Home/InformacionAlUsuarioFinanciero',
-    effectiveFrom: '2026-07-30',
+    effectiveFrom: '2026-08-26',
     verifiedAt: '',
     lastCheckedAt: '2026-09-04',
     status: 'pending',
-    legalScope: 'Referencia vigente BNA. No aplicada automáticamente. No constituye serie histórica.',
+    legalScope: 'Referencia orientativa vigente BNA (cartera general). Requiere ingreso/confirmación manual según criterio judicial aplicable.',
     orientative: true,
+    label: 'Tasa Activa Cartera General Diversas BNA',
+    editable: true,
+    notes: 'TNA vencida de referencia al 26/08/2026. No constituye serie histórica ni aplicación automática obligatoria.',
     identificador: 'tasa_activa_bna',
     concepto: 'Tasa Activa Cartera General Diversas BNA (referencia orientativa)',
     jurisdiccion: 'nacion',
-    valor: 26.62,
+    valor: 27.60,
     unidad: '% TNA vencida',
-    vigencia_desde: '2026-07-30',
+    vigencia_desde: '2026-08-26',
     fuente: 'Banco de la Nación Argentina',
     url: 'https://bna.com.ar/Home/InformacionAlUsuarioFinanciero',
     verification_status: 'pendiente',
@@ -211,24 +224,27 @@ export const LEGAL_PARAMETERS: Record<string, GovernedParameter> = {
     jurisdiction: 'nacion',
     value: UMA_VALOR,
     unit: 'ARS',
-    sourceName: 'CSJN (Res. 1352/26)',
+    sourceName: 'CSJN (Res. SGA 1352/2026)',
     sourceUrl: 'https://www.csjn.gov.ar/',
     effectiveFrom: '2026-04-01',
-    verifiedAt: '',
+    verifiedAt: '2026-09-04',
     lastCheckedAt: '2026-09-04',
-    status: 'pending',
+    status: 'verified',
     legalScope: 'Honorarios profesionales Ley 27.423 - Justicia Nacional y Federal',
     orientative: true,
+    label: 'Unidad de Medida Arancelaria (Ley 27.423)',
+    editable: true,
+    notes: 'Valor oficial $98.112 vigente desde el 1 de abril de 2026 conforme Resolución SGA 1352/2026 CSJN.',
     identificador: 'uma',
     concepto: 'Unidad de Medida Arancelaria (Ley 27.423)',
     jurisdiccion: 'nacion',
     valor: UMA_VALOR,
     unidad: 'ARS',
     vigencia_desde: UMA_VIGENCIA,
-    fuente: 'CSJN',
+    fuente: 'CSJN Res. SGA 1352/2026',
     url: 'https://www.csjn.gov.ar/',
-    verification_status: 'pendiente',
-    aplicabilidad_juridica: 'Honorarios',
+    verification_status: 'verificada',
+    aplicabilidad_juridica: 'Honorarios Justicia Nacional y Federal',
     caracter_orientativo: true,
   },
   uhom: {
@@ -238,20 +254,24 @@ export const LEGAL_PARAMETERS: Record<string, GovernedParameter> = {
     unit: 'ARS',
     sourceName: 'CPACF / Ley 26.589',
     sourceUrl: 'https://www.cpacf.org.ar/',
-    effectiveFrom: '2026-05-01',
-    verifiedAt: '',
-    status: 'pending',
+    effectiveFrom: '2026-08-01',
+    verifiedAt: '2026-09-04',
+    lastCheckedAt: '2026-09-04',
+    status: 'verified',
     legalScope: 'Mediación prejudicial obligatoria Nación (Ley 26.589)',
     orientative: true,
+    label: 'Unidad de Honorarios de Mediación (UHOM)',
+    editable: true,
+    notes: 'Valor oficial $12.960 vigente desde el 1 de agosto de 2026 publicado en tabla CPACF agosto 2026.',
     identificador: 'uhom',
     concepto: 'Unidad de Honorarios de Mediación',
     jurisdiccion: 'nacion',
     valor: UHOM_VALOR,
     unidad: 'ARS',
-    vigencia_desde: '2026-05-01',
-    fuente: 'CPACF / Dec. 2536/2015',
+    vigencia_desde: '2026-08-01',
+    fuente: 'CPACF tabla agosto 2026',
     url: 'https://www.cpacf.org.ar/',
-    verification_status: 'pendiente',
+    verification_status: 'verificada',
     aplicabilidad_juridica: 'Mediación Nación',
     caracter_orientativo: true,
   },
@@ -260,22 +280,26 @@ export const LEGAL_PARAMETERS: Record<string, GovernedParameter> = {
     jurisdiction: 'pba',
     value: JUS_BA_MEDIACION,
     unit: 'ARS',
-    sourceName: 'SCBA / Ley 14.967',
+    sourceName: 'SCBA (Res. RP 873/26) / Ley 14.967',
     sourceUrl: 'https://www.scba.gov.ar/',
-    effectiveFrom: '2026-04-01',
-    verifiedAt: '',
-    status: 'pending',
-    legalScope: 'Mediación prejudicial obligatoria PBA (Ley 13.951)',
+    effectiveFrom: '2026-08-01',
+    verifiedAt: '2026-09-04',
+    lastCheckedAt: '2026-09-04',
+    status: 'verified',
+    legalScope: 'Mediación prejudicial obligatoria PBA (Ley 13.951) y honorarios profesionales (Ley 14.967)',
     orientative: true,
+    label: 'Jus Arancelario PBA',
+    editable: true,
+    notes: 'Valor arancelario oficial $53.232 vigente desde el 1 de agosto de 2026 según Resolución RP 873/26 SCBA.',
     identificador: 'jus_pba',
     concepto: 'Jus Arancelario PBA',
     jurisdiccion: 'pba',
     valor: JUS_BA_MEDIACION,
     unidad: 'ARS',
-    vigencia_desde: '2026-04-01',
-    fuente: 'SCBA',
+    vigencia_desde: '2026-08-01',
+    fuente: 'SCBA Res. RP 873/26',
     url: 'https://www.scba.gov.ar/',
-    verification_status: 'pendiente',
+    verification_status: 'verificada',
     aplicabilidad_juridica: 'Mediación/Honorarios PBA',
     caracter_orientativo: true,
   },
@@ -288,9 +312,13 @@ export const LEGAL_PARAMETERS: Record<string, GovernedParameter> = {
     sourceUrl: 'https://www.juscorrientes.gov.ar/',
     effectiveFrom: '2026-05-01',
     verifiedAt: '',
+    lastCheckedAt: '2026-09-04',
     status: 'pending',
     legalScope: 'Mediación prejudicial Corrientes (Ley 5931 / Ac. 14/22)',
     orientative: true,
+    label: 'Jus Arancelario Corrientes',
+    editable: true,
+    notes: 'Último valor oficial localizado $58.519,61 vigente desde el 1 de mayo de 2026. Editable por el profesional.',
     identificador: 'jus_corrientes',
     concepto: 'Jus Arancelario Corrientes',
     jurisdiccion: 'corrientes',

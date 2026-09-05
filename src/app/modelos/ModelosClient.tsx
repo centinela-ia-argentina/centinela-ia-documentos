@@ -129,6 +129,10 @@ export function ModelosClient({
   const categorias = useMemo(() => {
     const filtro = busqueda.trim().toLowerCase();
     const filtrados = MODELOS.filter((m) => {
+      // Excluir modelos obsoletos o retirados del catálogo general y búsquedas
+      if (m.reviewStatus === 'outdated' || m.reviewStatus === 'retired') {
+        return false;
+      }
       const coincideTexto =
         !filtro ||
         m.titulo.toLowerCase().includes(filtro) ||
@@ -373,9 +377,9 @@ export function ModelosClient({
                             {m.reviewStatus === 'outdated' ? (
                               <Badge tone="danger">Desactualizado</Badge>
                             ) : m.reviewStatus === 'verified' ? (
-                              <Badge tone="success">Verificado</Badge>
+                              <Badge tone="success">Modelo auditado con fuente oficial</Badge>
                             ) : (
-                              <Badge tone="warning">Pendiente revisión</Badge>
+                              <Badge tone="warning">Modelo orientativo editable</Badge>
                             )}
                           </div>
                           <span className="text-sm font-semibold text-white">{m.titulo}</span>
@@ -384,12 +388,8 @@ export function ModelosClient({
                             <span className="rounded bg-white/5 px-1.5 py-0.5 font-medium">{m.jurisdiction ?? 'Nacional'}</span>
                             <span>•</span>
                             <span>v{m.version ?? '1.0'}</span>
-                            {m.lastVerifiedAt && (
-                              <>
-                                <span>•</span>
-                                <span>Rev: {m.lastVerifiedAt}</span>
-                              </>
-                            )}
+                            <span>•</span>
+                            <span className="text-amber-400/90 font-medium">Requiere revisión profesional</span>
                           </div>
                         </button>
                       </MotionCard>
@@ -455,6 +455,38 @@ export function ModelosClient({
                 </div>
               ) : (
                 <div className="mt-4 space-y-3">
+                  <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3 text-xs space-y-2 text-slate-300">
+                    <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/5 pb-2">
+                      <span className="text-slate-400">Estado normativo:</span>
+                      {seleccionado.reviewStatus === 'verified' ? (
+                        <span className="font-semibold text-emerald-400">Modelo auditado con fuente oficial</span>
+                      ) : (
+                        <span className="font-semibold text-amber-400">Modelo orientativo editable</span>
+                      )}
+                    </div>
+                    <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/5 pb-2">
+                      <span className="text-slate-400">Jurisdicción:</span>
+                      <span className="font-semibold text-white">{seleccionado.jurisdiction ?? 'Nacional'}</span>
+                    </div>
+                    <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/5 pb-2">
+                      <span className="text-slate-400">Versión / Revisión:</span>
+                      <span className="text-slate-300">
+                        v{seleccionado.version ?? '1.0'} • {seleccionado.lastReviewedAt ?? seleccionado.lastVerifiedAt ?? 'Fecha de revisión normativa no registrada'}
+                      </span>
+                    </div>
+                    <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/5 pb-2">
+                      <span className="text-slate-400">Fuentes oficiales:</span>
+                      <span className="text-slate-300">
+                        {seleccionado.officialSources && seleccionado.officialSources.length > 0
+                          ? seleccionado.officialSources.join(', ')
+                          : 'Fuente oficial no registrada'}
+                      </span>
+                    </div>
+                    <div className="pt-1 text-[11px] text-amber-300 font-medium">
+                      ⚠️ Requiere revisión profesional antes de su utilización judicial o firma.
+                    </div>
+                  </div>
+
                   {expedientes.length > 0 && (
                     <div className="mb-4 rounded-xl border border-cyan-500/20 bg-cyan-500/10 p-3">
                       <label className="flex items-center gap-2 text-xs font-semibold text-cyan-400">
@@ -656,8 +688,8 @@ export function ModelosClient({
           </div>
 
           <div className="rounded-xl border border-amber-500/20 bg-amber-500/10 p-4">
-            <p className="text-xs text-amber-200">
-              ⚠️ {textoDisclaimer}
+            <p className="text-xs text-amber-200 leading-relaxed">
+              ⚠️ <strong>Plantilla genérica elaborada con fines operativos</strong> a partir de normativa y fuentes públicas de la jurisdicción indicada. Debe ser revisada, completada y adaptada por la persona profesional antes de su presentación. Verificá competencia, procedimiento, plazos, hechos, prueba y normativa vigente aplicable al caso.
             </p>
           </div>
         </div>

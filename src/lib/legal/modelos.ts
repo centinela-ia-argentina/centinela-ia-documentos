@@ -18,6 +18,11 @@ export type ModeloEscrito = {
   purpose?: string;
   legalBasis?: string;
   lastVerifiedAt?: string;
+  lastReviewedAt?: string;
+  effectiveFrom?: string;
+  officialSources?: string[];
+  reviewedBy?: string;
+  changeNotes?: string;
   version?: string;
   reviewStatus?: ReviewStatus;
   professionalDisclaimer?: string;
@@ -362,9 +367,9 @@ SERÁ JUSTICIA.
   },
   {
     id: 'demanda-laboral-despido',
-    titulo: 'Demanda laboral por despido (art. 245 LCT)',
+    titulo: 'Demanda laboral por despido (art. 245 LCT - Ley 27.802)',
     categoria: 'Laboral',
-    descripcion: 'Reclama indemnización por despido sin justa causa y rubros adeudados.',
+    descripcion: 'Reclama indemnización por despido sin justa causa y rubros adeudados conforme régimen de la LCT (Ley 20.744 modif. por Ley 27.802 y Dec. 407/2026).',
     cuerpo: `Señor Juez:
 
 {{letrado_nombre}}, abogado/a, T° {{tomo}} F° {{folio}}, en representación de {{parte}}, con domicilio en {{domicilio_fisico}}, ante V.S. digo:
@@ -376,10 +381,10 @@ II. HECHOS
 Mi representado/a ingresó el {{fecha_ingreso}}, en la categoría {{categoria_laboral}}, con remuneración de $ {{remuneracion}}. El vínculo se extinguió el {{fecha_egreso}} por despido sin justa causa.
 
 III. RUBROS
-Indemnización por antigüedad (art. 245 LCT), preaviso, integración del mes de despido, SAC y vacaciones proporcionales y demás que correspondan.
+Indemnización por antigüedad (art. 245 LCT modif. por Ley 27.802 y Dec. 407/2026, o fondo/régimen de cese laboral aplicable según CCT), preaviso, integración del mes de despido, SAC y vacaciones proporcionales y demás rubros salariales e indemnizatorios que correspondan.
 
 IV. DERECHO
-Ley de Contrato de Trabajo N° 20.744 y concordantes.
+Fundo el reclamo en la Ley de Contrato de Trabajo N° 20.744 y sus modificaciones vigentes (incluyendo Ley 27.802 y Decreto reglamentario 407/2026), normativa convencional aplicable y concordantes.
 
 V. PRUEBA
 {{prueba_ofrecida}}
@@ -858,7 +863,7 @@ III. HECHOS
 {{hechos}}
 
 IV. RUBROS RECLAMADOS
-{{rubros}} (indemnización por antigüedad, preaviso, integración del mes de despido, SAC y vacaciones proporcionales, y multas que correspondan).
+{{rubros}} (indemnización por antigüedad, preaviso, integración del mes de despido, SAC y vacaciones proporcionales y demás rubros de ley).
 
 V. DERECHO
 Fundo el reclamo en la Ley de Contrato de Trabajo N° 20.744 y normas complementarias, y en las normas del procedimiento laboral vigente en la Provincia de Corrientes.
@@ -950,7 +955,7 @@ Proveer de conformidad, SERÁ JUSTICIA.
 		id: 'demanda-laboral-baires',
 		titulo: 'Demanda laboral por despido (Prov. Buenos Aires)',
 		categoria: 'Laboral',
-		descripcion: 'Demanda laboral por despido ante los Tribunales del Trabajo de la Provincia de Buenos Aires (Ley 11.653 / 15.057; fondo LCT 20.744).',
+		descripcion: 'Demanda laboral por despido ante los Tribunales del Trabajo de la Provincia de Buenos Aires (Ley 15.057 texto actualizado; fondo LCT 20.744 modif. Ley 27.802).',
 		cuerpo: `PROMUEVE DEMANDA LABORAL
 
 Señor Presidente del Tribunal del Trabajo:
@@ -961,7 +966,7 @@ I. OBJETO
 Vengo a promover demanda laboral contra {{empleador}}, con domicilio en {{domicilio_demandado}}, por la suma de $ {{monto}}, o lo que en más o en menos resulte de la prueba, con más intereses y costas.
 
 II. COMPETENCIA
-El Tribunal resulta competente conforme los arts. 2 y 3 de la Ley 11.653 / 15.057 (domicilio del demandado, lugar de prestación del trabajo o de celebración del contrato).
+El Tribunal resulta competente conforme la Ley 15.057 de procedimiento laboral de la Provincia de Buenos Aires (domicilio del demandado, lugar de prestación del trabajo o de celebración del contrato).
 
 III. RELACIÓN LABORAL
 Fecha de ingreso: {{fecha_ingreso}}. Fecha de egreso: {{fecha_egreso}}. Categoría: {{categoria_laboral}}. Remuneración: $ {{remuneracion}}. Modalidad: {{modalidad}}.
@@ -970,10 +975,10 @@ IV. HECHOS
 {{hechos}}
 
 V. RUBROS RECLAMADOS
-{{rubros}} (indemnización por antigüedad, preaviso, integración del mes de despido, SAC y vacaciones proporcionales, y multas que correspondan).
+{{rubros}} (indemnización por antigüedad, preaviso, integración del mes de despido, SAC y vacaciones proporcionales y demás rubros de ley).
 
 VI. DERECHO
-Fundo el reclamo en la Ley de Contrato de Trabajo N° 20.744 y complementarias, y en la ley de procedimiento laboral de la Provincia de Buenos Aires (Ley 11.653 / 15.057).
+Fundo el reclamo en la Ley de Contrato de Trabajo N° 20.744 y complementarias (incluyendo Ley 27.802 y Dec. 407/2026), y en la ley de procedimiento laboral de la Provincia de Buenos Aires (Ley 15.057 texto actualizado).
 
 VII. PRUEBA
 DOCUMENTAL: {{prueba_documental}}. INFORMATIVA, PERICIAL CONTABLE y TESTIMONIAL conforme se detalla.
@@ -1954,7 +1959,7 @@ Proveer de conformidad, SERÁ JUSTICIA.
     id: 'accidente-art-baires',
     titulo: 'Demanda por accidente de trabajo / ART (Prov. Buenos Aires)',
     categoria: 'Laboral',
-    descripcion: 'Accidente o enfermedad profesional ante los Tribunales del Trabajo de la Provincia de Buenos Aires (Ley 24.557 y 27.348; Ley 11.653/15.057).',
+    descripcion: 'Accidente o enfermedad profesional ante los Tribunales del Trabajo de la Provincia de Buenos Aires (Ley 24.557 y 27.348; Ley 15.057 texto actualizado).',
     cuerpo: `PROMUEVE DEMANDA POR ACCIDENTE DE TRABAJO
 
 Señor Presidente del Tribunal del Trabajo:
@@ -1965,7 +1970,7 @@ I. OBJETO
 Promuevo demanda por ACCIDENTE DE TRABAJO / ENFERMEDAD PROFESIONAL contra {{aseguradora}} (ART) y/o {{empleador}}, con domicilio en {{domicilio_demandado}}, por la suma de $ {{monto}}, con más intereses y costas.
 
 II. COMPETENCIA
-El Tribunal del Trabajo resulta competente conforme la Ley 11.653 / 15.057.
+El Tribunal del Trabajo resulta competente conforme la Ley 15.057 de procedimiento laboral de la Provincia de Buenos Aires.
 
 III. RELACIÓN LABORAL
 Fecha de ingreso: {{fecha_ingreso}}. Categoría: {{categoria_laboral}}. Remuneración: $ {{remuneracion}}.
@@ -2216,74 +2221,46 @@ export function sugerirModeloPorTipo(
   if (!tipo) return null;
   const t = tipo.toLowerCase();
 
+  let id: string | null = null;
+
   // Laboral
   if (t.includes('despido') || t.includes('laboral') || t.includes('lct') || t.includes('trabajo')) {
-    return MODELOS.find((m) => m.id === 'demanda-laboral-despido') ?? null;
-  }
-  // Daños / accidentes
-  if (t.includes('daño') || t.includes('dano') || t.includes('accidente') || t.includes('siniestro')) {
-    return MODELOS.find((m) => m.id === 'demanda-danos-perjuicios') ?? null;
-  }
-  // Alimentos
-  if (t.includes('aliment')) {
-    return MODELOS.find((m) => m.id === 'demanda-alimentos') ?? null;
-  }
-  // Sucesiones
-  if (t.includes('sucesi') || t.includes('herencia') || t.includes('fallec') || t.includes('defunci')) {
-    return MODELOS.find((m) => m.id === 'inicia-sucesion') ?? null;
-  }
-  // Locación / alquiler
-  if (t.includes('alquiler') || t.includes('locaci') || t.includes('desalojo') || t.includes('inquilin')) {
-    return MODELOS.find((m) => m.id === 'cd-intimacion-locacion') ?? null;
-  }
-  // Automotor
-  if (t.includes('automotor') || t.includes('vehic') || t.includes('transferencia') || t.includes('dominio')) {
-    return MODELOS.find((m) => m.id === 'autoriza-transferencia-automotor') ?? null;
-  }
-
-  // Ejecuciones / títulos de crédito
-  if (t.includes('ejecut') || t.includes('pagar') || t.includes('cheque') || t.includes('pagaré') || t.includes('título') || t.includes('titulo ejecutivo')) {
-    return MODELOS.find((m) => m.id === 'demanda-ejecutiva-pagare') ?? null;
-  }
-  // Amparo / salud
-  if (t.includes('amparo') || t.includes('salud') || t.includes('obra social') || t.includes('prepaga') || t.includes('cobertura')) {
-    return MODELOS.find((m) => m.id === 'accion-amparo-salud') ?? null;
-  }
-  // Previsional / ANSES
-  if (t.includes('jubilaci') || t.includes('previsional') || t.includes('anses') || t.includes('reajuste') || t.includes('haber') || t.includes('pension')) {
-    return MODELOS.find((m) => m.id === 'demanda-reajuste-jubilatorio') ?? null;
-  }
-  // Penal
-  if (t.includes('penal') || t.includes('denuncia') || t.includes('delito') || t.includes('querella') || t.includes('robo') || t.includes('hurto') || t.includes('estafa')) {
-    return MODELOS.find((m) => m.id === 'denuncia-penal') ?? null;
-  }
-  // Oficios
-  if (t.includes('oficio')) {
-    return MODELOS.find((m) => m.id === 'oficio-ley-22172') ?? null;
-  }
-
-  // Cartas / intimaciones / reclamos de pago
-  if (
+    id = 'demanda-laboral-despido';
+  } else if (t.includes('daño') || t.includes('dano') || t.includes('accidente') || t.includes('siniestro')) {
+    id = 'demanda-danos-perjuicios';
+  } else if (t.includes('aliment')) {
+    id = 'demanda-alimentos';
+  } else if (t.includes('sucesi') || t.includes('herencia') || t.includes('fallec') || t.includes('defunci')) {
+    id = 'inicia-sucesion';
+  } else if (t.includes('alquiler') || t.includes('locaci') || t.includes('desalojo') || t.includes('inquilin')) {
+    id = 'cd-intimacion-locacion';
+  } else if (t.includes('automotor') || t.includes('vehic') || t.includes('transferencia') || t.includes('dominio')) {
+    id = 'autoriza-transferencia-automotor';
+  } else if (t.includes('ejecut') || t.includes('pagar') || t.includes('cheque') || t.includes('pagaré') || t.includes('título') || t.includes('titulo ejecutivo')) {
+    id = 'demanda-ejecutiva-pagare';
+  } else if (t.includes('amparo') || t.includes('salud') || t.includes('obra social') || t.includes('prepaga') || t.includes('cobertura')) {
+    id = 'accion-amparo-salud';
+  } else if (t.includes('jubilaci') || t.includes('previsional') || t.includes('anses') || t.includes('reajuste') || t.includes('haber') || t.includes('pension')) {
+    id = 'demanda-reajuste-jubilatorio';
+  } else if (t.includes('penal') || t.includes('denuncia') || t.includes('delito') || t.includes('querella') || t.includes('robo') || t.includes('hurto') || t.includes('estafa')) {
+    id = 'denuncia-penal';
+  } else if (t.includes('oficio')) {
+    id = 'oficio-ley-22172';
+  } else if (
     t.includes('carta') ||
     t.includes('intimaci') ||
     t.includes('reclamo') ||
     t.includes('mora') ||
     t.includes('deuda')
   ) {
-    return MODELOS.find((m) => m.id === 'carta-documento-intimacion') ?? null;
-  }
-
-  // Poderes / autorizaciones
-  if (
+    id = 'carta-documento-intimacion';
+  } else if (
     t.includes('autorizaci') ||
     t.includes('poder') ||
     t.includes('compuls')
   ) {
-    return MODELOS.find((m) => m.id === 'autorizacion-compulsar') ?? null;
-  }
-
-  // Actos procesales que suelen requerir una presentación/contestación
-  if (
+    id = 'autorizacion-compulsar';
+  } else if (
     t.includes('demanda') ||
     t.includes('notificaci') ||
     t.includes('cedula') ||
@@ -2294,10 +2271,15 @@ export function sugerirModeloPorTipo(
     t.includes('sentencia') ||
     t.includes('providencia')
   ) {
-    return MODELOS.find((m) => m.id === 'presentacion-generica') ?? null;
+    id = 'presentacion-generica';
   }
 
-  return null;
+  if (!id) return null;
+  const encontrado = MODELOS.find((m) => m.id === id);
+  if (!encontrado || encontrado.reviewStatus === 'outdated' || encontrado.reviewStatus === 'retired') {
+    return null;
+  }
+  return encontrado;
 }
 
 export function sugerirModeloNotarialPorTipo(tipo?: string): ModeloEscrito | null {
@@ -2335,7 +2317,11 @@ export function sugerirModeloNotarialPorTipo(tipo?: string): ModeloEscrito | nul
   }
 
   if (!id) return null;
-  return MODELOS.find((m) => m.id === id) ?? null;
+  const encontrado = MODELOS.find((m) => m.id === id);
+  if (!encontrado || encontrado.reviewStatus === 'outdated' || encontrado.reviewStatus === 'retired') {
+    return null;
+  }
+  return encontrado;
 }
 
 export function extractModelVars(cuerpo: string): string[] {

@@ -373,14 +373,12 @@ function HonorariosCalc() {
         </div>
       </Field>
 
-      <div className="mt-4 p-3 bg-yellow-500/10 border border-yellow-500/20 rounded-md">
-        <p className="text-xs text-yellow-600/90 font-medium">
-          ⚠️ Parámetro normativo: UMA ({LEGAL_PARAMETERS.uma.status}) — Verificá su vigencia y acordada oficial antes de utilizarlo.
+      <div className="mt-4 p-3 bg-cyan-500/10 border border-cyan-500/20 rounded-md">
+        <p className="text-xs text-cyan-400 font-medium">
+          ✓ Parámetro normativo auditado: UMA ({LEGAL_PARAMETERS.uma.status}) — Res. SGA 1352/2026 CSJN
         </p>
-        <p className="text-xs text-slate-400 mt-2">
-          UMA de referencia: {currency(UMA_VALOR)} ({UMA_VIGENCIA}). Fuente: {LEGAL_PARAMETERS.uma.sourceName}. Estado normativo: <span className="font-semibold text-amber-300">{LEGAL_PARAMETERS.uma.status}</span>. La escala del art. 21 es acumulativa
-          (cada tramo de UMA se calcula con su alícuota). 2ª instancia = 30–35% de lo de 1ª si se
-          confirma; 30–40% si se revoca. Apoderado sin patrocinio = 140%; procurador = 40% (art. 20).
+        <p className="text-xs text-slate-300 mt-2">
+          UMA oficial: {currency(UMA_VALOR)} (vigente desde el {UMA_VIGENCIA}). Fuente oficial: {LEGAL_PARAMETERS.uma.sourceName}. Estado: <span className="font-semibold text-emerald-400">{LEGAL_PARAMETERS.uma.status}</span>. La escala del art. 21 Ley 27.423 es acumulativa por tramos de UMA (las fracciones decimales de UMA se descartan para la base). 2ª instancia = 30–35% de lo de 1ª si se confirma; 30–40% si se revoca. Apoderado sin patrocinio = 140%; procurador = 40% (art. 20).
         </p>
       </div>
 
@@ -588,6 +586,7 @@ function LiquidacionLaboralCalc() {
   const [remun, setRemun] = useState('');
   const [ingreso, setIngreso] = useState('');
   const [egreso, setEgreso] = useState('');
+  const [confirmado, setConfirmado] = useState(false);
   const [res, setRes] = useState<null | {
     anios: number; meses: number; aniosComputables: number;
     antiguedad: number; preaviso: number; integracion: number;
@@ -598,6 +597,9 @@ function LiquidacionLaboralCalc() {
   const calcular = () => {
     setError(null);
     setRes(null);
+    if (!confirmado) {
+      return setError('Debés confirmar que revisaste las exclusiones y el régimen aplicable (LCT modif. por Ley 27.802 y Dec. 407/2026).');
+    }
     const base = parseMonto(remun);
     const dIng = parseISODate(ingreso);
     const dEg = parseISODate(egreso);
@@ -636,9 +638,12 @@ function LiquidacionLaboralCalc() {
   };
 
   return (
-    <Card title="Liquidación por despido sin causa" subtitle="Estimación de rubros indemnizatorios (LCT 20.744). Orientativo — no incluye topes ni multas.">
+    <Card
+      title="Liquidación por despido sin causa"
+      subtitle="Estimación orientativa de rubros indemnizatorios básicos (LCT 20.744 modif. por Ley 27.802 y Dec. 407/2026)."
+    >
       <div className="grid gap-4 sm:grid-cols-3">
-        <Field label="Mejor remuneración mensual">
+        <Field label="Mejor remuneración mensual (normal y habitual)">
           <input value={remun} onChange={(e) => setRemun(e.target.value)} placeholder="Ej: 800.000" className={inputClass} />
         </Field>
         <Field label="Fecha de ingreso">
@@ -649,23 +654,44 @@ function LiquidacionLaboralCalc() {
         </Field>
       </div>
 
+      <div className="mt-4 rounded-xl border border-amber-500/20 bg-amber-500/10 p-3.5 text-xs text-amber-200/90 leading-relaxed space-y-2">
+        <p className="font-semibold text-amber-300">
+          ⚠️ Exclusiones y advertencias normativas obligatorias:
+        </p>
+        <ul className="list-disc pl-4 space-y-1">
+          <li><strong>Tope indemnizatorio (art. 245 LCT):</strong> No aplica tope de convenio colectivo ni doctrina jurisprudencial (&ldquo;Vizzoti&rdquo;).</li>
+          <li><strong>Fondos de cese laboral:</strong> La Ley 27.802 y el Decreto 407/2026 permiten a los convenios colectivos sustituir la indemnización por un fondo o sistema de cese laboral; verificá el CCT de la actividad.</li>
+          <li><strong>Multas e indemnizaciones especiales:</strong> No incluye multas derogadas (arts. 8 a 15 Ley 24.013, Ley 25.323, art. 80 LCT modif. Ley 27.742) ni agravamientos por maternidad o matrimonio.</li>
+          <li><strong>Rubros salariales:</strong> No computa diferencias de salarios, horas extras, comisiones pendientes ni liquidación de haberes del mes de egreso.</li>
+        </ul>
+        <label className="mt-3 flex items-start gap-2 cursor-pointer font-medium text-slate-200 pt-1 border-t border-amber-500/20">
+          <input
+            type="checkbox"
+            checked={confirmado}
+            onChange={(e) => setConfirmado(e.target.checked)}
+            className="mt-0.5 rounded border-amber-400/50 bg-slate-900 text-amber-500 focus:ring-amber-400"
+          />
+          <span>Entiendo el alcance meramente estimativo y confirmo que verificaré el CCT, topes y régimen aplicable al caso.</span>
+        </label>
+      </div>
+
       <MotionButton onClick={calcular} className={btnClass}>Calcular liquidación</MotionButton>
 
       {error && <p className="mt-3 text-sm text-rose-600">{error}</p>}
 
       {res && (
         <div className="mt-5 space-y-3">
-          <p className="text-sm text-slate-600">
+          <p className="text-sm text-slate-400">
             Antigüedad: <strong>{res.anios} año{res.anios !== 1 ? 's' : ''} y {res.meses} mes{res.meses !== 1 ? 'es' : ''}</strong>{' '}
             (se computan {res.aniosComputables} para el art. 245).
           </p>
           <div className="grid gap-3 sm:grid-cols-2">
-            <ResultBox label="Indemnización por antigüedad (art. 245)" value={currency(res.antiguedad)} />
-            <ResultBox label="Preaviso + SAC" value={currency(res.preaviso)} />
+            <ResultBox label="Indemnización por antigüedad (art. 245 LCT)" value={currency(res.antiguedad)} subtitle="1 mes por año o fracción > 3 meses" />
+            <ResultBox label="Preaviso + SAC" value={currency(res.preaviso)} subtitle={res.anios >= 5 ? '2 meses + SAC' : '1 mes + SAC'} />
             <ResultBox label="Integración mes de despido + SAC" value={currency(res.integracion)} />
             <ResultBox label="SAC proporcional" value={currency(res.sac)} />
             <ResultBox label="Vacaciones no gozadas" value={currency(res.vacaciones)} />
-            <ResultBox label="TOTAL estimado" value={currency(res.total)} highlight />
+            <ResultBox label="TOTAL estimado orientativo" value={currency(res.total)} highlight />
           </div>
         </div>
       )}
@@ -717,11 +743,11 @@ function InteresesJudicialesCalc() {
         <Field label="Tasa anual a aplicar (%)">
           <input value={tasa} onChange={(e) => setTasa(e.target.value)} placeholder="Ej: 90" className={inputClass} />
         </Field>
-        <p className="mt-1 text-xs text-slate-500">
-          Elegí el tipo de tasa según el fuero y cargá el valor anual vigente (BCRA). El cálculo usa interés simple.
+        <p className="mt-1 text-xs text-slate-400">
+          Elegí el tipo de tasa según el fuero y cargá el valor anual (%) a aplicar. Referencia orientativa Banco Nación (cartera general): 27.60% TNA vencida (al 26/08/2026). No se impone automáticamente como obligatoria.
         </p>
         <div className="mt-2 rounded-lg border border-amber-500/20 bg-amber-500/10 p-2.5 text-[11px] text-amber-300">
-          ℹ️ Centinela IA no computa cálculos automáticos sobre series históricas no cargadas. La tasa debe ser ingresada manualmente por el profesional según la normativa aplicable o la liquidación judicial.
+          ℹ️ Centinela IA no computa cálculos automáticos sobre series históricas no cargadas ni aplica tasas fijas predeterminadas. La tasa y período deben ser definidos o verificados manualmente por el profesional según el criterio judicial del fuero o la liquidación del expediente.
         </div>
       </div>
 
@@ -743,7 +769,7 @@ function InteresesJudicialesCalc() {
 // ── 👨👩👧 Cuota alimentaria ─────────────────────────────────────
 function CuotaAlimentariaCalc() {
   const [ingresos, setIngresos] = useState('');
-  const [porcentaje, setPorcentaje] = useState('20');
+  const [porcentaje, setPorcentaje] = useState('');
   const [hijos, setHijos] = useState('1');
   const [res, setRes] = useState<null | { cuota: number; porHijo: number }>(null);
   const [error, setError] = useState<string | null>(null);
@@ -755,23 +781,34 @@ function CuotaAlimentariaCalc() {
     const p = parseFloat(porcentaje);
     const h = parseInt(hijos, 10);
     if (!Number.isFinite(i) || i <= 0) return setError('Ingresá los ingresos netos del/de la alimentante.');
-    if (!Number.isFinite(p) || p <= 0) return setError('Ingresá un porcentaje válido.');
+    if (!porcentaje || !Number.isFinite(p) || p <= 0 || p > 100) {
+      return setError('Ingresá el porcentaje (%) a aplicar sobre los ingresos.');
+    }
     if (!Number.isFinite(h) || h <= 0) return setError('Ingresá la cantidad de hijos/as.');
     const cuota = i * (p / 100);
     setRes({ cuota, porHijo: cuota / h });
   };
 
   return (
-    <Card title="Cuota alimentaria" subtitle="Estimación por porcentaje de ingresos. No hay porcentaje legal fijo; lo determina el juez.">
+    <Card
+      title="Cuota alimentaria"
+      subtitle="Estimación orientativa a partir de los ingresos netos del alimentante y del porcentaje que el profesional ingrese según el caso."
+    >
       <div className="grid gap-4 sm:grid-cols-3">
-        <Field label="Ingresos netos mensuales"><input value={ingresos} onChange={(e) => setIngresos(e.target.value)} placeholder="Ej: 900.000" className={inputClass} /></Field>
-        <Field label="Porcentaje (%)"><input value={porcentaje} onChange={(e) => setPorcentaje(e.target.value)} className={inputClass} /></Field>
-        <Field label="Cantidad de hijos/as"><input value={hijos} onChange={(e) => setHijos(e.target.value)} className={inputClass} /></Field>
+        <Field label="Ingresos netos mensuales ($)">
+          <input value={ingresos} onChange={(e) => setIngresos(e.target.value)} placeholder="Ej: 900.000" className={inputClass} />
+        </Field>
+        <Field label="Porcentaje (%) — ingreso manual requerido">
+          <input value={porcentaje} onChange={(e) => setPorcentaje(e.target.value)} placeholder="Ej: 25" className={inputClass} />
+        </Field>
+        <Field label="Cantidad de hijos/as">
+          <input value={hijos} onChange={(e) => setHijos(e.target.value)} placeholder="Ej: 1" className={inputClass} />
+        </Field>
       </div>
 
-      <p className="mt-3 text-xs text-slate-500">
-        Referencia orientativa: la jurisprudencia suele ubicar la cuota entre el 20% y 30% para un hijo/a, aumentando con la cantidad de hijos/as y las necesidades acreditadas.
-      </p>
+      <div className="mt-3 rounded-lg border border-white/10 bg-white/[0.02] p-2.5 text-xs text-slate-400">
+        ℹ️ La legislación argentina no establece un porcentaje fijo ni automático. El porcentaje debe ser ingresado por la persona profesional evaluando las necesidades acreditadas, el nivel de vida, el cuidado personal compartido y el criterio judicial del fuero.
+      </div>
 
       <MotionButton onClick={calcular} className={btnClass}>Calcular cuota</MotionButton>
 
@@ -813,7 +850,7 @@ function DanosCalc() {
   };
 
   return (
-    <Card title="Cuantificación de daños" subtitle="Suma de rubros reclamados, con intereses opcionales sobre el subtotal.">
+    <Card title="Sumador orientativo de rubros" subtitle="Herramienta de suma orientativa de rubros reclamados, con importes y porcentaje de interés ingresados manualmente.">
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label="Daño emergente"><input value={emergente} onChange={(e) => setEmergente(e.target.value)} placeholder="0" className={inputClass} /></Field>
         <Field label="Lucro cesante"><input value={lucro} onChange={(e) => setLucro(e.target.value)} placeholder="0" className={inputClass} /></Field>
@@ -840,8 +877,8 @@ function DanosCalc() {
 // ── ⏳ Caducidad de instancia ───────────────────────────────────
 function CaducidadInstanciaCalc() {
   const [fecha, setFecha] = useState('');
-  const [instancia, setInstancia] = useState<'primera' | 'segunda' | 'incidente'>('primera');
-  const [res, setRes] = useState<null | { fecha: Date; meses: number }>(null);
+  const [instancia, setInstancia] = useState<'primera' | 'segunda' | 'incidentes_general' | 'incidente_caducidad'>('primera');
+  const [res, setRes] = useState<null | { fecha: Date; meses: number; detalle: string }>(null);
   const [error, setError] = useState<string | null>(null);
 
   const calcular = () => {
@@ -849,24 +886,41 @@ function CaducidadInstanciaCalc() {
     setRes(null);
     const d = parseISODate(fecha);
     if (!d) return setError('Ingresá la fecha del último acto de impulso.');
-    const meses = instancia === 'primera' ? 6 : instancia === 'segunda' ? 3 : 1;
+
+    let meses = 6;
+    let detalle = '1ª o única instancia (art. 310 inc. 1 CPCCN)';
+    if (instancia === 'segunda') {
+      meses = 3;
+      detalle = '2ª o 3ª instancia (art. 310 inc. 2 CPCCN)';
+    } else if (instancia === 'incidentes_general') {
+      meses = 3;
+      detalle = 'Incidentes generales, ejecuciones o juicio sumarísimo (art. 310 inc. 3 CPCCN)';
+    } else if (instancia === 'incidente_caducidad') {
+      meses = 1;
+      detalle = 'Incidente de caducidad de instancia (art. 310 inc. 4 CPCCN)';
+    }
+
     const venc = new Date(d);
     venc.setMonth(venc.getMonth() + meses);
-    setRes({ fecha: venc, meses });
+    setRes({ fecha: venc, meses, detalle });
   };
 
   return (
-    <Card title="Caducidad de instancia" subtitle="Plazos del art. 310 CPCCN, contados desde el último acto de impulso.">
+    <Card title="Caducidad de instancia" subtitle="Plazos del art. 310 CPCCN según la instancia y tipo de proceso, contados desde el último acto de impulso.">
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label="Fecha del último acto de impulso">
           <input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} className={inputClass} />
         </Field>
       </div>
 
-      <div className="mt-4 flex flex-wrap gap-2">
-        <RadioPill active={instancia === 'primera'} onClick={() => setInstancia('primera')} label="1ª instancia (6 meses)" />
-        <RadioPill active={instancia === 'segunda'} onClick={() => setInstancia('segunda')} label="2ª/3ª instancia (3 meses)" />
-        <RadioPill active={instancia === 'incidente'} onClick={() => setInstancia('incidente')} label="Incidentes (1 mes)" />
+      <div className="mt-4">
+        <span className="mb-1 block text-xs font-semibold text-slate-400">Instancia / Proceso (art. 310 CPCCN)</span>
+        <div className="mt-1 flex flex-wrap gap-2">
+          <RadioPill active={instancia === 'primera'} onClick={() => setInstancia('primera')} label="1ª o única instancia (6 meses)" />
+          <RadioPill active={instancia === 'segunda'} onClick={() => setInstancia('segunda')} label="2ª o 3ª instancia (3 meses)" />
+          <RadioPill active={instancia === 'incidentes_general'} onClick={() => setInstancia('incidentes_general')} label="Incidentes / Ejecución / Sumarísimo (3 meses)" />
+          <RadioPill active={instancia === 'incidente_caducidad'} onClick={() => setInstancia('incidente_caducidad')} label="Incidente de caducidad (1 mes)" />
+        </div>
       </div>
 
       <MotionButton onClick={calcular} className={btnClass}>Calcular fecha de caducidad</MotionButton>
@@ -878,7 +932,7 @@ function CaducidadInstanciaCalc() {
           <ResultBox
             label="La caducidad operaría el"
             value={formatDateLarga(res.fecha)}
-            subtitle={`${res.meses} mes${res.meses !== 1 ? 'es' : ''} de inactividad. Plazo corrido; se descuenta la feria judicial. Verificá suspensiones e interrupciones.`}
+            subtitle={`${res.detalle} — ${res.meses} mes${res.meses !== 1 ? 'es' : ''} de inactividad. Plazo corrido; no computa feria judicial. Verificá causales de interrupción o suspensión procesal.`}
             highlight
           />
         </div>
@@ -1161,10 +1215,10 @@ function MediacionTab() {
     <Card title="Honorarios de mediación">
       <div className="mb-4 rounded-xl border border-amber-500/30 bg-amber-500/10 p-4">
         <p className="text-xs font-semibold text-amber-300">
-          ⚠️ Parámetros en estado <code>pending</code> — Cálculo bloqueado por defecto
+          ⚠️ Parámetros arancelarios de mediación — Verificación requerida
         </p>
         <p className="mt-1 text-xs text-amber-200/90">
-          Los parámetros normativos UHOM ({currency(UHOM_VALOR)}), Jus PBA ({currency(JUS_BA_MEDIACION)}) y Jus Corrientes ({currency(JUS_CORRIENTES)}) se encuentran clasificados como <strong>pending</strong> de verificación reglamentaria. Se requiere confirmación explícita para habilitar el cálculo orientativo. Podés además editar el valor aplicable según la acordada o resolución vigente en tu jurisdicción.
+          Valores de referencia: UHOM Nación ({currency(UHOM_VALOR)}, verificado al 01/08/2026, tabla CPACF), Jus PBA ({currency(JUS_BA_MEDIACION)}, verificado al 01/08/2026, Res. SCBA RP 873/26) y Jus Corrientes ({currency(JUS_CORRIENTES)}, orientativo al 01/05/2026). Requiere confirmación profesional para habilitar el cálculo orientativo. Podés editar cualquier valor según la acordada o resolución vigente al momento de tu presentación.
         </p>
         <label className="mt-3 flex items-start gap-2.5 cursor-pointer text-xs text-slate-200 font-medium">
           <input
@@ -1361,14 +1415,15 @@ export function CalculadorasClient({ puedeGuardar = true }: { puedeGuardar?: boo
       <div>
         <p className="text-xs font-semibold uppercase tracking-wide text-cyan-400">Herramientas jurídicas</p>
         <h1 className="mt-1 text-2xl font-bold text-white">Calculadoras</h1>
-        <p className="mt-1 text-sm text-slate-400">Cálculos orientativos para Justicia Nacional / Federal.</p>
+        <p className="mt-1 text-sm text-slate-400">
+          Cálculos jurídicos orientativos según la jurisdicción y los parámetros indicados en cada herramienta. Verificá normativa, valores oficiales, calendario y criterio judicial aplicable antes de utilizar el resultado.
+        </p>
       </div>
 
       <MotionCard index={0} className="flex items-start gap-3 border-amber-500/20 bg-amber-500/10 p-4">
         <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-400" />
         <p className="text-xs text-amber-200">
-          Resultados <strong>estimativos y no vinculantes</strong>. Verificá siempre plazos, feriados, valor de la UMA y
-          aranceles con las fuentes oficiales antes de presentar.
+          Resultados <strong>estimativos y no vinculantes</strong>. Verificá siempre normativa, valores oficiales vigentes, acordadas, calendario judicial y criterio tribunalicio aplicable antes de utilizar cualquier cálculo en presentaciones formales.
         </p>
       </MotionCard>
 

@@ -25,26 +25,48 @@ describe('Legal Parameters Governance', () => {
     }
   });
 
-  it('verifies that UHOM, Jus PBA, Jus Corrientes, UMA and tasa_activa_bna have status "pending" without fake verification', () => {
-    expect(LEGAL_PARAMETERS.uhom.status).toBe('pending');
-    expect(LEGAL_PARAMETERS.jus_pba.status).toBe('pending');
-    expect(LEGAL_PARAMETERS.jus_corrientes.status).toBe('pending');
-    expect(LEGAL_PARAMETERS.uma.status).toBe('pending');
-    expect(LEGAL_PARAMETERS.uma.verifiedAt).toBe('');
-    expect(LEGAL_PARAMETERS.uma.lastCheckedAt).toBe('2026-09-04');
+  it('verifies verified parameters (UMA, UHOM, Jus PBA, tasa_justicia_nacion) have verified status and official sources', () => {
+    expect(LEGAL_PARAMETERS.uma.status).toBe('verified');
+    expect(LEGAL_PARAMETERS.uma.value).toBe(98112);
+    expect(LEGAL_PARAMETERS.uma.verifiedAt).toBe('2026-09-04');
+    expect(LEGAL_PARAMETERS.uma.effectiveFrom).toBe('2026-04-01');
+    expect(LEGAL_PARAMETERS.uma.sourceName).toContain('CSJN');
+    expect(LEGAL_PARAMETERS.uma.sourceName).toContain('1352');
 
-    expect(LEGAL_PARAMETERS.tasa_activa_bna.status).toBe('pending');
-    expect(LEGAL_PARAMETERS.tasa_activa_bna.verifiedAt).toBe('');
-    expect(LEGAL_PARAMETERS.tasa_activa_bna.lastCheckedAt).toBe('2026-09-04');
-  });
+    expect(LEGAL_PARAMETERS.uhom.status).toBe('verified');
+    expect(LEGAL_PARAMETERS.uhom.value).toBe(12960);
+    expect(LEGAL_PARAMETERS.uhom.verifiedAt).toBe('2026-09-04');
+    expect(LEGAL_PARAMETERS.uhom.effectiveFrom).toBe('2026-08-01');
+    expect(LEGAL_PARAMETERS.uhom.sourceName).toContain('CPACF');
 
-  it('verifies that only truly verified parameters (tasa_justicia_nacion) have status "verified" with valid source', () => {
+    expect(LEGAL_PARAMETERS.jus_pba.status).toBe('verified');
+    expect(LEGAL_PARAMETERS.jus_pba.value).toBe(53232);
+    expect(LEGAL_PARAMETERS.jus_pba.verifiedAt).toBe('2026-09-04');
+    expect(LEGAL_PARAMETERS.jus_pba.effectiveFrom).toBe('2026-08-01');
+    expect(LEGAL_PARAMETERS.jus_pba.sourceName).toContain('SCBA');
+    expect(LEGAL_PARAMETERS.jus_pba.sourceName).toContain('873');
+
     const tasaNac = LEGAL_PARAMETERS.tasa_justicia_nacion;
     expect(tasaNac.status).toBe('verified');
     expect(tasaNac.verifiedAt).toBe('2026-09-04');
     expect(tasaNac.value).toBe(3);
     expect(tasaNac.sourceName).toContain('Ley 23.898');
     expect(tasaNac.sourceUrl).toContain('infoleg');
+  });
+
+  it('verifies that Jus Corrientes and tasa_activa_bna have status "pending" and are editable', () => {
+    expect(LEGAL_PARAMETERS.jus_corrientes.status).toBe('pending');
+    expect(LEGAL_PARAMETERS.jus_corrientes.value).toBe(58519.61);
+    expect(LEGAL_PARAMETERS.jus_corrientes.effectiveFrom).toBe('2026-05-01');
+    expect(LEGAL_PARAMETERS.jus_corrientes.editable).toBe(true);
+
+    expect(LEGAL_PARAMETERS.tasa_activa_bna.status).toBe('pending');
+    expect(LEGAL_PARAMETERS.tasa_activa_bna.value).toBe(27.60);
+    expect(LEGAL_PARAMETERS.tasa_activa_bna.unit).toBe('% TNA vencida');
+    expect(LEGAL_PARAMETERS.tasa_activa_bna.effectiveFrom).toBe('2026-08-26');
+    expect(LEGAL_PARAMETERS.tasa_activa_bna.verifiedAt).toBe('');
+    expect(LEGAL_PARAMETERS.tasa_activa_bna.lastCheckedAt).toBe('2026-09-04');
+    expect(LEGAL_PARAMETERS.tasa_activa_bna.editable).toBe(true);
   });
 
   it('verifies that provincial court fees (PBA and Corrientes) have status "unavailable"', () => {
