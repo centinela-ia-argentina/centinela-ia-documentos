@@ -293,4 +293,64 @@ describe('C-M3-J-005 & Governance: Legal models review status and blocking', () 
     expect(sug?.reviewStatus).not.toBe('outdated');
     expect(sug?.reviewStatus).not.toBe('retired');
   });
+
+  it('global governance rule: any model with reviewStatus=verified must have jurisdiction, lastReviewedAt, valid officialSources URL, reviewedBy, and changeNotes', () => {
+    // Test that if any model in the catalog were verified, it must strictly satisfy the complete governance contract
+    const all = getModelosInventory();
+    const verifiedModels = all.filter((m) => m.reviewStatus === 'verified');
+    for (const m of verifiedModels) {
+      expect(m.jurisdiction).toBeTruthy();
+      expect(m.lastReviewedAt).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+      expect(Array.isArray(m.officialSources)).toBe(true);
+      expect(m.officialSources!.length).toBeGreaterThan(0);
+      for (const url of m.officialSources!) {
+        expect(url).toMatch(/^https?:\/\//);
+      }
+      expect(m.reviewedBy).toBeTruthy();
+      expect(m.changeNotes).toBeTruthy();
+    }
+
+    // Also test synthetic validation function / schema contract
+    const validateVerifiedGovernance = (modelo: any) => {
+      if (modelo.reviewStatus === 'verified') {
+        const hasJurisdiction = Boolean(modelo.jurisdiction);
+        const hasDate = Boolean(modelo.lastReviewedAt && /^\d{4}-\d{2}-\d{2}$/.test(modelo.lastReviewedAt));
+        const hasValidUrls = Boolean(
+          Array.isArray(modelo.officialSources) &&
+          modelo.officialSources.length > 0 &&
+          modelo.officialSources.every((u: string) => typeof u === 'string' && /^https?:\/\//.test(u))
+        );
+        const hasReviewedBy = Boolean(modelo.reviewedBy);
+        const hasChangeNotes = Boolean(modelo.changeNotes);
+        return hasJurisdiction && hasDate && hasValidUrls && hasReviewedBy && hasChangeNotes;
+      }
+      return true;
+    };
+
+    expect(validateVerifiedGovernance({
+      reviewStatus: 'verified',
+      jurisdiction: 'nacion',
+      lastReviewedAt: '2026-09-04',
+      officialSources: ['https://servicios.infoleg.gob.ar/norma'],
+      reviewedBy: 'Auditoría Legal',
+      changeNotes: 'Revisión completa de normativa',
+    })).toBe(true);
+
+    expect(validateVerifiedGovernance({
+      reviewStatus: 'verified',
+      jurisdiction: 'nacion',
+      // missing officialSources
+    })).toBe(false);
+  });
+
+  it('confirms that the 83 orientative models are pending_review and never presented as verified/auditados', () => {
+    const all = getModelosInventory();
+    const orientativos = all.filter((m) => m.reviewStatus !== 'outdated' && m.reviewStatus !== 'retired');
+    expect(orientativos.length).toBe(83);
+
+    for (const m of orientativos) {
+      expect(m.reviewStatus).toBe('pending_review');
+      expect(m.reviewStatus).not.toBe('verified');
+    }
+  });
 });

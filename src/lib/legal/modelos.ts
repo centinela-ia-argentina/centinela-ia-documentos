@@ -2344,6 +2344,11 @@ export interface ModeloInventoryItem {
   reviewStatus: ReviewStatus;
   version: string;
   lastVerifiedAt?: string;
+  lastReviewedAt?: string;
+  effectiveFrom?: string;
+  officialSources?: string[];
+  reviewedBy?: string;
+  changeNotes?: string;
   isOutdatedOrRetired: boolean;
 }
 
@@ -2356,6 +2361,11 @@ export function getModelosInventory(): ModeloInventoryItem[] {
     reviewStatus: m.reviewStatus ?? 'pending_review',
     version: m.version ?? '1.0',
     lastVerifiedAt: m.lastVerifiedAt,
+    lastReviewedAt: m.lastReviewedAt,
+    effectiveFrom: m.effectiveFrom,
+    officialSources: m.officialSources,
+    reviewedBy: m.reviewedBy,
+    changeNotes: m.changeNotes,
     isOutdatedOrRetired: m.reviewStatus === 'outdated' || m.reviewStatus === 'retired',
   }));
 }

@@ -32,12 +32,14 @@ describe('Legal Parameters Governance', () => {
     expect(LEGAL_PARAMETERS.uma.effectiveFrom).toBe('2026-04-01');
     expect(LEGAL_PARAMETERS.uma.sourceName).toContain('CSJN');
     expect(LEGAL_PARAMETERS.uma.sourceName).toContain('1352');
+    expect(LEGAL_PARAMETERS.uma.sourceUrl).toBe('https://www.csjn.gov.ar/novedades/detalle/13685');
 
     expect(LEGAL_PARAMETERS.uhom.status).toBe('verified');
     expect(LEGAL_PARAMETERS.uhom.value).toBe(12960);
     expect(LEGAL_PARAMETERS.uhom.verifiedAt).toBe('2026-09-04');
     expect(LEGAL_PARAMETERS.uhom.effectiveFrom).toBe('2026-08-01');
     expect(LEGAL_PARAMETERS.uhom.sourceName).toContain('CPACF');
+    expect(LEGAL_PARAMETERS.uhom.sourceUrl).toBe('https://www.cpacf.org.ar/uploads/files/com/23062616_CPACF%202026-08%20HONORARIOS%20MEDIACION.pdf');
 
     expect(LEGAL_PARAMETERS.jus_pba.status).toBe('verified');
     expect(LEGAL_PARAMETERS.jus_pba.value).toBe(53232);
@@ -45,13 +47,15 @@ describe('Legal Parameters Governance', () => {
     expect(LEGAL_PARAMETERS.jus_pba.effectiveFrom).toBe('2026-08-01');
     expect(LEGAL_PARAMETERS.jus_pba.sourceName).toContain('SCBA');
     expect(LEGAL_PARAMETERS.jus_pba.sourceName).toContain('873');
+    expect(LEGAL_PARAMETERS.jus_pba.label).toBe('Jus Ley 14.967 PBA');
+    expect(LEGAL_PARAMETERS.jus_pba.sourceUrl).toBe('https://www.scba.gov.ar/informacion/jus%20-%20documentos/IUS%20agosto%2026.pdf');
 
     const tasaNac = LEGAL_PARAMETERS.tasa_justicia_nacion;
     expect(tasaNac.status).toBe('verified');
     expect(tasaNac.verifiedAt).toBe('2026-09-04');
     expect(tasaNac.value).toBe(3);
     expect(tasaNac.sourceName).toContain('Ley 23.898');
-    expect(tasaNac.sourceUrl).toContain('infoleg');
+    expect(tasaNac.sourceUrl).toBe('https://servicios.infoleg.gob.ar/infolegInternet/anexos/0-4999/298/texact.htm');
   });
 
   it('verifies that Jus Corrientes and tasa_activa_bna have status "pending" and are editable', () => {
@@ -59,6 +63,7 @@ describe('Legal Parameters Governance', () => {
     expect(LEGAL_PARAMETERS.jus_corrientes.value).toBe(58519.61);
     expect(LEGAL_PARAMETERS.jus_corrientes.effectiveFrom).toBe('2026-05-01');
     expect(LEGAL_PARAMETERS.jus_corrientes.editable).toBe(true);
+    expect(LEGAL_PARAMETERS.jus_corrientes.sourceUrl).toBe('https://www.juscorrientes.gov.ar/jurisprudencia-y-doctrina/valores-del-jus/');
 
     expect(LEGAL_PARAMETERS.tasa_activa_bna.status).toBe('pending');
     expect(LEGAL_PARAMETERS.tasa_activa_bna.value).toBe(27.60);
