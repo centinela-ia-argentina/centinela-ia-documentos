@@ -20,6 +20,28 @@ test.describe.serial('Centinela IA - Flujo Jurídico E2E Obligatorio', () => {
   // Playwright serial mode uses a new page per test by default, so we'll share one page context
   let page: any;
   let context: any;
+
+  async function gotoStable(url: string) {
+    const maxAttempts = 2;
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+      try {
+        await page.goto(url, { waitUntil: 'domcontentloaded' });
+        return;
+      } catch (error) {
+        const isFirefoxNavigationAbort =
+          error instanceof Error &&
+          error.message.includes('NS_BINDING_ABORTED');
+
+        if (!isFirefoxNavigationAbort || attempt === maxAttempts) {
+          throw error;
+        }
+
+        await page.waitForTimeout(250);
+      }
+    }
+  }
+
   test.beforeAll(async ({ browser }) => {
     context = await browser.newContext();
     page = await context.newPage();
@@ -30,7 +52,7 @@ test.describe.serial('Centinela IA - Flujo Jurídico E2E Obligatorio', () => {
   });
 
   test('01. login', async () => {
-    await page.goto('/login');
+    await gotoStable('/login');
     await page.fill('[data-testid="login-email"]', process.env.TEST_USER_EMAIL || 'admin.legal@test.com');
     await page.fill('[data-testid="login-password"]', process.env.TEST_USER_PASSWORD || 'password123');
     await page.click('[data-testid="login-submit"]');
@@ -44,7 +66,7 @@ test.describe.serial('Centinela IA - Flujo Jurídico E2E Obligatorio', () => {
     const dashboardTitle = page.locator('[data-testid="dashboard-title"]');
     await expect(dashboardTitle).toBeVisible({ timeout: 15000 });
     await expect(dashboardTitle).toContainText('Bienvenido');
-    await page.goto('/usuarios');
+    await gotoStable('/usuarios');
     await expect(page).toHaveURL(/\/usuarios/);
     const usersPageTitle = page.locator('[data-testid="users-page-title"]');
     await expect(usersPageTitle).toBeVisible({ timeout: 15000 });
@@ -94,7 +116,7 @@ test.describe.serial('Centinela IA - Flujo Jurídico E2E Obligatorio', () => {
   });
 
   test('03. expediente', async () => {
-    await page.goto('/expedientes/nuevo');
+    await gotoStable('/expedientes/nuevo');
     const caseTitle = `Expediente E2E ${Date.now()}`;
     await page.fill('[data-testid="case-title"]', caseTitle);
     await page.fill('[data-testid="case-client"]', 'Cliente E2E');
@@ -137,7 +159,7 @@ test.describe.serial('Centinela IA - Flujo Jurídico E2E Obligatorio', () => {
   });
 
   test('04. 15 uploads (concurrencia y exactamente 15 success)', async () => {
-    await page.goto('/documentos/subir');
+    await gotoStable('/documentos/subir');
     await page.selectOption('[data-testid="upload-case"]', { value: caseId });
     const uploadTypeSelect = page.locator('[data-testid="upload-type"]');
     await expect(uploadTypeSelect).toBeVisible({ timeout: 15000 });
@@ -159,7 +181,7 @@ test.describe.serial('Centinela IA - Flujo Jurídico E2E Obligatorio', () => {
   });
 
   test('05. invalid', async () => {
-    await page.goto('/documentos/subir');
+    await gotoStable('/documentos/subir');
     await page.selectOption('[data-testid="upload-case"]', { value: caseId });
 
     // We get initial counts
@@ -189,7 +211,7 @@ test.describe.serial('Centinela IA - Flujo Jurídico E2E Obligatorio', () => {
   });
 
   test('06. duplicate y partial failure', async () => {
-    await page.goto('/documentos/subir');
+    await gotoStable('/documentos/subir');
     await page.selectOption('[data-testid="upload-case"]', { value: caseId });
 
     const fileBytes = Buffer.from('%PDF-1.4 Duplicate Me ' + randomUUID());
@@ -212,7 +234,7 @@ test.describe.serial('Centinela IA - Flujo Jurídico E2E Obligatorio', () => {
       { name: 'x-test-fail-upload', value: '1', domain: 'localhost', path: '/' }
     ]);
 
-    await page.goto('/documentos/subir');
+    await gotoStable('/documentos/subir');
     await page.selectOption('[data-testid="upload-case"]', { value: caseId });
     await page.setInputFiles('[data-testid="upload-file-input"]', [
       { name: `retry.pdf`, mimeType: 'application/pdf', buffer: Buffer.from('%PDF-1.4 Retry Me') }
@@ -240,7 +262,7 @@ test.describe.serial('Centinela IA - Flujo Jurídico E2E Obligatorio', () => {
 
   test('08. request manipulado (magic bytes)', async () => {
     // To truly manipulate, we bypass UI restrictions and send wrong content with a PDF mime
-    await page.goto('/documentos/subir');
+    await gotoStable('/documentos/subir');
     await page.selectOption('[data-testid="upload-case"]', { value: caseId });
 
     await page.setInputFiles('[data-testid="upload-file-input"]', [
@@ -253,12 +275,12 @@ test.describe.serial('Centinela IA - Flujo Jurídico E2E Obligatorio', () => {
   });
 
   test('09. persistencia', async () => {
-    await page.goto('/documentos');
+    await gotoStable('/documentos');
     await expect(page.locator('table')).toContainText('bulk_');
   });
 
   test('10. checklist pending -> received -> reviewed y not_required', async () => {
-    await page.goto(`${caseUrl}?tab=checklist`);
+    await gotoStable(`${caseUrl}?tab=checklist`);
     // Click toggle to received
     const toggleBtn = page.locator('[data-testid="checklist-toggle-0"]').first();
     await toggleBtn.click();
@@ -270,7 +292,7 @@ test.describe.serial('Centinela IA - Flujo Jurídico E2E Obligatorio', () => {
   });
 
   test('10.5. checklist document link', async () => {
-    await page.goto(`${caseUrl}?tab=checklist`);
+    await gotoStable(`${caseUrl}?tab=checklist`);
     const linkToggle = page.locator('[data-testid="checklist-link-toggle-0"]').first();
     await expect(linkToggle).toContainText('Vincular documento');
     await linkToggle.click();
@@ -323,7 +345,7 @@ test.describe.serial('Centinela IA - Flujo Jurídico E2E Obligatorio', () => {
     });
     const todayStr = formatter.format(new Date());
     
-    await page.goto('/agenda');
+    await gotoStable('/agenda');
     await page.getByRole('button', { name: 'Nuevo evento' }).click();
     await expect(page.locator('[data-testid="agenda-titulo"]')).toBeVisible();
 
@@ -358,7 +380,7 @@ test.describe.serial('Centinela IA - Flujo Jurídico E2E Obligatorio', () => {
     const todayStr = formatter.format(new Date());
     const fixedTitle = 'Audiencia Dup ' + Date.now();
     
-    await page.goto('/agenda');
+    await gotoStable('/agenda');
     await page.getByRole('button', { name: 'Nuevo evento' }).click();
     await expect(page.locator('[data-testid="agenda-titulo"]')).toBeVisible();
 
@@ -384,7 +406,7 @@ test.describe.serial('Centinela IA - Flujo Jurídico E2E Obligatorio', () => {
   });
 
   test('13. tasa 28.000.000 -> 840.000', async () => {
-    await page.goto('/calculadoras');
+    await gotoStable('/calculadoras');
 
     await page
       .getByRole('button', {
@@ -412,7 +434,7 @@ test.describe.serial('Centinela IA - Flujo Jurídico E2E Obligatorio', () => {
   });
 
   test('14. RAG y guardrails', async () => {
-    await page.goto(`${caseUrl}?tab=documentos`);
+    await gotoStable(`${caseUrl}?tab=documentos`);
     // Need to wait for RAG component to load
     await expect(page.locator('[data-testid="rag-input"]')).toBeVisible();
     await page.fill('[data-testid="rag-input"]', '¿Qué dice el documento?');
@@ -422,7 +444,7 @@ test.describe.serial('Centinela IA - Flujo Jurídico E2E Obligatorio', () => {
   });
 
   test('14b. vinculación manual discordante en checklist y persistencia tras reload', async () => {
-    await page.goto(`${caseUrl}?tab=checklist`);
+    await gotoStable(`${caseUrl}?tab=checklist`);
     const checklistContainer = page.locator('[data-testid="checklist-items"]');
     await expect(checklistContainer).toBeVisible({ timeout: 15000 });
 
@@ -485,7 +507,7 @@ test.describe.serial('Centinela IA - Flujo Jurídico E2E Obligatorio', () => {
   });
 
   test('14c. modelo outdated en /modelos sin campos editables, sin copiar, sin descargar', async () => {
-    await page.goto('/modelos?modelo=intimacion-laboral-registracion');
+    await gotoStable('/modelos?modelo=intimacion-laboral-registracion');
     await expect(page.locator('[data-testid="ficha-historica-outdated"]')).toBeVisible({ timeout: 15000 });
     // Botones de exportación disabled según política B
     await expect(page.locator('[data-testid="btn-copiar-modelo"]')).toBeDisabled();
@@ -501,7 +523,7 @@ test.describe.serial('Centinela IA - Flujo Jurídico E2E Obligatorio', () => {
   });
 
   test('14d. selectores de Agenda y Modelos segregados por vertical', async () => {
-    await page.goto('/agenda');
+    await gotoStable('/agenda');
     await page.getByRole('button', { name: 'Nuevo evento' }).click();
     const caseSelect = page.locator('[data-testid="agenda-case-select"]');
     await expect(caseSelect).toBeVisible();
@@ -510,7 +532,7 @@ test.describe.serial('Centinela IA - Flujo Jurídico E2E Obligatorio', () => {
     expect(agendaText).not.toContain('Escritura 1');
     expect(agendaText).not.toContain('Compraventa');
 
-    await page.goto('/modelos?modelo=solicita-tramite');
+    await gotoStable('/modelos?modelo=solicita-tramite');
     const modeloCaseSelect = page.locator('[data-testid="modelos-expediente-select"]');
     await expect(modeloCaseSelect).toBeVisible();
     const modeloText = await modeloCaseSelect.innerText();
