@@ -2,7 +2,8 @@
 // Todas las funciones respetan la normativa vigente y garantizan trazabilidad.
 
 import { UMA_VALOR, UHOM_VALOR, JUS_BA_MEDIACION, JUS_CORRIENTES } from './config';
-export { calcularLiquidacionLaboral, calcularAntiguedadExacta, esBisiesto } from './liquidacion';
+import { parseDateStrict } from './liquidacion';
+export { calcularLiquidacionLaboral, calcularAntiguedadExacta, esBisiesto, parseDateStrict } from './liquidacion';
 export type { LiquidacionLaboralInput, LiquidacionLaboralResultado, RegimenLaboral } from './liquidacion';
 
 // ============================================================================
@@ -33,9 +34,13 @@ export interface CaducidadResultado {
 }
 
 /**
- * Suma meses controlando fin de mes para evitar salto no deseado (ej: 31 ene + 1 mes = 28/29 feb).
+ * Suma meses enteros controlando fin de mes para evitar salto no deseado (ej: 31 ene + 1 mes = 28/29 feb).
+ * Rechaza meses fraccionarios/decimales para evitar distorsiones de días calendario.
  */
 export function sumarMesesControlado(fecha: Date, meses: number): Date {
+  if (!Number.isInteger(meses)) {
+    throw new Error(`La cantidad de meses debe ser un número entero. Recibido: ${meses}.`);
+  }
   const anio = fecha.getFullYear();
   const mes = fecha.getMonth();
   const dia = fecha.getDate();
@@ -51,17 +56,7 @@ export function sumarMesesControlado(fecha: Date, meses: number): Date {
 }
 
 export function calcularCaducidadBase(input: CaducidadInput): CaducidadResultado {
-  const d = typeof input.fechaUltimoActo === 'string'
-    ? new Date(
-        Number(input.fechaUltimoActo.split('-')[0]),
-        Number(input.fechaUltimoActo.split('-')[1]) - 1,
-        Number(input.fechaUltimoActo.split('-')[2])
-      )
-    : new Date(input.fechaUltimoActo.getFullYear(), input.fechaUltimoActo.getMonth(), input.fechaUltimoActo.getDate());
-
-  if (isNaN(d.getTime())) {
-    throw new Error('Fecha del último acto de impulso inválida.');
-  }
+  const d = parseDateStrict(input.fechaUltimoActo);
 
   let meses = 6;
   let norma = 'Art. 310 inc. 1 CPCCN';
@@ -81,8 +76,8 @@ export function calcularCaducidadBase(input: CaducidadInput): CaducidadResultado
     detalle = 'Incidente de caducidad de instancia';
   } else if (input.tipo === 'prescripcion_menor') {
     const m = input.mesesPrescripcionMenor;
-    if (m === undefined || !Number.isFinite(m) || m <= 0) {
-      throw new Error('Para el art. 310 inc. 3 CPCCN debe especificarse el plazo de prescripción menor (número positivo de meses).');
+    if (m === undefined || !Number.isInteger(m) || m <= 0) {
+      throw new Error('Para el art. 310 inc. 3 CPCCN debe especificarse el plazo de prescripción menor (número entero positivo de meses).');
     }
     const plazoOrdinario = input.plazoOrdinarioReferencia ?? 3;
     if (m >= plazoOrdinario) {

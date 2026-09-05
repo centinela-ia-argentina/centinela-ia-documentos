@@ -59,6 +59,35 @@ describe('Calculadoras Jurídicas: Funciones Productivas Oficiales', () => {
       expect(res.fechaBaseEstimadaISO).toBe('2026-06-15');
     });
 
+    it('rejects invalid or malformed dates strictly (e.g. 2026-02-31 or 2026-13-01)', () => {
+      expect(() =>
+        calcularCaducidadBase({
+          fechaUltimoActo: '2026-02-31',
+          tipo: 'primera',
+        })
+      ).toThrow('no existe en el mes');
+
+      expect(() =>
+        calcularCaducidadBase({
+          fechaUltimoActo: 'fecha-invalida',
+          tipo: 'primera',
+        })
+      ).toThrow('Formato de fecha inválido');
+    });
+
+    it('rejects decimal or fractional months in sumarMesesControlado and calcularCaducidadBase', () => {
+      expect(() => sumarMesesControlado(new Date(2026, 0, 1), 1.5)).toThrow('número entero');
+
+      expect(() =>
+        calcularCaducidadBase({
+          fechaUltimoActo: '2026-03-15',
+          tipo: 'prescripcion_menor',
+          mesesPrescripcionMenor: 1.5,
+          plazoOrdinarioReferencia: 3,
+        })
+      ).toThrow('número entero positivo de meses');
+    });
+
     it('applies lesser prescription term when specified and valid (art. 310 inc. 3 CPCCN)', () => {
       const res = calcularCaducidadBase({
         fechaUltimoActo: '2026-03-15',
@@ -71,7 +100,7 @@ describe('Calculadoras Jurídicas: Funciones Productivas Oficiales', () => {
       expect(res.fechaBaseEstimadaISO).toBe('2026-05-15');
     });
 
-    it('rejects art. 310 inc. 3 if mesesPrescripcionMenor is missing, non-positive, or >= ordinary term', () => {
+    it('rejects art. 310 inc. 3 if mesesPrescripcionMenor is missing, non-positive, decimal, or >= ordinary term', () => {
       expect(() =>
         calcularCaducidadBase({
           fechaUltimoActo: '2026-03-15',
@@ -87,11 +116,22 @@ describe('Calculadoras Jurídicas: Funciones Productivas Oficiales', () => {
         })
       ).toThrow('debe especificarse el plazo de prescripción menor');
 
+      // Equal to ordinary term
       expect(() =>
         calcularCaducidadBase({
           fechaUltimoActo: '2026-03-15',
           tipo: 'prescripcion_menor',
           mesesPrescripcionMenor: 3,
+          plazoOrdinarioReferencia: 3,
+        })
+      ).toThrow('debe ser inferior al plazo procesal ordinario');
+
+      // Greater than ordinary term
+      expect(() =>
+        calcularCaducidadBase({
+          fechaUltimoActo: '2026-03-15',
+          tipo: 'prescripcion_menor',
+          mesesPrescripcionMenor: 4,
           plazoOrdinarioReferencia: 3,
         })
       ).toThrow('debe ser inferior al plazo procesal ordinario');
@@ -263,73 +303,87 @@ describe('Calculadoras Jurídicas: Funciones Productivas Oficiales', () => {
       ).toThrow('no existe en el mes');
     });
 
-    it('handles período de prueba standard (6 meses Ley 27.742 / 27.802): sin art. 245, sin preaviso ni integración', () => {
-      // 5 months under 6-month probation
-      const res5m = calcularLiquidacionLaboral({
+    it('handles período de prueba standard (6 meses Ley 27.742 / 27.802): rige mientras antigüedad < plazo; concluido al cumplirse exactamente el plazo', () => {
+      // 5 meses y 29 días con plazo 6 -> en período de prueba
+      const res5m29d = calcularLiquidacionLaboral({
         remuneracion: baseSueldo,
         fechaIngreso: '2026-01-01',
-        fechaEgreso: '2026-06-01',
+        fechaEgreso: '2026-06-30',
+        plazoPeriodoPruebaMeses: 6,
       });
-      expect(res5m.enPeriodoPrueba).toBe(true);
-      expect(res5m.indemnizacionAntiguedad).toBe(0);
-      expect(res5m.aniosComputablesArt245).toBe(0);
-      expect(res5m.preavisoBase).toBe(0);
-      expect(res5m.integracionTotal).toBe(0);
-      expect(res5m.advertencias[0]).toContain('período de prueba');
-      expect(res5m.advertencias[0]).toContain('6 meses');
+      expect(res5m29d.enPeriodoPrueba).toBe(true);
+      expect(res5m29d.indemnizacionAntiguedad).toBe(0);
+      expect(res5m29d.aniosComputablesArt245).toBe(0);
+      expect(res5m29d.preavisoBase).toBe(0);
+      expect(res5m29d.integracionTotal).toBe(0);
+      expect(res5m29d.advertencias[0]).toContain('período de prueba');
+      expect(res5m29d.advertencias[0]).toContain('6 meses');
 
-      // Exactly 6 months
+      // Exactamente 6 meses (2026-01-01 -> 2026-07-01) -> período concluido
       const res6m = calcularLiquidacionLaboral({
         remuneracion: baseSueldo,
         fechaIngreso: '2026-01-01',
         fechaEgreso: '2026-07-01',
+        plazoPeriodoPruebaMeses: 6,
       });
-      expect(res6m.enPeriodoPrueba).toBe(true);
-      expect(res6m.indemnizacionAntiguedad).toBe(0);
-      expect(res6m.preavisoBase).toBe(0);
+      expect(res6m.enPeriodoPrueba).toBe(false);
+      expect(res6m.aniosComputablesArt245).toBe(1);
+      expect(res6m.indemnizacionAntiguedad).toBe(baseSueldo);
+      expect(res6m.preavisoBase).toBe(baseSueldo); // <= 5 años = 1 mes
 
-      // Greater than 6 months (6 months and 1 day)
+      // Mayor a 6 meses (6 meses y 1 día) -> período concluido
       const resPost = calcularLiquidacionLaboral({
         remuneracion: baseSueldo,
         fechaIngreso: '2026-01-01',
         fechaEgreso: '2026-07-02',
+        plazoPeriodoPruebaMeses: 6,
       });
       expect(resPost.enPeriodoPrueba).toBe(false);
       expect(resPost.aniosComputablesArt245).toBe(1);
       expect(resPost.indemnizacionAntiguedad).toBe(baseSueldo);
-      expect(resPost.preavisoBase).toBe(baseSueldo); // <= 5 años = 1 mes
+      expect(resPost.preavisoBase).toBe(baseSueldo);
     });
 
-    it('handles CCT probation limits: 8 months and 12 months', () => {
-      // 7 months with 8-month CCT limit -> still in probation
-      const res8m = calcularLiquidacionLaboral({
+    it('handles CCT probation limits: 8 months and 12 months with exact boundary checks', () => {
+      // 7 meses y 29 días con plazo 8 -> en período de prueba
+      const res7m29d = calcularLiquidacionLaboral({
         remuneracion: baseSueldo,
         fechaIngreso: '2026-01-01',
-        fechaEgreso: '2026-08-01',
+        fechaEgreso: '2026-08-30',
         plazoPeriodoPruebaMeses: 8,
       });
-      expect(res8m.enPeriodoPrueba).toBe(true);
-      expect(res8m.indemnizacionAntiguedad).toBe(0);
+      expect(res7m29d.enPeriodoPrueba).toBe(true);
+      expect(res7m29d.indemnizacionAntiguedad).toBe(0);
 
-      // 10 months with 12-month CCT limit -> still in probation
-      const res12m = calcularLiquidacionLaboral({
+      // Exactamente 8 meses (2026-01-01 -> 2026-09-01) -> período concluido
+      const res8mExact = calcularLiquidacionLaboral({
         remuneracion: baseSueldo,
         fechaIngreso: '2026-01-01',
-        fechaEgreso: '2026-11-01',
-        plazoPeriodoPruebaMeses: 12,
+        fechaEgreso: '2026-09-01',
+        plazoPeriodoPruebaMeses: 8,
       });
-      expect(res12m.enPeriodoPrueba).toBe(true);
-      expect(res12m.indemnizacionAntiguedad).toBe(0);
+      expect(res8mExact.enPeriodoPrueba).toBe(false);
+      expect(res8mExact.indemnizacionAntiguedad).toBe(baseSueldo);
 
-      // 12 months and 2 days -> probation concluded
-      const res12mPost = calcularLiquidacionLaboral({
+      // 11 meses y 29 días con plazo 12 -> en período de prueba
+      const res11m29d = calcularLiquidacionLaboral({
         remuneracion: baseSueldo,
         fechaIngreso: '2025-01-01',
-        fechaEgreso: '2026-01-03',
+        fechaEgreso: '2025-12-30',
         plazoPeriodoPruebaMeses: 12,
       });
-      expect(res12mPost.enPeriodoPrueba).toBe(false);
-      expect(res12mPost.indemnizacionAntiguedad).toBe(baseSueldo);
+      expect(res11m29d.enPeriodoPrueba).toBe(true);
+      expect(res11m29d.indemnizacionAntiguedad).toBe(0);
+
+      // Exactamente 12 meses (2025-01-01 -> 2026-01-01) -> período concluido
+      const res12mExact = calcularLiquidacionLaboral({
+        remuneracion: baseSueldo,
+        fechaIngreso: '2025-01-01',
+        fechaEgreso: '2026-01-01',
+        plazoPeriodoPruebaMeses: 12,
+      });
+      expect(res12mExact.enPeriodoPrueba).toBe(false);
+      expect(res12mExact.indemnizacionAntiguedad).toBe(baseSueldo);
     });
 
     it('handles renuncia o pérdida del período de prueba por el empleador', () => {

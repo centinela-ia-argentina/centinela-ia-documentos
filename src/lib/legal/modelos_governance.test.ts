@@ -353,4 +353,25 @@ describe('C-M3-J-005 & Governance: Legal models review status and blocking', () 
       expect(validateModelGovernance(m).valid).toBe(true);
     }
   });
+
+  it('fails closed immediately when constructing or validating a catalog with an incomplete verified model before use', () => {
+    const syntheticCatalogRaw = [
+      {
+        id: 'modelo-incompleto-fake',
+        titulo: 'Modelo Falso',
+        categoria: 'Civil',
+        descripcion: 'Test',
+        cuerpo: 'Test',
+        reviewStatus: 'verified' as const,
+        // Missing jurisdiction, officialSources, etc.
+      },
+    ];
+
+    expect(() => {
+      syntheticCatalogRaw.map((m) => {
+        assertValidVerifiedModel(m);
+        return m;
+      });
+    }).toThrow('no cumple las reglas de gobernanza');
+  });
 });

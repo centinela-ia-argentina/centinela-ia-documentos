@@ -240,7 +240,9 @@ export function calcularLiquidacionLaboral(input: LiquidacionLaboralInput): Liqu
     if (input.periodoPruebaConcluido !== undefined) {
       enPeriodoPrueba = !input.periodoPruebaConcluido;
     } else {
-      enPeriodoPrueba = anios === 0 && (meses < plazoPeriodoPrueba || (meses === plazoPeriodoPrueba && dias === 0));
+      enPeriodoPrueba = plazoPeriodoPrueba === 12
+        ? anios === 0
+        : anios === 0 && meses < plazoPeriodoPrueba;
     }
   }
 

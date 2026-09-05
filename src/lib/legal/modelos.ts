@@ -2195,6 +2195,60 @@ Ante mí: {{escribano}}`,
   },
 ];
 
+export interface ModelGovernanceValidationResult {
+  valid: boolean;
+  errors: string[];
+}
+
+export function validateModelGovernance(
+  modelo: Partial<ModeloEscrito> | Partial<ModeloInventoryItem>
+): ModelGovernanceValidationResult {
+  const errors: string[] = [];
+  const status = modelo.reviewStatus ?? 'pending_review';
+
+  if (status === 'verified') {
+    if (!modelo.jurisdiction || typeof modelo.jurisdiction !== 'string' || modelo.jurisdiction.trim() === '') {
+      errors.push('Falta indicar la jurisdicción del modelo auditado.');
+    }
+    if (
+      !modelo.lastReviewedAt ||
+      typeof modelo.lastReviewedAt !== 'string' ||
+      !/^\d{4}-\d{2}-\d{2}$/.test(modelo.lastReviewedAt)
+    ) {
+      errors.push('La fecha de última revisión (lastReviewedAt) debe tener formato válido AAAA-MM-DD.');
+    }
+    if (!Array.isArray(modelo.officialSources) || modelo.officialSources.length === 0) {
+      errors.push('Debe incluir al menos una fuente oficial (officialSources).');
+    } else {
+      for (const url of modelo.officialSources) {
+        if (typeof url !== 'string' || !/^https?:\/\/.+/i.test(url.trim())) {
+          errors.push(`URL de fuente oficial inválida: "${url}".`);
+        }
+      }
+    }
+    if (!modelo.reviewedBy || typeof modelo.reviewedBy !== 'string' || modelo.reviewedBy.trim() === '') {
+      errors.push('Debe indicarse la persona o entidad profesional revisora (reviewedBy).');
+    }
+    if (!modelo.changeNotes || typeof modelo.changeNotes !== 'string' || modelo.changeNotes.trim() === '') {
+      errors.push('Deben incluirse notas de revisión normativa o cambios (changeNotes).');
+    }
+  }
+
+  return {
+    valid: errors.length === 0,
+    errors,
+  };
+}
+
+export function assertValidVerifiedModel(
+  modelo: Partial<ModeloEscrito> | Partial<ModeloInventoryItem>
+): void {
+  const res = validateModelGovernance(modelo);
+  if (!res.valid) {
+    throw new Error(`Modelo "${modelo.id ?? 'sin-id'}" no cumple las reglas de gobernanza: ${res.errors.join('; ')}`);
+  }
+}
+
 export const MODELOS: ModeloEscrito[] = RAW_MODELOS.map((m) => {
   const t = (m.titulo + ' ' + m.id).toLowerCase();
   const jurisdiction =
@@ -2205,12 +2259,17 @@ export const MODELOS: ModeloEscrito[] = RAW_MODELOS.map((m) => {
       ? 'Provincia de Buenos Aires'
       : 'Nacional');
 
-  return {
+  const modeloNormalizado: ModeloEscrito = {
     ...m,
     jurisdiction,
     version: m.version ?? '1.0',
     reviewStatus: m.reviewStatus ?? 'pending_review',
   };
+
+  // Fail-closed governance enforcement: valida inmediatamente toda entrada del catálogo
+  assertValidVerifiedModel(modeloNormalizado);
+
+  return modeloNormalizado;
 });
 
 // 🔗 Sugiere el modelo de escrito más adecuado según el tipo de documento
@@ -2350,60 +2409,6 @@ export interface ModeloInventoryItem {
   reviewedBy?: string;
   changeNotes?: string;
   isOutdatedOrRetired: boolean;
-}
-
-export interface ModelGovernanceValidationResult {
-  valid: boolean;
-  errors: string[];
-}
-
-export function validateModelGovernance(
-  modelo: Partial<ModeloEscrito> | Partial<ModeloInventoryItem>
-): ModelGovernanceValidationResult {
-  const errors: string[] = [];
-  const status = modelo.reviewStatus ?? 'pending_review';
-
-  if (status === 'verified') {
-    if (!modelo.jurisdiction || typeof modelo.jurisdiction !== 'string' || modelo.jurisdiction.trim() === '') {
-      errors.push('Falta indicar la jurisdicción del modelo auditado.');
-    }
-    if (
-      !modelo.lastReviewedAt ||
-      typeof modelo.lastReviewedAt !== 'string' ||
-      !/^\d{4}-\d{2}-\d{2}$/.test(modelo.lastReviewedAt)
-    ) {
-      errors.push('La fecha de última revisión (lastReviewedAt) debe tener formato válido AAAA-MM-DD.');
-    }
-    if (!Array.isArray(modelo.officialSources) || modelo.officialSources.length === 0) {
-      errors.push('Debe incluir al menos una fuente oficial (officialSources).');
-    } else {
-      for (const url of modelo.officialSources) {
-        if (typeof url !== 'string' || !/^https?:\/\/.+/i.test(url.trim())) {
-          errors.push(`URL de fuente oficial inválida: "${url}".`);
-        }
-      }
-    }
-    if (!modelo.reviewedBy || typeof modelo.reviewedBy !== 'string' || modelo.reviewedBy.trim() === '') {
-      errors.push('Debe indicarse la persona o entidad profesional revisora (reviewedBy).');
-    }
-    if (!modelo.changeNotes || typeof modelo.changeNotes !== 'string' || modelo.changeNotes.trim() === '') {
-      errors.push('Deben incluirse notas de revisión normativa o cambios (changeNotes).');
-    }
-  }
-
-  return {
-    valid: errors.length === 0,
-    errors,
-  };
-}
-
-export function assertValidVerifiedModel(
-  modelo: Partial<ModeloEscrito> | Partial<ModeloInventoryItem>
-): void {
-  const res = validateModelGovernance(modelo);
-  if (!res.valid) {
-    throw new Error(`Modelo "${modelo.id ?? 'sin-id'}" no cumple las reglas de gobernanza: ${res.errors.join('; ')}`);
-  }
 }
 
 export function getModelosInventory(): ModeloInventoryItem[] {

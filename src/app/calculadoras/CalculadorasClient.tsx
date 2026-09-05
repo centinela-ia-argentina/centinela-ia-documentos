@@ -980,9 +980,9 @@ function CaducidadInstanciaCalc() {
       if (!mesesPrescripcion.trim()) {
         return setError('Indicá el plazo de prescripción menor (en meses) correspondiente a la acción.');
       }
-      const parsed = parseFloat(mesesPrescripcion.replace(',', '.'));
-      if (!Number.isFinite(parsed) || parsed <= 0) {
-        return setError('Ingresá un número de meses positivo para el plazo de prescripción.');
+      const parsed = parseInt(mesesPrescripcion.trim(), 10);
+      if (!Number.isInteger(parsed) || parsed <= 0 || mesesPrescripcion.includes('.') || mesesPrescripcion.includes(',')) {
+        return setError('Ingresá un número entero positivo de meses para el plazo de prescripción.');
       }
       mp = parsed;
     }
@@ -1021,14 +1021,14 @@ function CaducidadInstanciaCalc() {
 
       {instancia === 'prescripcion_menor' && (
         <div className="mt-3">
-          <Field label="Plazo de prescripción de la acción (meses menor al plazo ordinario)">
+          <Field label="Plazo de prescripción de la acción (meses enteros menor al plazo ordinario)">
             <input
               type="number"
-              step="0.5"
-              min="0.1"
+              step="1"
+              min="1"
               value={mesesPrescripcion}
               onChange={(e) => setMesesPrescripcion(e.target.value)}
-              placeholder="Ej: 2 o 1.5"
+              placeholder="Ej: 1 o 2 meses"
               className={inputClass}
             />
           </Field>
