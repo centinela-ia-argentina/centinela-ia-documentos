@@ -54,6 +54,7 @@ import {
 import {
   calcularLiquidacionLaboral,
   type RegimenLaboral,
+  type PlazoPeriodoPrueba,
   type LiquidacionLaboralResultado,
 } from '@/lib/legal/liquidacion';
 
@@ -595,7 +596,10 @@ function LiquidacionLaboralCalc() {
   const [ingreso, setIngreso] = useState('');
   const [egreso, setEgreso] = useState('');
   const [regimen, setRegimen] = useState<RegimenLaboral>('lct_general');
-  const [periodoPruebaConcluido, setPeriodoPruebaConcluido] = useState(true);
+  const [cctFondoCese, setCctFondoCese] = useState('');
+  const [plazoPrueba, setPlazoPrueba] = useState<PlazoPeriodoPrueba>(6);
+  const [renunciaPrueba, setRenunciaPrueba] = useState(false);
+  const [periodoPruebaConcluido, setPeriodoPruebaConcluido] = useState<boolean | undefined>(undefined);
   const [huboPreaviso, setHuboPreaviso] = useState(false);
   const [correspondeIntegracion, setCorrespondeIntegracion] = useState(true);
   const [confirmado, setConfirmado] = useState(false);
@@ -606,11 +610,15 @@ function LiquidacionLaboralCalc() {
     setError(null);
     setRes(null);
     if (!confirmado) {
-      return setError('Debés confirmar que revisaste las exclusiones y el régimen aplicable (LCT modif. por Ley 27.802 y Dec. 407/2026).');
+      return setError('Debés confirmar que revisaste las exclusiones y el régimen aplicable (LCT modif. por Ley 27.742, Ley 27.802 y Dec. 407/2026).');
     }
     const base = parseMonto(remun);
     if (!Number.isFinite(base) || base <= 0) return setError('Ingresá la mejor remuneración mensual, normal y habitual.');
     if (!ingreso || !egreso) return setError('Ingresá fechas de ingreso y egreso válidas.');
+
+    if (regimen === 'fondo_cese' && !cctFondoCese.trim()) {
+      return setError('Indicá el CCT aplicable que establece el fondo o sistema de cese laboral sustitutivo.');
+    }
 
     try {
       const calculo = calcularLiquidacionLaboral({
@@ -618,6 +626,9 @@ function LiquidacionLaboralCalc() {
         fechaIngreso: ingreso,
         fechaEgreso: egreso,
         regimen,
+        cctFondoCese: cctFondoCese.trim(),
+        plazoPeriodoPruebaMeses: plazoPrueba,
+        renunciaOPerdidaPeriodoPrueba: renunciaPrueba,
         periodoPruebaConcluido,
         huboPreaviso,
         correspondeIntegracion,
@@ -631,7 +642,7 @@ function LiquidacionLaboralCalc() {
   return (
     <Card
       title="Liquidación por despido sin causa"
-      subtitle="Estimación orientativa de rubros indemnizatorios básicos (LCT 20.744 modif. por Ley 27.802 y Dec. 407/2026)."
+      subtitle="Estimación orientativa de rubros indemnizatorios básicos (LCT 20.744 modif. por Ley 27.742, Ley 27.802 y Dec. 407/2026)."
     >
       <div className="grid gap-4 sm:grid-cols-3">
         <Field label="Mejor remuneración mensual (normal y habitual)">
@@ -653,7 +664,47 @@ function LiquidacionLaboralCalc() {
           </div>
         </Field>
 
-        <div className="grid gap-2 sm:grid-cols-3 pt-2">
+        {regimen === 'fondo_cese' && (
+          <Field label="CCT aplicable del fondo o sistema de cese (obligatorio)">
+            <input
+              value={cctFondoCese}
+              onChange={(e) => setCctFondoCese(e.target.value)}
+              placeholder="Ej: CCT 76/75 Construcción"
+              className={inputClass}
+            />
+          </Field>
+        )}
+
+        <Field label="Plazo de período de prueba aplicable (art. 92 bis LCT modif. Ley 27.742 / Ley 27.802)">
+          <div className="flex flex-wrap gap-2">
+            <RadioPill active={plazoPrueba === 6} onClick={() => setPlazoPrueba(6)} label="General (6 meses)" />
+            <RadioPill active={plazoPrueba === 8} onClick={() => setPlazoPrueba(8)} label="Pymes 6 a 100 trab. por CCT (8 meses)" />
+            <RadioPill active={plazoPrueba === 12} onClick={() => setPlazoPrueba(12)} label="Empresas hasta 5 trab. por CCT (12 meses)" />
+          </div>
+        </Field>
+
+        <div className="grid gap-2 sm:grid-cols-2 pt-1">
+          <label className="flex items-center gap-2 text-xs text-slate-300">
+            <input
+              type="checkbox"
+              checked={renunciaPrueba}
+              onChange={(e) => setRenunciaPrueba(e.target.checked)}
+              className="rounded border-white/20 bg-slate-900 text-cyan-400 focus:ring-cyan-400"
+            />
+            <span>Empleador renunció o perdió el período de prueba (no rige art. 92 bis)</span>
+          </label>
+          <label className="flex items-center gap-2 text-xs text-slate-300">
+            <input
+              type="checkbox"
+              checked={periodoPruebaConcluido === true}
+              onChange={(e) => setPeriodoPruebaConcluido(e.target.checked ? true : undefined)}
+              className="rounded border-white/20 bg-slate-900 text-cyan-400 focus:ring-cyan-400"
+            />
+            <span>Confirmación manual: período de prueba concluido</span>
+          </label>
+        </div>
+
+        <div className="grid gap-2 sm:grid-cols-2 pt-1 border-t border-white/10">
           <label className="flex items-center gap-2 text-xs text-slate-300">
             <input
               type="checkbox"
@@ -661,7 +712,7 @@ function LiquidacionLaboralCalc() {
               onChange={(e) => setHuboPreaviso(e.target.checked)}
               className="rounded border-white/20 bg-slate-900 text-cyan-400 focus:ring-cyan-400"
             />
-            <span>Hubo preaviso otorgado</span>
+            <span>Hubo preaviso otorgado oportunamente</span>
           </label>
           <label className="flex items-center gap-2 text-xs text-slate-300">
             <input
@@ -670,16 +721,7 @@ function LiquidacionLaboralCalc() {
               onChange={(e) => setCorrespondeIntegracion(e.target.checked)}
               className="rounded border-white/20 bg-slate-900 text-cyan-400 focus:ring-cyan-400"
             />
-            <span>Corresponde integración de mes</span>
-          </label>
-          <label className="flex items-center gap-2 text-xs text-slate-300">
-            <input
-              type="checkbox"
-              checked={periodoPruebaConcluido}
-              onChange={(e) => setPeriodoPruebaConcluido(e.target.checked)}
-              className="rounded border-white/20 bg-slate-900 text-cyan-400 focus:ring-cyan-400"
-            />
-            <span>Período de prueba concluido</span>
+            <span>Corresponde integración de mes de despido</span>
           </label>
         </div>
       </div>
@@ -721,12 +763,23 @@ function LiquidacionLaboralCalc() {
             </div>
           ))}
           <div className="grid gap-3 sm:grid-cols-2">
-            <ResultBox label="Indemnización por antigüedad (art. 245 LCT)" value={currency(res.indemnizacionAntiguedad)} subtitle={res.enPeriodoPrueba ? 'En período de prueba ($0)' : '1 mes por año o fracción > 3 meses'} />
-            <ResultBox label="Preaviso + SAC" value={currency(res.preavisoTotal)} subtitle={res.huboPreaviso ? 'Preavisado ($0)' : (res.enPeriodoPrueba ? '15 días (período de prueba) + SAC' : (res.anios >= 5 ? '2 meses + SAC' : '1 mes + SAC'))} />
-            <ResultBox label="Integración mes de despido + SAC" value={currency(res.integracionTotal)} subtitle={res.esUltimoDiaMes ? 'Egreso último día del mes ($0)' : 'Días faltantes del mes + SAC'} />
+            <ResultBox label="Indemnización por antigüedad (art. 245 LCT)" value={currency(res.indemnizacionAntiguedad)} subtitle={res.enPeriodoPrueba ? 'En período de prueba ($0)' : (res.esFondoCese ? 'Sustituida por fondo de cese CCT ($0)' : '1 mes por año o fracción > 3 meses')} />
+            <ResultBox label="Preaviso + SAC" value={currency(res.preavisoTotal)} subtitle={res.huboPreaviso ? 'Preavisado ($0)' : (res.enPeriodoPrueba ? 'Período de prueba sin preaviso ($0 — art. 231 modif.)' : (res.anios >= 5 ? '2 meses + SAC' : '1 mes + SAC'))} />
+            <ResultBox label="Integración mes de despido + SAC" value={currency(res.integracionTotal)} subtitle={res.esUltimoDiaMes ? 'Egreso último día del mes ($0)' : (res.enPeriodoPrueba ? 'Sin integración en período de prueba ($0)' : 'Días faltantes del mes + SAC')} />
             <ResultBox label="SAC proporcional" value={currency(res.sacProporcional)} />
             <ResultBox label="Vacaciones no gozadas + SAC" value={currency(res.vacacionesNoGozadas)} subtitle={`Escala: ${res.diasVacacionesEscala} días`} />
-            <ResultBox label="TOTAL estimado orientativo" value={currency(res.total)} highlight />
+            {res.esFondoCese ? (
+              <div className="sm:col-span-2">
+                <ResultBox
+                  label="Subtotal de rubros comunes, sin liquidación del fondo/sistema de cese"
+                  value={currency(res.subtotalRubrosComunes)}
+                  subtitle={`Régimen CCT: ${res.cctFondoCese || 'según convenio'}. El importe del fondo/sistema sustitutivo del art. 245 LCT depende de los aportes del CCT y no está incluido en este subtotal.`}
+                  highlight
+                />
+              </div>
+            ) : (
+              <ResultBox label="TOTAL estimado orientativo" value={currency(res.total)} highlight />
+            )}
           </div>
         </div>
       )}
@@ -913,7 +966,7 @@ function DanosCalc() {
 function CaducidadInstanciaCalc() {
   const [fecha, setFecha] = useState('');
   const [instancia, setInstancia] = useState<CaducidadTipo>('primera');
-  const [mesesPrescripcion, setMesesPrescripcion] = useState('2');
+  const [mesesPrescripcion, setMesesPrescripcion] = useState('');
   const [res, setRes] = useState<CaducidadResultado | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -922,11 +975,24 @@ function CaducidadInstanciaCalc() {
     setRes(null);
     if (!fecha) return setError('Ingresá la fecha del último acto de impulso.');
 
+    let mp: number | undefined = undefined;
+    if (instancia === 'prescripcion_menor') {
+      if (!mesesPrescripcion.trim()) {
+        return setError('Indicá el plazo de prescripción menor (en meses) correspondiente a la acción.');
+      }
+      const parsed = parseFloat(mesesPrescripcion.replace(',', '.'));
+      if (!Number.isFinite(parsed) || parsed <= 0) {
+        return setError('Ingresá un número de meses positivo para el plazo de prescripción.');
+      }
+      mp = parsed;
+    }
+
     try {
       const calculo = calcularCaducidadBase({
         fechaUltimoActo: fecha,
         tipo: instancia,
-        mesesPrescripcionMenor: parseInt(mesesPrescripcion, 10) || 2,
+        mesesPrescripcionMenor: mp,
+        plazoOrdinarioReferencia: 3,
       });
       setRes(calculo);
     } catch (err: unknown) {
@@ -945,19 +1011,30 @@ function CaducidadInstanciaCalc() {
       <div className="mt-4">
         <span className="mb-1 block text-xs font-semibold text-slate-400">Instancia / Proceso (art. 310 CPCCN)</span>
         <div className="mt-1 flex flex-wrap gap-2">
-          <RadioPill active={instancia === 'primera'} onClick={() => setInstancia('primera')} label="1ª o única instancia (6 meses — inc. 1)" />
-          <RadioPill active={instancia === 'segunda'} onClick={() => setInstancia('segunda')} label="2ª o ulterior instancia (3 meses — inc. 2)" />
-          <RadioPill active={instancia === 'sumarisimo_ejecucion_incidentes'} onClick={() => setInstancia('sumarisimo_ejecucion_incidentes')} label="Incidentes / Ejecución / Sumarísimo (3 meses — inc. 2)" />
-          <RadioPill active={instancia === 'prescripcion_menor'} onClick={() => setInstancia('prescripcion_menor')} label="Prescripción menor (inc. 3)" />
-          <RadioPill active={instancia === 'incidente_caducidad'} onClick={() => setInstancia('incidente_caducidad')} label="Incidente de caducidad (1 mes — inc. 4)" />
+          <RadioPill active={instancia === 'primera'} onClick={() => { setInstancia('primera'); setError(null); }} label="1ª o única instancia (6 meses — inc. 1)" />
+          <RadioPill active={instancia === 'segunda'} onClick={() => { setInstancia('segunda'); setError(null); }} label="2ª o ulterior instancia (3 meses — inc. 2)" />
+          <RadioPill active={instancia === 'sumarisimo_ejecucion_incidentes'} onClick={() => { setInstancia('sumarisimo_ejecucion_incidentes'); setError(null); }} label="Incidentes / Ejecución / Sumarísimo (3 meses — inc. 2)" />
+          <RadioPill active={instancia === 'prescripcion_menor'} onClick={() => { setInstancia('prescripcion_menor'); setError(null); }} label="Prescripción menor (inc. 3)" />
+          <RadioPill active={instancia === 'incidente_caducidad'} onClick={() => { setInstancia('incidente_caducidad'); setError(null); }} label="Incidente de caducidad (1 mes — inc. 4)" />
         </div>
       </div>
 
       {instancia === 'prescripcion_menor' && (
         <div className="mt-3">
-          <Field label="Plazo de prescripción de la acción (meses si fuere menor)">
-            <input type="number" min={1} max={5} value={mesesPrescripcion} onChange={(e) => setMesesPrescripcion(e.target.value)} className={inputClass} />
+          <Field label="Plazo de prescripción de la acción (meses menor al plazo ordinario)">
+            <input
+              type="number"
+              step="0.5"
+              min="0.1"
+              value={mesesPrescripcion}
+              onChange={(e) => setMesesPrescripcion(e.target.value)}
+              placeholder="Ej: 2 o 1.5"
+              className={inputClass}
+            />
           </Field>
+          <p className="mt-1 text-xs text-slate-400">
+            Conforme art. 310 inc. 3 CPCCN, rige el plazo de prescripción si resulta menor que el plazo ordinario aplicable.
+          </p>
         </div>
       )}
 

@@ -20,6 +20,7 @@ export interface CaducidadInput {
   fechaUltimoActo: string | Date;
   tipo: CaducidadTipo;
   mesesPrescripcionMenor?: number;
+  plazoOrdinarioReferencia?: number;
 }
 
 export interface CaducidadResultado {
@@ -79,9 +80,17 @@ export function calcularCaducidadBase(input: CaducidadInput): CaducidadResultado
     norma = 'Art. 310 inc. 4 CPCCN';
     detalle = 'Incidente de caducidad de instancia';
   } else if (input.tipo === 'prescripcion_menor') {
-    meses = input.mesesPrescripcionMenor && input.mesesPrescripcionMenor > 0 ? input.mesesPrescripcionMenor : 3;
+    const m = input.mesesPrescripcionMenor;
+    if (m === undefined || !Number.isFinite(m) || m <= 0) {
+      throw new Error('Para el art. 310 inc. 3 CPCCN debe especificarse el plazo de prescripción menor (número positivo de meses).');
+    }
+    const plazoOrdinario = input.plazoOrdinarioReferencia ?? 3;
+    if (m >= plazoOrdinario) {
+      throw new Error(`El plazo de prescripción menor (${m} meses) debe ser inferior al plazo procesal ordinario aplicable (${plazoOrdinario} meses).`);
+    }
+    meses = m;
     norma = 'Art. 310 inc. 3 CPCCN';
-    detalle = 'Plazo de prescripción de la acción cuando resulte menor';
+    detalle = 'Plazo de prescripción de la acción cuando resulte menor al plazo procesal ordinario';
   }
 
   const fechaBaseEstimada = sumarMesesControlado(d, meses);
@@ -121,12 +130,12 @@ export const TRAMOS_ART21: Array<{
   maxAcumuladoAnterior: number;
 }> = [
   { desdeUMA: 0, hastaUMA: 15, minPct: 22, maxPct: 33, maxAcumuladoAnterior: 0 },
-  { desdeUMA: 15, hastaUMA: 45, minPct: 20, maxPct: 26, maxAcumuladoAnterior: 15 * 0.33 }, // 4.95
-  { desdeUMA: 45, hastaUMA: 90, minPct: 18, maxPct: 23, maxAcumuladoAnterior: 4.95 + 30 * 0.26 }, // 12.75
-  { desdeUMA: 90, hastaUMA: 150, minPct: 17, maxPct: 20, maxAcumuladoAnterior: 12.75 + 45 * 0.23 }, // 23.10
-  { desdeUMA: 150, hastaUMA: 450, minPct: 15, maxPct: 18, maxAcumuladoAnterior: 23.10 + 60 * 0.20 }, // 35.10
-  { desdeUMA: 450, hastaUMA: 750, minPct: 13, maxPct: 15, maxAcumuladoAnterior: 35.10 + 300 * 0.18 }, // 89.10
-  { desdeUMA: 750, hastaUMA: Infinity, minPct: 11, maxPct: 12, maxAcumuladoAnterior: 89.10 + 300 * 0.15 }, // 134.10
+  { desdeUMA: 15, hastaUMA: 45, minPct: 20, maxPct: 26, maxAcumuladoAnterior: 4.95 },
+  { desdeUMA: 45, hastaUMA: 90, minPct: 18, maxPct: 24, maxAcumuladoAnterior: 12.75 },
+  { desdeUMA: 90, hastaUMA: 150, minPct: 17, maxPct: 22, maxAcumuladoAnterior: 23.55 },
+  { desdeUMA: 150, hastaUMA: 450, minPct: 15, maxPct: 20, maxAcumuladoAnterior: 36.75 },
+  { desdeUMA: 450, hastaUMA: 750, minPct: 13, maxPct: 17, maxAcumuladoAnterior: 96.75 },
+  { desdeUMA: 750, hastaUMA: Infinity, minPct: 12, maxPct: 15, maxAcumuladoAnterior: 147.75 },
 ];
 
 export interface EscalaArt21Resultado {

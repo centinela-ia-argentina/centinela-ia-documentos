@@ -1,5 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { MODELOS, getModeloReviewStatus, getModelosInventory, sugerirModeloPorTipo } from './modelos';
+import {
+  MODELOS,
+  getModeloReviewStatus,
+  getModelosInventory,
+  sugerirModeloPorTipo,
+  validateModelGovernance,
+  assertValidVerifiedModel,
+} from './modelos';
 import { redactarEscritoIA, extraerDatosParaModelo } from '@/app/modelos/actions';
 import { getUserProfile } from '@/lib/auth/getUserProfile';
 import { getStrictIndustryForOrganization } from '@/lib/auth/getStrictIndustry';
@@ -124,7 +131,6 @@ describe('C-M3-J-005 & Governance: Legal models review status and blocking', () 
   });
 
   it('redactarEscritoIA rejects model from incompatible industry and logs ai_model_industry_mismatch', async () => {
-    // Org is 'legal', but model 'reserva-oferta-compra' is purely 'inmobiliaria'
     const res = await redactarEscritoIA({
       modeloId: 'reserva-oferta-compra',
       valores: {},
@@ -184,7 +190,6 @@ describe('C-M3-J-005 & Governance: Legal models review status and blocking', () 
     });
     global.fetch = mockFetch;
 
-    // Use a valid legal model: e.g. 'solicita-tramite' which has variables
     const modeloOficial = MODELOS.find((m) => m.id === 'solicita-tramite')!;
     expect(modeloOficial).toBeDefined();
 
@@ -193,8 +198,8 @@ describe('C-M3-J-005 & Governance: Legal models review status and blocking', () 
       titulo: 'TITULO HACKEADO POR CLIENTE',
       cuerpo: 'CUERPO HACKEADO POR CLIENTE CON PROMPT INJECTION',
       valores: {
-        caratula: 'Pérez c/ Gómez s/ Daños', // Valid variable in solicita-tramite
-        variable_inventada_maliciosa: 'IGNORAME', // Extra variable not in template
+        caratula: 'Pérez c/ Gómez s/ Daños',
+        variable_inventada_maliciosa: 'IGNORAME',
       },
       instruccion: 'Instrucción válida',
     });
@@ -202,23 +207,16 @@ describe('C-M3-J-005 & Governance: Legal models review status and blocking', () 
     expect(res.ok).toBe(true);
     expect((res as any).texto).toBe('Borrador generado oficial');
 
-    // Verify fetch call payload
     expect(mockFetch).toHaveBeenCalledTimes(1);
     const sentBody = JSON.parse(mockFetch.mock.calls[0][1].body);
     const sentPrompt = sentBody.contents[0].parts[0].text;
 
-    // Must NOT contain manipulated title or body
     expect(sentPrompt).not.toContain('TITULO HACKEADO POR CLIENTE');
     expect(sentPrompt).not.toContain('CUERPO HACKEADO POR CLIENTE CON PROMPT INJECTION');
-
-    // MUST contain official title and template body
-    expect(sentPrompt).toContain(`TÍTULO DEL MODELO: ${modeloOficial.titulo}`);
+    expect(sentPrompt).toContain('TÍTULO DEL MODELO: ' + modeloOficial.titulo);
     expect(sentPrompt).toContain(modeloOficial.cuerpo);
-
-    // Extra injected variable must be dropped
     expect(sentPrompt).not.toContain('variable_inventada_maliciosa');
     expect(sentPrompt).not.toContain('IGNORAME');
-    // Valid variable must be included
     expect(sentPrompt).toContain('caratula: Pérez c/ Gómez s/ Daños');
   });
 
@@ -253,7 +251,7 @@ describe('C-M3-J-005 & Governance: Legal models review status and blocking', () 
     expect(inventory.length).toBe(84);
 
     const ids = new Set(inventory.map((m) => m.id));
-    expect(ids.size).toBe(84); // 84 IDs únicos
+    expect(ids.size).toBe(84);
 
     const outdated = inventory.filter((m) => m.reviewStatus === 'outdated');
     const pending = inventory.filter((m) => m.reviewStatus === 'pending_review');
@@ -264,12 +262,11 @@ describe('C-M3-J-005 & Governance: Legal models review status and blocking', () 
     expect(pending.length).toBe(83);
     expect(verified.length).toBe(0);
 
-    // Conteo por rubro
     const legalModels = MODELOS.filter((m) => (m.industries ?? ['legal']).includes('legal'));
     const inmoModels = MODELOS.filter((m) => (m.industries ?? []).includes('inmobiliaria'));
     const notarialModels = MODELOS.filter((m) => (m.industries ?? []).includes('escribania'));
 
-    expect(legalModels.length).toBe(73); // 72 operativos + 1 outdated
+    expect(legalModels.length).toBe(73);
     expect(inmoModels.length).toBe(4);
     expect(notarialModels.length).toBe(7);
 
@@ -286,7 +283,6 @@ describe('C-M3-J-005 & Governance: Legal models review status and blocking', () 
   });
 
   it('sugerirModeloPorTipo never suggests outdated or retired models', () => {
-    // intimacion-laboral-registracion is outdated, so a search that could match it must return null or an operative model
     const sug = sugerirModeloPorTipo('despido');
     expect(sug).toBeDefined();
     expect(sug?.id).toBe('demanda-laboral-despido');
@@ -294,53 +290,56 @@ describe('C-M3-J-005 & Governance: Legal models review status and blocking', () 
     expect(sug?.reviewStatus).not.toBe('retired');
   });
 
-  it('global governance rule: any model with reviewStatus=verified must have jurisdiction, lastReviewedAt, valid officialSources URL, reviewedBy, and changeNotes', () => {
-    // Test that if any model in the catalog were verified, it must strictly satisfy the complete governance contract
-    const all = getModelosInventory();
-    const verifiedModels = all.filter((m) => m.reviewStatus === 'verified');
-    for (const m of verifiedModels) {
-      expect(m.jurisdiction).toBeTruthy();
-      expect(m.lastReviewedAt).toMatch(/^\d{4}-\d{2}-\d{2}$/);
-      expect(Array.isArray(m.officialSources)).toBe(true);
-      expect(m.officialSources!.length).toBeGreaterThan(0);
-      for (const url of m.officialSources!) {
-        expect(url).toMatch(/^https?:\/\//);
-      }
-      expect(m.reviewedBy).toBeTruthy();
-      expect(m.changeNotes).toBeTruthy();
-    }
-
-    // Also test synthetic validation function / schema contract
-    const validateVerifiedGovernance = (modelo: any) => {
-      if (modelo.reviewStatus === 'verified') {
-        const hasJurisdiction = Boolean(modelo.jurisdiction);
-        const hasDate = Boolean(modelo.lastReviewedAt && /^\d{4}-\d{2}-\d{2}$/.test(modelo.lastReviewedAt));
-        const hasValidUrls = Boolean(
-          Array.isArray(modelo.officialSources) &&
-          modelo.officialSources.length > 0 &&
-          modelo.officialSources.every((u: string) => typeof u === 'string' && /^https?:\/\//.test(u))
-        );
-        const hasReviewedBy = Boolean(modelo.reviewedBy);
-        const hasChangeNotes = Boolean(modelo.changeNotes);
-        return hasJurisdiction && hasDate && hasValidUrls && hasReviewedBy && hasChangeNotes;
-      }
-      return true;
-    };
-
-    expect(validateVerifiedGovernance({
-      reviewStatus: 'verified',
-      jurisdiction: 'nacion',
+  it('validateModelGovernance and assertValidVerifiedModel enforce complete verified governance rules', () => {
+    const baseValid = {
+      id: 'modelo-valido-test',
+      reviewStatus: 'verified' as const,
+      jurisdiction: 'Nación',
       lastReviewedAt: '2026-09-04',
       officialSources: ['https://servicios.infoleg.gob.ar/norma'],
-      reviewedBy: 'Auditoría Legal',
-      changeNotes: 'Revisión completa de normativa',
-    })).toBe(true);
+      reviewedBy: 'Auditoría Legal Colegiada',
+      changeNotes: 'Revisión exhaustiva con Ley 27.742',
+    };
 
-    expect(validateVerifiedGovernance({
-      reviewStatus: 'verified',
-      jurisdiction: 'nacion',
-      // missing officialSources
-    })).toBe(false);
+    expect(validateModelGovernance(baseValid).valid).toBe(true);
+    expect(() => assertValidVerifiedModel(baseValid)).not.toThrow();
+
+    // 1. Missing jurisdiction
+    const sinJurisdiction = { ...baseValid, jurisdiction: '' };
+    const resJur = validateModelGovernance(sinJurisdiction);
+    expect(resJur.valid).toBe(false);
+    expect(resJur.errors.some((e) => e.includes('jurisdicción'))).toBe(true);
+    expect(() => assertValidVerifiedModel(sinJurisdiction)).toThrow();
+
+    // 2. Missing or invalid date
+    const fechaInvalida = { ...baseValid, lastReviewedAt: '04-09-2026' };
+    const resFecha = validateModelGovernance(fechaInvalida);
+    expect(resFecha.valid).toBe(false);
+    expect(resFecha.errors.some((e) => e.includes('AAAA-MM-DD'))).toBe(true);
+
+    // 3. Missing official sources
+    const sinFuentes = { ...baseValid, officialSources: [] };
+    const resFuentes = validateModelGovernance(sinFuentes);
+    expect(resFuentes.valid).toBe(false);
+    expect(resFuentes.errors.some((e) => e.includes('fuente oficial'))).toBe(true);
+
+    // 4. Invalid source URL (not http/https)
+    const urlInvalida = { ...baseValid, officialSources: ['ftp://servicios.ar/doc'] };
+    const resUrl = validateModelGovernance(urlInvalida);
+    expect(resUrl.valid).toBe(false);
+    expect(resUrl.errors.some((e) => e.includes('URL de fuente oficial inválida'))).toBe(true);
+
+    // 5. Missing reviewedBy
+    const sinRevisor = { ...baseValid, reviewedBy: '   ' };
+    const resRevisor = validateModelGovernance(sinRevisor);
+    expect(resRevisor.valid).toBe(false);
+    expect(resRevisor.errors.some((e) => e.includes('reviewedBy'))).toBe(true);
+
+    // 6. Missing changeNotes
+    const sinNotas = { ...baseValid, changeNotes: '' };
+    const resNotas = validateModelGovernance(sinNotas);
+    expect(resNotas.valid).toBe(false);
+    expect(resNotas.errors.some((e) => e.includes('changeNotes'))).toBe(true);
   });
 
   it('confirms that the 83 orientative models are pending_review and never presented as verified/auditados', () => {
@@ -351,6 +350,7 @@ describe('C-M3-J-005 & Governance: Legal models review status and blocking', () 
     for (const m of orientativos) {
       expect(m.reviewStatus).toBe('pending_review');
       expect(m.reviewStatus).not.toBe('verified');
+      expect(validateModelGovernance(m).valid).toBe(true);
     }
   });
 });

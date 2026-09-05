@@ -12,11 +12,13 @@ import {
   calcMediacionNacion,
   calcMediacionBA,
   calcMediacionCorrientes,
+  TRAMOS_ART21,
 } from './calculadoras';
 import {
   calcularLiquidacionLaboral,
   calcularAntiguedadExacta,
   esBisiesto,
+  parseDateStrict,
 } from './liquidacion';
 
 describe('Calculadoras Jurídicas: Funciones Productivas Oficiales', () => {
@@ -57,15 +59,42 @@ describe('Calculadoras Jurídicas: Funciones Productivas Oficiales', () => {
       expect(res.fechaBaseEstimadaISO).toBe('2026-06-15');
     });
 
-    it('applies lesser prescription term when specified (art. 310 inc. 3 CPCCN)', () => {
+    it('applies lesser prescription term when specified and valid (art. 310 inc. 3 CPCCN)', () => {
       const res = calcularCaducidadBase({
         fechaUltimoActo: '2026-03-15',
         tipo: 'prescripcion_menor',
         mesesPrescripcionMenor: 2,
+        plazoOrdinarioReferencia: 3,
       });
       expect(res.meses).toBe(2);
       expect(res.norma).toBe('Art. 310 inc. 3 CPCCN');
       expect(res.fechaBaseEstimadaISO).toBe('2026-05-15');
+    });
+
+    it('rejects art. 310 inc. 3 if mesesPrescripcionMenor is missing, non-positive, or >= ordinary term', () => {
+      expect(() =>
+        calcularCaducidadBase({
+          fechaUltimoActo: '2026-03-15',
+          tipo: 'prescripcion_menor',
+        })
+      ).toThrow('debe especificarse el plazo de prescripción menor');
+
+      expect(() =>
+        calcularCaducidadBase({
+          fechaUltimoActo: '2026-03-15',
+          tipo: 'prescripcion_menor',
+          mesesPrescripcionMenor: 0,
+        })
+      ).toThrow('debe especificarse el plazo de prescripción menor');
+
+      expect(() =>
+        calcularCaducidadBase({
+          fechaUltimoActo: '2026-03-15',
+          tipo: 'prescripcion_menor',
+          mesesPrescripcionMenor: 3,
+          plazoOrdinarioReferencia: 3,
+        })
+      ).toThrow('debe ser inferior al plazo procesal ordinario');
     });
 
     it('applies 1 month for incidente de caducidad de instancia (art. 310 inc. 4 CPCCN)', () => {
@@ -80,21 +109,18 @@ describe('Calculadoras Jurídicas: Funciones Productivas Oficiales', () => {
     });
 
     it('controls end-of-month clamping without Date.setMonth overshoot (e.g. 31 Jan)', () => {
-      // 31 Jan 2026 + 1 month -> must be 28 Feb 2026 (non-leap), NOT 2 or 3 March!
       const d1 = new Date(2026, 0, 31);
       const res1 = sumarMesesControlado(d1, 1);
       expect(res1.getFullYear()).toBe(2026);
       expect(res1.getMonth()).toBe(1); // February
       expect(res1.getDate()).toBe(28);
 
-      // In leap year 2024: 31 Jan 2024 + 1 month -> 29 Feb 2024
       const d2 = new Date(2024, 0, 31);
       const res2 = sumarMesesControlado(d2, 1);
       expect(res2.getFullYear()).toBe(2024);
       expect(res2.getMonth()).toBe(1);
       expect(res2.getDate()).toBe(29);
 
-      // 31 Aug 2026 + 6 months -> Feb 2027 (28 days)
       const d3 = new Date(2026, 7, 31);
       const res3 = sumarMesesControlado(d3, 6);
       expect(res3.getFullYear()).toBe(2027);
@@ -107,8 +133,26 @@ describe('Calculadoras Jurídicas: Funciones Productivas Oficiales', () => {
   // 2. Honorarios Ley 27.423: Continuidad y Tramos (calcularEscalaArt21)
   // ──────────────────────────────────────────────────────────────────────────
   describe('2. Honorarios Ley 27.423 (calcularEscalaArt21)', () => {
-    // Tests across all required boundary points:
-    // 1, 15, 15.5, 16, 45, 46, 90, 91, 150, 151, 450, 451, 750, 751 UMA.
+    it('compares explicitly all percentages and tranches of TRAMOS_ART21 with official scale', () => {
+      const officialScale = [
+        { hastaUMA: 15, minPct: 22, maxPct: 33, maxAcumuladoAnterior: 0 },
+        { hastaUMA: 45, minPct: 20, maxPct: 26, maxAcumuladoAnterior: 4.95 },
+        { hastaUMA: 90, minPct: 18, maxPct: 24, maxAcumuladoAnterior: 12.75 },
+        { hastaUMA: 150, minPct: 17, maxPct: 22, maxAcumuladoAnterior: 23.55 },
+        { hastaUMA: 450, minPct: 15, maxPct: 20, maxAcumuladoAnterior: 36.75 },
+        { hastaUMA: 750, minPct: 13, maxPct: 17, maxAcumuladoAnterior: 96.75 },
+        { hastaUMA: Infinity, minPct: 12, maxPct: 15, maxAcumuladoAnterior: 147.75 },
+      ];
+
+      expect(TRAMOS_ART21.length).toBe(officialScale.length);
+      for (let i = 0; i < officialScale.length; i++) {
+        expect(TRAMOS_ART21[i].hastaUMA).toBe(officialScale[i].hastaUMA);
+        expect(TRAMOS_ART21[i].minPct).toBe(officialScale[i].minPct);
+        expect(TRAMOS_ART21[i].maxPct).toBe(officialScale[i].maxPct);
+        expect(TRAMOS_ART21[i].maxAcumuladoAnterior).toBeCloseTo(officialScale[i].maxAcumuladoAnterior, 4);
+      }
+    });
+
     const testPoints = [1, 15, 15.5, 16, 45, 46, 90, 91, 150, 151, 450, 451, 750, 751];
 
     it.each(testPoints)('evaluates continuity and bounds at %s UMA', (umaCount) => {
@@ -150,55 +194,55 @@ describe('Calculadoras Jurídicas: Funciones Productivas Oficiales', () => {
       expect(r45.hMinUMA).toBeCloseTo(10.95, 4);
       expect(r45.hMaxUMA).toBeCloseTo(12.75, 4);
 
-      // At 46 UMA: Grade 3 (18% - 23%). Excess = 1 over 45.
-      // hMin = 12.75 + 1 * 0.18 = 12.93. hMax = 12.75 + 1 * 0.23 = 12.98.
+      // At 46 UMA: Grade 3 (18% - 24%). Excess = 1 over 45.
+      // hMin = 12.75 + 1 * 0.18 = 12.93. hMax = 12.75 + 1 * 0.24 = 12.99.
       const r46 = calcularEscalaArt21(46 * UMA_VALOR, UMA_VALOR);
       expect(r46.hMinUMA).toBeCloseTo(12.93, 4);
-      expect(r46.hMaxUMA).toBeCloseTo(12.98, 4);
+      expect(r46.hMaxUMA).toBeCloseTo(12.99, 4);
 
-      // At 90 UMA: Grade 3 max = 12.75 + 45 * 0.23 = 23.10. Min = 12.75 + 45 * 0.18 = 20.85.
+      // At 90 UMA: Grade 3 max = 12.75 + 45 * 0.24 = 23.55. Min = 12.75 + 45 * 0.18 = 20.85.
       const r90 = calcularEscalaArt21(90 * UMA_VALOR, UMA_VALOR);
       expect(r90.hMinUMA).toBeCloseTo(20.85, 4);
-      expect(r90.hMaxUMA).toBeCloseTo(23.10, 4);
+      expect(r90.hMaxUMA).toBeCloseTo(23.55, 4);
 
-      // At 91 UMA: Grade 4 (17% - 20%). Excess = 1 over 90.
-      // hMin = 23.10 + 1 * 0.17 = 23.27. hMax = 23.10 + 1 * 0.20 = 23.30.
+      // At 91 UMA: Grade 4 (17% - 22%). Excess = 1 over 90.
+      // hMin = 23.55 + 1 * 0.17 = 23.72. hMax = 23.55 + 1 * 0.22 = 23.77.
       const r91 = calcularEscalaArt21(91 * UMA_VALOR, UMA_VALOR);
-      expect(r91.hMinUMA).toBeCloseTo(23.27, 4);
-      expect(r91.hMaxUMA).toBeCloseTo(23.30, 4);
+      expect(r91.hMinUMA).toBeCloseTo(23.72, 4);
+      expect(r91.hMaxUMA).toBeCloseTo(23.77, 4);
 
-      // At 150 UMA: Grade 4 max = 23.10 + 60 * 0.20 = 35.10. Min = 23.10 + 60 * 0.17 = 33.30.
+      // At 150 UMA: Grade 4 max = 23.55 + 60 * 0.22 = 36.75. Min = 23.55 + 60 * 0.17 = 33.75.
       const r150 = calcularEscalaArt21(150 * UMA_VALOR, UMA_VALOR);
-      expect(r150.hMinUMA).toBeCloseTo(33.30, 4);
-      expect(r150.hMaxUMA).toBeCloseTo(35.10, 4);
+      expect(r150.hMinUMA).toBeCloseTo(33.75, 4);
+      expect(r150.hMaxUMA).toBeCloseTo(36.75, 4);
 
-      // At 151 UMA: Grade 5 (15% - 18%). Excess = 1 over 150.
-      // hMin = 35.10 + 1 * 0.15 = 35.25. hMax = 35.10 + 1 * 0.18 = 35.28.
+      // At 151 UMA: Grade 5 (15% - 20%). Excess = 1 over 150.
+      // hMin = 36.75 + 1 * 0.15 = 36.90. hMax = 36.75 + 1 * 0.20 = 36.95.
       const r151 = calcularEscalaArt21(151 * UMA_VALOR, UMA_VALOR);
-      expect(r151.hMinUMA).toBeCloseTo(35.25, 4);
-      expect(r151.hMaxUMA).toBeCloseTo(35.28, 4);
+      expect(r151.hMinUMA).toBeCloseTo(36.90, 4);
+      expect(r151.hMaxUMA).toBeCloseTo(36.95, 4);
 
-      // At 450 UMA: Grade 5 max = 35.10 + 300 * 0.18 = 89.10. Min = 35.10 + 300 * 0.15 = 80.10.
+      // At 450 UMA: Grade 5 max = 36.75 + 300 * 0.20 = 96.75. Min = 36.75 + 300 * 0.15 = 81.75.
       const r450 = calcularEscalaArt21(450 * UMA_VALOR, UMA_VALOR);
-      expect(r450.hMinUMA).toBeCloseTo(80.10, 4);
-      expect(r450.hMaxUMA).toBeCloseTo(89.10, 4);
+      expect(r450.hMinUMA).toBeCloseTo(81.75, 4);
+      expect(r450.hMaxUMA).toBeCloseTo(96.75, 4);
 
-      // At 451 UMA: Grade 6 (13% - 15%). Excess = 1 over 450.
-      // hMin = 89.10 + 1 * 0.13 = 89.23. hMax = 89.10 + 1 * 0.15 = 89.25.
+      // At 451 UMA: Grade 6 (13% - 17%). Excess = 1 over 450.
+      // hMin = 96.75 + 1 * 0.13 = 96.88. hMax = 96.75 + 1 * 0.17 = 96.92.
       const r451 = calcularEscalaArt21(451 * UMA_VALOR, UMA_VALOR);
-      expect(r451.hMinUMA).toBeCloseTo(89.23, 4);
-      expect(r451.hMaxUMA).toBeCloseTo(89.25, 4);
+      expect(r451.hMinUMA).toBeCloseTo(96.88, 4);
+      expect(r451.hMaxUMA).toBeCloseTo(96.92, 4);
 
-      // At 750 UMA: Grade 6 max = 89.10 + 300 * 0.15 = 134.10. Min = 89.10 + 300 * 0.13 = 128.10.
+      // At 750 UMA: Grade 6 max = 96.75 + 300 * 0.17 = 147.75. Min = 96.75 + 300 * 0.13 = 135.75.
       const r750 = calcularEscalaArt21(750 * UMA_VALOR, UMA_VALOR);
-      expect(r750.hMinUMA).toBeCloseTo(128.10, 4);
-      expect(r750.hMaxUMA).toBeCloseTo(134.10, 4);
+      expect(r750.hMinUMA).toBeCloseTo(135.75, 4);
+      expect(r750.hMaxUMA).toBeCloseTo(147.75, 4);
 
-      // At 751 UMA: Grade 7 (11% - 12%). Excess = 1 over 750.
-      // hMin = 134.10 + 1 * 0.11 = 134.21. hMax = 134.10 + 1 * 0.12 = 134.22.
+      // At 751 UMA: Grade 7 (12% - 15%). Excess = 1 over 750.
+      // hMin = 147.75 + 1 * 0.12 = 147.87. hMax = 147.75 + 1 * 0.15 = 147.90.
       const r751 = calcularEscalaArt21(751 * UMA_VALOR, UMA_VALOR);
-      expect(r751.hMinUMA).toBeCloseTo(134.21, 4);
-      expect(r751.hMaxUMA).toBeCloseTo(134.22, 4);
+      expect(r751.hMinUMA).toBeCloseTo(147.87, 4);
+      expect(r751.hMaxUMA).toBeCloseTo(147.90, 4);
     });
   });
 
@@ -208,36 +252,119 @@ describe('Calculadoras Jurídicas: Funciones Productivas Oficiales', () => {
   describe('3. Liquidación laboral (calcularLiquidacionLaboral)', () => {
     const baseSueldo = 1000000;
 
-    it('handles menos de 3 meses (período de prueba art. 92 bis): indemnización art. 245 = 0', () => {
-      // 2 months and 10 days
-      const res = calcularLiquidacionLaboral({
-        remuneracion: baseSueldo,
-        fechaIngreso: '2026-01-01',
-        fechaEgreso: '2026-03-11',
-      });
-      expect(res.enPeriodoPrueba).toBe(true);
-      expect(res.indemnizacionAntiguedad).toBe(0);
-      expect(res.aniosComputablesArt245).toBe(0);
-      // Preaviso en período de prueba es 15 días si no hubo preaviso
-      expect(res.preavisoBase).toBe(500000);
-      // Integración no aplica en período de prueba
-      expect(res.integracionTotal).toBe(0);
-      expect(res.advertencias[0]).toContain('período de prueba');
+    it('rejects invalid dates strictly like 2026-02-31', () => {
+      expect(() => parseDateStrict('2026-02-31')).toThrow('no existe en el mes');
+      expect(() =>
+        calcularLiquidacionLaboral({
+          remuneracion: baseSueldo,
+          fechaIngreso: '2026-02-31',
+          fechaEgreso: '2026-03-15',
+        })
+      ).toThrow('no existe en el mes');
     });
 
-    it('handles explicit período de prueba concluido = false', () => {
-      const res = calcularLiquidacionLaboral({
+    it('handles período de prueba standard (6 meses Ley 27.742 / 27.802): sin art. 245, sin preaviso ni integración', () => {
+      // 5 months under 6-month probation
+      const res5m = calcularLiquidacionLaboral({
         remuneracion: baseSueldo,
-        fechaIngreso: '2025-10-01',
-        fechaEgreso: '2026-02-01',
-        periodoPruebaConcluido: false,
+        fechaIngreso: '2026-01-01',
+        fechaEgreso: '2026-06-01',
       });
-      expect(res.enPeriodoPrueba).toBe(true);
-      expect(res.indemnizacionAntiguedad).toBe(0);
+      expect(res5m.enPeriodoPrueba).toBe(true);
+      expect(res5m.indemnizacionAntiguedad).toBe(0);
+      expect(res5m.aniosComputablesArt245).toBe(0);
+      expect(res5m.preavisoBase).toBe(0);
+      expect(res5m.integracionTotal).toBe(0);
+      expect(res5m.advertencias[0]).toContain('período de prueba');
+      expect(res5m.advertencias[0]).toContain('6 meses');
+
+      // Exactly 6 months
+      const res6m = calcularLiquidacionLaboral({
+        remuneracion: baseSueldo,
+        fechaIngreso: '2026-01-01',
+        fechaEgreso: '2026-07-01',
+      });
+      expect(res6m.enPeriodoPrueba).toBe(true);
+      expect(res6m.indemnizacionAntiguedad).toBe(0);
+      expect(res6m.preavisoBase).toBe(0);
+
+      // Greater than 6 months (6 months and 1 day)
+      const resPost = calcularLiquidacionLaboral({
+        remuneracion: baseSueldo,
+        fechaIngreso: '2026-01-01',
+        fechaEgreso: '2026-07-02',
+      });
+      expect(resPost.enPeriodoPrueba).toBe(false);
+      expect(resPost.aniosComputablesArt245).toBe(1);
+      expect(resPost.indemnizacionAntiguedad).toBe(baseSueldo);
+      expect(resPost.preavisoBase).toBe(baseSueldo); // <= 5 años = 1 mes
+    });
+
+    it('handles CCT probation limits: 8 months and 12 months', () => {
+      // 7 months with 8-month CCT limit -> still in probation
+      const res8m = calcularLiquidacionLaboral({
+        remuneracion: baseSueldo,
+        fechaIngreso: '2026-01-01',
+        fechaEgreso: '2026-08-01',
+        plazoPeriodoPruebaMeses: 8,
+      });
+      expect(res8m.enPeriodoPrueba).toBe(true);
+      expect(res8m.indemnizacionAntiguedad).toBe(0);
+
+      // 10 months with 12-month CCT limit -> still in probation
+      const res12m = calcularLiquidacionLaboral({
+        remuneracion: baseSueldo,
+        fechaIngreso: '2026-01-01',
+        fechaEgreso: '2026-11-01',
+        plazoPeriodoPruebaMeses: 12,
+      });
+      expect(res12m.enPeriodoPrueba).toBe(true);
+      expect(res12m.indemnizacionAntiguedad).toBe(0);
+
+      // 12 months and 2 days -> probation concluded
+      const res12mPost = calcularLiquidacionLaboral({
+        remuneracion: baseSueldo,
+        fechaIngreso: '2025-01-01',
+        fechaEgreso: '2026-01-03',
+        plazoPeriodoPruebaMeses: 12,
+      });
+      expect(res12mPost.enPeriodoPrueba).toBe(false);
+      expect(res12mPost.indemnizacionAntiguedad).toBe(baseSueldo);
+    });
+
+    it('handles renuncia o pérdida del período de prueba por el empleador', () => {
+      const resRenuncia = calcularLiquidacionLaboral({
+        remuneracion: baseSueldo,
+        fechaIngreso: '2026-01-01',
+        fechaEgreso: '2026-03-01',
+        renunciaOPerdidaPeriodoPrueba: true,
+      });
+      expect(resRenuncia.enPeriodoPrueba).toBe(false);
+      expect(resRenuncia.indemnizacionAntiguedad).toBe(baseSueldo);
+      expect(resRenuncia.advertencias.some((a) => a.includes('renuncia o pérdida'))).toBe(true);
+    });
+
+    it('handles régimen fondo_cese: omits art. 245 and calculates subtotalRubrosComunes', () => {
+      const resCese = calcularLiquidacionLaboral({
+        remuneracion: baseSueldo,
+        fechaIngreso: '2024-01-01',
+        fechaEgreso: '2026-03-15',
+        regimen: 'fondo_cese',
+        cctFondoCese: 'UOCRA CCT 222/71',
+      });
+      expect(resCese.indemnizacionAntiguedad).toBe(0);
+      expect(resCese.aniosComputablesArt245).toBe(0);
+      expect(resCese.subtotalRubrosComunes).toBeGreaterThan(0);
+      expect(resCese.subtotalRubrosComunes).toBe(
+        resCese.preavisoTotal +
+        resCese.integracionTotal +
+        resCese.vacacionesNoGozadas +
+        resCese.sacProporcional
+      );
+      expect(resCese.advertencias.some((a) => a.includes('Fondo o sistema de cese laboral'))).toBe(true);
     });
 
     it('handles fracción exacta de 3 meses (no supera fracción > 3 meses): no suma año extra', () => {
-      // 1 año y exactamente 3 meses (ej: 2025-01-01 a 2026-04-01)
       const res = calcularLiquidacionLaboral({
         remuneracion: baseSueldo,
         fechaIngreso: '2025-01-01',
@@ -246,7 +373,6 @@ describe('Calculadoras Jurídicas: Funciones Productivas Oficiales', () => {
       expect(res.anios).toBe(1);
       expect(res.meses).toBe(3);
       expect(res.dias).toBe(0);
-      // art. 245: "fracción mayor de 3 meses", so exactly 3 months computes 1 year
       expect(res.aniosComputablesArt245).toBe(1);
       expect(res.indemnizacionAntiguedad).toBe(baseSueldo * 1);
     });
@@ -273,13 +399,11 @@ describe('Calculadoras Jurídicas: Funciones Productivas Oficiales', () => {
       expect(res.anios).toBe(5);
       expect(res.aniosComputablesArt245).toBe(5);
       expect(res.indemnizacionAntiguedad).toBe(baseSueldo * 5);
-      // Preaviso >= 5 años = 2 meses + SAC
       expect(res.preavisoBase).toBe(baseSueldo * 2);
       expect(res.diasVacacionesEscala).toBe(21);
     });
 
     it('handles egreso el último día del mes: integración = 0', () => {
-      // 31 de marzo
       const res = calcularLiquidacionLaboral({
         remuneracion: baseSueldo,
         fechaIngreso: '2024-01-01',
@@ -291,7 +415,6 @@ describe('Calculadoras Jurídicas: Funciones Productivas Oficiales', () => {
     });
 
     it('compares con preaviso vs sin preaviso', () => {
-      // Con preaviso
       const conPreaviso = calcularLiquidacionLaboral({
         remuneracion: baseSueldo,
         fechaIngreso: '2024-01-01',
@@ -301,7 +424,6 @@ describe('Calculadoras Jurídicas: Funciones Productivas Oficiales', () => {
       expect(conPreaviso.preavisoTotal).toBe(0);
       expect(conPreaviso.integracionTotal).toBe(0);
 
-      // Sin preaviso
       const sinPreaviso = calcularLiquidacionLaboral({
         remuneracion: baseSueldo,
         fechaIngreso: '2024-01-01',
@@ -326,7 +448,6 @@ describe('Calculadoras Jurídicas: Funciones Productivas Oficiales', () => {
       expect(esBisiesto(2024)).toBe(true);
       expect(esBisiesto(2026)).toBe(false);
 
-      // Egreso en 2024 (bisiesto): año tiene 366 días
       const resBisiesto = calcularLiquidacionLaboral({
         remuneracion: baseSueldo,
         fechaIngreso: '2023-01-01',
@@ -336,7 +457,6 @@ describe('Calculadoras Jurídicas: Funciones Productivas Oficiales', () => {
       expect(resBisiesto.meses).toBe(2);
       expect(resBisiesto.vacacionesBase).toBeGreaterThan(0);
 
-      // Cambio de año: ingreso en octubre 2025, egreso en marzo 2026
       const { anios, meses, dias } = calcularAntiguedadExacta(new Date(2025, 9, 15), new Date(2026, 2, 20));
       expect(anios).toBe(0);
       expect(meses).toBe(5);
