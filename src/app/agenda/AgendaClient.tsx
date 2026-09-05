@@ -177,6 +177,7 @@ export function AgendaClient({ eventos, cases, industry, puedeGuardar = true }: 
               <select
                 value={nuevoCaseId}
                 onChange={(e) => setNuevoCaseId(e.target.value)}
+                data-testid="agenda-case-select"
                 className="w-full rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2 text-sm text-white outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400"
               >
                 <option value="">Sin {terms.expedienteSingular.toLowerCase()}</option>

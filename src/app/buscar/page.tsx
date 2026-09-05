@@ -1,6 +1,8 @@
 import { redirect } from 'next/navigation';
 import { AppShell } from '@/components/layout/AppShell';
 import { getUserProfile } from '@/lib/auth/getUserProfile';
+import { getStrictIndustryForOrganization } from '@/lib/auth/getStrictIndustry';
+import { type IndustryType } from '@/lib/industries/documentTypes';
 import { canUseAi, isUserRole } from '@/lib/permissions/roles';
 import { BuscarClient } from './BuscarClient';
 import { BackfillDocs } from './BackfillDocs';
@@ -12,6 +14,15 @@ export default async function BuscarPage() {
   if (!profile) redirect('/onboarding');
 
   const puedeUsarIA = isUserRole(profile.role) && canUseAi(profile.role);
+
+  let industry: IndustryType = 'legal';
+  if (profile.organization_id) {
+    try {
+      industry = await getStrictIndustryForOrganization(profile.organization_id);
+    } catch {
+      industry = 'legal';
+    }
+  }
 
   return (
     <AppShell>
@@ -33,7 +44,7 @@ export default async function BuscarPage() {
 
         {puedeUsarIA ? (
           <>
-            <BuscarClient />
+            <BuscarClient industry={industry} />
             {profile.role === 'admin' && <BackfillDocs />}
           </>
         ) : (

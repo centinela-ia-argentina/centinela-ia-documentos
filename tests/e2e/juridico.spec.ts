@@ -20,6 +20,28 @@ test.describe.serial('Centinela IA - Flujo Jurídico E2E Obligatorio', () => {
   // Playwright serial mode uses a new page per test by default, so we'll share one page context
   let page: any;
   let context: any;
+
+  async function gotoStable(url: string) {
+    const maxAttempts = 2;
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+      try {
+        await page.goto(url, { waitUntil: 'domcontentloaded' });
+        return;
+      } catch (error) {
+        const isFirefoxNavigationAbort =
+          error instanceof Error &&
+          error.message.includes('NS_BINDING_ABORTED');
+
+        if (!isFirefoxNavigationAbort || attempt === maxAttempts) {
+          throw error;
+        }
+
+        await page.waitForTimeout(250);
+      }
+    }
+  }
+
   test.beforeAll(async ({ browser }) => {
     context = await browser.newContext();
     page = await context.newPage();
@@ -30,7 +52,7 @@ test.describe.serial('Centinela IA - Flujo Jurídico E2E Obligatorio', () => {
   });
 
   test('01. login', async () => {
-    await page.goto('/login');
+    await gotoStable('/login');
     await page.fill('[data-testid="login-email"]', process.env.TEST_USER_EMAIL || 'admin.legal@test.com');
     await page.fill('[data-testid="login-password"]', process.env.TEST_USER_PASSWORD || 'password123');
     await page.click('[data-testid="login-submit"]');
@@ -44,7 +66,7 @@ test.describe.serial('Centinela IA - Flujo Jurídico E2E Obligatorio', () => {
     const dashboardTitle = page.locator('[data-testid="dashboard-title"]');
     await expect(dashboardTitle).toBeVisible({ timeout: 15000 });
     await expect(dashboardTitle).toContainText('Bienvenido');
-    await page.goto('/usuarios');
+    await gotoStable('/usuarios');
     await expect(page).toHaveURL(/\/usuarios/);
     const usersPageTitle = page.locator('[data-testid="users-page-title"]');
     await expect(usersPageTitle).toBeVisible({ timeout: 15000 });
@@ -94,7 +116,7 @@ test.describe.serial('Centinela IA - Flujo Jurídico E2E Obligatorio', () => {
   });
 
   test('03. expediente', async () => {
-    await page.goto('/expedientes/nuevo');
+    await gotoStable('/expedientes/nuevo');
     const caseTitle = `Expediente E2E ${Date.now()}`;
     await page.fill('[data-testid="case-title"]', caseTitle);
     await page.fill('[data-testid="case-client"]', 'Cliente E2E');
@@ -137,7 +159,7 @@ test.describe.serial('Centinela IA - Flujo Jurídico E2E Obligatorio', () => {
   });
 
   test('04. 15 uploads (concurrencia y exactamente 15 success)', async () => {
-    await page.goto('/documentos/subir');
+    await gotoStable('/documentos/subir');
     await page.selectOption('[data-testid="upload-case"]', { value: caseId });
     const uploadTypeSelect = page.locator('[data-testid="upload-type"]');
     await expect(uploadTypeSelect).toBeVisible({ timeout: 15000 });
@@ -159,7 +181,7 @@ test.describe.serial('Centinela IA - Flujo Jurídico E2E Obligatorio', () => {
   });
 
   test('05. invalid', async () => {
-    await page.goto('/documentos/subir');
+    await gotoStable('/documentos/subir');
     await page.selectOption('[data-testid="upload-case"]', { value: caseId });
 
     // We get initial counts
@@ -189,7 +211,7 @@ test.describe.serial('Centinela IA - Flujo Jurídico E2E Obligatorio', () => {
   });
 
   test('06. duplicate y partial failure', async () => {
-    await page.goto('/documentos/subir');
+    await gotoStable('/documentos/subir');
     await page.selectOption('[data-testid="upload-case"]', { value: caseId });
 
     const fileBytes = Buffer.from('%PDF-1.4 Duplicate Me ' + randomUUID());
@@ -212,7 +234,7 @@ test.describe.serial('Centinela IA - Flujo Jurídico E2E Obligatorio', () => {
       { name: 'x-test-fail-upload', value: '1', domain: 'localhost', path: '/' }
     ]);
 
-    await page.goto('/documentos/subir');
+    await gotoStable('/documentos/subir');
     await page.selectOption('[data-testid="upload-case"]', { value: caseId });
     await page.setInputFiles('[data-testid="upload-file-input"]', [
       { name: `retry.pdf`, mimeType: 'application/pdf', buffer: Buffer.from('%PDF-1.4 Retry Me') }
@@ -240,7 +262,7 @@ test.describe.serial('Centinela IA - Flujo Jurídico E2E Obligatorio', () => {
 
   test('08. request manipulado (magic bytes)', async () => {
     // To truly manipulate, we bypass UI restrictions and send wrong content with a PDF mime
-    await page.goto('/documentos/subir');
+    await gotoStable('/documentos/subir');
     await page.selectOption('[data-testid="upload-case"]', { value: caseId });
 
     await page.setInputFiles('[data-testid="upload-file-input"]', [
@@ -253,12 +275,12 @@ test.describe.serial('Centinela IA - Flujo Jurídico E2E Obligatorio', () => {
   });
 
   test('09. persistencia', async () => {
-    await page.goto('/documentos');
+    await gotoStable('/documentos');
     await expect(page.locator('table')).toContainText('bulk_');
   });
 
   test('10. checklist pending -> received -> reviewed y not_required', async () => {
-    await page.goto(`${caseUrl}?tab=checklist`);
+    await gotoStable(`${caseUrl}?tab=checklist`);
     // Click toggle to received
     const toggleBtn = page.locator('[data-testid="checklist-toggle-0"]').first();
     await toggleBtn.click();
@@ -270,7 +292,7 @@ test.describe.serial('Centinela IA - Flujo Jurídico E2E Obligatorio', () => {
   });
 
   test('10.5. checklist document link', async () => {
-    await page.goto(`${caseUrl}?tab=checklist`);
+    await gotoStable(`${caseUrl}?tab=checklist`);
     const linkToggle = page.locator('[data-testid="checklist-link-toggle-0"]').first();
     await expect(linkToggle).toContainText('Vincular documento');
     await linkToggle.click();
@@ -323,7 +345,7 @@ test.describe.serial('Centinela IA - Flujo Jurídico E2E Obligatorio', () => {
     });
     const todayStr = formatter.format(new Date());
     
-    await page.goto('/agenda');
+    await gotoStable('/agenda');
     await page.getByRole('button', { name: 'Nuevo evento' }).click();
     await expect(page.locator('[data-testid="agenda-titulo"]')).toBeVisible();
 
@@ -358,7 +380,7 @@ test.describe.serial('Centinela IA - Flujo Jurídico E2E Obligatorio', () => {
     const todayStr = formatter.format(new Date());
     const fixedTitle = 'Audiencia Dup ' + Date.now();
     
-    await page.goto('/agenda');
+    await gotoStable('/agenda');
     await page.getByRole('button', { name: 'Nuevo evento' }).click();
     await expect(page.locator('[data-testid="agenda-titulo"]')).toBeVisible();
 
@@ -384,7 +406,7 @@ test.describe.serial('Centinela IA - Flujo Jurídico E2E Obligatorio', () => {
   });
 
   test('13. tasa 28.000.000 -> 840.000', async () => {
-    await page.goto('/calculadoras');
+    await gotoStable('/calculadoras');
 
     await page
       .getByRole('button', {
@@ -412,13 +434,111 @@ test.describe.serial('Centinela IA - Flujo Jurídico E2E Obligatorio', () => {
   });
 
   test('14. RAG y guardrails', async () => {
-    await page.goto(`${caseUrl}?tab=documentos`);
+    await gotoStable(`${caseUrl}?tab=documentos`);
     // Need to wait for RAG component to load
     await expect(page.locator('[data-testid="rag-input"]')).toBeVisible();
     await page.fill('[data-testid="rag-input"]', '¿Qué dice el documento?');
     await page.click('[data-testid="rag-submit"]');
 
     await expect(page.locator('[data-testid="rag-response"]')).toBeVisible({ timeout: 15000 });
+  });
+
+  test('14b. vinculación manual discordante en checklist y persistencia tras reload', async () => {
+    await gotoStable(`${caseUrl}?tab=checklist`);
+    const checklistContainer = page.locator('[data-testid="checklist-items"]');
+    await expect(checklistContainer).toBeVisible({ timeout: 15000 });
+
+    const toggleButton = page.locator('[data-testid="checklist-link-toggle-0"]');
+    await expect(toggleButton).toBeVisible();
+    await toggleButton.click();
+
+    const selectLink = page.locator('[data-testid="select-doc-0"]');
+    await expect(selectLink).toBeVisible();
+
+    const options = await selectLink.locator('option').all();
+    expect(options.length).toBeGreaterThan(1);
+    const targetVal = await options[1].getAttribute('value');
+    expect(targetVal).toBeTruthy();
+
+    // 1. Vincular manualmente
+    await selectLink.selectOption(targetVal!);
+    await page.locator('[data-testid="btn-guardar-doc-0"]').click();
+
+    // status cambia a RECIBIDO y badge cambia a Manual
+    await expect(page.locator('[data-testid="checklist-status-badge-0"]')).toHaveText(/Recibido/i);
+    await expect(page.locator('[data-testid="checklist-badge-manual-0"]')).toBeVisible();
+
+    // 2. Recargar (reload)
+    await page.reload();
+    await expect(checklistContainer).toBeVisible({ timeout: 15000 });
+
+    // 3. Comprobar que persiste: mismo documento, status RECIBIDO, badge Manual
+    await expect(page.locator('[data-testid="checklist-status-badge-0"]')).toHaveText(/Recibido/i);
+    await expect(page.locator('[data-testid="checklist-badge-manual-0"]')).toBeVisible();
+    if (!await selectLink.isVisible()) {
+      await page.locator('[data-testid="checklist-link-toggle-0"]').click();
+    }
+    await expect(selectLink).toHaveValue(targetVal!);
+
+    // 4. Disparar AutoMatch
+    const autoMatchBtn = page.locator('[data-testid="btn-auto-match"]');
+    if (await autoMatchBtn.isVisible()) {
+      await autoMatchBtn.click();
+      await expect(checklistContainer).toBeVisible({ timeout: 15000 });
+    }
+
+    // 5. Comprobar que NO se revierte a Pendiente y NO se sobreescribe la vinculación manual
+    await expect(page.locator('[data-testid="checklist-status-badge-0"]')).toHaveText(/Recibido/i);
+    await expect(page.locator('[data-testid="checklist-badge-manual-0"]')).toBeVisible();
+
+    // 6. Desvincular manualmente
+    if (!await selectLink.isVisible()) {
+      await page.locator('[data-testid="checklist-link-toggle-0"]').click();
+    }
+    await selectLink.selectOption('');
+    await page.locator('[data-testid="btn-guardar-doc-0"]').click();
+
+    // status vuelve a PENDIENTE y select vuelve a vacío
+    await expect(page.locator('[data-testid="checklist-status-badge-0"]')).toHaveText(/Pendiente/i);
+    if (!await selectLink.isVisible()) {
+      await page.locator('[data-testid="checklist-link-toggle-0"]').click();
+    }
+    await expect(selectLink).toHaveValue('');
+  });
+
+  test('14c. modelo outdated en /modelos sin campos editables, sin copiar, sin descargar', async () => {
+    await gotoStable('/modelos?modelo=intimacion-laboral-registracion');
+    await expect(page.locator('[data-testid="ficha-historica-outdated"]')).toBeVisible({ timeout: 15000 });
+    // Botones de exportación disabled según política B
+    await expect(page.locator('[data-testid="btn-copiar-modelo"]')).toBeDisabled();
+    await expect(page.locator('[data-testid="btn-descargar-txt"]')).toBeDisabled();
+    await expect(page.locator('[data-testid="btn-descargar-docx"]')).toBeDisabled();
+    // Botón de redacción IA ausente
+    await expect(page.locator('[data-testid="btn-redactar-ia"]')).toHaveCount(0);
+    // Selector de expedientes y campos editables ausentes
+    await expect(page.locator('[data-testid="modelos-expediente-select"]')).toHaveCount(0);
+    await expect(page.locator('[data-testid="ficha-historica-outdated"] input')).toHaveCount(0);
+    // Aviso de edición manual ausente
+    await expect(page.locator('body')).not.toContainText('Podés editar el modelo manualmente');
+  });
+
+  test('14d. selectores de Agenda y Modelos segregados por vertical', async () => {
+    await gotoStable('/agenda');
+    await page.getByRole('button', { name: 'Nuevo evento' }).click();
+    const caseSelect = page.locator('[data-testid="agenda-case-select"]');
+    await expect(caseSelect).toBeVisible();
+    const agendaText = await caseSelect.innerText();
+    expect(agendaText).not.toContain('Propiedad 1');
+    expect(agendaText).not.toContain('Escritura 1');
+    expect(agendaText).not.toContain('Compraventa');
+
+    await gotoStable('/modelos?modelo=solicita-tramite');
+    const modeloCaseSelect = page.locator('[data-testid="modelos-expediente-select"]');
+    await expect(modeloCaseSelect).toBeVisible();
+    const modeloText = await modeloCaseSelect.innerText();
+    expect(modeloText).not.toContain('Propiedad 1');
+    expect(modeloText).not.toContain('Escritura 1');
+    expect(modeloText).not.toContain('Compraventa');
   });
 
   test('15. cleanup', async () => {

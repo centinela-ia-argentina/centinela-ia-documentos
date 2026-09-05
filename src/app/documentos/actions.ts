@@ -12,6 +12,7 @@ import { indexarDocumento } from '@/lib/ai/indexarDocumento';
 import { analizarPoderConIA } from '@/lib/ai/poderes';
 import { normalizeIndustryType, type IndustryType } from '@/lib/industries/documentTypes';
 import { getAnalysisSystemPrompt } from '@/lib/industries/aiConfig';
+import { esPlazoRadar, evaluarFechaAccionable, normalizarFechasPlazos, type FechaExtraida } from '@/lib/plazos/plazos';
 import { validateFileContent, MAGIC_BYTES } from '@/lib/documents/fileValidation';
 import {
   canUploadDocument,
@@ -728,7 +729,7 @@ async function analizarConIA(texto: string, industry: IndustryType): Promise<{
   clausulas_riesgos: string[];
   alertas: string[];
   proximas_acciones: string[];
-  fechas_plazos: { descripcion: string; fecha: string }[];
+  fechas_plazos: FechaExtraida[];
   transcripcion?: string;
 } | null> {
   const apiKey = process.env.GEMINI_API_KEY;
@@ -774,9 +775,7 @@ async function analizarConIA(texto: string, industry: IndustryType): Promise<{
       Array.isArray(v) ? v.map(toText).filter((s) => s.trim().length > 0) : [];
 
     const rawFechas = Array.isArray(parsed.fechas_plazos) ? parsed.fechas_plazos : [];
-    const fechas_plazos = rawFechas.filter((f: any) =>
-      f && typeof f.descripcion === 'string' && typeof f.fecha === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(f.fecha)
-    ).map((f: any) => ({ descripcion: f.descripcion, fecha: f.fecha }));
+    const fechas_plazos = normalizarFechasPlazos(rawFechas);
 
     return {
       model: `analisis-ia-${modelo}`,
@@ -811,7 +810,7 @@ async function analizarConIAMultimodal(
   clausulas_riesgos: string[];
   alertas: string[];
   proximas_acciones: string[];
-  fechas_plazos: { descripcion: string; fecha: string }[];
+  fechas_plazos: FechaExtraida[];
   transcripcion?: string;
 } | null> {
   const apiKey = process.env.GEMINI_API_KEY;
@@ -862,9 +861,7 @@ async function analizarConIAMultimodal(
       Array.isArray(v) ? v.map(toText).filter((s) => s.trim().length > 0) : [];
 
     const rawFechas = Array.isArray(parsed.fechas_plazos) ? parsed.fechas_plazos : [];
-    const fechas_plazos = rawFechas.filter((f: any) =>
-      f && typeof f.descripcion === 'string' && typeof f.fecha === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(f.fecha)
-    ).map((f: any) => ({ descripcion: f.descripcion, fecha: f.fecha }));
+    const fechas_plazos = normalizarFechasPlazos(rawFechas);
 
     return {
       model: `analisis-ia-mm-${modelo}`,
@@ -1061,21 +1058,14 @@ const updateFields: any = {
 };
 
 if (!documentRecord.expires_at && analysis.fechas_plazos && analysis.fechas_plazos.length > 0) {
-  // We use regex locally instead of importing to avoid circular dependencies or similar if any.
-  // Actually, let's just use esPlazoRadar.
-  // We need to import it. Or I'll inline the logic.
-  const isRadar = (titulo: string) => {
-    if (!titulo) return false;
-    if (/\b(?:vencimiento|vence|vigencia|plazo|tentativa)\b/i.test(titulo)) return true;
-    if (/\bemisio[nó]\b|\bexpedici[oó]n\b|fecha\s+de\s+(?:celebraci[oó]n|otorgamiento|firma|boleto|escritura|t[ií]tulo)|t[ií]tulo antecedente|^fecha(?: del)? boleto/i.test(titulo)) return false;
-    if (/\b(?:boleto|escritura|catastral|dominio|inhibiciones?)\b/i.test(titulo)) return false;
-    if (/nacimiento|nacid[oa]s?|fecha\s+de\s+nac|f\.?\s*nac\b/i.test(titulo)) return false;
-    return true;
-  };
-
-  const radarPlazos = analysis.fechas_plazos.filter((fp: any) => isRadar(fp.descripcion || ''));
-  if (radarPlazos.length > 0 && radarPlazos[0].fecha) {
-    updateFields.expires_at = String(radarPlazos[0].fecha).slice(0, 10);
+  const plazosAccionables = analysis.fechas_plazos.filter((fp: any) =>
+    evaluarFechaAccionable({
+      ...fp,
+      documento_origen: documentRecord.file_name,
+    })
+  );
+  if (plazosAccionables.length > 0 && plazosAccionables[0].fecha) {
+    updateFields.expires_at = String(plazosAccionables[0].fecha).slice(0, 10);
   }
 }
 

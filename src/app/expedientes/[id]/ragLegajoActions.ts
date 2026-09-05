@@ -7,6 +7,7 @@ import { generarEmbedding } from '@/lib/ai/embeddings';
 import { createAuditLog } from '@/lib/audit/createAuditLog';
 import { normalizeIndustryType } from '@/lib/industries/documentTypes';
 import { getRagSystemPrompt } from '@/lib/industries/aiConfig';
+import { parseAndAlignRagResponse } from '@/lib/ai/ragAlignment';
 import crypto from 'crypto';
 
 export type FuenteLegajo = {
@@ -221,7 +222,8 @@ RESPUESTA:`;
       }
     });
 
-    return { ok: true, respuesta, fuentes, correlationId };
+    const aligned = parseAndAlignRagResponse(respuesta, fuentes);
+    return { ok: true, respuesta: aligned.respuesta, fuentes: aligned.fuentes, correlationId };
   } catch (e) {
     console.error('RAG Unhandled Error:', e);
     const supabase = await createClient();

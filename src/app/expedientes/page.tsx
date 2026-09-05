@@ -3,8 +3,8 @@ import { redirect } from 'next/navigation';
 import { AppShell } from '@/components/layout/AppShell';
 import { createClient } from '@/lib/supabase/server';
 import { getUserProfile } from '@/lib/auth/getUserProfile';
-import { getCaseStatusLabel, getCaseTypeLabel } from '@/lib/industries/caseConfig';
-import { normalizeIndustryType } from '@/lib/industries/documentTypes';
+import { getCaseStatusLabel, getCaseTypeLabel, caseTypesByIndustry } from '@/lib/industries/caseConfig';
+import { getStrictIndustryForOrganization } from '@/lib/auth/getStrictIndustry';
 import { getIndustryTerms } from '@/lib/industries/uiLabels';
 import { summarizeChecklistStatuses } from '@/lib/checklist/progress';
 import { getDocumentExpiryStatus, expiryStatusLabel } from '@/lib/documents/expiry';
@@ -69,10 +69,17 @@ export default async function CasesPage({
     }
   }
 
+  const organizationIndustry = await getStrictIndustryForOrganization(profile.organization_id);
+  const canonicalTypes = caseTypesByIndustry[organizationIndustry] ?? [];
+
   let queryBuilder = supabase
     .from('cases')
     .select('id, title, client_name, case_type, status, metadata, created_at, updated_at', { count: 'exact' })
     .eq('organization_id', profile.organization_id);
+
+  if (canonicalTypes.length > 0) {
+    queryBuilder = queryBuilder.in('case_type', canonicalTypes);
+  }
 
   let cases: CaseRecord[] | null = null;
   let count: number | null = null;
@@ -108,6 +115,10 @@ export default async function CasesPage({
       // Out of range error (HTTP 416). Fetch exact count to find the last page.
       let countQb = supabase.from('cases').select('id', { count: 'exact', head: true })
         .eq('organization_id', profile.organization_id);
+
+      if (canonicalTypes.length > 0) {
+        countQb = countQb.in('case_type', canonicalTypes);
+      }
       
       if (estado === 'archivadas') countQb = countQb.in('status', ['archived', 'Archivado']);
       else countQb = countQb.not('status', 'in', '("archived","Archivado")');
@@ -152,13 +163,6 @@ export default async function CasesPage({
     redirect(`/expedientes?${url.toString()}`);
   }
 
-  const { data: organization } = await supabase
-    .from('organizations')
-    .select('industry_type')
-    .eq('id', profile.organization_id)
-    .maybeSingle();
-
-  const organizationIndustry = normalizeIndustryType(organization?.industry_type);
   const terms = getIndustryTerms(organizationIndustry);
   let records = (cases ?? []) as CaseRecord[];
 
