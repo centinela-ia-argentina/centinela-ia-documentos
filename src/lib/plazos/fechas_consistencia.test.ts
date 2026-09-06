@@ -21,6 +21,7 @@ import {
   LEYENDA_ORIGEN_FONDOS_FALTANTE,
   CLAUSULA_AUTONOMA_UIF,
   LEYENDA_ITI_DEROGADO,
+  LEYENDA_ITI_VERIFICAR_FECHA,
   type BorradorEscritura,
 } from '@/lib/ai/escrituras';
 
@@ -394,10 +395,10 @@ describe('Fuente Canónica Única de Plazos (extraerPlazoCanonicoLegajo)', () =>
   });
 });
 
-describe('Guardrail Jurídico I.T.I. (Ley 27.743) y Preservación de C.O.T.I.', () => {
-  it('reemplaza mención de retención I.T.I. por leyenda de derogación para operaciones posteriores al 08/07/2024', () => {
+describe('Guardrail Jurídico I.T.I. (Ley 27.743) - Matriz Fail-Closed y C.O.T.I.', () => {
+  it('acto 2026: reemplaza mención de retención I.T.I. por constancia de derogación legal', () => {
     const borrador: BorradorEscritura = {
-      titulo: 'Escritura compraventa',
+      titulo: 'Escritura compraventa 2026',
       cuerpo: 'QUINTO: Se deja constancia de la retención del Impuesto a la Transferencia de Inmuebles (I.T.I.) del 1.5%.\nSEXTO: Posesión.',
       datos_faltantes: [],
       advertencias: [],
@@ -408,7 +409,54 @@ describe('Guardrail Jurídico I.T.I. (Ley 27.743) y Preservación de C.O.T.I.', 
     expect(resultado.cuerpo).toContain(LEYENDA_ITI_DEROGADO);
   });
 
-  it('preserva íntegramente el C.O.T.I. sin alterar el número ni confundirlo con I.T.I.', () => {
+  it('acto anterior al 08/07/2024: no aplica la constancia de derogación posterior', () => {
+    const borrador: BorradorEscritura = {
+      titulo: 'Escritura histórica mayo 2024',
+      cuerpo: 'QUINTO: Se retiene el Impuesto a la Transferencia de Inmuebles (I.T.I.) conforme normativa vigente.\nSEXTO: Posesión.',
+      datos_faltantes: [],
+      advertencias: [],
+    };
+
+    const resultado = aplicarGuardrailIti(borrador, '2024-05-10');
+    // No debe aplicar la constancia de derogación de Ley 27.743
+    expect(resultado.cuerpo).not.toContain(LEYENDA_ITI_DEROGADO);
+    expect(resultado.cuerpo).not.toContain('no aplicable por Ley 27.743');
+    expect(resultado.cuerpo).not.toContain('derogado');
+    expect(resultado.cuerpo).toContain('Impuesto a la Transferencia de Inmuebles (I.T.I.)');
+  });
+
+  it('fecha ausente: neutraliza retención con verificación de régimen tributario y agrega advertencia', () => {
+    const borrador: BorradorEscritura = {
+      titulo: 'Escritura sin fecha planificada',
+      cuerpo: 'QUINTO: Se retiene el I.T.I. correspondiente a la operación.\nSEXTO: Posesión.',
+      datos_faltantes: [],
+      advertencias: [],
+    };
+
+    // Sin fecha de operación
+    const resultado = aplicarGuardrailIti(borrador, undefined);
+    expect(resultado.cuerpo).not.toContain('Se retiene el I.T.I.');
+    expect(resultado.cuerpo).not.toContain(LEYENDA_ITI_DEROGADO);
+    expect(resultado.cuerpo).toContain(LEYENDA_ITI_VERIFICAR_FECHA);
+    expect(resultado.datos_faltantes).toContain(LEYENDA_ITI_VERIFICAR_FECHA);
+    expect(resultado.advertencias.some((a) => a.includes('régimen tributario aplicable'))).toBe(true);
+  });
+
+  it('fecha inválida: neutraliza retención con verificación de régimen tributario', () => {
+    const borrador: BorradorEscritura = {
+      titulo: 'Escritura con fecha corrupta',
+      cuerpo: 'QUINTO: Retención de I.T.I. del 1.5% aplicada.\nSEXTO: Posesión.',
+      datos_faltantes: [],
+      advertencias: [],
+    };
+
+    const resultado = aplicarGuardrailIti(borrador, 'fecha-invalida-xyz');
+    expect(resultado.cuerpo).toContain(LEYENDA_ITI_VERIFICAR_FECHA);
+    expect(resultado.cuerpo).not.toContain(LEYENDA_ITI_DEROGADO);
+    expect(resultado.datos_faltantes).toContain(LEYENDA_ITI_VERIFICAR_FECHA);
+  });
+
+  it('preservación exacta de C.O.T.I.: no altera el número ni lo confunde con I.T.I. en ninguna condición', () => {
     const borrador: BorradorEscritura = {
       titulo: 'Escritura compraventa',
       cuerpo: 'QUINTO: Se retiene el I.T.I. correspondiente y se adjunta certificado C.O.T.I. N° 98765432 emitido por AFIP.\nSEXTO: Entrega.',
@@ -416,13 +464,17 @@ describe('Guardrail Jurídico I.T.I. (Ley 27.743) y Preservación de C.O.T.I.', 
       advertencias: [],
     };
 
-    const resultado = aplicarGuardrailIti(borrador, '2026-09-10');
-    expect(resultado.cuerpo).toContain('C.O.T.I. N° 98765432');
-    expect(resultado.cuerpo).not.toContain('Se retiene el I.T.I.');
+    const resPost = aplicarGuardrailIti(borrador, '2026-09-10');
+    expect(resPost.cuerpo).toContain('C.O.T.I. N° 98765432');
+    expect(resPost.cuerpo).not.toContain('Se retiene el I.T.I.');
+
+    const resSinFecha = aplicarGuardrailIti(borrador, null);
+    expect(resSinFecha.cuerpo).toContain('C.O.T.I. N° 98765432');
+    expect(resSinFecha.cuerpo).toContain(LEYENDA_ITI_VERIFICAR_FECHA);
   });
 });
 
-describe('Cláusula Autónoma UIF y Barrido de Fondos', () => {
+describe('Guardrail UIF sin Pérdida de Contenido y Cláusula Autónoma', () => {
   it('inyecta CLAUSULA_AUTONOMA_UIF cuando no existe cláusula y no hay acreditación', () => {
     const borrador: BorradorEscritura = {
       titulo: 'Borrador sin clausula de fondos',
@@ -435,16 +487,45 @@ describe('Cláusula Autónoma UIF y Barrido de Fondos', () => {
     expect(res.cuerpo).toContain(CLAUSULA_AUTONOMA_UIF);
   });
 
-  it('barre la frase "los fondos provienen de..." y la reemplaza por el placeholder', () => {
+  it('preserva precio, posesión y C.O.T.I. en una sola línea reemplazando únicamente la frase insegura de UIF', () => {
+    // Línea única con precio y forma de pago, frase insegura UIF, posesión y C.O.T.I.
+    const lineaUnica =
+      'PRIMERO: El precio fijado es de USD 150.000 que se abona en dinero en efectivo en este acto. La presente operación se realiza con fondos de lícito origen, dando cumplimiento a las disposiciones de la Unidad de Información Financiera (UIF). La parte vendedora hace entrega de la posesión real y definitiva del inmueble. Consta agregado certificado C.O.T.I. N° 98765432 emitido por AFIP.';
+
+    const borrador: BorradorEscritura = {
+      titulo: 'Escritura compleja',
+      cuerpo: lineaUnica,
+      datos_faltantes: [],
+      advertencias: [],
+    };
+
+    const res = aplicarGuardrailOrigenFondos(borrador, false);
+
+    // 1. Debe conservar el precio y forma de pago
+    expect(res.cuerpo).toContain('El precio fijado es de USD 150.000 que se abona en dinero en efectivo en este acto.');
+    // 2. Debe conservar la posesión
+    expect(res.cuerpo).toContain('La parte vendedora hace entrega de la posesión real y definitiva del inmueble.');
+    // 3. Debe conservar el C.O.T.I.
+    expect(res.cuerpo).toContain('Consta agregado certificado C.O.T.I. N° 98765432 emitido por AFIP.');
+    // 4. Debe reemplazar únicamente la frase insegura por la cláusula autónoma UIF
+    expect(res.cuerpo).toContain(CLAUSULA_AUTONOMA_UIF);
+    // 5. No debe conservar afirmación de licitud ni de cumplimiento positivo no respaldado
+    expect(res.cuerpo.toLowerCase()).not.toContain('lícito origen');
+    expect(res.cuerpo.toLowerCase()).not.toContain('cumplimiento a las disposiciones');
+    expect(res.cuerpo.toLowerCase()).not.toContain('cumplimiento de las disposiciones');
+  });
+
+  it('barre la frase "los fondos provienen de..." sin afectar el resto de la cláusula', () => {
     const borrador: BorradorEscritura = {
       titulo: 'Borrador con afirmación de origen',
-      cuerpo: 'CUARTO: El comprador abona en efectivo. Los fondos provienen de ahorros personales no declarados previamente.',
+      cuerpo: 'CUARTO: El comprador abona en efectivo la suma convenida. Los fondos provienen de ahorros personales no declarados previamente.',
       datos_faltantes: [],
       advertencias: [],
     };
 
     const res = aplicarGuardrailOrigenFondos(borrador, false);
     expect(res.cuerpo.toLowerCase()).not.toContain('los fondos provienen de');
+    expect(res.cuerpo).toContain('El comprador abona en efectivo la suma convenida');
     expect(res.cuerpo).toContain(LEYENDA_ORIGEN_FONDOS_FALTANTE);
   });
 });

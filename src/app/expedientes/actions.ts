@@ -1022,12 +1022,15 @@ export async function redactarEscrituraExpediente(caseId: string) {
   const resumenGeneral = String((resumenData?.result_json as any)?.resumen_general || '');
   const metadata = (caseRecord.metadata || {}) as Record<string, string>;
 
+  const plazoCanonico = extraerPlazoCanonicoLegajo(caseRecord, outputsData, []);
+  const fechaOtorgamiento = metadata.fecha_otorgamiento || plazoCanonico?.fechaTentativa || '';
+
   const result = await redactarEscrituraConIA({
     titulo: caseRecord.title || 'Legajo',
     tipoActo: metadata.tipo_acto || caseRecord.case_type || '',
     comparecientes: metadata.comparecientes || caseRecord.client_name || '',
     registroProtocolo: metadata.registro_protocolo || '',
-    fechaOtorgamiento: metadata.fecha_otorgamiento || '',
+    fechaOtorgamiento,
     resumenGeneral,
     documentos,
     tieneEvidenciaOrigenFondos,

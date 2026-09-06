@@ -296,4 +296,100 @@ describe('Agenda - Edición de Eventos Manuales (Permisos, Persistencia y Aislam
       );
     });
   });
+
+  describe('guardarPlazoDetectado (Persistencia e Inferencia de caseId)', () => {
+    let insertPayload: any = null;
+
+    beforeEach(() => {
+      insertPayload = null;
+      mockSupabase.from = vi.fn((table: string) => {
+        if (table === 'cases') {
+          return {
+            select: vi.fn().mockReturnValue({
+              eq: vi.fn((col1: string, val1: string) => ({
+                eq: vi.fn((col2: string, val2: string) => ({
+                  maybeSingle: vi.fn().mockImplementation(() => {
+                    if ((val1 === 'case-palermo-cuba' || val1 === 'case-palermo-inferred') && val2 === 'org-escribania-1') {
+                      return Promise.resolve({ data: { id: val1 }, error: null });
+                    }
+                    return Promise.resolve({ data: null, error: null });
+                  }),
+                })),
+              })),
+            }),
+          };
+        }
+        if (table === 'documents') {
+          return {
+            select: vi.fn().mockReturnValue({
+              eq: vi.fn(() => ({
+                ilike: vi.fn((col: string, val: string) => ({
+                  not: vi.fn(() => ({
+                    limit: vi.fn(() => ({
+                      maybeSingle: vi.fn().mockImplementation(() => {
+                        if (val === '01_boleto_compraventa_palermo_cuba.pdf') {
+                          return Promise.resolve({ data: { case_id: 'case-palermo-inferred' } });
+                        }
+                        return Promise.resolve({ data: null });
+                      }),
+                    })),
+                  })),
+                })),
+              })),
+            }),
+          };
+        }
+        if (table === 'agenda_plazos') {
+          return {
+            select: vi.fn().mockReturnValue({
+              eq: vi.fn(() => ({
+                eq: vi.fn(() => ({
+                  eq: vi.fn(() => ({
+                    eq: vi.fn(() => Promise.resolve({ data: [] })),
+                    is: vi.fn(() => Promise.resolve({ data: [] })),
+                  })),
+                })),
+              })),
+            }),
+            insert: vi.fn().mockImplementation((payload: any) => {
+              insertPayload = payload;
+              return Promise.resolve({ error: null });
+            }),
+          };
+        }
+        return {};
+      });
+    });
+
+    it('persiste caseId explícito y categoría plazo cuando se envía desde PlazosDetectados/Radar', async () => {
+      const { guardarPlazoDetectado } = await import('./actions');
+      const res = await guardarPlazoDetectado({
+        titulo: 'Fecha límite contractual',
+        fecha: '2026-09-08',
+        detalle: 'Plazo contractual de 90 días',
+        caseId: 'case-palermo-cuba',
+      });
+
+      expect(res.ok).toBe(true);
+      expect(insertPayload).toBeDefined();
+      expect(insertPayload.case_id).toBe('case-palermo-cuba');
+      expect(insertPayload.categoria).toBe('plazo');
+      expect(insertPayload.fecha).toBe('2026-09-08');
+      expect(insertPayload.titulo).toBe('Fecha límite contractual');
+    });
+
+    it('infiere case_id a partir del nombre del documento en el detalle cuando no se pasa caseId explícito', async () => {
+      const { guardarPlazoDetectado } = await import('./actions');
+      const res = await guardarPlazoDetectado({
+        titulo: 'Fecha límite de boleto',
+        fecha: '2026-09-08',
+        detalle: 'Detectado por IA en el documento: 01_boleto_compraventa_palermo_cuba.pdf',
+      });
+
+      expect(res.ok).toBe(true);
+      expect(insertPayload).toBeDefined();
+      expect(insertPayload.case_id).toBe('case-palermo-inferred');
+      expect(insertPayload.categoria).toBe('plazo');
+    });
+  });
 });
