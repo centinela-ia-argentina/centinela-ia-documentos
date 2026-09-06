@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { ChevronLeft, ChevronRight, FileText, FolderKanban, CalendarClock, CalendarPlus, Plus, X, FileSignature } from 'lucide-react';
 import { MotionCard } from '@/components/ui/MotionCard';
 import { MotionButton } from '@/components/ui/MotionButton';
-import { guardarEventoManual, guardarTurno, eliminarEventoAgenda } from './actions';
+import { guardarEventoManual, guardarTurno, eliminarEventoAgenda, editarEventoAgenda } from './actions';
 import { FERIADOS_NACIONALES_2026 } from '@/lib/legal/config';
 import type { IndustryType } from '@/lib/industries/documentTypes';
 import { getAgendaLabels, getIndustryTerms } from '@/lib/industries/uiLabels';
@@ -49,6 +49,74 @@ export function AgendaClient({ eventos, cases, industry, puedeGuardar = true }: 
   const [eventoDetalle, setEventoDetalle] = useState<AgendaEvento | null>(null);
   const [eliminando, setEliminando] = useState(false);
 
+  // Estado de edición dentro del modal
+  const [editando, setEditando] = useState(false);
+  const [editTitulo, setEditTitulo] = useState('');
+  const [editFecha, setEditFecha] = useState('');
+  const [editHora, setEditHora] = useState('');
+  const [editTipo, setEditTipo] = useState<'evento' | 'turno' | 'firma' | 'plazo'>('evento');
+  const [editDetalle, setEditDetalle] = useState('');
+  const [editCaseId, setEditCaseId] = useState('');
+  const [guardandoEdicion, setGuardandoEdicion] = useState(false);
+  const [errorEdicion, setErrorEdicion] = useState<string | null>(null);
+
+  const iniciarEdicion = (ev: AgendaEvento) => {
+    setEditTitulo(ev.titulo);
+    setEditFecha(ev.fecha);
+    setEditHora(ev.hora || '');
+    setEditTipo(ev.tipo === 'turno' ? 'turno' : ev.tipo === 'firma' ? 'firma' : ev.tipo === 'plazo' ? 'plazo' : 'evento');
+    setEditDetalle(ev.detalle || '');
+    setEditCaseId(ev.caseId || '');
+    setErrorEdicion(null);
+    setEditando(true);
+  };
+
+  const guardarEdicion = async () => {
+    if (!eventoDetalle?.rawId) return;
+    if (!editTitulo.trim() || !editFecha) {
+      setErrorEdicion('Completá título y fecha.');
+      return;
+    }
+    setGuardandoEdicion(true);
+    setErrorEdicion(null);
+
+    const categoria =
+      editTipo === 'turno' ? 'turno'
+      : editTipo === 'firma' ? 'firma'
+      : editTipo === 'plazo' ? 'plazo'
+      : 'manual';
+
+    const res = await editarEventoAgenda({
+      id: eventoDetalle.rawId,
+      titulo: editTitulo.trim(),
+      fecha: editFecha,
+      hora: editHora.trim() || null,
+      categoria,
+      detalle: editDetalle.trim() || null,
+      caseId: editCaseId || null,
+    });
+
+    setGuardandoEdicion(false);
+    if (res.ok) {
+      const caseNombre = cases.find((c) => c.id === editCaseId)?.title;
+      setEventoDetalle((prev) => prev ? {
+        ...prev,
+        titulo: editTitulo.trim(),
+        fecha: editFecha,
+        hora: editHora.trim() || undefined,
+        tipo: editTipo,
+        detalle: editDetalle.trim() || null,
+        caseId: editCaseId || undefined,
+        expedienteNombre: caseNombre,
+        href: editCaseId ? `/expedientes/${editCaseId}` : '/agenda',
+      } : null);
+      setEditando(false);
+      router.refresh();
+    } else {
+      setErrorEdicion(res.mensaje || 'Error al guardar los cambios.');
+    }
+  };
+
   const eliminar = async (id: string) => {
     if (!confirm('¿Eliminar este evento de la agenda?')) return;
     setEliminando(true);
@@ -56,6 +124,7 @@ export function AgendaClient({ eventos, cases, industry, puedeGuardar = true }: 
     setEliminando(false);
     if (res.ok) {
       setEventoDetalle(null);
+      setEditando(false);
       router.refresh();
     } else {
       alert(res.mensaje || 'No se pudo eliminar');
@@ -348,67 +417,181 @@ export function AgendaClient({ eventos, cases, industry, puedeGuardar = true }: 
                 <span className="inline-block rounded-full bg-white/10 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-cyan-300">
                   {eventoDetalle.tipo.toUpperCase()}
                 </span>
-                <h3 className="mt-1 text-lg font-bold text-white">{eventoDetalle.titulo}</h3>
+                <h3 className="mt-1 text-lg font-bold text-white">
+                  {editando ? 'Editar evento' : eventoDetalle.titulo}
+                </h3>
               </div>
               <button
                 type="button"
-                onClick={() => setEventoDetalle(null)}
+                onClick={() => { setEventoDetalle(null); setEditando(false); }}
                 className="rounded-lg p-1 text-slate-400 hover:bg-white/10 hover:text-white"
               >
                 <X className="h-5 w-5" />
               </button>
             </div>
 
-            <div className="space-y-2 text-sm text-slate-300 border-t border-white/10 pt-3">
-              <p>
-                <strong className="text-white">Fecha:</strong> {eventoDetalle.fecha.split('-').reverse().join('/')}
-                {eventoDetalle.hora ? ` · ${eventoDetalle.hora} hs` : ''}
-              </p>
-              <p className="text-xs text-slate-400">
-                Zona horaria: America/Argentina/Buenos_Aires (UTC-3)
-              </p>
-              {eventoDetalle.detalle && (
-                <div className="rounded-xl border border-white/5 bg-white/[0.02] p-3 text-xs text-slate-300 whitespace-pre-wrap">
-                  {eventoDetalle.detalle}
+            {editando ? (
+              <div className="space-y-3 border-t border-white/10 pt-3">
+                <label className="block">
+                  <span className="mb-1 block text-xs font-semibold text-slate-400">Categoría</span>
+                  <select
+                    value={editTipo}
+                    onChange={(e) => setEditTipo(e.target.value as any)}
+                    className="w-full rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2 text-sm text-white outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400"
+                    data-testid="agenda-edit-categoria"
+                  >
+                    {industry === 'legal' && <option value="plazo">Plazo / Audiencia</option>}
+                    <option value="evento">Recordatorio</option>
+                    <option value="turno">Turno</option>
+                    <option value="firma">Firma</option>
+                  </select>
+                </label>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <label className="block">
+                    <span className="mb-1 block text-xs font-semibold text-slate-400">Fecha</span>
+                    <input
+                      type="date"
+                      value={editFecha}
+                      onChange={(e) => setEditFecha(e.target.value)}
+                      className="w-full rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2 text-sm text-white outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400"
+                      data-testid="agenda-edit-fecha"
+                    />
+                  </label>
+                  <label className="block">
+                    <span className="mb-1 block text-xs font-semibold text-slate-400">Hora</span>
+                    <input
+                      type="time"
+                      value={editHora}
+                      onChange={(e) => setEditHora(e.target.value)}
+                      className="w-full rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2 text-sm text-white outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400"
+                      data-testid="agenda-edit-hora"
+                    />
+                  </label>
                 </div>
-              )}
-              {eventoDetalle.expedienteNombre && (
-                <p>
-                  <strong className="text-white">{terms.expedienteSingular}:</strong> {eventoDetalle.expedienteNombre}
-                </p>
-              )}
-            </div>
 
-            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-white/10 pt-4">
-              {eventoDetalle.href && eventoDetalle.href !== '/agenda' ? (
-                <Link
-                  href={eventoDetalle.href}
-                  className="rounded-xl bg-cyan-500/20 px-4 py-2 text-sm font-semibold text-cyan-300 hover:bg-cyan-500/30"
-                >
-                  Ver {terms.expedienteSingular.toLowerCase()} →
-                </Link>
-              ) : <div />}
+                <label className="block">
+                  <span className="mb-1 block text-xs font-semibold text-slate-400">Título</span>
+                  <input
+                    type="text"
+                    value={editTitulo}
+                    onChange={(e) => setEditTitulo(e.target.value)}
+                    className="w-full rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2 text-sm text-white outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400"
+                    data-testid="agenda-edit-titulo"
+                  />
+                </label>
 
-              <div className="flex items-center gap-2">
-                {eventoDetalle.rawId && puedeGuardar && (
+                <label className="block">
+                  <span className="mb-1 block text-xs font-semibold text-slate-400">Detalle (opcional)</span>
+                  <input
+                    type="text"
+                    value={editDetalle}
+                    onChange={(e) => setEditDetalle(e.target.value)}
+                    className="w-full rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2 text-sm text-white outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400"
+                    data-testid="agenda-edit-detalle"
+                  />
+                </label>
+
+                <label className="block">
+                  <span className="mb-1 block text-xs font-medium text-slate-400">{terms.expedienteSingular} (opcional)</span>
+                  <select
+                    value={editCaseId}
+                    onChange={(e) => setEditCaseId(e.target.value)}
+                    className="w-full rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2 text-sm text-white outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400"
+                    data-testid="agenda-edit-case-select"
+                  >
+                    <option value="">Sin {terms.expedienteSingular.toLowerCase()}</option>
+                    {cases.map((c) => (
+                      <option key={c.id} value={c.id}>{c.title}</option>
+                    ))}
+                  </select>
+                </label>
+
+                {errorEdicion && <p className="text-xs text-amber-400">{errorEdicion}</p>}
+
+                <div className="flex items-center justify-end gap-2 pt-2">
                   <button
                     type="button"
-                    disabled={eliminando}
-                    onClick={() => eventoDetalle.rawId && eliminar(eventoDetalle.rawId)}
-                    className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-xs font-semibold text-rose-300 hover:bg-rose-500/20 disabled:opacity-50"
+                    onClick={() => setEditando(false)}
+                    className="rounded-xl border border-white/10 px-3 py-1.5 text-xs font-semibold text-slate-300 hover:bg-white/5"
                   >
-                    {eliminando ? 'Borrando…' : 'Eliminar de agenda'}
+                    Cancelar
                   </button>
-                )}
-                <button
-                  type="button"
-                  onClick={() => setEventoDetalle(null)}
-                  className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-white hover:bg-white/10"
-                >
-                  Cerrar
-                </button>
+                  <button
+                    type="button"
+                    disabled={guardandoEdicion}
+                    onClick={guardarEdicion}
+                    data-testid="agenda-edit-submit"
+                    className="rounded-xl bg-cyan-600 px-4 py-1.5 text-xs font-semibold text-white transition hover:bg-cyan-500 disabled:opacity-50"
+                  >
+                    {guardandoEdicion ? 'Guardando…' : 'Guardar cambios'}
+                  </button>
+                </div>
               </div>
-            </div>
+            ) : (
+              <>
+                <div className="space-y-2 text-sm text-slate-300 border-t border-white/10 pt-3">
+                  <p>
+                    <strong className="text-white">Fecha:</strong> {eventoDetalle.fecha.split('-').reverse().join('/')}
+                    {eventoDetalle.hora ? ` · ${eventoDetalle.hora} hs` : ''}
+                  </p>
+                  <p className="text-xs text-slate-400">
+                    Zona horaria: America/Argentina/Buenos_Aires (UTC-3)
+                  </p>
+                  {eventoDetalle.detalle && (
+                    <div className="rounded-xl border border-white/5 bg-white/[0.02] p-3 text-xs text-slate-300 whitespace-pre-wrap">
+                      {eventoDetalle.detalle}
+                    </div>
+                  )}
+                  {eventoDetalle.expedienteNombre && (
+                    <p>
+                      <strong className="text-white">{terms.expedienteSingular}:</strong> {eventoDetalle.expedienteNombre}
+                    </p>
+                  )}
+                </div>
+
+                <div className="flex flex-wrap items-center justify-between gap-3 border-t border-white/10 pt-4">
+                  {eventoDetalle.href && eventoDetalle.href !== '/agenda' ? (
+                    <Link
+                      href={eventoDetalle.href}
+                      className="rounded-xl bg-cyan-500/20 px-4 py-2 text-sm font-semibold text-cyan-300 hover:bg-cyan-500/30"
+                    >
+                      Ver {terms.expedienteSingular.toLowerCase()} →
+                    </Link>
+                  ) : <div />}
+
+                  <div className="flex items-center gap-2">
+                    {eventoDetalle.rawId && puedeGuardar && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => iniciarEdicion(eventoDetalle)}
+                          data-testid="agenda-editar-btn"
+                          className="rounded-xl border border-cyan-500/30 bg-cyan-500/10 px-3 py-2 text-xs font-semibold text-cyan-300 hover:bg-cyan-500/20"
+                        >
+                          Editar
+                        </button>
+                        <button
+                          type="button"
+                          disabled={eliminando}
+                          onClick={() => eventoDetalle.rawId && eliminar(eventoDetalle.rawId)}
+                          className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-xs font-semibold text-rose-300 hover:bg-rose-500/20 disabled:opacity-50"
+                        >
+                          {eliminando ? 'Borrando…' : 'Eliminar de agenda'}
+                        </button>
+                      </>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => { setEventoDetalle(null); setEditando(false); }}
+                      className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-white hover:bg-white/10"
+                    >
+                      Cerrar
+                    </button>
+                  </div>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}

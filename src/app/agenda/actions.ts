@@ -217,3 +217,118 @@ export async function eliminarEventoAgenda(id: string): Promise<{ ok: boolean; m
   revalidatePath('/agenda');
   return { ok: true };
 }
+
+export type EditarEventoAgendaInput = {
+  id: string;
+  titulo: string;
+  fecha: string;
+  hora?: string | null;
+  categoria?: 'manual' | 'plazo' | 'turno' | 'firma';
+  detalle?: string | null;
+  caseId?: string | null;
+};
+
+export type EditarEventoAgendaResult = {
+  ok: boolean;
+  motivo?: 'no_auth' | 'no_encontrado' | 'error';
+  mensaje?: string;
+};
+
+export async function editarEventoAgenda(input: EditarEventoAgendaInput): Promise<EditarEventoAgendaResult> {
+  const { user, profile } = await getUserProfile();
+  if (!user || !profile) return { ok: false, motivo: 'no_auth', mensaje: 'No autenticado.' };
+  if (!isUserRole(profile.role) || !canUpdateCase(profile.role)) {
+    return { ok: false, motivo: 'no_auth', mensaje: 'Sin permisos para editar eventos.' };
+  }
+
+  const id = input.id?.trim();
+  if (!id) return { ok: false, motivo: 'error', mensaje: 'ID de evento requerido.' };
+
+  const tituloInput = input.titulo?.trim();
+  if (!tituloInput) return { ok: false, motivo: 'error', mensaje: 'El título es obligatorio.' };
+
+  const fechaNorm = normalizeDateLocal(input.fecha);
+  if (!fechaNorm) return { ok: false, motivo: 'error', mensaje: 'Fecha inválida.' };
+
+  let horaValida: string | null = null;
+  try {
+    horaValida = validateTime(input.hora ?? null);
+  } catch (err: any) {
+    return { ok: false, motivo: 'error', mensaje: err.message };
+  }
+
+  const supabase = await createClient();
+
+  const caseId = input.caseId?.trim() || null;
+  if (caseId) {
+    const { data: caseData } = await supabase
+      .from('cases')
+      .select('id')
+      .eq('id', caseId)
+      .eq('organization_id', profile.organization_id)
+      .maybeSingle();
+
+    if (!caseData) {
+      return { ok: false, motivo: 'error', mensaje: 'Expediente no encontrado o sin acceso.' };
+    }
+  }
+
+  const categoria = input.categoria || 'manual';
+
+  const { data: existing, error: findError } = await supabase
+    .from('agenda_plazos')
+    .select('id, case_id')
+    .eq('id', id)
+    .eq('organization_id', profile.organization_id)
+    .maybeSingle();
+
+  if (findError) {
+    return { ok: false, motivo: 'error', mensaje: findError.message };
+  }
+  if (!existing) {
+    return { ok: false, motivo: 'no_encontrado', mensaje: 'Evento no encontrado o sin acceso.' };
+  }
+
+  const { error: updateError, data: updated } = await supabase
+    .from('agenda_plazos')
+    .update({
+      titulo: tituloInput,
+      fecha: fechaNorm,
+      hora: horaValida,
+      categoria,
+      detalle: input.detalle?.trim() || null,
+      case_id: caseId,
+    })
+    .eq('id', id)
+    .eq('organization_id', profile.organization_id)
+    .select('id')
+    .single();
+
+  if (updateError || !updated) {
+    return { ok: false, motivo: 'error', mensaje: updateError?.message || 'Error al persistir cambios.' };
+  }
+
+  await createAuditLog({
+    organizationId: profile.organization_id,
+    userId: user.id,
+    action: 'agenda_event_updated',
+    resourceType: caseId ? 'case' : 'organization',
+    resourceId: caseId || profile.organization_id,
+    metadata: {
+      id,
+      titulo: tituloInput,
+      fecha: fechaNorm,
+      hora: horaValida,
+      categoria,
+      caseId,
+    },
+  });
+
+  revalidatePath('/agenda');
+  if (caseId) revalidatePath(`/expedientes/${caseId}`);
+  if (existing.case_id && existing.case_id !== caseId) {
+    revalidatePath(`/expedientes/${existing.case_id}`);
+  }
+
+  return { ok: true };
+}

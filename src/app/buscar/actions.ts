@@ -298,6 +298,8 @@ export interface EntidadesOperativasResultado {
   error?: string;
 }
 
+import { escaparFiltroPostgrest } from './helpers';
+
 export async function buscarEntidadesOperativas(termino: string): Promise<EntidadesOperativasResultado> {
   const q = termino.trim();
   if (q.length < 2) return { ok: true, legajos: [], documentos: [] };
@@ -306,21 +308,40 @@ export async function buscarEntidadesOperativas(termino: string): Promise<Entida
   if (!user || !profile) return { ok: false, legajos: [], documentos: [], error: 'Sesión no válida' };
 
   const supabase = await createClient();
+  const safeQ = escaparFiltroPostgrest(q);
 
   const [casesRes, docsRes] = await Promise.all([
     supabase
       .from('cases')
       .select('id, title, client_name, case_type, status')
       .eq('organization_id', profile.organization_id)
-      .or(`title.ilike.%${q}%,client_name.ilike.%${q}%,case_type.ilike.%${q}%`)
+      .or(`title.ilike."%${safeQ}%",client_name.ilike."%${safeQ}%",case_type.ilike."%${safeQ}%"`)
       .limit(10),
     supabase
       .from('documents')
       .select('id, file_name, document_type, case_id')
       .eq('organization_id', profile.organization_id)
-      .or(`file_name.ilike.%${q}%,document_type.ilike.%${q}%`)
+      .or(`file_name.ilike."%${safeQ}%",document_type.ilike."%${safeQ}%"`)
       .limit(10),
   ]);
+
+  if (casesRes.error) {
+    return {
+      ok: false,
+      legajos: [],
+      documentos: [],
+      error: `Error al buscar legajos: ${casesRes.error.message}`,
+    };
+  }
+
+  if (docsRes.error) {
+    return {
+      ok: false,
+      legajos: [],
+      documentos: [],
+      error: `Error al buscar documentos: ${docsRes.error.message}`,
+    };
+  }
 
   return {
     ok: true,
