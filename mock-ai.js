@@ -79,6 +79,36 @@ global.fetch = async (input, init) => {
         return geminiResponse(answers[markers[0]]);
       }
 
+      if (prompt.includes('BORRADOR de escritura') || prompt.includes('escribano público')) {
+        return geminiResponse(JSON.stringify({
+          titulo: 'Borrador de escritura de compraventa',
+          cuerpo: 'PRIMERO: En la Ciudad Autónoma de Buenos Aires. COMPARECEN las partes.\nSEGUNDO: Venta de departamento en Palermo, calle Cuba.\nTERCERO: Precio y forma de pago abonado en efectivo.\nCUARTO: La presente operación se realiza con fondos de lícito origen, dando cumplimiento a las disposiciones de la Unidad de Información Financiera (UIF). Los fondos provienen de ahorros propios.\nQUINTO: Se deja constancia de la retención del Impuesto a la Transferencia de Inmuebles (I.T.I.) del 1.5%, y certificado C.O.T.I. N° 98765432.\nSEXTO: Posesión y libre deuda.',
+          datos_faltantes: [],
+          advertencias: []
+        }));
+      }
+
+      if (prompt.includes('COTEJAR') || prompt.includes('estudio de títulos')) {
+        return geminiResponse(JSON.stringify({
+          veredicto: 'Cotejo preliminar con observaciones sobre plazos contractuales.',
+          coincidencias: ['Identidad de partes conforme documentación aportada'],
+          discrepancias: [],
+          faltantes: ['Documentación respaldatoria sobre origen de fondos'],
+          alertas_vigencia: []
+        }));
+      }
+
+      if (prompt.includes('resumen ejecutivo') || prompt.includes('expediente judicial') || prompt.includes('gestión documental')) {
+        return geminiResponse(JSON.stringify({
+          resumen_general: 'El presente legajo instrumenta la compraventa de un inmueble en Palermo.',
+          estado_actual: 'En etapa notarial preparatoria.',
+          partes: ['Comprador Palermo', 'Vendedor Palermo'],
+          puntos_clave: ['Boleto 10/06/2026', 'Plazo 90 días corridos'],
+          riesgos_alertas: [],
+          proximas_acciones: ['Revisar documentación y coordinar otorgamiento.']
+        }));
+      }
+
       // Generar un JSON "comodín" que cumpla con los esquemas de copiloto, análisis documental, tasador, etc.
       const mockContent = JSON.stringify({
         resumen_general: "Resumen generado por AI Mock.",

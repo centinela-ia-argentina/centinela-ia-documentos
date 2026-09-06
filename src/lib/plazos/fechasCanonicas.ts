@@ -20,7 +20,7 @@ export function formatIsoToAr(iso: string): string {
   return `${d}/${m}/${y}`;
 }
 
-const MESES_MAP: Record<string, string> = {
+export const MESES_MAP: Record<string, string> = {
   enero: '01',
   febrero: '02',
   marzo: '03',
@@ -35,6 +35,46 @@ const MESES_MAP: Record<string, string> = {
   noviembre: '11',
   diciembre: '12',
 };
+
+/**
+ * Parsea una fecha en cualquier formato común (ISO YYYY-MM-DD, argentino DD/MM/YYYY, o textual español como "10 de junio de 2026").
+ * Devuelve tanto la representación canónica ISO (YYYY-MM-DD) como la argentina (DD/MM/YYYY).
+ */
+export function parsearFechaCualquiera(str: unknown): { iso: string; ar: string } | null {
+  if (typeof str !== 'string') return null;
+  const s = str.trim();
+  if (!s) return null;
+
+  // 1) ISO: YYYY-MM-DD
+  const isoMatch = s.match(/\b(\d{4})-(\d{2})-(\d{2})\b/);
+  if (isoMatch) {
+    const [, y, m, d] = isoMatch;
+    return { iso: `${y}-${m}-${d}`, ar: `${d}/${m}/${y}` };
+  }
+
+  // 2) DD/MM/YYYY
+  const arMatch = s.match(/\b(\d{1,2})\/(\d{1,2})\/(\d{4})\b/);
+  if (arMatch) {
+    const [, d, m, y] = arMatch;
+    const padD = d.padStart(2, '0');
+    const padM = m.padStart(2, '0');
+    return { iso: `${y}-${padM}-${padD}`, ar: `${padD}/${padM}/${y}` };
+  }
+
+  // 3) Textual en español: "10 de junio de 2026", "10 de junio del 2026", "8 de septiembre de 2026"
+  const textMatch = s.match(/\b(\d{1,2})\s+de\s+([a-zA-ZáéíóúÁÉÍÓÚ]+)\s+(?:del?|de)\s+(\d{4})\b/i);
+  if (textMatch) {
+    const dia = textMatch[1].padStart(2, '0');
+    const mesNom = textMatch[2].toLowerCase();
+    const anio = textMatch[3];
+    const mesNum = MESES_MAP[mesNom];
+    if (mesNum) {
+      return { iso: `${anio}-${mesNum}-${dia}`, ar: `${dia}/${mesNum}/${anio}` };
+    }
+  }
+
+  return null;
+}
 
 /**
  * Extrae la fecha respaldada de boleto u otorgamiento para el borrador ROS / UIF.
@@ -162,6 +202,189 @@ export function diferenciaDiasCorridos(fechaDesdeIso: string, fechaHastaIso: str
   return Math.round((dt2 - dt1) / 86_400_000);
 }
 
+export interface PlazoCanonicoLegajo {
+  fechaBoleto: string; // DD/MM/YYYY
+  fechaBoletoIso: string; // YYYY-MM-DD
+  plazoDias: number;
+  fechaLimite: string; // DD/MM/YYYY
+  fechaLimiteIso: string; // YYYY-MM-DD
+  fechaTentativa: string; // DD/MM/YYYY
+  fechaTentativaIso: string; // YYYY-MM-DD
+  excesoDias: number;
+  excedePlazo: boolean;
+  advertencia?: string;
+}
+
+/**
+ * Analiza un legajo extrayendo canónicamente fecha de boleto, plazo, fecha límite y fecha tentativa.
+ * Admite formatos ISO, argentino (DD/MM/YYYY) y texto en español ("10 de junio de 2026").
+ */
+export function extraerPlazoCanonicoLegajo(
+  caseRecord?: {
+    id?: string;
+    title?: string | null;
+    metadata?: Record<string, any> | null;
+  } | null,
+  aiOutputs?: any[] | null,
+  eventos?: any[] | null
+): PlazoCanonicoLegajo | null {
+  const meta = caseRecord?.metadata ?? {};
+
+  // 1. Extraer fecha de boleto
+  let fechaBoletoParsed: { iso: string; ar: string } | null = null;
+
+  if (meta.fecha_boleto) {
+    fechaBoletoParsed = parsearFechaCualquiera(meta.fecha_boleto);
+  }
+
+  if (!fechaBoletoParsed && Array.isArray(aiOutputs)) {
+    for (const a of aiOutputs) {
+      const rj = a?.result_json as any;
+      const fechas = Array.isArray(rj?.fechas_plazos) ? rj.fechas_plazos : [];
+      for (const fp of fechas) {
+        const desc = String(fp?.descripcion || '').toLowerCase();
+        if (desc.includes('boleto') && !desc.includes('límite') && !desc.includes('limite') && !desc.includes('tentativa')) {
+          const p = parsearFechaCualquiera(fp?.fecha) || parsearFechaCualquiera(fp?.evidencia_textual);
+          if (p) {
+            fechaBoletoParsed = p;
+            break;
+          }
+        }
+      }
+      if (fechaBoletoParsed) break;
+    }
+  }
+
+  if (!fechaBoletoParsed && Array.isArray(eventos)) {
+    for (const ev of eventos) {
+      const text = `${ev?.titulo || ''} ${ev?.description || ''} ${ev?.tipo || ''}`.toLowerCase();
+      if (text.includes('boleto') && !text.includes('límite') && !text.includes('tentativa')) {
+        const p = parsearFechaCualquiera(ev?.fecha || ev?.event_date);
+        if (p) {
+          fechaBoletoParsed = p;
+          break;
+        }
+      }
+    }
+  }
+
+  const dump = JSON.stringify([
+    aiOutputs?.map((a) => a?.result_json ?? a?.content ?? ''),
+    eventos?.map((e) => `${e?.titulo} ${e?.descripcion}`),
+    meta,
+  ]);
+
+  if (!fechaBoletoParsed) {
+    const mBoleto =
+      dump.match(/(?:boleto|compraventa)[^\d]{1,60}?(\d{1,2}\s+de\s+[a-z]+\s+del?\s+\d{4})/i) ||
+      dump.match(/(?:boleto|compraventa)[^\d]{1,60}?(\d{2}\/\d{2}\/\d{4})/i) ||
+      dump.match(/(?:boleto|compraventa)[^\d]{1,60}?(\d{4}-\d{2}-\d{2})/i);
+    if (mBoleto) {
+      fechaBoletoParsed = parsearFechaCualquiera(mBoleto[1]);
+    }
+  }
+
+  // 2. Extraer plazo en días
+  let plazoDias: number | undefined;
+  if (meta.plazo_dias && Number(meta.plazo_dias) > 0) {
+    plazoDias = Number(meta.plazo_dias);
+  } else if (meta.plazo_escrituracion_dias && Number(meta.plazo_escrituracion_dias) > 0) {
+    plazoDias = Number(meta.plazo_escrituracion_dias);
+  }
+
+  if (!plazoDias) {
+    const mPlazo =
+      dump.match(/(\d{1,3})\s*d[ií]as\s+corridos/i) ||
+      dump.match(/plazo\s+(?:contractual\s+)?(?:de\s+)?(\d{1,3})\s*d[ií]as/i);
+    if (mPlazo) {
+      const p = parseInt(mPlazo[1], 10);
+      if (Number.isInteger(p) && p > 0) {
+        plazoDias = p;
+      }
+    }
+  }
+
+  // 3. Extraer fecha tentativa de escrituración
+  let fechaTentativaParsed: { iso: string; ar: string } | null = null;
+  if (meta.fecha_otorgamiento || meta.fecha_tentativa) {
+    fechaTentativaParsed = parsearFechaCualquiera(meta.fecha_otorgamiento || meta.fecha_tentativa);
+  }
+
+  if (!fechaTentativaParsed && Array.isArray(aiOutputs)) {
+    for (const a of aiOutputs) {
+      const rj = a?.result_json as any;
+      const fechas = Array.isArray(rj?.fechas_plazos) ? rj.fechas_plazos : [];
+      for (const fp of fechas) {
+        const desc = String(fp?.descripcion || '').toLowerCase();
+        if (desc.includes('tentativa') || desc.includes('estimada') || desc.includes('otorgamiento') || desc.includes('escrituraci')) {
+          const p = parsearFechaCualquiera(fp?.fecha) || parsearFechaCualquiera(fp?.evidencia_textual);
+          if (p) {
+            fechaTentativaParsed = p;
+            break;
+          }
+        }
+      }
+      if (fechaTentativaParsed) break;
+    }
+  }
+
+  if (!fechaTentativaParsed && Array.isArray(eventos)) {
+    for (const ev of eventos) {
+      const text = `${ev?.titulo || ''} ${ev?.description || ''} ${ev?.tipo || ''}`.toLowerCase();
+      if (text.includes('tentativa') || text.includes('estimada') || text.includes('otorgamiento') || text.includes('escrituraci')) {
+        const p = parsearFechaCualquiera(ev?.fecha || ev?.event_date);
+        if (p) {
+          fechaTentativaParsed = p;
+          break;
+        }
+      }
+    }
+  }
+
+  if (!fechaTentativaParsed) {
+    const mTentativa =
+      dump.match(/(?:tentativa|estimada|otorgamiento|escrituraci[oó]n)[^\d]{1,60}?(\d{1,2}\s+de\s+[a-z]+\s+del?\s+\d{4})/i) ||
+      dump.match(/(?:tentativa|estimada|otorgamiento|escrituraci[oó]n)[^\d]{1,60}?(\d{2}\/\d{2}\/\d{4})/i) ||
+      dump.match(/(?:tentativa|estimada|otorgamiento|escrituraci[oó]n)[^\d]{1,60}?(\d{4}-\d{2}-\d{2})/i);
+    if (mTentativa) {
+      fechaTentativaParsed = parsearFechaCualquiera(mTentativa[1]);
+    }
+  }
+
+  if (!fechaBoletoParsed || !plazoDias) {
+    return null;
+  }
+
+  const fechaLimiteIso = sumarDiasCorridos(fechaBoletoParsed.iso, plazoDias);
+  const fechaLimiteAr = formatIsoToAr(fechaLimiteIso);
+
+  let excedePlazo = false;
+  let excesoDias = 0;
+  let advertencia: string | undefined;
+
+  if (fechaTentativaParsed) {
+    const diff = diferenciaDiasCorridos(fechaLimiteIso, fechaTentativaParsed.iso);
+    if (diff > 0) {
+      excedePlazo = true;
+      excesoDias = diff;
+      advertencia = `La fecha tentativa de escrituración (${fechaTentativaParsed.ar}) excede el plazo contractual de ${plazoDias} días corridos (límite: ${fechaLimiteAr}) por ${excesoDias} día${excesoDias === 1 ? '' : 's'} corridos.`;
+    }
+  }
+
+  return {
+    fechaBoleto: fechaBoletoParsed.ar,
+    fechaBoletoIso: fechaBoletoParsed.iso,
+    plazoDias,
+    fechaLimite: fechaLimiteAr,
+    fechaLimiteIso,
+    fechaTentativa: fechaTentativaParsed?.ar || '',
+    fechaTentativaIso: fechaTentativaParsed?.iso || '',
+    excesoDias,
+    excedePlazo,
+    advertencia,
+  };
+}
+
 export interface AnalisisPlazoNotarial {
   fechaBoleto: string; // YYYY-MM-DD
   fechaBoletoAr: string; // DD/MM/YYYY
@@ -178,25 +401,35 @@ export interface AnalisisPlazoNotarial {
 /**
  * Analiza el cómputo de plazos corridos de boleto y escrituración notarial.
  * Determina si la fecha tentativa excede el límite contractual y por cuántos días.
+ * Admite entradas en ISO, DD/MM/YYYY o formato textual en español.
  */
 export function analizarPlazoBoletoEscritura(
-  fechaBoletoIso: string,
+  fechaBoletoInput: string,
   plazoDias: number,
-  fechaTentativaIso?: string
+  fechaTentativaInput?: string
 ): AnalisisPlazoNotarial {
+  const boletoParsed = parsearFechaCualquiera(fechaBoletoInput);
+  const fechaBoletoIso = boletoParsed ? boletoParsed.iso : fechaBoletoInput.trim().slice(0, 10);
   const fechaLimite = sumarDiasCorridos(fechaBoletoIso, plazoDias);
-  const fechaBoletoAr = formatIsoToAr(fechaBoletoIso);
+  const fechaBoletoAr = boletoParsed ? boletoParsed.ar : formatIsoToAr(fechaBoletoIso);
   const fechaLimiteAr = formatIsoToAr(fechaLimite);
 
   let excedePlazo = false;
   let diasExceso = 0;
   let advertencia: string | undefined;
+  let fechaTentativaIso: string | undefined;
   let fechaTentativaAr: string | undefined;
 
-  if (fechaTentativaIso && fechaTentativaIso.trim().length >= 10) {
-    const cleanTentativa = fechaTentativaIso.trim().slice(0, 10);
-    fechaTentativaAr = formatIsoToAr(cleanTentativa);
-    const diff = diferenciaDiasCorridos(fechaLimite, cleanTentativa);
+  if (fechaTentativaInput && fechaTentativaInput.trim().length >= 4) {
+    const tentativaParsed = parsearFechaCualquiera(fechaTentativaInput);
+    if (tentativaParsed) {
+      fechaTentativaIso = tentativaParsed.iso;
+      fechaTentativaAr = tentativaParsed.ar;
+    } else {
+      fechaTentativaIso = fechaTentativaInput.trim().slice(0, 10);
+      fechaTentativaAr = formatIsoToAr(fechaTentativaIso);
+    }
+    const diff = diferenciaDiasCorridos(fechaLimite, fechaTentativaIso);
     if (diff > 0) {
       excedePlazo = true;
       diasExceso = diff;
@@ -205,12 +438,12 @@ export function analizarPlazoBoletoEscritura(
   }
 
   return {
-    fechaBoleto: fechaBoletoIso.trim().slice(0, 10),
+    fechaBoleto: fechaBoletoIso,
     fechaBoletoAr,
     plazoDias,
     fechaLimite,
     fechaLimiteAr,
-    fechaTentativa: fechaTentativaIso?.trim().slice(0, 10),
+    fechaTentativa: fechaTentativaIso,
     fechaTentativaAr,
     excedePlazo,
     diasExceso,
@@ -243,7 +476,17 @@ export function extraerFechasOperativasLegajo(
     items.push({ id, title, fecha: fechaIso, tipo });
   };
 
-  // 1) Fechas en metadata explícita
+  // 1) Cómputo canónico primario (si existen boleto y plazo)
+  const plazoCanonico = extraerPlazoCanonicoLegajo(c, aiOutputs, agendaEvents);
+  if (plazoCanonico) {
+    pushItem(`limite-${c.id}`, plazoCanonico.fechaLimiteIso, 'Fecha límite contractual');
+    if (plazoCanonico.fechaTentativaIso) {
+      pushItem(`tentativa-${c.id}`, plazoCanonico.fechaTentativaIso, 'Fecha tentativa de escritura');
+    }
+    pushItem(`boleto-${c.id}`, plazoCanonico.fechaBoletoIso, 'Fecha del boleto');
+  }
+
+  // 2) Fechas en metadata explícita adicional
   const metaCandidates: Array<{ key: string; label: string }> = [
     { key: 'fecha_limite', label: 'Fecha límite contractual' },
     { key: 'fecha_limite_contractual', label: 'Fecha límite contractual' },
@@ -258,22 +501,22 @@ export function extraerFechasOperativasLegajo(
 
   for (const cand of metaCandidates) {
     const val = meta[cand.key];
-    if (typeof val === 'string' && val.trim().length >= 10) {
-      const sliceIso = val.trim().slice(0, 10);
-      if (/^\d{4}-\d{2}-\d{2}$/.test(sliceIso)) {
-        pushItem(`${cand.key}-${c.id}`, sliceIso, cand.label);
+    if (typeof val === 'string' && val.trim().length >= 4) {
+      const parsed = parsearFechaCualquiera(val);
+      if (parsed) {
+        pushItem(`${cand.key}-${c.id}`, parsed.iso, cand.label);
       }
     }
   }
 
-  // 2) Fechas en aiOutputs vinculados
+  // 3) Fechas en aiOutputs vinculados
   if (Array.isArray(aiOutputs)) {
     for (const a of aiOutputs) {
       const rj = a?.result_json as any;
       const fechas = Array.isArray(rj?.fechas_plazos) ? rj.fechas_plazos : [];
       for (const fp of fechas) {
-        const f = String(fp?.fecha || '').slice(0, 10);
-        if (!/^\d{4}-\d{2}-\d{2}$/.test(f)) continue;
+        const parsed = parsearFechaCualquiera(fp?.fecha) || parsearFechaCualquiera(fp?.evidencia_textual);
+        if (!parsed) continue;
         const desc = String(fp?.descripcion || '').trim();
         if (!desc) continue;
         const dLower = desc.toLowerCase();
@@ -285,16 +528,16 @@ export function extraerFechasOperativasLegajo(
         } else if (dLower.includes('boleto') && !dLower.includes('límite') && !dLower.includes('limite')) {
           tipo = 'Fecha del boleto';
         }
-        pushItem(`ai-${a.id || c.id}-${f}-${tipo}`, f, tipo);
+        pushItem(`ai-${a.id || c.id}-${parsed.iso}-${tipo}`, parsed.iso, tipo);
       }
     }
   }
 
-  // 3) Fechas en eventos de Agenda vinculados
+  // 4) Fechas en eventos de Agenda vinculados
   if (Array.isArray(agendaEvents)) {
     for (const ev of agendaEvents) {
-      const f = String(ev?.fecha || ev?.event_date || '').slice(0, 10);
-      if (!/^\d{4}-\d{2}-\d{2}$/.test(f)) continue;
+      const parsed = parsearFechaCualquiera(ev?.fecha || ev?.event_date);
+      if (!parsed) continue;
       const desc = String(ev?.titulo || ev?.title || ev?.tipo || ev?.event_type || 'Evento de agenda').trim();
       let tipo = desc;
       const dLower = desc.toLowerCase();
@@ -305,55 +548,7 @@ export function extraerFechasOperativasLegajo(
       } else if (dLower.includes('boleto') && !dLower.includes('límite')) {
         tipo = 'Fecha del boleto';
       }
-      pushItem(`agenda-${f}-${tipo}`, f, tipo);
-    }
-  }
-
-  // 4) Cómputo unificado y derivación si falta 'Fecha límite contractual':
-  // Si existe fecha_boleto y plazo (en metadata o en aiOutputs), derivar la fecha límite
-  if (!items.some((it) => it.tipo === 'Fecha límite contractual')) {
-    let fBoleto = meta.fecha_boleto ? String(meta.fecha_boleto).slice(0, 10) : undefined;
-    let plazo = meta.plazo_dias ? Number(meta.plazo_dias) : (meta.plazo_escrituracion_dias ? Number(meta.plazo_escrituracion_dias) : undefined);
-
-    if (!fBoleto) {
-      const itemBoleto = items.find((it) => it.tipo === 'Fecha del boleto');
-      if (itemBoleto) {
-        fBoleto = itemBoleto.fecha;
-      } else if (Array.isArray(aiOutputs)) {
-        for (const a of aiOutputs) {
-          const rj = a?.result_json as any;
-          const fechas = Array.isArray(rj?.fechas_plazos) ? rj.fechas_plazos : [];
-          for (const fp of fechas) {
-            const desc = String(fp?.descripcion || '').toLowerCase();
-            if (desc.includes('boleto') && fp?.fecha) {
-              const f = String(fp.fecha).slice(0, 10);
-              if (/^\d{4}-\d{2}-\d{2}$/.test(f)) {
-                fBoleto = f;
-                break;
-              }
-            }
-          }
-          if (fBoleto) break;
-        }
-      }
-    }
-
-    if (!plazo && Array.isArray(aiOutputs)) {
-      const dump = JSON.stringify(aiOutputs.map((a) => a?.result_json ?? a?.content ?? ''));
-      const mPlazo =
-        dump.match(/(\d{1,3})\s*d[ií]as\s+corridos/i) ||
-        dump.match(/plazo\s+(?:contractual\s+)?(?:de\s+)?(\d{1,3})\s*d[ií]as/i);
-      if (mPlazo) {
-        const p = parseInt(mPlazo[1], 10);
-        if (Number.isInteger(p) && p > 0) {
-          plazo = p;
-        }
-      }
-    }
-
-    if (fBoleto && plazo && Number.isInteger(plazo) && plazo > 0) {
-      const fLimite = sumarDiasCorridos(fBoleto, plazo);
-      pushItem(`fecha_limite_derivada-${c.id}`, fLimite, 'Fecha límite contractual');
+      pushItem(`agenda-${parsed.iso}-${tipo}`, parsed.iso, tipo);
     }
   }
 

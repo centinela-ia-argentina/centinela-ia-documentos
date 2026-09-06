@@ -160,13 +160,38 @@ export async function guardarPlazoDetectado(input: {
   detalle?: string;
   caseId?: string;
 }): Promise<GuardarEventoResult> {
+  let resolvedCaseId = input.caseId ?? null;
+
+  if (!resolvedCaseId && input.detalle) {
+    const docMatch = input.detalle.match(/(?:documento:\s*|en\s+el\s+documento\s+)([^\r\n,]+)/i);
+    if (docMatch) {
+      const fileNameCandidate = docMatch[1].trim();
+      const supabase = await createClient();
+      const { profile } = await getUserProfile();
+      if (profile) {
+        const { data: docData } = await supabase
+          .from('documents')
+          .select('case_id')
+          .eq('organization_id', profile.organization_id)
+          .ilike('file_name', fileNameCandidate)
+          .not('case_id', 'is', null)
+          .limit(1)
+          .maybeSingle();
+
+        if (docData?.case_id) {
+          resolvedCaseId = docData.case_id;
+        }
+      }
+    }
+  }
+
   return deduplicateAndInsert({
     titulo: input.titulo,
     fecha: input.fecha,
     detalle: input.detalle?.trim() || null,
     categoria: 'plazo',
     hora: null,
-    caseId: input.caseId ?? null,
+    caseId: resolvedCaseId,
   });
 }
 

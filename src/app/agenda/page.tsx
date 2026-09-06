@@ -47,8 +47,7 @@ export default async function AgendaPage() {
     supabase
       .from('documents')
       .select('id, file_name, expires_at, case_id')
-      .eq('organization_id', profile.organization_id)
-      .not('expires_at', 'is', null),
+      .eq('organization_id', profile.organization_id),
     supabase
       .from('cases')
       .select('id, title, metadata, case_type')
@@ -66,6 +65,14 @@ export default async function AgendaPage() {
   const documents = documentsResult.data ?? [];
   const allCases = casesResult.data ?? [];
   const plazos = plazosResult.data ?? [];
+
+  // Mapeo auxiliar de documento -> legajo para resolver eventos que mencionan un archivo en detalle
+  const docCaseByFileName = new Map<string, string>();
+  for (const d of documents) {
+    if (d.file_name && d.case_id) {
+      docCaseByFileName.set(d.file_name.toLowerCase().trim(), d.case_id);
+    }
+  }
 
   // Filtrado estricto por industria para evitar contaminación entre verticales
   const cases = allCases.filter((c) => isCaseTypeCompatibleWithIndustry(c.case_type, industry));
@@ -99,7 +106,14 @@ export default async function AgendaPage() {
   for (const p of plazos) {
     if (!p.fecha) continue;
     const categoria = (p as { categoria?: string }).categoria ?? '__sin_categoria__';
-    const cid = (p as { case_id?: string | null }).case_id ?? null;
+    let cid = (p as { case_id?: string | null }).case_id ?? null;
+    if (!cid && p.detalle) {
+      const match = p.detalle.match(/(?:documento:\s*|en\s+el\s+documento\s+)([^\r\n,]+)/i);
+      if (match) {
+        const fn = match[1].toLowerCase().trim();
+        cid = docCaseByFileName.get(fn) || null;
+      }
+    }
     const hora = (p as { hora?: string | null }).hora ?? null;
     const tipo =
       categoria === 'manual' ? 'evento'

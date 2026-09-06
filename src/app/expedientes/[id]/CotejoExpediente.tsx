@@ -104,15 +104,15 @@ export function CotejoExpediente({
         )}
       </div>
 
-      {documentosAnalizados < 2 && !cotejo && (
+      {documentosAnalizados < 1 && !cotejo && (
         <p className="mt-4 text-sm text-slate-400">
-          Necesitás al menos 2 documentos analizados en este legajo para poder cotejarlos.
+          Necesitás al menos 1 documento analizado en este legajo para poder cotejarlo.
         </p>
       )}
 
-      {documentosAnalizados >= 2 && !cotejo && (
+      {documentosAnalizados >= 1 && !cotejo && (
         <p className="mt-4 text-sm text-slate-400">
-          Hay {documentosAnalizados} documentos analizados. Tocá “Cotejar documentos con IA” para cruzarlos.
+          Hay {documentosAnalizados} documento{documentosAnalizados > 1 ? 's' : ''} analizado{documentosAnalizados > 1 ? 's' : ''}. Tocá “Cotejar documentos con IA” para cruzarlos.
         </p>
       )}
 

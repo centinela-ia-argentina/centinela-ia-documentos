@@ -7,6 +7,7 @@ import { getUserProfile } from '@/lib/auth/getUserProfile';
 import { createAuditLog } from '@/lib/audit/createAuditLog';
 import { generarResumenConIA, cotejarDocumentosConIA } from '@/lib/ai/copiloto';
 import { redactarEscrituraConIA, evaluarEvidenciaOrigenFondosFailClosed } from '@/lib/ai/escrituras';
+import { extraerPlazoCanonicoLegajo } from '@/lib/plazos/fechasCanonicas';
 import { redactarBorradorInmobiliariaConIA } from '@/lib/ai/borradorInmobiliaria';
 import { calificarInquilinoConIA } from '@/lib/ai/preScore';
 import { sugerirCoincidencias } from '@/lib/industries/checklistMatch';
@@ -734,7 +735,7 @@ export async function generarResumenExpediente(caseId: string) {
 
   const { data: caseRecord } = await supabase
     .from('cases')
-    .select('id, title, client_name, case_type, status')
+    .select('id, title, client_name, case_type, status, metadata')
     .eq('id', caseId)
     .eq('organization_id', profile.organization_id)
     .maybeSingle();
@@ -792,6 +793,7 @@ export async function generarResumenExpediente(caseId: string) {
   }));
 
   const industria = await getOrganizationIndustry(supabase, profile.organization_id);
+  const plazoCanonico = extraerPlazoCanonicoLegajo(caseRecord, outputsData, eventos);
 
   const result = await generarResumenConIA({
     titulo: caseRecord.title || 'Expediente',
@@ -800,6 +802,7 @@ export async function generarResumenExpediente(caseId: string) {
     estado: caseRecord.status || '',
     industria,
     documentos, eventos,
+    plazoCanonico,
   });
 
   if (!result.ok) { revalidatePath(`/expedientes/${caseId}`); return; }
@@ -840,7 +843,7 @@ export async function cotejarExpediente(caseId: string) {
 
   const { data: caseRecord } = await supabase
     .from('cases')
-    .select('id, title, case_type')
+    .select('id, title, case_type, metadata')
     .eq('id', caseId)
     .eq('organization_id', profile.organization_id)
     .maybeSingle();
@@ -895,11 +898,14 @@ export async function cotejarExpediente(caseId: string) {
     };
   });
 
+  const plazoCanonico = extraerPlazoCanonicoLegajo(caseRecord, outputsData);
+
   const result = await cotejarDocumentosConIA({
     titulo: caseRecord.title || 'Legajo',
     tipo: caseRecord.case_type || '',
     industria,
     documentos,
+    plazoCanonico,
   });
 
   if (!result.ok) {

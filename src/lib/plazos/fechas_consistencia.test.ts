@@ -9,13 +9,18 @@ import {
   extraerFechaBoletoUif,
   extraerFechasOperativasLegajo,
   extraerFechasAccionablesLegajo,
+  parsearFechaCualquiera,
+  extraerPlazoCanonicoLegajo,
 } from './fechasCanonicas';
 import { clasificarFecha, isActionableDate } from './plazos';
 import { sanitizarTerminologiaEscribania } from '@/lib/ai/copiloto';
 import {
   aplicarGuardrailOrigenFondos,
+  aplicarGuardrailIti,
   evaluarEvidenciaOrigenFondosFailClosed,
   LEYENDA_ORIGEN_FONDOS_FALTANTE,
+  CLAUSULA_AUTONOMA_UIF,
+  LEYENDA_ITI_DEROGADO,
   type BorradorEscritura,
 } from '@/lib/ai/escrituras';
 
@@ -346,5 +351,100 @@ describe('Fuente Común para Fechas y Extracción Accionable', () => {
     expect(tentativa).toBeDefined();
     expect(tentativa?.tipo).toBe('Fecha tentativa de escritura');
     expect(accionables.length).toBeGreaterThanOrEqual(2);
+  });
+});
+
+describe('Fuente Canónica Única de Plazos (extraerPlazoCanonicoLegajo)', () => {
+  it('parsea fechas textuales españolas e ISO con parsearFechaCualquiera', () => {
+    const p1 = parsearFechaCualquiera('10 de junio de 2026');
+    expect(p1).not.toBeNull();
+    expect(p1?.iso).toBe('2026-06-10');
+    expect(p1?.ar).toBe('10/06/2026');
+
+    const p2 = parsearFechaCualquiera('10 de septiembre de 2026');
+    expect(p2).not.toBeNull();
+    expect(p2?.iso).toBe('2026-09-10');
+    expect(p2?.ar).toBe('10/09/2026');
+
+    const p3 = parsearFechaCualquiera('08/09/2026');
+    expect(p3).not.toBeNull();
+    expect(p3?.iso).toBe('2026-09-08');
+    expect(p3?.ar).toBe('08/09/2026');
+  });
+
+  it('extraerPlazoCanonicoLegajo extrae correctamente fechaBoleto, plazoDias, fechaLimite, fechaTentativa y excesoDias', () => {
+    const legajo = {
+      id: 'palermo-1',
+      title: 'Compraventa Depto Palermo Cuba',
+      metadata: {
+        fecha_boleto: '10 de junio de 2026',
+        plazo_dias: 90,
+        fecha_otorgamiento: '10 de septiembre de 2026',
+      },
+    };
+
+    const plazo = extraerPlazoCanonicoLegajo(legajo, [], []);
+    expect(plazo).not.toBeNull();
+    expect(plazo?.fechaBoleto).toBe('10/06/2026');
+    expect(plazo?.plazoDias).toBe(90);
+    expect(plazo?.fechaLimite).toBe('08/09/2026');
+    expect(plazo?.fechaTentativa).toBe('10/09/2026');
+    expect(plazo?.excesoDias).toBe(2);
+    expect(plazo?.excedePlazo).toBe(true);
+  });
+});
+
+describe('Guardrail Jurídico I.T.I. (Ley 27.743) y Preservación de C.O.T.I.', () => {
+  it('reemplaza mención de retención I.T.I. por leyenda de derogación para operaciones posteriores al 08/07/2024', () => {
+    const borrador: BorradorEscritura = {
+      titulo: 'Escritura compraventa',
+      cuerpo: 'QUINTO: Se deja constancia de la retención del Impuesto a la Transferencia de Inmuebles (I.T.I.) del 1.5%.\nSEXTO: Posesión.',
+      datos_faltantes: [],
+      advertencias: [],
+    };
+
+    const resultado = aplicarGuardrailIti(borrador, '2026-09-10');
+    expect(resultado.cuerpo).not.toContain('retención del Impuesto a la Transferencia de Inmuebles');
+    expect(resultado.cuerpo).toContain(LEYENDA_ITI_DEROGADO);
+  });
+
+  it('preserva íntegramente el C.O.T.I. sin alterar el número ni confundirlo con I.T.I.', () => {
+    const borrador: BorradorEscritura = {
+      titulo: 'Escritura compraventa',
+      cuerpo: 'QUINTO: Se retiene el I.T.I. correspondiente y se adjunta certificado C.O.T.I. N° 98765432 emitido por AFIP.\nSEXTO: Entrega.',
+      datos_faltantes: [],
+      advertencias: [],
+    };
+
+    const resultado = aplicarGuardrailIti(borrador, '2026-09-10');
+    expect(resultado.cuerpo).toContain('C.O.T.I. N° 98765432');
+    expect(resultado.cuerpo).not.toContain('Se retiene el I.T.I.');
+  });
+});
+
+describe('Cláusula Autónoma UIF y Barrido de Fondos', () => {
+  it('inyecta CLAUSULA_AUTONOMA_UIF cuando no existe cláusula y no hay acreditación', () => {
+    const borrador: BorradorEscritura = {
+      titulo: 'Borrador sin clausula de fondos',
+      cuerpo: 'PRIMERO: Partes.\nSEGUNDO: Venta.\nTERCERO: Posesión.',
+      datos_faltantes: [],
+      advertencias: [],
+    };
+
+    const res = aplicarGuardrailOrigenFondos(borrador, false);
+    expect(res.cuerpo).toContain(CLAUSULA_AUTONOMA_UIF);
+  });
+
+  it('barre la frase "los fondos provienen de..." y la reemplaza por el placeholder', () => {
+    const borrador: BorradorEscritura = {
+      titulo: 'Borrador con afirmación de origen',
+      cuerpo: 'CUARTO: El comprador abona en efectivo. Los fondos provienen de ahorros personales no declarados previamente.',
+      datos_faltantes: [],
+      advertencias: [],
+    };
+
+    const res = aplicarGuardrailOrigenFondos(borrador, false);
+    expect(res.cuerpo.toLowerCase()).not.toContain('los fondos provienen de');
+    expect(res.cuerpo).toContain(LEYENDA_ORIGEN_FONDOS_FALTANTE);
   });
 });

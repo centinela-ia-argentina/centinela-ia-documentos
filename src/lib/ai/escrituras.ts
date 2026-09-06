@@ -9,11 +9,20 @@ export type BorradorEscritura = {
 
 type DocInput = { nombre: string; tipo: string; resumen: string; alertas: string[]; datos: string[] };
 
+import { parsearFechaCualquiera } from '@/lib/plazos/fechasCanonicas';
+
 export const LEYENDA_ORIGEN_FONDOS_FALTANTE =
   '[COMPLETAR/VERIFICAR: declaración y documentación respaldatoria sobre medios y origen de fondos]';
 
+export const CLAUSULA_AUTONOMA_UIF =
+  'QUINTO: MEDIOS DE PAGO Y ORIGEN DE FONDOS. [COMPLETAR/VERIFICAR: declaración y documentación respaldatoria sobre medios y origen de fondos].';
+
+export const LEYENDA_ITI_DEROGADO =
+  'I.T.I.: No resulta aplicable por encontrarse derogado conforme Ley 27.743 para operaciones otorgadas a partir del 08/07/2024.';
+
 export const PATRONES_AFIRMACION_FONDOS_LICITOS = [
   /manifiestan?\s+(?:bajo\s+juramento\s+)?que\s+los\s+fondos\s+(?:utilizados\s+)?provienen\s+de\s+(?:actividades\s+)?l[ií]citas/i,
+  /los\s+fondos\s+(?:utilizados\s+)?provienen\s+de[^.;!\n]*/i,
   /origen\s+(?:de\s+los\s+fondos\s+es\s+)?l[ií]cito/i,
   /fondos\s+(?:son\s+)?(?:de\s+)?(?:origen\s+l[ií]cito|l[ií]cito\s+origen)/i,
   /declaran?\s+(?:que\s+)?los\s+fondos\s+(?:son\s+)?l[ií]citos/i,
@@ -27,7 +36,7 @@ export const PATRONES_AFIRMACION_FONDOS_LICITOS = [
 ];
 
 export const PATRON_DISPARADOR_ORACION_UIF =
-  /(?:fondos\s+(?:utilizados\s+)?(?:son\s+|provienen\s+de\s+)?(?:de\s+)?(?:l[ií]cito\s+origen|origen\s+l[ií]cito|actividades\s+l[ií]citas))|fondos\s+l[ií]citos|l[ií]cito\s+origen|origen\s+l[ií]cito|(?:cumplimiento\s+(?:estricto\s+)?(?:de\s+|a\s+)?(?:las\s+)?disposiciones\s+(?:de\s+la\s+)?(?:uif|unidad\s+de\s+informaci[oó]n\s+financiera))|(?:disposiciones\s+de\s+la\s+unidad\s+de\s+informaci[oó]n\s+financiera)|(?:acredit(?:ando|ado|an|a)\s+(?:el\s+)?(?:origen\s+l[ií]cito|l[ií]cito\s+origen))|(?:justificaci[oó]n\s+(?:positiva\s+)?de\s+fondos)/i;
+  /(?:fondos\s+(?:utilizados\s+)?(?:son\s+|provienen\s+de\s+)?(?:de\s+)?(?:l[ií]cito\s+origen|origen\s+l[ií]cito|actividades\s+l[ií]citas))|fondos\s+l[ií]citos|l[ií]cito\s+origen|origen\s+l[ií]cito|(?:cumplimiento\s+(?:estricto\s+)?(?:de\s+|a\s+)?(?:las\s+)?disposiciones\s+(?:de\s+la\s+)?(?:uif|unidad\s+de\s+informaci[oó]n\s+financiera))|(?:disposiciones\s+de\s+la\s+unidad\s+de\s+informaci[oó]n\s+financiera)|(?:acredit(?:ando|ado|an|a)\s+(?:el\s+)?(?:origen\s+l[ií]cito|l[ií]cito\s+origen))|(?:justificaci[oó]n\s+(?:positiva\s+)?de\s+fondos)|(?:los\s+fondos\s+provienen\s+de)/i;
 
 const TERMINOS_NEGATIVOS_UIF =
   /\b(?:no\s+acredita|sin\s+acreditar|no\s+consta|falta(?:n)?|pendiente(?:s)?|insuficiente(?:s)?|no\s+verificado|no\s+se\s+acredita|sin\s+justificar|no\s+justifica)\b/i;
@@ -86,33 +95,24 @@ export function aplicarGuardrailOrigenFondos(
   const advertencias = [...borrador.advertencias];
 
   if (!tieneEvidencia) {
-    // 1. Reemplazo a nivel de oración completa de cualquier cláusula o afirmación positiva de licitud / UIF
+    // 1. Reemplazo de cualquier cláusula u oración que mencione licitud / origen de fondos / UIF
+    // por la cláusula autónoma estandarizada
     const lineas = cuerpo.split('\n');
-    let placeholderInsertado = false;
+    let clausulaInsertada = false;
 
     const lineasProcesadas = lineas.map((linea) => {
-      if (!PATRON_DISPARADOR_ORACION_UIF.test(linea)) return linea;
-
-      // Descomponer la línea en oraciones delimitadas por punto, punto y coma o signo de cierre
-      const oraciones = linea.match(/[^.;!?]+(?:[.;!?]|$)/g) || [linea];
-      const oracionesResultado: string[] = [];
-
-      for (const oracion of oraciones) {
-        if (PATRON_DISPARADOR_ORACION_UIF.test(oracion)) {
-          if (!placeholderInsertado) {
-            oracionesResultado.push(` ORIGEN DE FONDOS Y PLA/FT: ${LEYENDA_ORIGEN_FONDOS_FALTANTE}.`);
-            placeholderInsertado = true;
-          }
-          // Si ya se insertó el reemplazo, descartar oraciones subsiguientes que afirmen licitud para no duplicar
-        } else {
-          oracionesResultado.push(oracion);
-        }
+      if (!PATRON_DISPARADOR_ORACION_UIF.test(linea) && !/origen\s+de\s+fondos/i.test(linea)) {
+        return linea;
       }
 
-      return oracionesResultado.join('').replace(/[ \t]{2,}/g, ' ').trim();
+      if (!clausulaInsertada) {
+        clausulaInsertada = true;
+        return CLAUSULA_AUTONOMA_UIF;
+      }
+      return '';
     });
 
-    cuerpo = lineasProcesadas.join('\n');
+    cuerpo = lineasProcesadas.filter((l, i, arr) => l !== '' || (i > 0 && arr[i - 1] !== '')).join('\n');
 
     // 2. Barrido secundario fail-safe: eliminar cualquier fragmento residual de afirmación positiva de licitud o UIF
     for (const pat of PATRONES_AFIRMACION_FONDOS_LICITOS) {
@@ -127,18 +127,19 @@ export function aplicarGuardrailOrigenFondos(
       .replace(/\.\s*\./g, '.')
       .replace(/dando cumplimiento a las disposiciones[^.]*\./gi, '')
       .replace(/con fondos de lícito origen[^.]*\./gi, '')
+      .replace(/los\s+fondos\s+provienen\s+de[^.\n;]*[.\n;]?/gi, '')
       .replace(/[ \t]{2,}/g, ' ');
 
-    // 4. Si el cuerpo aún no contiene la leyenda obligatoria, incorporarla en la cláusula de pago/fondos
-    if (!cuerpo.includes(LEYENDA_ORIGEN_FONDOS_FALTANTE)) {
+    // 4. Si el cuerpo aún no contiene la cláusula autónoma, incorporarla en la sección de precio/pago o al final
+    if (!cuerpo.includes(CLAUSULA_AUTONOMA_UIF) && !cuerpo.includes(LEYENDA_ORIGEN_FONDOS_FALTANTE)) {
       if (/(precio|pago|forma\s+de\s+pago)/i.test(cuerpo)) {
         cuerpo = cuerpo.replace(
           /((?:precio|pago|forma\s+de\s+pago)[^\n]*)(?:\n|$)/i,
-          `$1\nORIGEN DE FONDOS Y PLA/FT: ${LEYENDA_ORIGEN_FONDOS_FALTANTE}\n`
+          `$1\n\n${CLAUSULA_AUTONOMA_UIF}\n`
         );
       }
-      if (!cuerpo.includes(LEYENDA_ORIGEN_FONDOS_FALTANTE)) {
-        cuerpo += `\n\nORIGEN DE FONDOS Y PLA/FT: ${LEYENDA_ORIGEN_FONDOS_FALTANTE}`;
+      if (!cuerpo.includes(CLAUSULA_AUTONOMA_UIF)) {
+        cuerpo += `\n\n${CLAUSULA_AUTONOMA_UIF}`;
       }
     }
 
@@ -154,6 +155,82 @@ export function aplicarGuardrailOrigenFondos(
     if (!advertencias.some((a) => a.toLowerCase().includes('origen y licitud de fondos'))) {
       advertencias.push(advUif);
     }
+  }
+
+  return {
+    ...borrador,
+    cuerpo,
+    datos_faltantes: datosFaltantes,
+    advertencias,
+  };
+}
+
+/**
+ * Aplica el guardrail jurídico sobre el Impuesto a la Transferencia de Inmuebles (I.T.I.).
+ * Conforme Ley 27.743, para operaciones a título oneroso otorgadas a partir del 08/07/2024,
+ * el I.T.I. se encuentra derogado y no puede presentarse como retención o exención aplicable.
+ * Respeta y preserva de forma estricta el C.O.T.I. (Código de Oferta de Transferencia de Inmuebles).
+ */
+export function aplicarGuardrailIti(
+  borrador: BorradorEscritura,
+  fechaOperacion?: string
+): BorradorEscritura {
+  let cuerpo = borrador.cuerpo;
+  let datosFaltantes = [...borrador.datos_faltantes];
+  let advertencias = [...borrador.advertencias];
+
+  // Determinar si la operación es posterior al 08/07/2024 (derogación Ley 27.743)
+  let esPostDerogacion = true; // Por defecto true para instrumentos actuales (2026)
+  if (fechaOperacion) {
+    const parsed = parsearFechaCualquiera(fechaOperacion);
+    if (parsed) {
+      esPostDerogacion = parsed.iso >= '2024-07-08';
+    }
+  }
+
+  if (esPostDerogacion) {
+    // Regex para identificar menciones de ITI asegurando que NO toque COTI / C.O.T.I.
+    const patronMencionIti = /(?<!c\.?o\.?\s*)(?<!coti\s*)\b(?:i\.?t\.?i\.?|impuesto\s+a\s+la\s+transferencia\s+de\s+inmuebles)\b/i;
+
+    if (patronMencionIti.test(cuerpo)) {
+      const lineas = cuerpo.split('\n');
+      const lineasProcesadas = lineas.map((linea) => {
+        if (!patronMencionIti.test(linea)) return linea;
+
+        // Si la línea contiene COTI, preservar COTI intacto y solo neutralizar las menciones de ITI
+        if (/\b(?:c\.?o\.?t\.?i\.?|coti)\b/i.test(linea)) {
+          return linea
+            .replace(/(?:se\s+(?:retiene|deja\s+constancia\s+de\s+la\s+retenci[oó]n|abona)\s+(?:el\s+|la\s+|del\s+)?|retenci[oó]n\s+(?:del\s+)?|exenci[oó]n\s+(?:del\s+)?)(?:i\.?t\.?i\.?|impuesto\s+a\s+la\s+transferencia\s+de\s+inmuebles)(?:\s*\([^\)]*\))?(?:\s+del\s+[\d.,]+%)?(?:\s+correspondiente)?/gi, 'I.T.I. (no aplicable por Ley 27.743)')
+            .replace(/(?<!c\.?o\.?\s*)(?<!coti\s*)(?:\bi\.t\.i\.|\biti\b|impuesto\s+a\s+la\s+transferencia\s+de\s+inmuebles)/gi, 'I.T.I. (no aplicable, derogado Ley 27.743)')
+            .replace(/[ \t]{2,}/g, ' ')
+            .trim();
+        }
+
+        // Si la línea NO contiene COTI y habla de retención/exención/alícuota de ITI:
+        if (/(?:retenci[oó]n|exenci[oó]n|al[ií]cuota|pago|afip|no\s+retenci[oó]n)/i.test(linea)) {
+          const ordinalMatch = linea.match(/^([A-ZÁÉÍÓÚÑ]+:\s*)/i);
+          const prefijo = ordinalMatch ? ordinalMatch[1] : '';
+          return `${prefijo}${LEYENDA_ITI_DEROGADO}`;
+        }
+
+        return linea
+          .replace(/(?<!c\.?o\.?\s*)(?<!coti\s*)(?:\bi\.t\.i\.|\biti\b|impuesto\s+a\s+la\s+transferencia\s+de\s+inmuebles)/gi, 'I.T.I. (no aplicable, derogado Ley 27.743)')
+          .replace(/[ \t]{2,}/g, ' ')
+          .trim();
+      });
+
+      cuerpo = lineasProcesadas.join('\n');
+    }
+
+    // Filtrar requerimientos de ITI de datos_faltantes
+    datosFaltantes = datosFaltantes.filter(
+      (d) => !/(?<!c\.?o\.?\s*)(?<!coti\s*)\b(?:i\.?t\.?i\.?|impuesto\s+a\s+la\s+transferencia\s+de\s+inmuebles)\b/i.test(d)
+    );
+
+    // Ajustar advertencias que indiquen retención aplicable de ITI
+    advertencias = advertencias.filter(
+      (a) => !/(?:retenci[oó]n|aplicar|calcular)\s+(?:del?\s+)?(?:i\.?t\.?i\.?|impuesto\s+a\s+la\s+transferencia\s+de\s+inmuebles)/i.test(a)
+    );
   }
 
   return {
@@ -243,9 +320,14 @@ export async function redactarEscrituraConIA(input: {
       advertencias: arr(parsed.advertencias),
     };
 
-    const borradorFinal = aplicarGuardrailOrigenFondos(
+    const conUif = aplicarGuardrailOrigenFondos(
       rawBorrador,
       Boolean(input.tieneEvidenciaOrigenFondos)
+    );
+
+    const borradorFinal = aplicarGuardrailIti(
+      conUif,
+      input.fechaOtorgamiento
     );
 
     return {

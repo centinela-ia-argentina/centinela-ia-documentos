@@ -807,6 +807,7 @@ Dictamen IA documental
                     <PlazosDetectados
                       plazos={plazosSeguros}
                       docNombre={document.file_name}
+                      caseId={document.case_id || undefined}
                     />
                   );
                 })()}

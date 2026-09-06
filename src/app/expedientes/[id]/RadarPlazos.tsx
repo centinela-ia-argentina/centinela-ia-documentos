@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { CalendarPlus, Check, Loader2 } from 'lucide-react';
 import { guardarPlazoDetectado } from '@/app/agenda/actions';
 import { esPlazoRadar } from '@/lib/plazos/plazos';
+import { formatIsoToAr } from '@/lib/plazos/fechasCanonicas';
 import type { ItemCronologia } from './CronologiaExpediente';
 
 function diasDesdeHoy(iso: string): number {
@@ -20,7 +21,7 @@ function textoDias(n: number): string {
   if (n < 0) return `hace ${Math.abs(n)} día${Math.abs(n) === 1 ? '' : 's'}`;
   if (n === 0) return 'vence hoy';
   if (n === 1) return 'vence mañana';
-  return `en ${n} días`;
+  return `a ${n} días`;
 }
 
 type Nivel = {
@@ -133,7 +134,11 @@ export function RadarPlazos({
                   </span>
                   <span className="text-xs text-slate-400">{p.item.etiquetaOrigen}</span>
                 </div>
-                <p className="mt-1 truncate text-sm font-medium text-white">{p.item.titulo}</p>
+                <p className="mt-1 truncate text-sm font-medium text-white">
+                  {p.item.titulo.includes(formatIsoToAr(p.item.fecha))
+                    ? p.item.titulo
+                    : `${p.item.titulo} — ${formatIsoToAr(p.item.fecha)}`}
+                </p>
               </div>
               {estado === 'ok' ? (
                 <span className="flex shrink-0 items-center gap-1 text-xs font-medium text-emerald-600">

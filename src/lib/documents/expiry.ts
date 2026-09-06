@@ -5,7 +5,13 @@ export const EXPIRY_WARNING_DAYS = 30;
 export function getDaysUntilExpiry(expiresAt?: string | null, referenceDate: Date = new Date()): number | null {
   if (!expiresAt) return null;
 
-  const targetDate = new Date(`${expiresAt}T00:00:00`);
+  let clean = expiresAt.trim().slice(0, 10);
+  const arMatch = clean.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (arMatch) {
+    clean = `${arMatch[3]}-${arMatch[2].padStart(2, '0')}-${arMatch[1].padStart(2, '0')}`;
+  }
+
+  const targetDate = new Date(`${clean}T00:00:00`);
   if (isNaN(targetDate.getTime())) return null;
 
   const targetMidnight = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate());

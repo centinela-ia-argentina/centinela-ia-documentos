@@ -144,7 +144,7 @@ export default async function ObservacionesPage() {
     }
   }
 
-  const plazosAll: Array<{ id: string; title: string; fecha: string; tipo: string }> = [];
+  const plazosAll: Array<{ id: string; caseId: string; title: string; fecha: string; tipo: string }> = [];
   const plazosVistos = new Set<string>();
 
   for (const c of cases) {
@@ -158,6 +158,7 @@ export default async function ObservacionesPage() {
           plazosVistos.add(dedupKey);
           plazosAll.push({
             id: f.id || `${c.id}-${f.fecha}`,
+            caseId: c.id,
             title: c.title || terms.itemSinTitulo,
             fecha: f.fecha,
             tipo: f.tipo,
@@ -414,7 +415,7 @@ export default async function ObservacionesPage() {
                 const badgeStyles = getExpiryBadgeStyles(status);
                 const label = expiryStatusLabel(status);
                 return (
-                  <Link key={item.id} href={`/expedientes/${item.id}`} className="flex items-center justify-between rounded-xl border border-white/10 bg-white/[0.02] p-3 cursor-pointer transition hover:bg-white/[0.04]">
+                  <Link key={item.id} href={`/expedientes/${item.caseId}`} className="flex items-center justify-between rounded-xl border border-white/10 bg-white/[0.02] p-3 cursor-pointer transition hover:bg-white/[0.04]">
                     <div className="overflow-hidden">
                       <p className="truncate font-bold text-slate-200">{item.title || terms.itemSinTitulo}</p>
                       <p className="truncate text-xs text-slate-400">{item.tipo} · {formatPlazoDate(item.fecha)}</p>

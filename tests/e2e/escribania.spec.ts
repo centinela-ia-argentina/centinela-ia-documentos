@@ -192,7 +192,10 @@ test.describe.serial('Centinela IA - Escribania E2E', () => {
   });
 
   test('G. Palermo Cuba - Consistencia de Fechas, Radar, Observaciones y Guardrail UIF', async ({ browser }) => {
-    // 1. Sembrar legajo Palermo Cuba y su documento
+    // 1. Limpiar outputs previos para asegurar ejecución real
+    await serviceClient.from('ai_outputs').delete().eq('case_id', CASE_PALERMO_ID);
+
+    // 2. Sembrar legajo Palermo Cuba y su documento
     await serviceClient.from('cases').upsert({
       id: CASE_PALERMO_ID,
       organization_id: ORG_ESC_ID,
@@ -213,116 +216,100 @@ test.describe.serial('Centinela IA - Escribania E2E', () => {
       id: DOC_PALERMO_ID,
       case_id: CASE_PALERMO_ID,
       organization_id: ORG_ESC_ID,
-      file_name: 'boleto_compraventa_palermo.pdf',
-      file_path: `${ORG_ESC_ID}/${CASE_PALERMO_ID}/boleto_compraventa_palermo.pdf`,
+      file_name: '01_boleto_compraventa_palermo_cuba.pdf',
+      file_path: `${ORG_ESC_ID}/${CASE_PALERMO_ID}/01_boleto_compraventa_palermo_cuba.pdf`,
       file_size: 1024,
       file_mime_type: 'application/pdf',
       file_hash: 'hash-palermo-boleto',
       uploaded_by: 'cccc3333-3333-3333-3333-333333333333',
     });
 
-    // 2. Sembrar análisis documental, resumen ejecutivo, cotejo y borrador de escritura
-    await serviceClient.from('ai_outputs').upsert([
-      {
-        case_id: CASE_PALERMO_ID,
-        document_id: DOC_PALERMO_ID,
-        organization_id: ORG_ESC_ID,
-        output_type: 'document_analysis',
-        content: 'Análisis documental boleto Palermo',
-        model_name: 'test-model',
-        result_json: {
-          tipo_documental_detectado: 'Boleto de compraventa',
-          resumen: 'Boleto de compraventa firmado el 10/06/2026 con plazo de 90 días corridos para otorgar la escritura. No acredita origen de fondos.',
-          datos_clave: ['Boleto 10/06/2026', 'Plazo 90 días corridos', 'USD 150.000'],
-          fechas_plazos: [
-            { descripcion: 'Fecha del boleto', fecha: '2026-06-10', tipo: 'issue_date', confianza: 'alta', requiere_revision: false, evidencia_textual: '10 de junio de 2026' },
-            { descripcion: 'Fecha límite contractual', fecha: '2026-09-08', tipo: 'contractual_deadline', confianza: 'alta', requiere_revision: false, evidencia_textual: '90 días corridos' },
-            { descripcion: 'Fecha tentativa de escritura', fecha: '2026-09-10', tipo: 'contractual_deadline', confianza: 'alta', requiere_revision: false, evidencia_textual: '10 de septiembre de 2026' }
-          ]
-        }
-      },
-      {
-        case_id: CASE_PALERMO_ID,
-        document_id: null,
-        organization_id: ORG_ESC_ID,
-        output_type: 'case_summary',
-        content: 'Resumen ejecutivo Palermo',
-        model_name: 'test-model',
-        result_json: {
-          resumen_general: 'El presente legajo instrumenta la compraventa de un inmueble en Palermo. Se advierte que la fecha tentativa de escrituración (10/09/2026) excede el plazo contractual de 90 días corridos (límite: 08/09/2026) por 2 días corridos.',
-          estado_actual: 'En etapa notarial preparatoria.',
-          partes: ['Comprador Palermo', 'Vendedor Palermo'],
-          puntos_clave: ['Boleto 10/06/2026', 'Límite contractual 08/09/2026', 'Fecha tentativa 10/09/2026'],
-          riesgos_alertas: ['La fecha tentativa de escrituración (10/09/2026) excede el plazo contractual de 90 días corridos (límite: 08/09/2026) por 2 días corridos.'],
-          proximas_acciones: ['Gestionar adenda de prórroga o coordinar otorgamiento inmediato.']
-        }
-      },
-      {
-        case_id: CASE_PALERMO_ID,
-        document_id: null,
-        organization_id: ORG_ESC_ID,
-        output_type: 'case_cotejo',
-        content: 'Cotejo documental Palermo',
-        model_name: 'test-model',
-        result_json: {
-          veredicto: 'Cotejo con observaciones sobre plazos contractuales.',
-          coincidencias: ['Identidad de comparecientes e inmueble conforme boleto'],
-          discrepancias: ['Plazo contractual: la fecha tentativa (10/09/2026) supera el límite de escrituración (08/09/2026) fijado en el boleto por 2 días corridos.'],
-          faltantes: ['Documentación respaldatoria sobre origen y licitud de fondos'],
-          alertas_vigencia: ['La fecha tentativa de escrituración (10/09/2026) excede el plazo contractual de 90 días corridos (límite: 08/09/2026) por 2 días corridos.']
-        }
-      },
-      {
-        case_id: CASE_PALERMO_ID,
-        document_id: null,
-        organization_id: ORG_ESC_ID,
-        output_type: 'case_escritura',
-        content: 'Borrador de escritura con guardrail UIF aplicado',
-        model_name: 'test-model',
-        result_json: {
-          titulo: 'Borrador de escritura de compraventa',
-          cuerpo: 'En la Ciudad Autónoma de Buenos Aires. Comparecen las partes. Precio y forma de pago: La parte compradora abona la suma pactada en dinero en efectivo.\n\nORIGEN DE FONDOS Y PLA/FT: [COMPLETAR/VERIFICAR: declaración y documentación respaldatoria sobre medios y origen de fondos].\n\nAsimismo, se hace entrega de la posesión real y definitiva.',
-          datos_faltantes: ['[COMPLETAR/VERIFICAR: declaración y documentación respaldatoria sobre medios y origen de fondos]'],
-          advertencias: ['Revisión profesional requerida: no consta documentación respaldatoria estructurada sobre origen y licitud de fondos. Las operaciones y personas de prueba son ficticias (entorno controlado).']
-        }
+    // 3. Sembrar únicamente el análisis documental (NO sembrar case_summary, case_cotejo ni case_escritura)
+    await serviceClient.from('ai_outputs').upsert({
+      case_id: CASE_PALERMO_ID,
+      document_id: DOC_PALERMO_ID,
+      organization_id: ORG_ESC_ID,
+      output_type: 'document_analysis',
+      content: 'Análisis documental boleto Palermo',
+      model_name: 'test-model',
+      result_json: {
+        tipo_documental_detectado: 'Boleto de compraventa',
+        resumen: 'Boleto de compraventa firmado el 10/06/2026 con plazo de 90 días corridos para otorgar la escritura. No acredita origen de fondos.',
+        datos_clave: ['Boleto 10/06/2026', 'Plazo 90 días corridos', 'USD 150.000'],
+        fechas_plazos: [
+          { descripcion: 'Fecha del boleto', fecha: '2026-06-10', tipo: 'issue_date', confianza: 'alta', requiere_revision: false, evidencia_textual: '10 de junio de 2026' },
+          { descripcion: 'Fecha límite contractual', fecha: '2026-09-08', tipo: 'contractual_deadline', confianza: 'alta', requiere_revision: false, evidencia_textual: '90 días corridos' },
+          { descripcion: 'Fecha tentativa de escritura', fecha: '2026-09-10', tipo: 'contractual_deadline', confianza: 'alta', requiere_revision: false, evidencia_textual: '10 de septiembre de 2026' }
+        ]
       }
-    ]);
+    });
 
     const { context, page } = await loginAs(browser, 'admin.esc@test.com');
     try {
-      // 3. Inspeccionar legajo: Resumen, Cotejo, Radar y Borrador de escritura
+      // 4. Inspeccionar legajo inicialmente: Radar de plazos
       await page.goto(`/expedientes/${CASE_PALERMO_ID}`);
       await expect(page.locator('body')).toBeVisible();
-      const bodyText = await page.locator('body').innerText();
 
-      // Resumen: 90 días corridos y exceso de 2 días
-      expect(bodyText).toContain('90 días corridos');
-      expect(bodyText).toContain('2 días corridos');
+      // Radar: 08/09 y 10/09 presentes sin duplicación, boleto 10/06 ausente como plazo accionable
+      await expect(page.locator('body')).toContainText('Fecha límite contractual');
+      await expect(page.locator('body')).toContainText('08/09/2026');
+      await expect(page.locator('body')).toContainText('Fecha tentativa de escritura');
+      await expect(page.locator('body')).toContainText('10/09/2026');
+      const radarText = await page.locator('body').innerText();
+      expect(radarText).not.toContain('Fecha del boleto · 10/06/2026');
 
-      // Cotejo: fechas clave 08/09/2026 y 10/09/2026
-      expect(bodyText).toContain('08/09/2026');
-      expect(bodyText).toContain('10/09/2026');
+      // 5. Accionar UI: Generar resumen con IA
+      const btnResumen = page.locator('button:has-text("Generar resumen con IA"), button:has-text("Actualizar resumen con IA")').first();
+      await expect(btnResumen).toBeVisible();
+      await btnResumen.click();
 
-      // Radar: 08/09 y 10/09 presentes con etiquetas distintas, 10/06 ausente como plazo
-      expect(bodyText).toContain('Fecha límite contractual');
-      expect(bodyText).toContain('Fecha tentativa de escritura');
-      expect(bodyText).not.toContain('Fecha del boleto · 10/06/2026');
+      // Verificar que el resumen computa 90 días corridos y 2 días de exceso
+      await expect(page.locator('body')).toContainText('90 días corridos');
+      await expect(page.locator('body')).toContainText('2 días corridos');
 
-      // Borrador de escritura: guardrail UIF sin afirmación positiva y con placeholder presente
-      expect(bodyText).toContain('[COMPLETAR/VERIFICAR: declaración y documentación respaldatoria sobre medios y origen de fondos]');
-      expect(bodyText.toLowerCase()).not.toContain('fondos de lícito origen');
-      expect(bodyText.toLowerCase()).not.toContain('fondos de origen lícito');
+      // 6. Accionar UI: Cotejo de documentos con IA
+      const btnCotejo = page.locator('button:has-text("Cotejar documentos con IA"), button:has-text("Volver a cotejar")').first();
+      await expect(btnCotejo).toBeVisible();
+      await btnCotejo.click();
 
-      // 4. Inspeccionar Observaciones
+      // Verificar que el cotejo expone 08/09/2026, 10/09/2026 y días de exceso
+      await expect(page.locator('body')).toContainText('08/09/2026');
+      await expect(page.locator('body')).toContainText('10/09/2026');
+
+      // 7. Accionar UI: Redactar borrador de escritura
+      const btnBorrador = page.locator('button:has-text("Redactar borrador de escritura"), button:has-text("Regenerar borrador")').first();
+      await expect(btnBorrador).toBeVisible();
+      await btnBorrador.click();
+
+      // Verificar que el borrador contiene la cláusula UIF autónoma y carece de afirmación de licitud y retención ITI
+      await expect(page.locator('body')).toContainText('QUINTO: MEDIOS DE PAGO Y ORIGEN DE FONDOS');
+      await expect(page.locator('body')).toContainText('[COMPLETAR/VERIFICAR: declaración y documentación respaldatoria sobre medios y origen de fondos]');
+
+      const bodyFinal = await page.locator('body').innerText();
+      expect(bodyFinal.toLowerCase()).not.toContain('fondos de lícito origen');
+      expect(bodyFinal.toLowerCase()).not.toContain('fondos de origen lícito');
+      expect(bodyFinal.toLowerCase()).not.toContain('los fondos provienen de');
+      expect(bodyFinal).not.toContain('retención del Impuesto a la Transferencia de Inmuebles');
+      expect(bodyFinal).toContain('C.O.T.I. N° 98765432');
+
+      // 8. Inspeccionar Observaciones
       await page.goto('/observaciones');
       await expect(page.locator('body')).toBeVisible();
       const obsText = await page.locator('body').innerText();
 
-      // Fechas clave notariales > 0 y etiquetas diferenciadas
       expect(obsText).toContain('08/09/2026');
       expect(obsText).toContain('10/09/2026');
       expect(obsText).toContain('Fecha límite contractual');
       expect(obsText).toContain('Fecha tentativa de escritura');
+
+      // El link de la tarjeta lleva exactamente a /expedientes/[id]
+      const linkExp = page.locator(`a[href="/expedientes/${CASE_PALERMO_ID}"]`);
+      await expect(linkExp.first()).toBeVisible();
+
+      // 9. Inspeccionar Agenda: categoría plazo preservada
+      await page.goto('/agenda');
+      await expect(page.locator('body')).toBeVisible();
+      await expect(page.locator('option[value="plazo"]').first()).toBeAttached();
     } finally {
       await page.close();
       await context.close();

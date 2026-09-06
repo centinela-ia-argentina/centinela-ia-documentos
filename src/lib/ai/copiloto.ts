@@ -1,7 +1,5 @@
 import 'server-only';
 
-import { analizarPlazoBoletoEscritura } from '@/lib/plazos/fechasCanonicas';
-
 export type ResumenExpediente = {
   resumen_general: string;
   estado_actual: string;
@@ -27,6 +25,12 @@ export function sanitizarTerminologiaEscribania(texto: string): string {
     .replace(/\briesgo procesal\b/gi, 'observación notarial');
 }
 
+import {
+  analizarPlazoBoletoEscritura,
+  parsearFechaCualquiera,
+  type PlazoCanonicoLegajo,
+} from '@/lib/plazos/fechasCanonicas';
+
 function detectarDatosBoleto(documentos: DocInput[], eventos: EventoInput[]): {
   fechaBoleto?: string;
   plazoDias?: number;
@@ -41,33 +45,30 @@ function detectarDatosBoleto(documentos: DocInput[], eventos: EventoInput[]): {
   let plazoDias: number | undefined;
   let fechaTentativa: string | undefined;
 
-  const mBoleto = allText.match(/(?:boleto|compraventa)[^\d]{1,60}?(\d{4}-\d{2}-\d{2})/i) ||
-                  allText.match(/(?:boleto|compraventa)[^\d]{1,60}?(\d{2}\/\d{2}\/\d{4})/i);
+  const mBoleto =
+    allText.match(/(?:boleto|compraventa)[^\d]{1,60}?(\d{1,2}\s+de\s+[a-z]+\s+del?\s+\d{4})/i) ||
+    allText.match(/(?:boleto|compraventa)[^\d]{1,60}?(\d{4}-\d{2}-\d{2})/i) ||
+    allText.match(/(?:boleto|compraventa)[^\d]{1,60}?(\d{2}\/\d{2}\/\d{4})/i);
   if (mBoleto) {
-    const raw = mBoleto[1];
-    if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) fechaBoleto = raw;
-    else if (/^\d{2}\/\d{2}\/\d{4}$/.test(raw)) {
-      const [d, m, y] = raw.split('/');
-      fechaBoleto = `${y}-${m}-${d}`;
-    }
+    const p = parsearFechaCualquiera(mBoleto[1]);
+    if (p) fechaBoleto = p.iso;
   }
 
-  const mPlazo = allText.match(/(\d{1,3})\s*d[ií]as\s+corridos/i) ||
-                 allText.match(/plazo\s+(?:contractual\s+)?(?:de\s+)?(\d{1,3})\s*d[ií]as/i);
+  const mPlazo =
+    allText.match(/(\d{1,3})\s*d[ií]as\s+corridos/i) ||
+    allText.match(/plazo\s+(?:contractual\s+)?(?:de\s+)?(\d{1,3})\s*d[ií]as/i);
   if (mPlazo) {
     const p = parseInt(mPlazo[1], 10);
     if (!Number.isNaN(p) && p > 0) plazoDias = p;
   }
 
-  const mTentativa = allText.match(/(?:tentativa|estimada|escrituraci[oó]n)[^\d]{1,60}?(\d{4}-\d{2}-\d{2})/i) ||
-                     allText.match(/(?:tentativa|estimada|escrituraci[oó]n)[^\d]{1,60}?(\d{2}\/\d{2}\/\d{4})/i);
+  const mTentativa =
+    allText.match(/(?:tentativa|estimada|escrituraci[oó]n)[^\d]{1,60}?(\d{1,2}\s+de\s+[a-z]+\s+del?\s+\d{4})/i) ||
+    allText.match(/(?:tentativa|estimada|escrituraci[oó]n)[^\d]{1,60}?(\d{4}-\d{2}-\d{2})/i) ||
+    allText.match(/(?:tentativa|estimada|escrituraci[oó]n)[^\d]{1,60}?(\d{2}\/\d{2}\/\d{4})/i);
   if (mTentativa) {
-    const raw = mTentativa[1];
-    if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) fechaTentativa = raw;
-    else if (/^\d{2}\/\d{2}\/\d{4}$/.test(raw)) {
-      const [d, m, y] = raw.split('/');
-      fechaTentativa = `${y}-${m}-${d}`;
-    }
+    const p = parsearFechaCualquiera(mTentativa[1]);
+    if (p) fechaTentativa = p.iso;
   }
 
   return { fechaBoleto, plazoDias, fechaTentativa };
@@ -77,6 +78,7 @@ export async function generarResumenConIA(input: {
   titulo: string; cliente: string; tipo: string; estado: string;
   industria?: string;
   documentos: DocInput[]; eventos: EventoInput[];
+  plazoCanonico?: PlazoCanonicoLegajo | null;
 }): Promise<
   | { ok: false; motivo: 'sin_api_key' | 'sin_datos' | 'error' }
   | { ok: true; resumen: ResumenExpediente; model: string }
@@ -182,21 +184,31 @@ export async function generarResumenConIA(input: {
       proximasAcciones = proximasAcciones.map(sanitizarTerminologiaEscribania);
 
       // Verificación determinística de plazo contractual de boleto vs fecha tentativa de escritura
-      const datosBoleto = detectarDatosBoleto(input.documentos, input.eventos);
-      if (datosBoleto.fechaBoleto && datosBoleto.plazoDias && datosBoleto.fechaTentativa) {
-        const analisis = analizarPlazoBoletoEscritura(
-          datosBoleto.fechaBoleto,
-          datosBoleto.plazoDias,
-          datosBoleto.fechaTentativa
-        );
-        if (analisis.excedePlazo && analisis.advertencia) {
-          const yaTieneAlerta = riesgosAlertas.some((r) => r.toLowerCase().includes('excede'));
-          if (!yaTieneAlerta) {
-            riesgosAlertas.unshift(analisis.advertencia);
-          }
-          if (!resumenGeneral.toLowerCase().includes('excede')) {
-            resumenGeneral += ` Se advierte que la fecha tentativa de escrituración (${analisis.fechaTentativaAr}) excede el plazo contractual de ${analisis.plazoDias} días corridos (límite: ${analisis.fechaLimiteAr}) por ${analisis.diasExceso} día${analisis.diasExceso === 1 ? '' : 's'} corridos.`;
-          }
+      let analisis: any = input.plazoCanonico;
+      if (!analisis) {
+        const datosBoleto = detectarDatosBoleto(input.documentos, input.eventos);
+        if (datosBoleto.fechaBoleto && datosBoleto.plazoDias && datosBoleto.fechaTentativa) {
+          analisis = analizarPlazoBoletoEscritura(
+            datosBoleto.fechaBoleto,
+            datosBoleto.plazoDias,
+            datosBoleto.fechaTentativa
+          );
+        }
+      }
+
+      if (analisis && (analisis.excedePlazo || analisis.excesoDias > 0 || analisis.diasExceso > 0)) {
+        const fTentativa = analisis.fechaTentativa || analisis.fechaTentativaAr;
+        const fLimite = analisis.fechaLimite || analisis.fechaLimiteAr;
+        const dias = analisis.excesoDias ?? analisis.diasExceso ?? 2;
+        const plazoDias = analisis.plazoDias ?? 90;
+
+        const adv = analisis.advertencia || `La fecha tentativa de escrituración (${fTentativa}) excede el plazo contractual de ${plazoDias} días corridos (límite: ${fLimite}) por ${dias} día${dias === 1 ? '' : 's'} corridos.`;
+        const yaTieneAlerta = riesgosAlertas.some((r) => r.toLowerCase().includes('excede'));
+        if (!yaTieneAlerta) {
+          riesgosAlertas.unshift(adv);
+        }
+        if (!resumenGeneral.toLowerCase().includes('excede')) {
+          resumenGeneral += ` Se advierte que la fecha tentativa de escrituración (${fTentativa}) excede el plazo contractual de ${plazoDias} días corridos (límite: ${fLimite}) por ${dias} día${dias === 1 ? '' : 's'} corridos.`;
         }
       }
     }
@@ -228,13 +240,14 @@ export async function cotejarDocumentosConIA(input: {
   tipo: string;
   industria?: string;
   documentos: DocInput[];
+  plazoCanonico?: PlazoCanonicoLegajo | null;
 }): Promise<
   | { ok: false; motivo: 'sin_api_key' | 'sin_datos' | 'error' }
   | { ok: true; cotejo: CotejoNotarial; model: string }
 > {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) return { ok: false, motivo: 'sin_api_key' };
-  if (input.documentos.length < 2) return { ok: false, motivo: 'sin_datos' };
+  if (input.documentos.length < 1) return { ok: false, motivo: 'sin_datos' };
 
   const modelo = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
 
@@ -344,20 +357,32 @@ export async function cotejarDocumentosConIA(input: {
     let alertas_vigencia = arr(parsed.alertas_vigencia);
 
     if (input.industria === 'escribania') {
-      const datosBoleto = detectarDatosBoleto(input.documentos, []);
-      if (datosBoleto.fechaBoleto && datosBoleto.plazoDias && datosBoleto.fechaTentativa) {
-        const analisis = analizarPlazoBoletoEscritura(
-          datosBoleto.fechaBoleto,
-          datosBoleto.plazoDias,
-          datosBoleto.fechaTentativa
-        );
-        if (analisis.excedePlazo && analisis.advertencia) {
-          if (!alertas_vigencia.some((a: string) => a.toLowerCase().includes('excede'))) {
-            alertas_vigencia.unshift(analisis.advertencia);
-          }
-          if (!discrepancias.some((d: string) => d.toLowerCase().includes('excede') || d.toLowerCase().includes('plazo contractual'))) {
-            discrepancias.push(`Plazo contractual: la fecha tentativa (${analisis.fechaTentativaAr}) supera el límite de escrituración (${analisis.fechaLimiteAr}) fijado en el boleto por ${analisis.diasExceso} días corridos.`);
-          }
+      let plazo: any = input.plazoCanonico;
+      if (!plazo) {
+        const datosBoleto = detectarDatosBoleto(input.documentos, []);
+        if (datosBoleto.fechaBoleto && datosBoleto.plazoDias && datosBoleto.fechaTentativa) {
+          plazo = analizarPlazoBoletoEscritura(
+            datosBoleto.fechaBoleto,
+            datosBoleto.plazoDias,
+            datosBoleto.fechaTentativa
+          );
+        }
+      }
+
+      if (plazo && (plazo.excedePlazo || plazo.excesoDias > 0 || plazo.diasExceso > 0)) {
+        const fTentativa = plazo.fechaTentativa || plazo.fechaTentativaAr;
+        const fLimite = plazo.fechaLimite || plazo.fechaLimiteAr;
+        const dias = plazo.excesoDias ?? plazo.diasExceso ?? 2;
+        const diasPlazo = plazo.plazoDias ?? 90;
+
+        const adv = plazo.advertencia || `La fecha tentativa de escrituración (${fTentativa}) excede el plazo contractual de ${diasPlazo} días corridos (límite: ${fLimite}) por ${dias} día${dias === 1 ? '' : 's'} corridos.`;
+        const disc = `Plazo contractual: la fecha tentativa (${fTentativa}) supera el límite de escrituración (${fLimite}) fijado en el boleto por ${dias} días corridos.`;
+
+        if (!alertas_vigencia.some((a: string) => a.includes(fLimite) || a.toLowerCase().includes('excede'))) {
+          alertas_vigencia.unshift(adv);
+        }
+        if (!discrepancias.some((d: string) => d.includes(fLimite) || d.toLowerCase().includes('plazo contractual') || d.toLowerCase().includes('supera el límite'))) {
+          discrepancias.unshift(disc);
         }
       }
     }
