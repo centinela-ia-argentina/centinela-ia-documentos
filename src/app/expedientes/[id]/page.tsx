@@ -8,12 +8,14 @@ import {
   getCaseStatuses,
   getCaseStatusLabel,
   getCaseTypeLabel,
+  isEscrituraCompatibleCase,
 } from '@/lib/industries/caseConfig';
 import {
   getDocumentTypeLabel,
   normalizeIndustryType,
   getDocumentTypes,
 } from '@/lib/industries/documentTypes';
+import { sugerirModeloNotarialPorTipo } from '@/lib/legal/modelos';
 import { AiDisclaimer } from '@/lib/industries/disclaimers';
 import { getIndustryTerms } from '@/lib/industries/uiLabels';
 import { summarizeChecklistStatuses } from '@/lib/checklist/progress';
@@ -21,6 +23,7 @@ import { getDocumentExpiryStatus, expiryStatusLabel, getExpiryBadgeStyles, getDa
 import { sensitivityLabel } from '@/lib/documents/sensitivity';
 import { formatPlazoDate } from '@/lib/format/date';
 import { esPlazoAccionable } from '@/lib/plazos/plazos';
+import { extraerFechaBoletoUif } from '@/lib/plazos/fechasCanonicas';
 import {
   linkChecklistItemDocument,
   toggleChecklistItem,
@@ -141,13 +144,7 @@ function getEventTypeBadgeColor(type: string): "warning" | "success" | "accent" 
 const darkOptionStyle = { backgroundColor: '#0C2340', color: '#FFFFFF' };
 
 function modeloSugeridoPorTipoLegajo(caseType?: string | null): string | null {
-  const t = (caseType ?? '').toLowerCase();
-  if (t.includes('compraventa') || t.includes('escritura') || t.includes('real_estate') || t.includes('purchase')) return 'notarial-compraventa-inmueble';
-  if (t.includes('poder')) return 'notarial-poder-general-amplio';
-  if (t.includes('certificaci')) return 'notarial-certificacion-firmas';
-  if (t.includes('acta')) return 'notarial-acta-constatacion';
-  if (t.includes('autorizaci') || t.includes('viaje')) return 'notarial-autorizacion-viaje-menor';
-  return null;
+  return sugerirModeloNotarialPorTipo(caseType)?.id ?? null;
 }
 
 // Escrito judicial sugerido para un legajo del rubro legal.
@@ -803,12 +800,12 @@ export default async function CaseDetailPage({ params, searchParams }: CaseDetai
                   />
                 )}
 
-                {industry === 'escribania' && (
+                {industry === 'escribania' && isEscrituraCompatibleCase(caseRecord.case_type) && (
                   <section className="rounded-xl border border-white/10 bg-white/[0.02] p-5">
                     <div className="flex items-center justify-between gap-3">
                       <h3 className="text-sm font-semibold text-white">✍️ Borrador de escritura (IA)</h3>
                       {documentosAnalizados > 0 ? (
-                        (puedeUsarIA ? <RedactarEscrituraButton caseId={caseRecord.id} yaGenerada={!!borradorEscritura} /> : null)
+                        puedeUsarIA ? <RedactarEscrituraButton caseId={caseRecord.id} yaGenerada={!!borradorEscritura} /> : null
                       ) : (
                         <span className="text-xs text-white/40">Analizá al menos 1 documento para habilitarlo</span>
                       )}
@@ -853,41 +850,8 @@ export default async function CaseDetailPage({ params, searchParams }: CaseDetai
                           const dump = JSON.stringify((analisisData ?? []).map(a => a.result_json)) + JSON.stringify(resumenData?.result_json);
                           const m1 = dump.match(/(?:precio|monto|valor|venta)[^\d]*(USD|ARS|\$)\s*([\d\.,]+)/i);
                           const montoExtraido = m1 ? `${m1[1].replace('$', 'USD')} ${m1[2]}`.trim() : undefined;
+                          const fechaBoletoExtraida = extraerFechaBoletoUif(analisisData ?? [], resumenData, caseRecord);
                           
-                          let fechaBoletoExtraida = undefined;
-                          
-                          const fechasPlazos = (analisisData ?? []).flatMap(a => (a.result_json as any)?.fechas_plazos || []);
-                          const plazoJunio = fechasPlazos.find((fp: any) => {
-                            if (!fp?.fecha || typeof fp.fecha !== 'string') return false;
-                            const d = (fp.descripcion || '').toLowerCase();
-                            if (d.includes('tentativa') || d.includes('plazo máximo') || d.includes('septiembre')) return false;
-                            const f = fp.fecha;
-                            if (f.includes('2026-09-10') || f.includes('-09-')) return false;
-                            return (f === '2026-06-10' || f.includes('-06-')) && (d.includes('boleto') || d.includes('otorgamiento') || d.includes('firma'));
-                          });
-                          
-                          if (plazoJunio) {
-                            fechaBoletoExtraida = '10/06/2026';
-                          } else if (dump.match(/10\s+de\s+junio\s+de\s+2026|10\/06\/2026/i)) {
-                            fechaBoletoExtraida = '10/06/2026';
-                          } else if (dump.includes('2026-06-10')) {
-                            fechaBoletoExtraida = '10/06/2026';
-                          } else {
-                            const allFechasCtx = [...dump.matchAll(/(?:fecha\s*(?:de\s*)?(?:boleto|compraventa)|boleto|compraventa).{0,120}?(\d{1,2}\s+de\s+[a-z]+\s+del?\s+\d{4}|\d{2}\/\d{2}\/\d{4}|\d{4}-\d{2}-\d{2})/gi)];
-                            const fechaValida = allFechasCtx.find(m => {
-                              const f = m[1].toLowerCase();
-                              return !f.includes('septiembre') && !f.includes('/09/') && !f.includes('-09-') && !f.includes('2015');
-                            });
-                            if (fechaValida) {
-                              const v = fechaValida[1];
-                              if (v.match(/^\d{4}-\d{2}-\d{2}$/)) {
-                                const [y, m, d] = v.split('-');
-                                fechaBoletoExtraida = `${d}/${m}/${y}`;
-                              } else {
-                                fechaBoletoExtraida = v;
-                              }
-                            }
-                          }
                           return (
                             <RosDraftButton
                               analisis={analisisUif}
@@ -903,7 +867,7 @@ export default async function CaseDetailPage({ params, searchParams }: CaseDetai
                             />
                           );
                         })()}
-                        (puedeUsarIA ? <AnalizarUifButton caseId={caseRecord.id} yaGenerada={!!analisisUif} /> : null)
+                        {puedeUsarIA ? <AnalizarUifButton caseId={caseRecord.id} yaGenerada={!!analisisUif} /> : null}
                       </div>
                     </div>
                     {analisisUif ? (
@@ -1048,7 +1012,7 @@ export default async function CaseDetailPage({ params, searchParams }: CaseDetai
                         </p>
                       </div>
                       <Link
-                        href={modeloSugerido ? `/modelos?modelo=${modeloSugerido}` : '/modelos'}
+                        href={modeloSugerido ? `/modelos?modelo=${modeloSugerido}&expediente=${caseRecord.id}` : `/modelos?expediente=${caseRecord.id}`}
                         className="shrink-0 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-500 px-4 py-2 text-sm font-semibold text-white transition hover:opacity-90"
                       >
                         {modeloSugerido ? 'Redactar con el modelo sugerido' : 'Ir a Modelos'}
@@ -1444,8 +1408,8 @@ export default async function CaseDetailPage({ params, searchParams }: CaseDetai
               <div className="space-y-6">
                 <CronologiaExpediente items={cronologia} titulo={`🕒 Cronología del ${terms.expedienteSingular.toLowerCase()}`} />
                 <MotionCard index={0}>
-            <h3 className="font-display text-lg font-semibold text-white">Línea de tiempo del expediente</h3>
-            <p className="mt-1 text-sm text-slate-400">Registro cronológico de actuaciones, audiencias y movimientos.</p>
+            <h3 className="font-display text-lg font-semibold text-white">Línea de tiempo del {terms.expedienteSingular.toLowerCase()}</h3>
+            <p className="mt-1 text-sm text-slate-400">{terms.cronologiaSubtitulo}</p>
             
             <form action={async (formData: FormData) => {
               'use server';
@@ -1779,7 +1743,7 @@ export default async function CaseDetailPage({ params, searchParams }: CaseDetai
                 <form action={archiveCase}>
                   <input type="hidden" name="case_id" value={caseRecord.id} />
                   <button type="submit" className="rounded-2xl border border-white/10 bg-white/[0.05] px-4 py-2 text-sm font-bold text-white transition-all hover:bg-white/10">
-                    Archivar operación
+                    {terms.archivarCta}
                   </button>
                 </form>
               ) : (

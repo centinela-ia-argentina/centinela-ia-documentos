@@ -22,5 +22,17 @@ export async function getUserProfile() {
     return { user, profile: null };
   }
 
+  if (user.last_sign_in_at && profile.last_login_at !== user.last_sign_in_at) {
+    try {
+      await supabase
+        .from('profiles')
+        .update({ last_login_at: user.last_sign_in_at })
+        .eq('id', user.id);
+      profile.last_login_at = user.last_sign_in_at;
+    } catch {
+      // Ignorar fallo no bloqueante
+    }
+  }
+
   return { user, profile };
 }

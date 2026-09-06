@@ -279,3 +279,88 @@ export async function indexarDocumentosExistentes(): Promise<BackfillResult> {
 
   return { ok: true, indexados, yaIndexados, sinTexto, errores, total };
 }
+
+export interface EntidadesOperativasResultado {
+  ok: boolean;
+  legajos: Array<{
+    id: string;
+    title: string;
+    client_name: string | null;
+    case_type: string | null;
+    status: string;
+  }>;
+  documentos: Array<{
+    id: string;
+    file_name: string;
+    document_type: string | null;
+    case_id: string | null;
+  }>;
+  error?: string;
+}
+
+export async function buscarEntidadesOperativas(termino: string): Promise<EntidadesOperativasResultado> {
+  const q = termino.trim();
+  if (q.length < 2) return { ok: true, legajos: [], documentos: [] };
+
+  const { user, profile } = await getUserProfile();
+  if (!user || !profile) return { ok: false, legajos: [], documentos: [], error: 'Sesión no válida' };
+
+  const supabase = await createClient();
+
+  const [casesRes, docsRes] = await Promise.all([
+    supabase
+      .from('cases')
+      .select('id, title, client_name, case_type, status')
+      .eq('organization_id', profile.organization_id)
+      .or(`title.ilike.%${q}%,client_name.ilike.%${q}%,case_type.ilike.%${q}%`)
+      .limit(10),
+    supabase
+      .from('documents')
+      .select('id, file_name, document_type, case_id')
+      .eq('organization_id', profile.organization_id)
+      .or(`file_name.ilike.%${q}%,document_type.ilike.%${q}%`)
+      .limit(10),
+  ]);
+
+  return {
+    ok: true,
+    legajos: casesRes.data ?? [],
+    documentos: (docsRes.data ?? []) as any,
+  };
+}
+
+export async function obtenerMetricasIndexacion(): Promise<{
+  totalAnalizados: number;
+  totalIndexados: number;
+  pendientes: number;
+}> {
+  const { user, profile } = await getUserProfile();
+  if (!user || !profile) return { totalAnalizados: 0, totalIndexados: 0, pendientes: 0 };
+  const supabase = await createClient();
+
+  const [{ data: yaChunks }, { data: outputs }] = await Promise.all([
+    supabase
+      .from('document_chunks')
+      .select('document_id')
+      .eq('organization_id', profile.organization_id),
+    supabase
+      .from('ai_outputs')
+      .select('document_id')
+      .eq('organization_id', profile.organization_id)
+      .eq('output_type', 'document_analysis'),
+  ]);
+
+  const indexadosSet = new Set((yaChunks ?? []).map((c: any) => c.document_id));
+  const analizadosSet = new Set((outputs ?? []).map((o: any) => o.document_id).filter(Boolean));
+
+  let pendientes = 0;
+  for (const docId of analizadosSet) {
+    if (!indexadosSet.has(docId)) pendientes++;
+  }
+
+  return {
+    totalAnalizados: analizadosSet.size,
+    totalIndexados: indexadosSet.size,
+    pendientes,
+  };
+}

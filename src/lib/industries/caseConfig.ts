@@ -150,6 +150,36 @@ export function isCaseTypeCompatibleWithIndustry(
   return canonicalTypes.some((t) => t.trim().toLowerCase() === normalized);
 }
 
+/**
+ * Determina si un tipo de legajo notarial es compatible con la redacción de un borrador de escritura
+ * (ej: compraventa, hipoteca, donación, tracto abreviado).
+ * Excluye explícitamente poderes, actas, certificaciones de firmas y autorizaciones.
+ */
+export function isEscrituraCompatibleCase(caseType?: string | null): boolean {
+  if (!caseType || typeof caseType !== 'string') return false;
+  const t = caseType.trim().toLowerCase();
+  // Legajos incompatibles con borrador de escritura
+  if (
+    t.includes('poder') ||
+    t.includes('certificaci') ||
+    t.includes('acta') ||
+    t.includes('autorizaci') ||
+    t.includes('viaje')
+  ) {
+    return false;
+  }
+  // Compatible: Escritura, Compraventa, Hipoteca, Donación, Permuta, Tracto abreviado
+  return (
+    t.includes('escritura') ||
+    t.includes('compraventa') ||
+    t.includes('inmueble') ||
+    t.includes('hipoteca') ||
+    t.includes('donaci') ||
+    t.includes('permuta') ||
+    t.includes('tracto')
+  );
+}
+
 export type DashboardCardKey =
   | 'expedientes_activos'
   | 'proximos_plazos'

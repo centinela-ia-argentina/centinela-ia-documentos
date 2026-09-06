@@ -1670,19 +1670,33 @@ export async function autoMarcarChecklist(formData: FormData) {
     });
   }
 
-  await createAuditLog({
-    organizationId: profile.organization_id,
-    userId: user.id,
-    action: 'checklist_auto_matched',
-    resourceType: 'case',
-    resourceId: caseId,
-    metadata: {
-      auto_marcados: marcados,
-      desvinculados,
-      evaluados: itemsCandidatos.length,
-      manual_overrides_preserved: manualOverridesSkipped,
-    },
-  });
+  if (marcados > 0 || desvinculados > 0) {
+    await createAuditLog({
+      organizationId: profile.organization_id,
+      userId: user.id,
+      action: 'checklist_auto_matched',
+      resourceType: 'case',
+      resourceId: caseId,
+      metadata: {
+        auto_marcados: marcados,
+        desvinculados,
+        evaluados: itemsCandidatos.length,
+        manual_overrides_preserved: manualOverridesSkipped,
+      },
+    });
+  } else {
+    await createAuditLog({
+      organizationId: profile.organization_id,
+      userId: user.id,
+      action: 'checklist_auto_match_zero_results',
+      resourceType: 'case',
+      resourceId: caseId,
+      metadata: {
+        evaluados: itemsCandidatos.length,
+        manual_overrides_preserved: manualOverridesSkipped,
+      },
+    });
+  }
   revalidatePath(`/expedientes/${caseId}`);
 }
 

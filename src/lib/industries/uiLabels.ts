@@ -118,6 +118,9 @@ export type IndustryTerms = {
   // --- Placeholders ---
   placeholderTitle: string;
   placeholderClient: string;
+  // --- Acciones de cierre y cronología ---
+  archivarCta: string;
+  cronologiaSubtitulo: string;
 };
 
 const defaultTerms: IndustryTerms = {
@@ -188,6 +191,8 @@ const defaultTerms: IndustryTerms = {
   reportesSubtitulo: 'Análisis y visión de conjunto: métricas, actividad y auditoría para leer el panorama general de la organización.',
   placeholderTitle: 'Ej. Demanda — Cliente Pérez',
   placeholderClient: 'Nombre del cliente o empresa',
+  archivarCta: 'Archivar expediente',
+  cronologiaSubtitulo: 'Registro cronológico de actuaciones, audiencias y movimientos.',
 };
 
 const termsByIndustry: Partial<Record<IndustryType, Partial<IndustryTerms>>> = {
@@ -207,6 +212,16 @@ const termsByIndustry: Partial<Record<IndustryType, Partial<IndustryTerms>>> = {
     adjetivoEspecifico: 'específico',
     adjetivoEncontrado: 'encontrado',
     agenteSaludoGlobal: 'Soy tu Agente notarial. Vigilo certificados, vigencias y actos las 24 horas.',
+    agentePreguntasGlobales: [
+      '¿Qué vigencias y actos notariales tengo esta semana?',
+      '¿Qué legajos necesitan atención urgente?',
+      '¿Qué me recomendás priorizar hoy?'
+    ],
+    agenteSugerenciasLocales: [
+      '¿Cuáles son las vigencias o plazos críticos?',
+      '¿Detectás alguna inconsistencia o impedimento registral/notarial en los documentos?',
+      '¿Qué próximas actuaciones o hitos notariales me recomendás?'
+    ],
     expedienteSinTitulo: 'Legajo sin título',
     todosLosLegajosActivos: 'todos los legajos activos',
     legajosIncluidosContexto: 'LEGAJOS INCLUIDOS EN EL CONTEXTO',
@@ -254,6 +269,8 @@ const termsByIndustry: Partial<Record<IndustryType, Partial<IndustryTerms>>> = {
     reportesSubtitulo: 'Análisis y visión de conjunto: métricas, actividad y auditoría del registro notarial.',
     placeholderTitle: 'Ej. Escritura de Compraventa - Pérez y Gómez',
     placeholderClient: 'Ej. Juan Pérez y Ana Gómez',
+    archivarCta: 'Archivar legajo',
+    cronologiaSubtitulo: 'Registro cronológico de actuaciones, hitos notariales y movimientos.',
   },
   inmobiliaria: {
     elExpediente: 'la operación',
@@ -316,6 +333,8 @@ const termsByIndustry: Partial<Record<IndustryType, Partial<IndustryTerms>>> = {
     dashboardActivesHelper: 'Operaciones actualmente en captación o curso',
     dashboardPlazosHelper: 'Fechas clave y vencimientos',
     reportesSubtitulo: 'Análisis y visión de conjunto: métricas, cartera y auditoría para leer el panorama general de la inmobiliaria.',
+    archivarCta: 'Archivar operación',
+    cronologiaSubtitulo: 'Registro cronológico de actuaciones, visitas y movimientos.',
   },
   empresa: {
     elExpediente: 'el legajo',

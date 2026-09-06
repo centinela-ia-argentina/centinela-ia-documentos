@@ -133,8 +133,12 @@ export default async function ObservacionesPage() {
   const plazosAll = cases
     .map((c) => {
       const metadata = c.metadata as Record<string, unknown> | null;
-      const fecha = (metadata?.fecha_relevante as string | undefined)?.trim();
-      const tipo = (metadata?.tipo_fecha as string | undefined)?.trim() || 'Fecha de operación';
+      const fecha = (metadata?.fecha_relevante as string | undefined)?.trim()
+        || (metadata?.fecha_otorgamiento as string | undefined)?.trim()
+        || (metadata?.fecha_audiencia as string | undefined)?.trim()
+        || (metadata?.fecha_vencimiento as string | undefined)?.trim();
+      const tipo = (metadata?.tipo_fecha as string | undefined)?.trim()
+        || (metadata?.fecha_otorgamiento ? 'Fecha estimada de firma' : 'Fecha clave');
       return fecha ? { id: c.id, title: c.title, fecha, tipo } : null;
     })
     .filter((c): c is { id: string; title: string; fecha: string; tipo: string } => {

@@ -79,7 +79,11 @@ export default async function AgendaPage() {
   ];
 
   for (const c of cases) {
-    const fecha = ((c.metadata as Record<string, unknown> | null)?.fecha_relevante as string | undefined)?.trim();
+    const meta = c.metadata as Record<string, unknown> | null;
+    const fecha = (meta?.fecha_relevante as string | undefined)?.trim()
+      || (meta?.fecha_otorgamiento as string | undefined)?.trim()
+      || (meta?.fecha_audiencia as string | undefined)?.trim()
+      || (meta?.fecha_fin_reserva as string | undefined)?.trim();
     if (!fecha) continue;
     eventos.push({
       id: `case-${c.id}`,
@@ -113,12 +117,15 @@ export default async function AgendaPage() {
 
     eventos.push({
       id: `${tipo}-${p.id}`,
+      rawId: p.id,
       fecha: fechaNorm,
       hora: hora ?? undefined,
       titulo: tituloString,
+      detalle: (p as any).detalle ?? null,
       tipo,
       href: cid ? `/expedientes/${cid}` : '/agenda',
       expedienteNombre: cid ? caseTitleById.get(cid) : undefined,
+      caseId: cid ?? undefined,
     });
   }
 

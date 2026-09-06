@@ -187,3 +187,33 @@ export async function guardarTurno(input: {
     caseId: input.caseId ?? null,
   });
 }
+
+export async function eliminarEventoAgenda(id: string): Promise<{ ok: boolean; mensaje?: string }> {
+  const { user, profile } = await getUserProfile();
+  if (!user || !profile) return { ok: false, mensaje: 'No autenticado' };
+  if (!isUserRole(profile.role) || !canUpdateCase(profile.role)) {
+    return { ok: false, mensaje: 'Sin permisos para eliminar' };
+  }
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from('agenda_plazos')
+    .delete()
+    .eq('id', id)
+    .eq('organization_id', profile.organization_id);
+
+  if (error) {
+    return { ok: false, mensaje: error.message };
+  }
+
+  await createAuditLog({
+    organizationId: profile.organization_id,
+    userId: user.id,
+    action: 'agenda_event_deleted',
+    resourceType: 'organization',
+    resourceId: profile.organization_id,
+    metadata: { id },
+  });
+
+  revalidatePath('/agenda');
+  return { ok: true };
+}

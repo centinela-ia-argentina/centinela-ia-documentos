@@ -22,7 +22,9 @@ export async function DerivarEscribania({ caseId }: { caseId: string }) {
     <div className="rounded-2xl border border-white/10 bg-white/5 p-6 space-y-4">
       <div>
         <h2 className="text-sm font-semibold text-white">🤝 Derivar a Escribanía</h2>
-        <p className="mt-1 text-sm text-slate-400">Enviá este legajo a una escribanía para que lo revise en modo solo lectura.</p>
+        <p className="mt-1 text-sm text-slate-400">
+          Enviá este legajo a una escribanía con acceso colaborativo limitado (visualización de antecedentes y carga de documentación complementaria).
+        </p>
       </div>
 
       <form action={derivarAEscribania} className="space-y-3">

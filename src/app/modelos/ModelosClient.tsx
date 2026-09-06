@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Document, Packer, Paragraph, TextRun } from 'docx';
 import { ArrowLeft, Copy, Check, Download, FileSignature, Search, FolderKanban, FileDown, Sparkles, Loader2 } from 'lucide-react';
 import { MODELOS, type ModeloEscrito } from '@/lib/legal/modelos';
@@ -115,11 +115,27 @@ export function ModelosClient({
 
   const esEscribania = industria === 'escribania';
   const esInmobiliaria = industria === 'inmobiliaria';
-  const placeholderIA = esEscribania
-    ? 'Contale a la IA qué necesitás. Ej: escritura de compraventa entre Juan Pérez (vendedor) y Ana Gómez (compradora) sobre el inmueble de calle Falsa 123, por un valor de USD 100.000…'
-    : esInmobiliaria
-    ? 'Contale a la IA qué necesitás. Ej: boleto de compraventa entre Juan Pérez (vendedor) y Ana Gómez (compradora) sobre el depto de calle Falsa 123, precio USD 100.000, seña del 30%, escrituración en 60 días…'
-    : 'Contale a la IA qué necesitás. Ej: demanda por despido sin causa, reclama indemnización art. 245 LCT; ingresó el 01/2020, categoría vendedor…';
+  const placeholderIA = useMemo(() => {
+    if (esEscribania) {
+      if (seleccionadoId === 'notarial-poder-especial') {
+        return 'Contale a la IA qué necesitás. Ej: poder especial para escriturar el inmueble de Av. Corrientes 1234, CABA, facultando al apoderado a otorgar la escritura traslativa de dominio y percibir el saldo…';
+      }
+      if (seleccionadoId === 'notarial-certificacion-firmas') {
+        return 'Contale a la IA qué necesitás. Ej: certificación notarial de firmas puestas en mi presencia en contrato de locación entre partes individualizadas…';
+      }
+      if (seleccionadoId === 'notarial-acta-constatacion') {
+        return 'Contale a la IA qué necesitás. Ej: acta de constatación del estado físico de la unidad funcional sita en Av. Santa Fe 2000 a requerimiento de parte…';
+      }
+      if (seleccionadoId === 'notarial-cesion-derechos-hereditarios') {
+        return 'Contale a la IA qué necesitás. Ej: cesión onerosa de derechos y acciones hereditarios de los autos sucesorios Martínez s/ Sucesión…';
+      }
+      return 'Contale a la IA qué necesitás. Ej: escritura de compraventa entre Juan Pérez (vendedor) y Ana Gómez (compradora) sobre el inmueble de calle Falsa 123, por un valor de USD 100.000…';
+    }
+    if (esInmobiliaria) {
+      return 'Contale a la IA qué necesitás. Ej: boleto de compraventa entre Juan Pérez (vendedor) y Ana Gómez (compradora) sobre el depto de calle Falsa 123, precio USD 100.000, seña del 30%, escrituración en 60 días…';
+    }
+    return 'Contale a la IA qué necesitás. Ej: demanda por despido sin causa, reclama indemnización art. 245 LCT; ingresó el 01/2020, categoría vendedor…';
+  }, [esEscribania, esInmobiliaria, seleccionadoId]);
   const textoDisclaimer = esEscribania
     ? 'Modelos orientativos y editables. Revisá y adaptá cada instrumento a tu jurisdicción, normativa notarial y registral y a cada caso antes de otorgarlo.'
     : esInmobiliaria
@@ -254,6 +270,19 @@ export function ModelosClient({
       }
     }
   };
+
+  useEffect(() => {
+    if (!expedienteInicialId || !seleccionadoId) return;
+    let activo = true;
+    void Promise.resolve().then(async () => {
+      if (!activo) return;
+      await aplicarExpediente(expedienteInicialId);
+    });
+    return () => {
+      activo = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [expedienteInicialId, seleccionadoId]);
 
   const volver = () => {
     setSeleccionadoId(null);

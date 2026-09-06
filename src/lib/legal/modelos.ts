@@ -2341,38 +2341,53 @@ export function sugerirModeloPorTipo(
   return encontrado;
 }
 
-export function sugerirModeloNotarialPorTipo(tipo?: string): ModeloEscrito | null {
-  const t = (tipo ?? '').toLowerCase();
+export function sugerirModeloNotarialPorTipo(tipo?: string | null): ModeloEscrito | null {
+  const t = (tipo ?? '').toLowerCase().trim();
   if (!t) return null;
 
   let id: string | null = null;
 
-  if (
-    t.includes('compraventa') ||
-    t.includes('escritura') ||
-    t.includes('dominio') ||
-    t.includes('titulo') ||
-    t.includes('título') ||
-    t.includes('inmueble')
-  ) {
-    id = 'notarial-compraventa-inmueble';
-  } else if (t.includes('autorizaci') || t.includes('viaje')) {
-    id = 'notarial-autorizacion-viaje-menor';
-  } else if (t.includes('poder')) {
-    if (t.includes('especial')) {
+  // 1. Poderes: diferenciar estrictamente especial de general amplio; no sugerir amplio por defecto ante ambigüedad
+  if (t.includes('poder')) {
+    if (t.includes('especial') || (t.includes('administraci') && !t.includes('general'))) {
       id = 'notarial-poder-especial';
-    } else {
+    } else if (t.includes('general') && !t.includes('especial')) {
       id = 'notarial-poder-general-amplio';
+    } else {
+      // Poder sin calificación unívoca -> selección manual segura
+      id = null;
     }
-  } else if (t.includes('certificaci') || t.includes('firma')) {
-    id = 'notarial-certificacion-firmas';
-  } else if (t.includes('acta')) {
+  }
+  // 2. Actas: solo sugerir acta de constatación si se tipifica expresamente constatación; no resolver actas genéricas
+  else if (t.includes('constataci')) {
     id = 'notarial-acta-constatacion';
-  } else if (
+  } else if (t.includes('acta')) {
+    id = null; // Acta genérica o no tipificada como constatación
+  }
+  // 3. Certificaciones de firmas
+  else if (t.includes('certificaci') || t.includes('firma')) {
+    id = 'notarial-certificacion-firmas';
+  }
+  // 4. Sucesiones: solo sugerir cesión si explicita 'cesión' o 'ceder' de derechos hereditarios/sucesorios (evitando que 'sucesión' contenga 'cesión')
+  else if (
     /(?:^|[^\p{L}])(cesi[oó]n|ceder)(?:[^\p{L}]|$)/iu.test(t) &&
     /(?:^|[^\p{L}])(hereditari[oa]s?|herencia|sucesor(?:i[oa]s?)?|sucesi[oó]n)(?:[^\p{L}]|$)/iu.test(t)
   ) {
     id = 'notarial-cesion-derechos-hereditarios';
+  } else if (t.includes('sucesi')) {
+    id = null; // Sucesión genérica -> selección manual
+  }
+  // 5. Autorizaciones de viaje
+  else if (t.includes('viaje') || (t.includes('autorizaci') && t.includes('menor'))) {
+    id = 'notarial-autorizacion-viaje-menor';
+  }
+  // 6. Compraventa de inmueble: tipificación explícita de compraventa o inmueble
+  else if (
+    t.includes('compraventa') ||
+    (t.includes('inmueble') && !t.includes('alquiler') && !t.includes('locaci')) ||
+    (t.includes('escritura') && (t.includes('traslativa') || t.includes('dominio') || t.includes('venta')))
+  ) {
+    id = 'notarial-compraventa-inmueble';
   }
 
   if (!id) return null;
