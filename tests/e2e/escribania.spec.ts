@@ -192,8 +192,10 @@ test.describe.serial('Centinela IA - Escribania E2E', () => {
   });
 
   test('G. Palermo Cuba - Consistencia de Fechas, Radar, Observaciones y Guardrail UIF', async ({ browser }) => {
-    // 1. Limpiar outputs previos para asegurar ejecución real
+    // 1. Limpiar outputs y plazos previos para asegurar ejecución real
+    const PLAZO_PALERMO_ID = 'bbbb2222-2222-2222-2222-222222222222';
     await serviceClient.from('ai_outputs').delete().eq('case_id', CASE_PALERMO_ID);
+    await serviceClient.from('agenda_plazos').delete().eq('case_id', CASE_PALERMO_ID);
 
     // 2. Sembrar legajo Palermo Cuba y su documento
     await serviceClient.from('cases').upsert({
@@ -242,6 +244,17 @@ test.describe.serial('Centinela IA - Escribania E2E', () => {
           { descripcion: 'Fecha tentativa de escritura', fecha: '2026-09-10', tipo: 'contractual_deadline', confianza: 'alta', requiere_revision: false, evidencia_textual: '10 de septiembre de 2026' }
         ]
       }
+    });
+
+    // 4. Sembrar plazo en agenda para verificar preservación de case_id y categoría plazo en escribanía
+    await serviceClient.from('agenda_plazos').upsert({
+      id: PLAZO_PALERMO_ID,
+      organization_id: ORG_ESC_ID,
+      case_id: CASE_PALERMO_ID,
+      titulo: 'Fecha límite contractual de escrituración',
+      fecha: '2026-09-08',
+      categoria: 'plazo',
+      detalle: 'Plazo contractual de 90 días según documento: 01_boleto_compraventa_palermo_cuba.pdf',
     });
 
     const { context, page } = await loginAs(browser, 'admin.esc@test.com');
@@ -306,10 +319,31 @@ test.describe.serial('Centinela IA - Escribania E2E', () => {
       const linkExp = page.locator(`a[href="/expedientes/${CASE_PALERMO_ID}"]`);
       await expect(linkExp.first()).toBeVisible();
 
-      // 9. Inspeccionar Agenda: categoría plazo preservada
+      // 9. Inspeccionar Agenda: evento vinculado, preservación de categoría plazo y case_id
       await page.goto('/agenda');
       await expect(page.locator('body')).toBeVisible();
-      await expect(page.locator('option[value="plazo"]').first()).toBeAttached();
+
+      // Formulario de nuevo evento: opción plazo disponible y no oculta en escribanía
+      await page.locator('button:has-text("Nuevo evento")').click();
+      await expect(page.locator('select[data-testid="agenda-categoria"] option[value="plazo"]')).toBeAttached();
+      await page.locator('button:has-text("Nuevo evento")').click();
+
+      // Evento de plazo en la lista del mes con categoría plazo (no degradado a Recordatorio)
+      await expect(page.locator('body')).toContainText('Fecha límite contractual de escrituración');
+
+      // Abrir modal de detalle del plazo
+      await page.locator('button:has-text("Fecha límite contractual de escrituración")').first().click();
+      await expect(page.locator('body')).toContainText('America/Argentina/Buenos_Aires');
+
+      // Preservación de enlace al legajo (/expedientes/[id])
+      const linkAgendaExp = page.locator(`a[href="/expedientes/${CASE_PALERMO_ID}"]`);
+      await expect(linkAgendaExp.first()).toBeVisible();
+
+      // Al entrar en edición: la categoría seleccionada es plazo (no se degrada a Recordatorio)
+      await page.locator('[data-testid="agenda-editar-btn"]').click();
+      await expect(page.locator('[data-testid="agenda-edit-categoria"]')).toBeVisible();
+      await expect(page.locator('[data-testid="agenda-edit-categoria"]')).toHaveValue('plazo');
+      await expect(page.locator('[data-testid="agenda-edit-categoria"] option[value="plazo"]')).toBeAttached();
     } finally {
       await page.close();
       await context.close();
