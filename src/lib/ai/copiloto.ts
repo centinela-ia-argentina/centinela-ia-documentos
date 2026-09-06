@@ -337,15 +337,40 @@ export async function cotejarDocumentosConIA(input: {
     if (!raw.trim()) return { ok: false, motivo: 'error' };
     const parsed = JSON.parse(raw);
     const arr = (v: unknown): string[] => (Array.isArray(v) ? v.map((x) => String(x)) : []);
+    const veredicto = String(parsed.veredicto ?? '');
+    const coincidencias = arr(parsed.coincidencias);
+    let discrepancias = arr(parsed.discrepancias);
+    const faltantes = arr(parsed.faltantes);
+    let alertas_vigencia = arr(parsed.alertas_vigencia);
+
+    if (input.industria === 'escribania') {
+      const datosBoleto = detectarDatosBoleto(input.documentos, []);
+      if (datosBoleto.fechaBoleto && datosBoleto.plazoDias && datosBoleto.fechaTentativa) {
+        const analisis = analizarPlazoBoletoEscritura(
+          datosBoleto.fechaBoleto,
+          datosBoleto.plazoDias,
+          datosBoleto.fechaTentativa
+        );
+        if (analisis.excedePlazo && analisis.advertencia) {
+          if (!alertas_vigencia.some((a: string) => a.toLowerCase().includes('excede'))) {
+            alertas_vigencia.unshift(analisis.advertencia);
+          }
+          if (!discrepancias.some((d: string) => d.toLowerCase().includes('excede') || d.toLowerCase().includes('plazo contractual'))) {
+            discrepancias.push(`Plazo contractual: la fecha tentativa (${analisis.fechaTentativaAr}) supera el límite de escrituración (${analisis.fechaLimiteAr}) fijado en el boleto por ${analisis.diasExceso} días corridos.`);
+          }
+        }
+      }
+    }
+
     return {
       ok: true,
       model: `cotejo-${modelo}`,
       cotejo: {
-        veredicto: String(parsed.veredicto ?? ''),
-        coincidencias: arr(parsed.coincidencias),
-        discrepancias: arr(parsed.discrepancias),
-        faltantes: arr(parsed.faltantes),
-        alertas_vigencia: arr(parsed.alertas_vigencia),
+        veredicto,
+        coincidencias,
+        discrepancias,
+        faltantes,
+        alertas_vigencia,
       },
     };
   } catch (e) {

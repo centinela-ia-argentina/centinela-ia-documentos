@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase/server';
 import { getUserProfile } from '@/lib/auth/getUserProfile';
 import { createAuditLog } from '@/lib/audit/createAuditLog';
 import { generarResumenConIA, cotejarDocumentosConIA } from '@/lib/ai/copiloto';
-import { redactarEscrituraConIA } from '@/lib/ai/escrituras';
+import { redactarEscrituraConIA, evaluarEvidenciaOrigenFondosFailClosed } from '@/lib/ai/escrituras';
 import { redactarBorradorInmobiliariaConIA } from '@/lib/ai/borradorInmobiliaria';
 import { calificarInquilinoConIA } from '@/lib/ai/preScore';
 import { sugerirCoincidencias } from '@/lib/industries/checklistMatch';
@@ -990,27 +990,17 @@ export async function redactarEscrituraExpediente(caseId: string) {
   });
 
   const tieneEvidenciaOrigenFondos = docs.some((d) => {
-    const docType = String(d.document_type || '').toLowerCase();
-    const fileName = String(d.file_name || '').toLowerCase();
     const r = latestByDoc.get(d.id) || {};
-    const tipoDetectado = String(r.tipo_documental_detectado || '').toLowerCase();
-    const resumen = String(r.resumen || '').toLowerCase();
-    const datos = JSON.stringify(r.datos_clave || r.datos_relevantes || []).toLowerCase();
-
-    const isDocUif =
-      docType.includes('uif') ||
-      docType.includes('origen_fondos') ||
-      docType.includes('declaracion_jurada_fondos') ||
-      fileName.includes('origen_fondos') ||
-      fileName.includes('origen-fondos') ||
-      tipoDetectado.includes('origen de fondos') ||
-      tipoDetectado.includes('perfil uif');
-
-    const hasStructuredEvidence =
-      (resumen.includes('acredita origen') || resumen.includes('justificación de fondos') || resumen.includes('respaldo de fondos')) &&
-      (datos.includes('ingresos') || datos.includes('fondos') || datos.includes('declaración'));
-
-    return isDocUif && hasStructuredEvidence;
+    return evaluarEvidenciaOrigenFondosFailClosed({
+      document_type: d.document_type,
+      file_name: d.file_name,
+      tipo_documental_detectado: r.tipo_documental_detectado,
+      resumen: r.resumen,
+      datos_clave: r.datos_clave,
+      datos_relevantes: r.datos_relevantes,
+      origen_fondos_acreditado: r.origen_fondos_acreditado,
+      documento_fuente_uif: r.documento_fuente_uif || (r.origen_fondos_acreditado ? d.file_name : null),
+    });
   });
 
   const { data: resumenData } = await supabase

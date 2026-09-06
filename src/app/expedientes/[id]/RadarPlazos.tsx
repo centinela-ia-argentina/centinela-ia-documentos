@@ -67,7 +67,7 @@ export function RadarPlazos({
       if (it.origen === 'documento') return false;
       
       const texto = `${it.titulo} ${it.detalle || ''}`.toLowerCase();
-      if (texto.includes('emisión') || texto.includes('emision')) return false;
+      if (texto.includes('emisión') || texto.includes('emision') || texto.includes('fecha del boleto') || texto.includes('fecha de boleto')) return false;
 
       return esPlazoRadar(it.titulo) || (it.detalle && esPlazoRadar(it.detalle));
     })

@@ -8,11 +8,13 @@ import {
   analizarPlazoBoletoEscritura,
   extraerFechaBoletoUif,
   extraerFechasOperativasLegajo,
+  extraerFechasAccionablesLegajo,
 } from './fechasCanonicas';
 import { clasificarFecha, isActionableDate } from './plazos';
 import { sanitizarTerminologiaEscribania } from '@/lib/ai/copiloto';
 import {
   aplicarGuardrailOrigenFondos,
+  evaluarEvidenciaOrigenFondosFailClosed,
   LEYENDA_ORIGEN_FONDOS_FALTANTE,
   type BorradorEscritura,
 } from '@/lib/ai/escrituras';
@@ -161,5 +163,188 @@ describe('Coherencia Borrador — UIF / PLA', () => {
     expect(resultado.cuerpo).toBe(borradorAcreditado.cuerpo);
     expect(resultado.datos_faltantes).toEqual([]);
     expect(resultado.advertencias).toEqual([]);
+  });
+
+  it('elimina y reemplaza la frase literal completa sin conservar simultáneamente afirmación de licitud y dato pendiente', () => {
+    const fraseLiteral =
+      'La presente operación se realiza con fondos de lícito origen, dando cumplimiento a las disposiciones de la Unidad de Información Financiera (UIF).';
+    const borrador: BorradorEscritura = {
+      titulo: 'Borrador con frase real',
+      cuerpo: `Comparecencia. ${fraseLiteral} Se entrega la posesión.`,
+      datos_faltantes: [],
+      advertencias: [],
+    };
+
+    const resultado = aplicarGuardrailOrigenFondos(borrador, false);
+
+    // 1. Ausencia de afirmación de licitud o cumplimiento positivo UIF
+    expect(resultado.cuerpo.toLowerCase()).not.toContain('lícito origen');
+    expect(resultado.cuerpo.toLowerCase()).not.toContain('licito origen');
+    expect(resultado.cuerpo.toLowerCase()).not.toContain('origen lícito');
+    expect(resultado.cuerpo.toLowerCase()).not.toContain('origen licito');
+    expect(resultado.cuerpo.toLowerCase()).not.toContain('cumplimiento a las disposiciones');
+    expect(resultado.cuerpo.toLowerCase()).not.toContain('cumplimiento de las disposiciones');
+    expect(resultado.cuerpo.toLowerCase()).not.toContain('dando cumplimiento');
+
+    // 2. Presencia obligatoria del placeholder
+    expect(resultado.cuerpo).toContain(LEYENDA_ORIGEN_FONDOS_FALTANTE);
+    expect(resultado.datos_faltantes).toContain(LEYENDA_ORIGEN_FONDOS_FALTANTE);
+    expect(resultado.advertencias.length).toBeGreaterThan(0);
+  });
+
+  it('cubre variantes de fondos lícitos, origen lícito, disposiciones UIF y justificación positiva no respaldada', () => {
+    const variantes = [
+      'Los fondos son de lícito origen y se dio cumplimiento a las disposiciones de la UIF.',
+      'El adquirente abona con fondos de origen lícito.',
+      'Se abona con fondos lícitos acreditando el origen lícito.',
+      'Operación efectuada dando cumplimiento estricto a las disposiciones de la Unidad de Información Financiera.',
+      'Las partes declaran la justificación positiva de fondos conforme UIF.',
+    ];
+
+    for (const v of variantes) {
+      const borrador: BorradorEscritura = {
+        titulo: 'Borrador variante',
+        cuerpo: `Cláusula de pago: ${v}`,
+        datos_faltantes: [],
+        advertencias: [],
+      };
+      const res = aplicarGuardrailOrigenFondos(borrador, false);
+
+      expect(res.cuerpo.toLowerCase()).not.toContain('lícito origen');
+      expect(res.cuerpo.toLowerCase()).not.toContain('origen lícito');
+      expect(res.cuerpo.toLowerCase()).not.toContain('fondos lícitos');
+      expect(res.cuerpo).toContain(LEYENDA_ORIGEN_FONDOS_FALTANTE);
+    }
+  });
+});
+
+describe('Evidencia UIF Fail-Closed', () => {
+  it('falla cerrado si el resumen contiene "No acredita origen de fondos" y mantiene el placeholder', () => {
+    const docAnalisis = {
+      document_type: 'origen_fondos',
+      file_name: 'origen_fondos.pdf',
+      resumen: 'El cliente no acredita origen de fondos ni presenta recibos suficientes.',
+      datos_clave: ['fondos', 'ingresos'],
+    };
+
+    const tieneEvidencia = evaluarEvidenciaOrigenFondosFailClosed(docAnalisis);
+    expect(tieneEvidencia).toBe(false);
+
+    const borrador: BorradorEscritura = {
+      titulo: 'Borrador test',
+      cuerpo: 'Precio y forma de pago: USD 50.000.',
+      datos_faltantes: [],
+      advertencias: [],
+    };
+    const res = aplicarGuardrailOrigenFondos(borrador, tieneEvidencia);
+    expect(res.cuerpo).toContain(LEYENDA_ORIGEN_FONDOS_FALTANTE);
+  });
+
+  it('rechaza explícitamente términos negativos: sin acreditar, no consta, falta, pendiente, insuficiente, no verificado', () => {
+    const frasesNegativas = [
+      'Documento sin acreditar origen de fondos',
+      'No consta justificación de ingresos ni fondos',
+      'Falta documentación respaldatoria de origen de fondos',
+      'Trámite de fondos pendiente de verificación',
+      'Justificación insuficiente de fondos',
+      'Origen de fondos no verificado',
+      'No se acredita la licitud',
+    ];
+
+    for (const f of frasesNegativas) {
+      const doc = {
+        document_type: 'uif',
+        file_name: 'uif_doc.pdf',
+        resumen: f,
+        datos_clave: ['declaración', 'ingresos'],
+      };
+      expect(evaluarEvidenciaOrigenFondosFailClosed(doc)).toBe(false);
+    }
+  });
+
+  it('solo aprueba si existe acreditación estructurada positiva explícita con documento fuente', () => {
+    // 1. Caso afirmativo estructurado
+    const docPositivo = {
+      document_type: 'origen_fondos',
+      file_name: 'certificacion_ingresos.pdf',
+      resumen: 'Certificado contable legalizado con manifestación de bienes y fondos.',
+      origen_fondos_acreditado: true,
+      documento_fuente_uif: 'certificacion_ingresos.pdf',
+    };
+    expect(evaluarEvidenciaOrigenFondosFailClosed(docPositivo)).toBe(true);
+
+    // 2. Falta campo estructurado -> fail-closed por defecto (false)
+    const docSinFlag = {
+      document_type: 'origen_fondos',
+      file_name: 'fondos_ambiguo.pdf',
+      resumen: 'Se adjunta documentación.',
+    };
+    expect(evaluarEvidenciaOrigenFondosFailClosed(docSinFlag)).toBe(false);
+
+    // 3. Documento null/undefined -> false
+    expect(evaluarEvidenciaOrigenFondosFailClosed(null)).toBe(false);
+    expect(evaluarEvidenciaOrigenFondosFailClosed(undefined)).toBe(false);
+  });
+});
+
+describe('Fuente Común para Fechas y Extracción Accionable', () => {
+  it('calcula la fecha límite 08/09 a partir del análisis documental cuando no fue copiada a metadata', () => {
+    const legajoSinMeta = {
+      id: 'leg-sin-meta',
+      title: 'Legajo Palermo Cuba Sin Metadata de Límite',
+      metadata: {}, // metadata vacía
+    };
+
+    const aiOutputs = [
+      {
+        id: 'out-boleto',
+        result_json: {
+          fechas_plazos: [
+            { descripcion: 'Fecha del boleto de compraventa', fecha: '2026-06-10' },
+            { descripcion: 'Fecha tentativa de escrituración', fecha: '2026-09-10' },
+          ],
+          resumen: 'Boleto firmado el 10/06/2026 con plazo contractual de 90 días corridos para otorgar la escritura.',
+        },
+      },
+    ];
+
+    const fechas = extraerFechasOperativasLegajo(legajoSinMeta, aiOutputs);
+
+    const fLimite = fechas.find((f) => f.tipo === 'Fecha límite contractual');
+    expect(fLimite).toBeDefined();
+    expect(fLimite?.fecha).toBe('2026-09-08');
+
+    const fTentativa = fechas.find((f) => f.tipo === 'Fecha tentativa de escritura');
+    expect(fTentativa).toBeDefined();
+    expect(fTentativa?.fecha).toBe('2026-09-10');
+  });
+
+  it('extraerFechasAccionablesLegajo excluye la Fecha del boleto para Radar y Observaciones', () => {
+    const legajo = {
+      id: 'leg-1',
+      title: 'Legajo 1',
+      metadata: {
+        fecha_boleto: '2026-06-10',
+        plazo_dias: 90,
+        fecha_otorgamiento: '2026-09-10',
+      },
+    };
+
+    const accionables = extraerFechasAccionablesLegajo(legajo, []);
+
+    // No debe contener 'Fecha del boleto'
+    expect(accionables.some((f) => f.tipo.toLowerCase().includes('boleto'))).toBe(false);
+    expect(accionables.some((f) => f.fecha === '2026-06-10')).toBe(false);
+
+    // Debe contener Fecha límite contractual y Fecha tentativa de escritura con etiquetas diferenciadas
+    const limite = accionables.find((f) => f.fecha === '2026-09-08');
+    const tentativa = accionables.find((f) => f.fecha === '2026-09-10');
+
+    expect(limite).toBeDefined();
+    expect(limite?.tipo).toBe('Fecha límite contractual');
+
+    expect(tentativa).toBeDefined();
+    expect(tentativa?.tipo).toBe('Fecha tentativa de escritura');
+    expect(accionables.length).toBeGreaterThanOrEqual(2);
   });
 });

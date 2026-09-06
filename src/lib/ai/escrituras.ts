@@ -15,12 +15,67 @@ export const LEYENDA_ORIGEN_FONDOS_FALTANTE =
 export const PATRONES_AFIRMACION_FONDOS_LICITOS = [
   /manifiestan?\s+(?:bajo\s+juramento\s+)?que\s+los\s+fondos\s+(?:utilizados\s+)?provienen\s+de\s+(?:actividades\s+)?l[ií]citas/i,
   /origen\s+(?:de\s+los\s+fondos\s+es\s+)?l[ií]cito/i,
-  /fondos\s+(?:son\s+)?de\s+origen\s+l[ií]cito/i,
+  /fondos\s+(?:son\s+)?(?:de\s+)?(?:origen\s+l[ií]cito|l[ií]cito\s+origen)/i,
   /declaran?\s+(?:que\s+)?los\s+fondos\s+(?:son\s+)?l[ií]citos/i,
   /fondos\s+l[ií]citos/i,
-  /cumplimiento\s+(?:estricto\s+)?de\s+(?:las\s+normas\s+de\s+)?la\s+uif/i,
-  /acreditando\s+(?:el\s+)?origen\s+l[ií]cito/i,
+  /cumplimiento\s+(?:estricto\s+)?(?:de|a)\s+(?:las\s+(?:normas|disposiciones)\s+de\s+)?(?:la\s+)?(?:uif|unidad\s+de\s+informaci[oó]n\s+financiera)/i,
+  /disposiciones\s+de\s+la\s+unidad\s+de\s+informaci[oó]n\s+financiera/i,
+  /acreditando\s+(?:el\s+)?(?:origen\s+l[ií]cito|l[ií]cito\s+origen)/i,
+  /justificaci[oó]n\s+(?:positiva\s+)?de\s+fondos/i,
+  /l[ií]cito\s+origen/i,
+  /origen\s+l[ií]cito/i,
 ];
+
+export const PATRON_DISPARADOR_ORACION_UIF =
+  /(?:fondos\s+(?:utilizados\s+)?(?:son\s+|provienen\s+de\s+)?(?:de\s+)?(?:l[ií]cito\s+origen|origen\s+l[ií]cito|actividades\s+l[ií]citas))|fondos\s+l[ií]citos|l[ií]cito\s+origen|origen\s+l[ií]cito|(?:cumplimiento\s+(?:estricto\s+)?(?:de\s+|a\s+)?(?:las\s+)?disposiciones\s+(?:de\s+la\s+)?(?:uif|unidad\s+de\s+informaci[oó]n\s+financiera))|(?:disposiciones\s+de\s+la\s+unidad\s+de\s+informaci[oó]n\s+financiera)|(?:acredit(?:ando|ado|an|a)\s+(?:el\s+)?(?:origen\s+l[ií]cito|l[ií]cito\s+origen))|(?:justificaci[oó]n\s+(?:positiva\s+)?de\s+fondos)/i;
+
+const TERMINOS_NEGATIVOS_UIF =
+  /\b(?:no\s+acredita|sin\s+acreditar|no\s+consta|falta(?:n)?|pendiente(?:s)?|insuficiente(?:s)?|no\s+verificado|no\s+se\s+acredita|sin\s+justificar|no\s+justifica)\b/i;
+
+/**
+ * Evaluación fail-closed de evidencia de origen de fondos.
+ * Prioriza campo estructurado explícito con documento fuente.
+ * Si falta o es ambiguo, asume false.
+ * Descarta explícitamente términos negativos ("no acredita", "sin acreditar", etc.).
+ */
+export function evaluarEvidenciaOrigenFondosFailClosed(doc: {
+  document_type?: string | null;
+  file_name?: string | null;
+  tipo_documental_detectado?: string | null;
+  resumen?: string | null;
+  datos_clave?: unknown;
+  datos_relevantes?: unknown;
+  origen_fondos_acreditado?: boolean | null;
+  documento_fuente_uif?: string | null;
+  [key: string]: unknown;
+} | null | undefined): boolean {
+  if (!doc) return false;
+
+  // 1. Si está explícitamente negado
+  if (doc.origen_fondos_acreditado === false) {
+    return false;
+  }
+
+  const resumen = String(doc.resumen || '');
+  const datos = JSON.stringify([
+    ...(Array.isArray(doc.datos_clave) ? doc.datos_clave : []),
+    ...(Array.isArray(doc.datos_relevantes) ? doc.datos_relevantes : []),
+  ]);
+  const combinedText = `${resumen} ${datos}`.toLowerCase();
+
+  // 2. Descarte explícito de términos negativos (fail-closed)
+  if (TERMINOS_NEGATIVOS_UIF.test(combinedText)) {
+    return false;
+  }
+
+  // 3. Campo estructurado explícito con documento fuente trazable
+  if (doc.origen_fondos_acreditado === true && Boolean(doc.documento_fuente_uif || doc.document_type || doc.file_name)) {
+    return true;
+  }
+
+  // 4. Si no tiene flag estructurado afirmativo, fail-closed por defecto
+  return false;
+}
 
 export function aplicarGuardrailOrigenFondos(
   borrador: BorradorEscritura,
@@ -31,32 +86,69 @@ export function aplicarGuardrailOrigenFondos(
   const advertencias = [...borrador.advertencias];
 
   if (!tieneEvidencia) {
-    // 1. Reemplazar afirmaciones positivas de fondos lícitos no acreditados
+    // 1. Reemplazo a nivel de oración completa de cualquier cláusula o afirmación positiva de licitud / UIF
+    const lineas = cuerpo.split('\n');
+    let placeholderInsertado = false;
+
+    const lineasProcesadas = lineas.map((linea) => {
+      if (!PATRON_DISPARADOR_ORACION_UIF.test(linea)) return linea;
+
+      // Descomponer la línea en oraciones delimitadas por punto, punto y coma o signo de cierre
+      const oraciones = linea.match(/[^.;!?]+(?:[.;!?]|$)/g) || [linea];
+      const oracionesResultado: string[] = [];
+
+      for (const oracion of oraciones) {
+        if (PATRON_DISPARADOR_ORACION_UIF.test(oracion)) {
+          if (!placeholderInsertado) {
+            oracionesResultado.push(` ORIGEN DE FONDOS Y PLA/FT: ${LEYENDA_ORIGEN_FONDOS_FALTANTE}.`);
+            placeholderInsertado = true;
+          }
+          // Si ya se insertó el reemplazo, descartar oraciones subsiguientes que afirmen licitud para no duplicar
+        } else {
+          oracionesResultado.push(oracion);
+        }
+      }
+
+      return oracionesResultado.join('').replace(/[ \t]{2,}/g, ' ').trim();
+    });
+
+    cuerpo = lineasProcesadas.join('\n');
+
+    // 2. Barrido secundario fail-safe: eliminar cualquier fragmento residual de afirmación positiva de licitud o UIF
     for (const pat of PATRONES_AFIRMACION_FONDOS_LICITOS) {
       if (pat.test(cuerpo)) {
-        cuerpo = cuerpo.replace(pat, LEYENDA_ORIGEN_FONDOS_FALTANTE);
+        cuerpo = cuerpo.replace(pat, '');
       }
     }
 
-    // 2. Si el cuerpo aún no contiene la leyenda obligatoria, incorporarla en la cláusula de pago/fondos
+    // 3. Limpieza de residuos sintácticos producidos por la remoción
+    cuerpo = cuerpo
+      .replace(/,\s*,/g, ',')
+      .replace(/\.\s*\./g, '.')
+      .replace(/dando cumplimiento a las disposiciones[^.]*\./gi, '')
+      .replace(/con fondos de lícito origen[^.]*\./gi, '')
+      .replace(/[ \t]{2,}/g, ' ');
+
+    // 4. Si el cuerpo aún no contiene la leyenda obligatoria, incorporarla en la cláusula de pago/fondos
     if (!cuerpo.includes(LEYENDA_ORIGEN_FONDOS_FALTANTE)) {
-      if (/precio|pago|forma\s+de\s+pago/i.test(cuerpo)) {
+      if (/(precio|pago|forma\s+de\s+pago)/i.test(cuerpo)) {
         cuerpo = cuerpo.replace(
-          /(precio[^\n]*\n|forma\s+de\s+pago[^\n]*\n)/i,
+          /((?:precio|pago|forma\s+de\s+pago)[^\n]*)(?:\n|$)/i,
           `$1\nORIGEN DE FONDOS Y PLA/FT: ${LEYENDA_ORIGEN_FONDOS_FALTANTE}\n`
         );
-      } else {
+      }
+      if (!cuerpo.includes(LEYENDA_ORIGEN_FONDOS_FALTANTE)) {
         cuerpo += `\n\nORIGEN DE FONDOS Y PLA/FT: ${LEYENDA_ORIGEN_FONDOS_FALTANTE}`;
       }
     }
 
-    // 3. Registrar en datos_faltantes si no figura
+    // 5. Registrar en datos_faltantes si no figura
     const itemFaltante = LEYENDA_ORIGEN_FONDOS_FALTANTE;
     if (!datosFaltantes.some((d) => d.toLowerCase().includes('origen de fondos'))) {
       datosFaltantes.push(itemFaltante);
     }
 
-    // 4. Advertencia de revisión profesional y entorno controlado
+    // 6. Advertencia de revisión profesional y entorno controlado
     const advUif =
       'Revisión profesional requerida: no consta documentación respaldatoria estructurada sobre origen y licitud de fondos. Las operaciones y personas de prueba son ficticias (entorno controlado).';
     if (!advertencias.some((a) => a.toLowerCase().includes('origen y licitud de fondos'))) {

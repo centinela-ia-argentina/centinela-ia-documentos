@@ -10,7 +10,7 @@ import { getIndustryTerms } from '@/lib/industries/uiLabels';
 import { isSensitiveDocument } from '@/lib/documents/sensitivity';
 import { formatPlazoDate } from '@/lib/format/date';
 import { MotionCard } from '@/components/ui/MotionCard';
-import { extraerFechasOperativasLegajo } from '@/lib/plazos/fechasCanonicas';
+import { extraerFechasAccionablesLegajo } from '@/lib/plazos/fechasCanonicas';
 
 
 export default async function ObservacionesPage() {
@@ -149,7 +149,7 @@ export default async function ObservacionesPage() {
 
   for (const c of cases) {
     const outputs = aiOutputsByCase.get(c.id) || [];
-    const fechas = extraerFechasOperativasLegajo(c, outputs);
+    const fechas = extraerFechasAccionablesLegajo(c, outputs);
     for (const f of fechas) {
       const status = getDocumentExpiryStatus(f.fecha);
       if (status === 'por_vencer' || status === 'vencido') {

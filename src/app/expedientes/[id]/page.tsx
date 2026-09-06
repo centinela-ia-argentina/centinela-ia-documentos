@@ -575,8 +575,8 @@ export default async function CaseDetailPage({ params, searchParams }: CaseDetai
     }
   }
 
-  // 2.5) Fechas operativas registradas en metadata del legajo/expediente
-  const fechasMeta = extraerFechasOperativasLegajo(caseRecord);
+  // 2.5) Fechas operativas registradas en metadata del legajo/expediente y análisis de IA
+  const fechasMeta = extraerFechasOperativasLegajo(caseRecord, analisisData);
   for (const fm of fechasMeta) {
     if (!cronologia.some((it) => it.fecha === fm.fecha && it.titulo.toLowerCase().trim() === fm.tipo.toLowerCase().trim())) {
       cronologia.push({
