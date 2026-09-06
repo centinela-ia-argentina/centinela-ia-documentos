@@ -16,8 +16,17 @@ import { IndustryType, getDocumentTypeLabel } from '@/lib/industries/documentTyp
 import { getIndustryTerms } from '@/lib/industries/uiLabels';
 import { Sparkles, Search, FolderKanban, FileText } from 'lucide-react';
 
-export function BuscarClient({ industry = 'legal' }: { industry?: IndustryType }) {
-  const terms = getIndustryTerms(industry);
+export function BuscarClient({ industry = null }: { industry?: IndustryType | null }) {
+  const terms = industry ? getIndustryTerms(industry) : null;
+  const entityPlural =
+    industry === 'legal'
+      ? 'Expedientes'
+      : industry === 'escribania'
+      ? 'Legajos'
+      : industry === 'inmobiliaria'
+      ? 'Operaciones'
+      : 'Legajos / Expedientes';
+
   const [tab, setTab] = useState<'rag' | 'operativo'>('rag');
 
   // Estado para RAG
@@ -37,7 +46,9 @@ export function BuscarClient({ industry = 'legal' }: { industry?: IndustryType }
       ? 'Ej: ¿Qué plazo procesal surge de la cédula de notificación?'
       : industry === 'escribania'
       ? 'Ej: ¿Qué antecedentes dominiales constan en la escritura?'
-      : 'Ej: ¿Qué plazo de vigencia tiene el contrato de locación?';
+      : industry === 'inmobiliaria'
+      ? 'Ej: ¿Qué plazo de vigencia tiene el contrato de locación?'
+      : 'Ej: ¿Qué plazos, antecedentes o datos constan en los documentos?';
 
   async function onSubmitRag(e: React.FormEvent) {
     e.preventDefault();
@@ -104,7 +115,7 @@ export function BuscarClient({ industry = 'legal' }: { industry?: IndustryType }
       {tab === 'rag' ? (
         <div>
           <AvisoPrivacidadIA contexto="responder tu pregunta" />
-          <AiDisclaimer industry={industry} className="mb-4" />
+          <AiDisclaimer industry={industry ?? undefined} className="mb-4" />
           <form onSubmit={onSubmitRag} className="flex flex-col gap-3 sm:flex-row">
             <input
               type="text"
@@ -189,10 +200,10 @@ export function BuscarClient({ industry = 'legal' }: { industry?: IndustryType }
               {/* Legajos */}
               <div>
                 <h3 className="flex items-center gap-2 text-sm font-semibold text-white">
-                  <FolderKanban className="h-4 w-4 text-cyan-400" /> {terms.expedientePlural} ({resultadosOp.legajos.length})
+                  <FolderKanban className="h-4 w-4 text-cyan-400" /> {entityPlural} ({resultadosOp.legajos.length})
                 </h3>
                 {resultadosOp.legajos.length === 0 ? (
-                  <p className="mt-2 text-xs text-slate-500">No se encontraron {terms.expedientePlural.toLowerCase()} con ese criterio.</p>
+                  <p className="mt-2 text-xs text-slate-500">No se encontraron {entityPlural.toLowerCase()} con ese criterio.</p>
                 ) : (
                   <div className="mt-3 grid gap-2 sm:grid-cols-2">
                     {resultadosOp.legajos.map((l) => (

@@ -23,7 +23,7 @@ import { getDocumentExpiryStatus, expiryStatusLabel, getExpiryBadgeStyles, getDa
 import { sensitivityLabel } from '@/lib/documents/sensitivity';
 import { formatPlazoDate } from '@/lib/format/date';
 import { esPlazoAccionable } from '@/lib/plazos/plazos';
-import { extraerFechaBoletoUif } from '@/lib/plazos/fechasCanonicas';
+import { extraerFechaBoletoUif, extraerFechasOperativasLegajo } from '@/lib/plazos/fechasCanonicas';
 import {
   linkChecklistItemDocument,
   toggleChecklistItem,
@@ -571,6 +571,21 @@ export default async function CaseDetailPage({ params, searchParams }: CaseDetai
         origen: 'detectada',
         etiquetaOrigen: `Detectada · ${nombrePorDoc.get(docId) || 'documento'}`,
         esFuturo: esFuturo(f),
+      });
+    }
+  }
+
+  // 2.5) Fechas operativas registradas en metadata del legajo/expediente
+  const fechasMeta = extraerFechasOperativasLegajo(caseRecord);
+  for (const fm of fechasMeta) {
+    if (!cronologia.some((it) => it.fecha === fm.fecha && it.titulo.toLowerCase().trim() === fm.tipo.toLowerCase().trim())) {
+      cronologia.push({
+        fecha: fm.fecha,
+        titulo: fm.tipo,
+        detalle: fm.title,
+        origen: 'agenda',
+        etiquetaOrigen: 'Metadata del legajo',
+        esFuturo: esFuturo(fm.fecha),
       });
     }
   }

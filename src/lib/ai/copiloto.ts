@@ -1,5 +1,7 @@
 import 'server-only';
 
+import { analizarPlazoBoletoEscritura } from '@/lib/plazos/fechasCanonicas';
+
 export type ResumenExpediente = {
   resumen_general: string;
   estado_actual: string;
@@ -11,6 +13,65 @@ export type ResumenExpediente = {
 
 type DocInput = { nombre: string; tipo: string; resumen: string; alertas: string[]; datos: string[] };
 type EventoInput = { fecha: string; tipo: string; titulo: string; descripcion: string };
+
+export function sanitizarTerminologiaEscribania(texto: string): string {
+  return texto
+    .replace(/^El presente expediente\b/gi, 'El presente legajo')
+    .replace(/\bel presente expediente\b/gi, 'el presente legajo')
+    .replace(/\beste expediente\b/gi, 'este legajo')
+    .replace(/\bdel expediente\b/gi, 'del legajo')
+    .replace(/\bal expediente\b/gi, 'al legajo')
+    .replace(/\bel expediente\b/gi, 'el legajo')
+    .replace(/\ben el expediente\b/gi, 'en el legajo')
+    .replace(/\betapa procesal\b/gi, 'etapa notarial')
+    .replace(/\briesgo procesal\b/gi, 'observación notarial');
+}
+
+function detectarDatosBoleto(documentos: DocInput[], eventos: EventoInput[]): {
+  fechaBoleto?: string;
+  plazoDias?: number;
+  fechaTentativa?: string;
+} {
+  const allText = [
+    ...documentos.flatMap((d) => [d.nombre, d.tipo, d.resumen, ...d.alertas, ...d.datos]),
+    ...eventos.flatMap((e) => [e.fecha, e.tipo, e.titulo, e.descripcion]),
+  ].join(' ');
+
+  let fechaBoleto: string | undefined;
+  let plazoDias: number | undefined;
+  let fechaTentativa: string | undefined;
+
+  const mBoleto = allText.match(/(?:boleto|compraventa)[^\d]{1,60}?(\d{4}-\d{2}-\d{2})/i) ||
+                  allText.match(/(?:boleto|compraventa)[^\d]{1,60}?(\d{2}\/\d{2}\/\d{4})/i);
+  if (mBoleto) {
+    const raw = mBoleto[1];
+    if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) fechaBoleto = raw;
+    else if (/^\d{2}\/\d{2}\/\d{4}$/.test(raw)) {
+      const [d, m, y] = raw.split('/');
+      fechaBoleto = `${y}-${m}-${d}`;
+    }
+  }
+
+  const mPlazo = allText.match(/(\d{1,3})\s*d[ií]as\s+corridos/i) ||
+                 allText.match(/plazo\s+(?:contractual\s+)?(?:de\s+)?(\d{1,3})\s*d[ií]as/i);
+  if (mPlazo) {
+    const p = parseInt(mPlazo[1], 10);
+    if (!Number.isNaN(p) && p > 0) plazoDias = p;
+  }
+
+  const mTentativa = allText.match(/(?:tentativa|estimada|escrituraci[oó]n)[^\d]{1,60}?(\d{4}-\d{2}-\d{2})/i) ||
+                     allText.match(/(?:tentativa|estimada|escrituraci[oó]n)[^\d]{1,60}?(\d{2}\/\d{2}\/\d{4})/i);
+  if (mTentativa) {
+    const raw = mTentativa[1];
+    if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) fechaTentativa = raw;
+    else if (/^\d{2}\/\d{2}\/\d{4}$/.test(raw)) {
+      const [d, m, y] = raw.split('/');
+      fechaTentativa = `${y}-${m}-${d}`;
+    }
+  }
+
+  return { fechaBoleto, plazoDias, fechaTentativa };
+}
 
 export async function generarResumenConIA(input: {
   titulo: string; cliente: string; tipo: string; estado: string;
@@ -36,26 +97,48 @@ export async function generarResumenConIA(input: {
 
   const introPorRubro =
     input.industria === 'escribania'
-      ? 'Sos un escribano argentino. En base a los documentos ya analizados y las actuaciones de un legajo notarial, redactá un RESUMEN EJECUTIVO del trámite, claro y profesional, para entender su estado de un vistazo.'
+      ? 'Sos un escribano argentino. En base a los documentos ya analizados y las actuaciones de un legajo notarial, redactá un RESUMEN EJECUTIVO del trámite, claro y profesional, para entender su estado de un vistazo. TERMINOLOGÍA: PROHIBIDO utilizar la palabra "expediente". Utilizá "legajo", "acto", "instrumento" u "operación notarial" según el contexto.'
       : input.industria === 'inmobiliaria'
       ? 'Sos un asesor inmobiliario argentino. En base a los documentos ya analizados y los movimientos de una operación (compraventa, alquiler o reserva), redactá un RESUMEN EJECUTIVO de la operación, claro y profesional, para entender su estado de un vistazo.'
       : 'Sos un abogado senior argentino. En base a los documentos ya analizados y las actuaciones de un expediente, redactá un RESUMEN EJECUTIVO del caso completo, claro y profesional, para entender el estado del asunto de un vistazo.';
 
+  const headerPorRubro =
+    input.industria === 'escribania'
+      ? `LEGAJO NOTARIAL: ${input.titulo}\nCliente / Solicitante: ${input.cliente || '-'} | Tipo de acto: ${input.tipo || '-'} | Estado: ${input.estado || '-'}`
+      : input.industria === 'inmobiliaria'
+      ? `OPERACIÓN: ${input.titulo}\nCliente: ${input.cliente || '-'} | Tipo: ${input.tipo || '-'} | Estado: ${input.estado || '-'}`
+      : `EXPEDIENTE: ${input.titulo}\nCliente: ${input.cliente || '-'} | Tipo: ${input.tipo || '-'} | Estado: ${input.estado || '-'}`;
+
+  const jsonTemplate =
+    input.industria === 'escribania'
+      ? [
+          '{',
+          '  "resumen_general": "2-4 oraciones sobre de qué se trata el legajo y su situación (NUNCA comiences con \\"El presente expediente\\"; referite al legajo o al acto)",',
+          '  "estado_actual": "una oración sobre en qué etapa notarial se encuentra el trámite",',
+          '  "partes": ["cada compareciente/otorgante y su rol notarial"],',
+          '  "puntos_clave": ["inmueble, montos, fechas clave de boleto y escrituración"],',
+          '  "riesgos_alertas": ["plazos contractuales, vigencia de certificados o inconsistencias a vigilar (si la fecha tentativa de firma excede el plazo contractual de días corridos, señalar los días exactos de exceso)"],',
+          '  "proximas_acciones": ["trámites notariales concretos sugeridos para el escribano"]',
+          '}',
+        ].join('\n')
+      : [
+          '{',
+          '  "resumen_general": "2-4 oraciones sobre de qué se trata el expediente y su situación",',
+          '  "estado_actual": "una oración sobre en qué etapa procesal está",',
+          '  "partes": ["cada parte y su rol"],',
+          '  "puntos_clave": ["hechos, montos, fechas y datos determinantes"],',
+          '  "riesgos_alertas": ["riesgos, plazos críticos o inconsistencias a vigilar"],',
+          '  "proximas_acciones": ["acciones concretas sugeridas para el profesional a cargo"]',
+          '}',
+        ].join('\n');
+
   const prompt = [
     introPorRubro,
     'Respondé SOLO un objeto JSON válido (sin texto adicional) con esta forma exacta:',
-    '{',
-    '  "resumen_general": "2-4 oraciones sobre de qué se trata el expediente y su situación",',
-    '  "estado_actual": "una oración sobre en qué etapa procesal está",',
-    '  "partes": ["cada parte y su rol"],',
-    '  "puntos_clave": ["hechos, montos, fechas y datos determinantes"],',
-    '  "riesgos_alertas": ["riesgos, plazos críticos o inconsistencias a vigilar"],',
-    '  "proximas_acciones": ["acciones concretas sugeridas para el profesional a cargo"]',
-    '}',
+    jsonTemplate,
     'Reglas: NO inventes datos, montos, fechas ni artículos. Si algo no surge de la información, devolvé un array vacío. Basate SOLO en lo aportado.',
     '',
-    `EXPEDIENTE: ${input.titulo}`,
-    `Cliente: ${input.cliente || '-'} | Tipo: ${input.tipo || '-'} | Estado: ${input.estado || '-'}`,
+    headerPorRubro,
     '',
     'DOCUMENTOS ANALIZADOS:',
     docsTexto || '(sin documentos analizados)',
@@ -82,15 +165,51 @@ export async function generarResumenConIA(input: {
     if (!raw.trim()) return { ok: false, motivo: 'error' };
     const parsed = JSON.parse(raw);
     const arr = (v: unknown): string[] => (Array.isArray(v) ? v.map((x) => String(x)) : []);
+
+    let resumenGeneral = String(parsed.resumen_general ?? '');
+    let estadoActual = String(parsed.estado_actual ?? '');
+    let partes = arr(parsed.partes);
+    let puntosClave = arr(parsed.puntos_clave);
+    let riesgosAlertas = arr(parsed.riesgos_alertas);
+    let proximasAcciones = arr(parsed.proximas_acciones);
+
+    if (input.industria === 'escribania') {
+      resumenGeneral = sanitizarTerminologiaEscribania(resumenGeneral);
+      estadoActual = sanitizarTerminologiaEscribania(estadoActual);
+      partes = partes.map(sanitizarTerminologiaEscribania);
+      puntosClave = puntosClave.map(sanitizarTerminologiaEscribania);
+      riesgosAlertas = riesgosAlertas.map(sanitizarTerminologiaEscribania);
+      proximasAcciones = proximasAcciones.map(sanitizarTerminologiaEscribania);
+
+      // Verificación determinística de plazo contractual de boleto vs fecha tentativa de escritura
+      const datosBoleto = detectarDatosBoleto(input.documentos, input.eventos);
+      if (datosBoleto.fechaBoleto && datosBoleto.plazoDias && datosBoleto.fechaTentativa) {
+        const analisis = analizarPlazoBoletoEscritura(
+          datosBoleto.fechaBoleto,
+          datosBoleto.plazoDias,
+          datosBoleto.fechaTentativa
+        );
+        if (analisis.excedePlazo && analisis.advertencia) {
+          const yaTieneAlerta = riesgosAlertas.some((r) => r.toLowerCase().includes('excede'));
+          if (!yaTieneAlerta) {
+            riesgosAlertas.unshift(analisis.advertencia);
+          }
+          if (!resumenGeneral.toLowerCase().includes('excede')) {
+            resumenGeneral += ` Se advierte que la fecha tentativa de escrituración (${analisis.fechaTentativaAr}) excede el plazo contractual de ${analisis.plazoDias} días corridos (límite: ${analisis.fechaLimiteAr}) por ${analisis.diasExceso} día${analisis.diasExceso === 1 ? '' : 's'} corridos.`;
+          }
+        }
+      }
+    }
+
     return {
       ok: true, model: `copiloto-${modelo}`,
       resumen: {
-        resumen_general: String(parsed.resumen_general ?? ''),
-        estado_actual: String(parsed.estado_actual ?? ''),
-        partes: arr(parsed.partes),
-        puntos_clave: arr(parsed.puntos_clave),
-        riesgos_alertas: arr(parsed.riesgos_alertas),
-        proximas_acciones: arr(parsed.proximas_acciones),
+        resumen_general: resumenGeneral,
+        estado_actual: estadoActual,
+        partes,
+        puntos_clave: puntosClave,
+        riesgos_alertas: riesgosAlertas,
+        proximas_acciones: proximasAcciones,
       },
     };
   } catch (e) { console.error('Copiloto parse error:', e); return { ok: false, motivo: 'error' }; }

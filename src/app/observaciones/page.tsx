@@ -10,6 +10,7 @@ import { getIndustryTerms } from '@/lib/industries/uiLabels';
 import { isSensitiveDocument } from '@/lib/documents/sensitivity';
 import { formatPlazoDate } from '@/lib/format/date';
 import { MotionCard } from '@/components/ui/MotionCard';
+import { extraerFechasOperativasLegajo } from '@/lib/plazos/fechasCanonicas';
 
 
 export default async function ObservacionesPage() {
@@ -37,7 +38,7 @@ export default async function ObservacionesPage() {
 
     supabase
       .from('ai_outputs')
-      .select('document_id')
+      .select('document_id, result_json, case_id')
       .eq('organization_id', profile.organization_id)
       .eq('output_type', 'document_analysis'),
 
@@ -130,23 +131,43 @@ export default async function ObservacionesPage() {
   const sinClasificar = sinClasificarAll.slice(0, 8);
 
   // 6. Plazos procesales / fechas clave
-  const plazosAll = cases
-    .map((c) => {
-      const metadata = c.metadata as Record<string, unknown> | null;
-      const fecha = (metadata?.fecha_relevante as string | undefined)?.trim()
-        || (metadata?.fecha_otorgamiento as string | undefined)?.trim()
-        || (metadata?.fecha_audiencia as string | undefined)?.trim()
-        || (metadata?.fecha_vencimiento as string | undefined)?.trim();
-      const tipo = (metadata?.tipo_fecha as string | undefined)?.trim()
-        || (metadata?.fecha_otorgamiento ? 'Fecha estimada de firma' : 'Fecha clave');
-      return fecha ? { id: c.id, title: c.title, fecha, tipo } : null;
-    })
-    .filter((c): c is { id: string; title: string; fecha: string; tipo: string } => {
-      if (!c) return false;
-      const status = getDocumentExpiryStatus(c.fecha);
-      return status === 'por_vencer' || status === 'vencido';
-    })
-    .sort((a, b) => (getDaysUntilExpiry(a.fecha) ?? 0) - (getDaysUntilExpiry(b.fecha) ?? 0));
+  const docCaseMap = new Map<string, string>();
+  for (const d of documents) {
+    if (d.case_id) docCaseMap.set(d.id, d.case_id);
+  }
+  const aiOutputsByCase = new Map<string, any[]>();
+  for (const o of aiOutputs) {
+    const cId = o.case_id || (o.document_id ? docCaseMap.get(o.document_id) : null);
+    if (cId) {
+      if (!aiOutputsByCase.has(cId)) aiOutputsByCase.set(cId, []);
+      aiOutputsByCase.get(cId)!.push(o);
+    }
+  }
+
+  const plazosAll: Array<{ id: string; title: string; fecha: string; tipo: string }> = [];
+  const plazosVistos = new Set<string>();
+
+  for (const c of cases) {
+    const outputs = aiOutputsByCase.get(c.id) || [];
+    const fechas = extraerFechasOperativasLegajo(c, outputs);
+    for (const f of fechas) {
+      const status = getDocumentExpiryStatus(f.fecha);
+      if (status === 'por_vencer' || status === 'vencido') {
+        const dedupKey = `${c.id}-${f.fecha}-${f.tipo}`;
+        if (!plazosVistos.has(dedupKey)) {
+          plazosVistos.add(dedupKey);
+          plazosAll.push({
+            id: f.id || `${c.id}-${f.fecha}`,
+            title: c.title || terms.itemSinTitulo,
+            fecha: f.fecha,
+            tipo: f.tipo,
+          });
+        }
+      }
+    }
+  }
+
+  plazosAll.sort((a, b) => (getDaysUntilExpiry(a.fecha) ?? 0) - (getDaysUntilExpiry(b.fecha) ?? 0));
   const plazos = plazosAll.slice(0, 8);
 
   const now = new Date();

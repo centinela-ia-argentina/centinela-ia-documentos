@@ -742,7 +742,7 @@ export async function generarResumenExpediente(caseId: string) {
 
   const { data: docsData } = await supabase
     .from('documents')
-    .select('id, file_name, document_type')
+    .select('id, file_name, document_type, expires_at')
     .eq('case_id', caseId)
     .eq('organization_id', profile.organization_id);
   const docs = docsData ?? [];
@@ -762,13 +762,21 @@ export async function generarResumenExpediente(caseId: string) {
 
   const documentos = docs.map((d) => {
     const r = latestByDoc.get(d.id) || {};
+    const fechas = Array.isArray(r.fechas_plazos)
+      ? r.fechas_plazos.map((f: any) => `${f.descripcion}: ${f.fecha}`)
+      : [];
+    if (d.expires_at) fechas.push(`Vencimiento registrado en sistema: ${d.expires_at}`);
+
     return {
       nombre: d.file_name,
       tipo: String(r.tipo_documental_detectado || d.document_type || 'Documento'),
       resumen: String(r.resumen || 'Sin análisis de IA todavía.'),
       alertas: Array.isArray(r.alertas) ? r.alertas.map(String) : [],
-      datos: Array.isArray(r.datos_clave) ? r.datos_clave.map(String)
-        : (Array.isArray(r.datos_relevantes) ? r.datos_relevantes.map(String) : []),
+      datos: [
+        ...(Array.isArray(r.datos_clave) ? r.datos_clave.map(String)
+          : (Array.isArray(r.datos_relevantes) ? r.datos_relevantes.map(String) : [])),
+        ...fechas,
+      ],
     };
   });
 
@@ -943,7 +951,7 @@ export async function redactarEscrituraExpediente(caseId: string) {
 
   const { data: docsData } = await supabase
     .from('documents')
-    .select('id, file_name, document_type')
+    .select('id, file_name, document_type, expires_at')
     .eq('case_id', caseId)
     .eq('organization_id', profile.organization_id);
   const docs = docsData ?? [];
@@ -963,14 +971,46 @@ export async function redactarEscrituraExpediente(caseId: string) {
 
   const documentos = docs.map((d) => {
     const r = latestByDoc.get(d.id) || {};
+    const fechas = Array.isArray(r.fechas_plazos)
+      ? r.fechas_plazos.map((f: any) => `${f.descripcion}: ${f.fecha}`)
+      : [];
+    if (d.expires_at) fechas.push(`Vencimiento registrado en sistema: ${d.expires_at}`);
+
     return {
       nombre: d.file_name,
       tipo: String(r.tipo_documental_detectado || d.document_type || 'Documento'),
       resumen: String(r.resumen || 'Sin análisis de IA todavía.'),
       alertas: Array.isArray(r.alertas) ? r.alertas.map(String) : [],
-      datos: Array.isArray(r.datos_clave) ? r.datos_clave.map(String)
-        : (Array.isArray(r.datos_relevantes) ? r.datos_relevantes.map(String) : []),
+      datos: [
+        ...(Array.isArray(r.datos_clave) ? r.datos_clave.map(String)
+          : (Array.isArray(r.datos_relevantes) ? r.datos_relevantes.map(String) : [])),
+        ...fechas,
+      ],
     };
+  });
+
+  const tieneEvidenciaOrigenFondos = docs.some((d) => {
+    const docType = String(d.document_type || '').toLowerCase();
+    const fileName = String(d.file_name || '').toLowerCase();
+    const r = latestByDoc.get(d.id) || {};
+    const tipoDetectado = String(r.tipo_documental_detectado || '').toLowerCase();
+    const resumen = String(r.resumen || '').toLowerCase();
+    const datos = JSON.stringify(r.datos_clave || r.datos_relevantes || []).toLowerCase();
+
+    const isDocUif =
+      docType.includes('uif') ||
+      docType.includes('origen_fondos') ||
+      docType.includes('declaracion_jurada_fondos') ||
+      fileName.includes('origen_fondos') ||
+      fileName.includes('origen-fondos') ||
+      tipoDetectado.includes('origen de fondos') ||
+      tipoDetectado.includes('perfil uif');
+
+    const hasStructuredEvidence =
+      (resumen.includes('acredita origen') || resumen.includes('justificación de fondos') || resumen.includes('respaldo de fondos')) &&
+      (datos.includes('ingresos') || datos.includes('fondos') || datos.includes('declaración'));
+
+    return isDocUif && hasStructuredEvidence;
   });
 
   const { data: resumenData } = await supabase
@@ -987,13 +1027,14 @@ export async function redactarEscrituraExpediente(caseId: string) {
   const metadata = (caseRecord.metadata || {}) as Record<string, string>;
 
   const result = await redactarEscrituraConIA({
-    titulo: caseRecord.title || 'Expediente',
+    titulo: caseRecord.title || 'Legajo',
     tipoActo: metadata.tipo_acto || caseRecord.case_type || '',
     comparecientes: metadata.comparecientes || caseRecord.client_name || '',
     registroProtocolo: metadata.registro_protocolo || '',
     fechaOtorgamiento: metadata.fecha_otorgamiento || '',
     resumenGeneral,
     documentos,
+    tieneEvidenciaOrigenFondos,
   });
 
   if (!result.ok) { revalidatePath(`/expedientes/${caseId}`); return; }

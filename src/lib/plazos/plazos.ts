@@ -78,7 +78,7 @@ const PATRONES_FECHA_PAGO = [
 
 const PATRONES_CONTRACTUAL = [
   /\b(?:vencimiento\s+contrato|fin\s+de\s+contrato|plazo\s+locativo|t[eé]rmino\s+contractual)\b/i,
-  /\b(?:vencimiento|vence|vigencia|tentativa)\b/i,
+  /\b(?:vencimiento|vence|vigencia|tentativa|l[ií]mite\s+contractual|plazo\s+contractual|fecha\s+tentativa|fecha\s+l[ií]mite)\b/i,
 ];
 
 /** Clasifica una fecha según su descripción y tipo sugerido. */
@@ -96,7 +96,8 @@ export function clasificarFecha(descripcion?: string | null, tipoSugerido?: stri
       (PATRONES_PRESCRIPCION.some((re) => re.test(d)) ||
         PATRONES_AUDIENCIA.some((re) => re.test(d)) ||
         PATRONES_PROCESAL.some((re) => re.test(d)) ||
-        PATRONES_VENCIMIENTO_DOC.some((re) => re.test(d)));
+        PATRONES_VENCIMIENTO_DOC.some((re) => re.test(d)) ||
+        PATRONES_CONTRACTUAL.some((re) => re.test(d)));
 
     if (!isExplicitlyActionable && d && (esFechaPago(d) || esFechaNacimiento(d))) {
       return esFechaNacimiento(d) ? 'informational' : 'payment_date';
@@ -114,9 +115,9 @@ export function clasificarFecha(descripcion?: string | null, tipoSugerido?: stri
   if (PATRONES_PRESCRIPCION.some((re) => re.test(d))) return 'limitation';
   if (PATRONES_PROCESAL.some((re) => re.test(d))) return 'procedural_deadline';
   if (PATRONES_VENCIMIENTO_DOC.some((re) => re.test(d))) return 'document_expiration';
+  if (PATRONES_CONTRACTUAL.some((re) => re.test(d))) return 'contractual_deadline';
   if (PATRONES_FECHA_EMISION.some((re) => re.test(d))) return 'issue_date';
   if (PATRONES_FECHA_PAGO.some((re) => re.test(d))) return 'payment_date';
-  if (PATRONES_CONTRACTUAL.some((re) => re.test(d))) return 'contractual_deadline';
 
   return 'informational';
 }

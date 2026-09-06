@@ -15,12 +15,12 @@ export default async function BuscarPage() {
 
   const puedeUsarIA = isUserRole(profile.role) && canUseAi(profile.role);
 
-  let industry: IndustryType = 'legal';
+  let industry: IndustryType | null = null;
   if (profile.organization_id) {
     try {
       industry = await getStrictIndustryForOrganization(profile.organization_id);
     } catch {
-      industry = 'legal';
+      industry = null;
     }
   }
 
