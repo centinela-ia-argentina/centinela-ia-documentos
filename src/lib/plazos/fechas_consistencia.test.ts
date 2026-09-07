@@ -23,6 +23,7 @@ import {
   recalcularOrdinalesNotariales,
   LEYENDA_ORIGEN_FONDOS_FALTANTE,
   FORMULA_FAIL_CLOSED_UIF,
+  REGEX_AFIRMACION_CUMPLIMIENTO_UIF,
   CLAUSULA_AUTONOMA_UIF,
   LEYENDA_ITI_DEROGADO,
   LEYENDA_ITI_VERIFICAR_FECHA,
@@ -1529,6 +1530,188 @@ describe('Sanitización de ITI en placeholders y prueba integral con texto real'
       expect(res).toContain('Conforme Ley 17.801 se practica la inscripción registral.');
       expect(res).not.toContain('23.282');
       expect(res).toContain('[VERIFICAR: normativa tributaria aplicable]');
+    });
+  });
+
+  describe('Microfix Unitario de Cierre: Afirmación Positiva UIF e Inserción ITI', () => {
+    it('1. detecta afirmaciones positivas de cumplimiento UIF y preserva ordinal y título DECLARACIONES JURADAS', () => {
+      const textoAutenticado =
+        'OCTAVA: DECLARACIONES JURADAS. Las partes manifiestan haber cumplido con las declaraciones juradas exigidas por las normativas fiscales y de prevención de lavado de activos y financiación del terrorismo, comprometiéndose a ratificarlas o ampliarlas si fuera necesario.';
+
+      const borrador: BorradorEscritura = {
+        titulo: 'Borrador test afirmación positiva UIF',
+        cuerpo: textoAutenticado,
+        datos_faltantes: [],
+        advertencias: [],
+      };
+
+      const res = aplicarGuardrailOrigenFondos(borrador, false);
+
+      const esperado =
+        'OCTAVA: DECLARACIONES JURADAS. [VERIFICAR: cumplimiento de las obligaciones que resulten aplicables conforme Ley 25.246 y resoluciones UIF vigentes].';
+
+      expect(res.cuerpo).toBe(esperado);
+      expect(res.cuerpo).not.toContain('manifiestan haber cumplido');
+      expect(res.cuerpo).not.toContain('fondos');
+      expect(res.cuerpo).not.toMatch(/son\s+de\s*\./i);
+      expect(res.cuerpo).not.toMatch(/provienen\s+de\s*\./i);
+
+      // No duplicar el marcador en datos_faltantes ni advertencias
+      const conteoMarcadorFaltante = res.datos_faltantes.filter((d) =>
+        d.includes('resoluciones UIF vigentes')
+      ).length;
+      expect(conteoMarcadorFaltante).toBe(1);
+
+      const conteoAdvertenciasUif = res.advertencias.filter((a) =>
+        a.includes('origen y licitud de fondos')
+      ).length;
+      expect(conteoAdvertenciasUif).toBe(1);
+    });
+
+    it('2. ITI post-derogación obligatorio: inserta en SÉPTIMA: GASTOS E IMPUESTOS aunque la IA lo omita', () => {
+      const lineaGastos =
+        'SÉPTIMA: GASTOS E IMPUESTOS. Los gastos e impuestos que graven la presente operación serán soportados por las partes conforme a las disposiciones legales y usos notariales.';
+
+      const borrador: BorradorEscritura = {
+        titulo: 'Borrador sin ITI en gastos',
+        cuerpo: lineaGastos,
+        datos_faltantes: [],
+        advertencias: [],
+      };
+
+      const res = aplicarGuardrailIti(borrador, '2026-09-10');
+
+      const esperadoContenido =
+        'SÉPTIMA: GASTOS E IMPUESTOS. Los gastos e impuestos que graven la presente operación serán soportados por las partes conforme a las disposiciones legales y usos notariales. I.T.I.: No resulta aplicable por encontrarse derogado conforme Ley 27.743 para operaciones otorgadas a partir del 08/07/2024.';
+
+      expect(res.cuerpo).toContain(esperadoContenido);
+      expect(res.cuerpo.split(LEYENDA_ITI_DEROGADO).length - 1).toBe(1);
+    });
+
+    it('2b. ITI post-derogación obligatorio: si no existe GASTOS E IMPUESTOS, inserta antes de DECLARACIONES JURADAS con ordinales femeninos sin tocar I.- o II.-', () => {
+      const cuerpoSinGastos = [
+        'I.- COMPARECIENTES: Don Juan Pérez.',
+        'II.- INTERVENCIÓN: En su propio derecho.',
+        'PRIMERA: ANTECEDENTES.',
+        'SEGUNDA: OBJETO.',
+        'TERCERA: DECLARACIONES JURADAS.',
+      ].join('\n');
+
+      const borrador: BorradorEscritura = {
+        titulo: 'Borrador sin cláusula de gastos',
+        cuerpo: cuerpoSinGastos,
+        datos_faltantes: [],
+        advertencias: [],
+      };
+
+      const res = aplicarGuardrailIti(borrador, '2026-09-10');
+
+      // Conserva números romanos sin alteración
+      expect(res.cuerpo).toContain('I.- COMPARECIENTES: Don Juan Pérez.');
+      expect(res.cuerpo).toContain('II.- INTERVENCIÓN: En su propio derecho.');
+
+      // Inserta cláusula tributaria antes de DECLARACIONES JURADAS
+      expect(res.cuerpo).toContain('TERCERA: GASTOS E IMPUESTOS. ' + LEYENDA_ITI_DEROGADO);
+      expect(res.cuerpo).toContain('CUARTA: DECLARACIONES JURADAS.');
+      expect(res.cuerpo.split(LEYENDA_ITI_DEROGADO).length - 1).toBe(1);
+
+      const validacion = validarOrdinalesNotariales(res.cuerpo);
+      expect(validacion.ok).toBe(true);
+      expect(validacion.duplicados).toHaveLength(0);
+    });
+
+    it('3. prueba integral con el borrador real actual (CUARTA con placeholder, SÉPTIMA sin ITI, OCTAVA con afirmación, NOVENA)', () => {
+      const cuerpoIntegral = [
+        'PRIMERA: ANTECEDENTES DE DOMINIO. Los títulos antecedentes del inmueble se encuentran en regla.',
+        'SEGUNDA: OBJETO. La parte vendedora transfiere a la compradora el dominio pleno.',
+        'TERCERA: PRECIO Y FORMA DE PAGO. El precio asciende a la suma convenida abonada mediante transferencia bancaria.',
+        'CUARTA: MEDIOS DE PAGO Y ORIGEN DE FONDOS. [COMPLETAR/VERIFICAR: declaración y documentación respaldatoria sobre medios y origen de fondos].',
+        'QUINTA: ESTADO DE OCUPACIÓN Y ENTREGA DE POSESIÓN. El inmueble se encuentra desocupado y libre de ocupantes.',
+        'SEXTA: CERTIFICADOS. Se han expedido los certificados registrales de dominio e inhibición.',
+        'SÉPTIMA: GASTOS E IMPUESTOS. Los gastos e impuestos que graven la presente operación serán soportados por las partes conforme a las disposiciones legales y usos notariales. En materia impositiva corresponde Impuesto a las Ganancias y se adjunta C.O.T.I. N° 98765432 emitido por AFIP.',
+        'OCTAVA: DECLARACIONES JURADAS. Las partes manifiestan haber cumplido con las declaraciones juradas exigidas por las normativas fiscales y de prevención de lavado de activos y financiación del terrorismo, comprometiéndose a ratificarlas o ampliarlas si fuera necesario.',
+        'NOVENA: TÍTULOS Y DOCUMENTACIÓN. Se agregan a la presente escritura los títulos precedentes.',
+      ].join('\n');
+
+      const borrador: BorradorEscritura = {
+        titulo: 'Borrador real actual integral',
+        cuerpo: cuerpoIntegral,
+        datos_faltantes: [],
+        advertencias: [],
+      };
+
+      // Pipeline secuencial canónico
+      const conUif = aplicarGuardrailOrigenFondos(borrador, false);
+      const resFinal = aplicarGuardrailIti(conUif, '2026-09-10');
+
+      // Aserción 1: una sola CUARTA
+      const matchCuarta = resFinal.cuerpo.match(/\bCUARTA:/g);
+      expect(matchCuarta).toHaveLength(1);
+
+      // Aserción 2: una sola fórmula fail-closed UIF
+      const matchUifFailClosed = resFinal.cuerpo.match(
+        /\[VERIFICAR: cumplimiento de las obligaciones que resulten aplicables conforme Ley 25\.246 y resoluciones UIF vigentes\]/g
+      );
+      expect(matchUifFailClosed).toHaveLength(1);
+
+      // Aserción 3: una sola LEYENDA_ITI_DEROGADO
+      const matchItiDerogado = resFinal.cuerpo.split(LEYENDA_ITI_DEROGADO).length - 1;
+      expect(matchItiDerogado).toBe(1);
+
+      // Aserción 4: SÉPTIMA conserva gastos e impuestos
+      expect(resFinal.cuerpo).toContain('SÉPTIMA: GASTOS E IMPUESTOS.');
+      expect(resFinal.cuerpo).toContain(
+        'Los gastos e impuestos que graven la presente operación serán soportados por las partes conforme a las disposiciones legales y usos notariales.'
+      );
+      expect(resFinal.cuerpo).toContain(LEYENDA_ITI_DEROGADO);
+
+      // Aserción 5: OCTAVA conserva el título DECLARACIONES JURADAS
+      expect(resFinal.cuerpo).toContain('OCTAVA: DECLARACIONES JURADAS.');
+      expect(resFinal.cuerpo).toContain(
+        'OCTAVA: DECLARACIONES JURADAS. [VERIFICAR: cumplimiento de las obligaciones que resulten aplicables conforme Ley 25.246 y resoluciones UIF vigentes].'
+      );
+
+      // Aserción 6: ausencia de “manifiestan haber cumplido”
+      expect(resFinal.cuerpo).not.toContain('manifiestan haber cumplido');
+
+      // Aserción 7: ausencia de afirmaciones positivas de cumplimiento
+      expect(REGEX_AFIRMACION_CUMPLIMIENTO_UIF.test(resFinal.cuerpo)).toBe(false);
+
+      // Aserción 8: ausencia de “son de .” y “provienen de .”
+      expect(resFinal.cuerpo).not.toMatch(/son\s+de\s*\./i);
+      expect(resFinal.cuerpo).not.toMatch(/provienen\s+de\s*\./i);
+
+      // Aserción 9: Ley 27.743 presente exactamente una vez
+      const match27743 = resFinal.cuerpo.match(/\b27\.?743\b/g);
+      expect(match27743).toHaveLength(1);
+
+      // Aserción 10: Ley 25.246 presente dentro del marcador UIF
+      const match25246 = resFinal.cuerpo.match(/\b25\.?246\b/g);
+      expect(match25246).toHaveLength(1);
+      expect(resFinal.cuerpo).toContain(
+        '[VERIFICAR: cumplimiento de las obligaciones que resulten aplicables conforme Ley 25.246 y resoluciones UIF vigentes].'
+      );
+
+      // Aserción 11: ordinales continuos hasta NOVENA
+      expect(resFinal.cuerpo).toContain('PRIMERA:');
+      expect(resFinal.cuerpo).toContain('SEGUNDA:');
+      expect(resFinal.cuerpo).toContain('TERCERA:');
+      expect(resFinal.cuerpo).toContain('CUARTA:');
+      expect(resFinal.cuerpo).toContain('QUINTA:');
+      expect(resFinal.cuerpo).toContain('SEXTA:');
+      expect(resFinal.cuerpo).toContain('SÉPTIMA:');
+      expect(resFinal.cuerpo).toContain('OCTAVA:');
+      expect(resFinal.cuerpo).toContain('NOVENA:');
+      const validacion = validarOrdinalesNotariales(resFinal.cuerpo);
+      expect(validacion.ok).toBe(true);
+      expect(validacion.duplicados).toHaveLength(0);
+
+      // Aserción 12: precio, posesión, certificados, Ganancias y C.O.T.I. preservados cuando existan
+      expect(resFinal.cuerpo).toContain('PRECIO Y FORMA DE PAGO.');
+      expect(resFinal.cuerpo).toContain('ESTADO DE OCUPACIÓN Y ENTREGA DE POSESIÓN.');
+      expect(resFinal.cuerpo).toContain('CERTIFICADOS.');
+      expect(resFinal.cuerpo).toContain('Impuesto a las Ganancias');
+      expect(resFinal.cuerpo).toContain('C.O.T.I. N° 98765432');
     });
   });
 });

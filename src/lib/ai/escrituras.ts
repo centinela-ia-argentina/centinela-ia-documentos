@@ -104,7 +104,7 @@ export function detectarEstiloOrdinales(cuerpo: string): 'femenino' | 'masculino
       }
     }
   }
-  return 'masculino';
+  return 'femenino';
 }
 
 export function validarOrdinalesNotariales(cuerpo: string): { ok: boolean; duplicados: string[] } {
@@ -268,6 +268,9 @@ export const FORMULA_FAIL_CLOSED_UIF =
 export const REGEX_EXCLUSION_UIF =
   /(?:(?:las\s+partes\s+)?(?:declaran|manifiestan)\s+(?:bajo\s+juramento\s+)?que\s+)?no\s+(?:se\s+encuentran|resultan)\s+(?:comprendidas?|alcanzadas?)\s+(?:en|por)\s+[^.;!\n]*(?:Ley\s+25\.246|UIF|Unidad\s+de\s+Informaci[oó]n\s+Financiera)[^.;!\n]*/i;
 
+export const REGEX_AFIRMACION_CUMPLIMIENTO_UIF =
+  /(?:(?:las\s+partes\s+)?(?:manifiestan|declaran|dejan\s+constancia\s+que)?\s*(?:haber\s+cumplido|han\s+cumplido|haber\s+dado\s+cumplimiento|dan\s+cumplimiento|cumplen)\s+(?:con\s+|a\s+)?(?:las\s+)?(?:declaraciones\s+juradas|normas?|normativas?|disposiciones|resoluciones)[^.;!\n]*(?:uif|pla\/?ft|lavado|terrorismo|fiscales?)|declaraciones\s+juradas\s+exigidas\s+por\s+(?:las\s+)?(?:normas|normativas)[^.;!\n]*(?:lavado|uif|pla\/?ft|terrorismo|fiscales?)|(?:manifiestan|declaran)\s+haber\s+cumplido|(?:han|haber)\s+cumplido\s+con\s+(?:las\s+)?declaraciones\s+juradas|declaran\s+haber\s+dado\s+cumplimiento|cumplen\s+con\s+la\s+normativa\s+(?:pla\/?ft|fiscal|tributaria)|han\s+cumplido\s+con\s+las\s+resoluciones\s+uif)/i;
+
 export function limpiarSubordinadasOrigenFondos(texto: string): string {
   let limpia = texto;
 
@@ -278,6 +281,12 @@ export function limpiarSubordinadasOrigenFondos(texto: string): string {
     /(?:,\s*)?(?:y\s+)?(?:que\s+)?los\s+fondos\s+(?:utilizados\s+)?(?:son\s+de|provienen\s+de)[^.;!\n]*/gi,
     /(?:,\s*)?(?:con|de|mediante)\s+fondos\s+(?:de\s+)?(?:l[ií]cito\s+origen|origen\s+l[ií]cito|actividades\s+l[ií]citas|l[ií]citos)[^.;!\n]*/gi,
     /(?:,\s*)?siendo\s+(?:los\s+fondos\s+utilizados\s+)?(?:de\s+)?(?:l[ií]cito\s+origen|origen\s+l[ií]cito|actividades\s+l[ií]citas)[^.;!\n]*/gi,
+    /(?:,\s*)?(?:y\s+)?(?:que\s+)?(?:las\s+partes\s+)?(?:manifiestan|declaran)\s+haber\s+cumplido[^.;!\n]*/gi,
+    /(?:,\s*)?(?:y\s+)?(?:que\s+)?(?:las\s+partes\s+)?(?:han|haber)\s+cumplido\s+con\s+(?:las\s+)?declaraciones\s+juradas[^.;!\n]*/gi,
+    /(?:,\s*)?(?:y\s+)?(?:que\s+)?cumplen\s+con\s+la\s+normativa\s+(?:pla\/?ft|fiscal|tributaria)[^.;!\n]*/gi,
+    /(?:,\s*)?(?:y\s+)?(?:que\s+)?declaran\s+haber\s+dado\s+cumplimiento[^.;!\n]*/gi,
+    /(?:,\s*)?(?:y\s+)?(?:que\s+)?han\s+cumplido\s+con\s+las\s+resoluciones\s+uif[^.;!\n]*/gi,
+    /(?:,\s*)?(?:y\s+)?(?:que\s+)?declaraciones\s+juradas\s+exigidas\s+por\s+normas\s+de\s+prevenci[oó]n\s+de\s+lavado[^.;!\n]*/gi,
     /(?:,\s*)?dando\s+cumplimiento\s+a\s+las\s+disposiciones\s+(?:de\s+la\s+)?(?:uif|unidad\s+de\s+informaci[oó]n\s+financiera)[^.;!\n]*/gi,
     /(?:,\s*)?en\s+cumplimiento\s+(?:de\s+|a\s+)(?:las\s+)?disposiciones\s+(?:de\s+la\s+)?(?:uif|unidad\s+de\s+informaci[oó]n\s+financiera)[^.;!\n]*/gi,
     /(?:,\s*)?acreditando\s+(?:el\s+)?(?:origen\s+l[ií]cito|l[ií]cito\s+origen)[^.;!\n]*/gi,
@@ -324,29 +333,49 @@ export function aplicarGuardrailOrigenFondos(
     const lineasProcesadas = lineas.map((linea) => {
       // 1. Si la línea es una cláusula dedicada a origen de fondos (ej: CUARTA: ORIGEN DE FONDOS...)
       if (/^\s*[A-ZÁÉÍÓÚÑ]+:\s*(?:MEDIOS\s+DE\s+PAGO\s+Y\s+)?ORIGEN\s+DE\s+FONDOS/i.test(linea)) {
-        return `CLAUSULA: ${CLAUSULA_AUTONOMA_UIF}`;
+        const matchOrd = linea.match(/^(\s*[A-ZÁÉÍÓÚÑ]+(?:\s+[A-ZÁÉÍÓÚÑ]+)?:\s*)/i);
+        const ord = matchOrd ? matchOrd[1] : 'CLAUSULA: ';
+        return `${ord}${CLAUSULA_AUTONOMA_UIF}`;
       }
 
-      // 2. Línea que contiene exclusión legal de UIF / Ley 25.246
-      if (REGEX_EXCLUSION_UIF.test(linea)) {
-        const matchOrdinal = linea.match(/^(\s*[A-ZÁÉÍÓÚÑ]+(?:\s+[A-ZÁÉÍÓÚÑ]+)?:\s*)(.*)$/i);
-        if (matchOrdinal) {
-          const prefijo = matchOrdinal[1];
-          const resto = matchOrdinal[2].trim();
+      // 2. Línea que contiene afirmación de cumplimiento UIF/PLA-FT o exclusión legal
+      const esAfirmacionCumplimiento = REGEX_AFIRMACION_CUMPLIMIENTO_UIF.test(linea);
+      const esExclusionUif = REGEX_EXCLUSION_UIF.test(linea);
+
+      if (esAfirmacionCumplimiento || esExclusionUif) {
+        const matchEncabezado = linea.match(
+          /^(\s*[A-ZÁÉÍÓÚÑa-záéíóúñ]+(?:\s+[A-ZÁÉÍÓÚÑa-záéíóúñ]+)?\s*:\s*)(?:([A-ZÁÉÍÓÚÑ\s]{3,40}?)([.:\-]+)\s+)?(.*)$/
+        );
+        if (matchEncabezado) {
+          const prefijoOrdinal = matchEncabezado[1];
+          const titulo = matchEncabezado[2] ? matchEncabezado[2].trim() : '';
+          const sep = matchEncabezado[3] || '.';
+          const resto = matchEncabezado[4];
+
+          if (titulo) {
+            // Preservar ordinal y título, reemplazar contenido por la fórmula fail-closed
+            return `${prefijoOrdinal}${titulo}${sep} ${FORMULA_FAIL_CLOSED_UIF}`;
+          }
+
           const restoSinExclusion = resto
             .replace(REGEX_EXCLUSION_UIF, '')
+            .replace(REGEX_AFIRMACION_CUMPLIMIENTO_UIF, '')
             .replace(/(?:,\s*)?(?:y\s+)?(?:que\s+)?los\s+fondos[^.;!\n]*/gi, '')
             .trim();
 
           if (!restoSinExclusion || /^[^a-zA-Z0-9]*$/.test(restoSinExclusion)) {
-            return `${prefijo}${FORMULA_FAIL_CLOSED_UIF}`;
+            return `${prefijoOrdinal}${FORMULA_FAIL_CLOSED_UIF}`;
           } else {
             let mod = resto.replace(
               new RegExp(`${REGEX_EXCLUSION_UIF.source}(?:(?:,\\s*)?(?:y\\s+)?(?:que\\s+)?los\\s+fondos[^.;!\\n]*)?[.;!\\n]?`, 'i'),
               FORMULA_FAIL_CLOSED_UIF
             );
+            mod = mod.replace(
+              new RegExp(`${REGEX_AFIRMACION_CUMPLIMIENTO_UIF.source}[.;!\\n]?`, 'i'),
+              FORMULA_FAIL_CLOSED_UIF
+            );
             mod = limpiarSubordinadasOrigenFondos(mod);
-            return `${prefijo}${mod}`;
+            return `${prefijoOrdinal}${mod}`;
           }
         } else {
           return FORMULA_FAIL_CLOSED_UIF;
@@ -398,7 +427,11 @@ export function aplicarGuardrailOrigenFondos(
       '\n\nCLAUSULA: $1'
     );
 
-    if (cuerpo.includes('CLAUSULA:') || !validarOrdinalesNotariales(cuerpo).ok) {
+    if (
+      cuerpo.includes('CLAUSULA:') ||
+      !validarOrdinalesNotariales(cuerpo).ok ||
+      /^\s*PRIMER[AO]:/im.test(cuerpo)
+    ) {
       cuerpo = recalcularOrdinalesNotariales(cuerpo);
     }
 
@@ -718,36 +751,78 @@ export function aplicarGuardrailIti(
 
   const patronMencionIti = /(?:___ITI_\d+___|(?<!c\.?o\.?\s*)(?<!coti\s*)(?:\bi\.t\.i\.|\biti\b|impuesto\s+a\s+la\s+transferencia\s+de\s+inmuebles))/i;
 
-  if (patronMencionIti.test(cuerpo)) {
-    if (estadoIti === 'post_derogacion') {
+  if (estadoIti === 'post_derogacion') {
+    if (patronMencionIti.test(cuerpo)) {
       cuerpo = reemplazarSubclausulaItiUnica(cuerpo, LEYENDA_ITI_DEROGADO);
-
-      datosFaltantes = datosFaltantes.filter(
-        (d) => !/(?<!c\.?o\.?\s*)(?<!coti\s*)\b(?:i\.?t\.?i\.?|impuesto\s+a\s+la\s+transferencia\s+de\s+inmuebles)\b/i.test(d) ||
-               /ganancias|\big\b/i.test(d)
-      );
-      datosFaltantes = datosFaltantes.map((d) => sanearPlaceholdersIti(d));
-
-      advertencias = advertencias.filter(
-        (a) => !/(?:retenci[oó]n|aplicar|calcular)\s+(?:del?\s+)?(?:i\.?t\.?i\.?|impuesto\s+a\s+la\s+transferencia\s+de\s+inmuebles)/i.test(a) ||
-               /ganancias|\big\b/i.test(a)
-      );
-      advertencias = advertencias.map((a) => sanearPlaceholdersIti(a));
-    } else if (estadoIti === 'ambigua_o_ausente') {
-      cuerpo = reemplazarSubclausulaItiUnica(cuerpo, LEYENDA_ITI_VERIFICAR_FECHA);
-
-      datosFaltantes = datosFaltantes.filter(
-        (d) => !/(?<!c\.?o\.?\s*)(?<!coti\s*)\b(?:i\.?t\.?i\.?|impuesto\s+a\s+la\s+transferencia\s+de\s+inmuebles|régimen tributario)\b/i.test(d)
-      );
-      datosFaltantes.push(LEYENDA_ITI_VERIFICAR_FECHA);
-
-      advertencias = advertencias.filter(
-        (a) => !a.includes('régimen tributario aplicable')
-      );
-      const advTrib =
-        'Revisión profesional requerida: fecha de otorgamiento no determinada o ambigua. Debe verificarse el régimen tributario aplicable según la fecha efectiva del acto.';
-      advertencias.push(advTrib);
     }
+
+    datosFaltantes = datosFaltantes.filter(
+      (d) => !/(?<!c\.?o\.?\s*)(?<!coti\s*)\b(?:i\.?t\.?i\.?|impuesto\s+a\s+la\s+transferencia\s+de\s+inmuebles)\b/i.test(d) ||
+             /ganancias|\big\b/i.test(d)
+    );
+    datosFaltantes = datosFaltantes.map((d) => sanearPlaceholdersIti(d));
+
+    advertencias = advertencias.filter(
+      (a) => !/(?:retenci[oó]n|aplicar|calcular)\s+(?:del?\s+)?(?:i\.?t\.?i\.?|impuesto\s+a\s+la\s+transferencia\s+de\s+inmuebles)/i.test(a) ||
+             /ganancias|\big\b/i.test(a)
+    );
+    advertencias = advertencias.map((a) => sanearPlaceholdersIti(a));
+
+    // Si no existe ninguna mención a ITI (la IA lo omitió), insertar obligatoriamente la constancia
+    if (!cuerpo.includes(LEYENDA_ITI_DEROGADO)) {
+      let insertadaEnGastos = false;
+      const lineas = cuerpo.split('\n');
+      const lineasMod = lineas.map((linea) => {
+        if (
+          !insertadaEnGastos &&
+          /^\s*[A-ZÁÉÍÓÚÑ]+(?:\s+[A-ZÁÉÍÓÚÑ]+)?\s*:\s*(?:(?:DE\s+LOS\s+)?GASTOS\s+E\s+IMPUESTOS|IMPUESTOS\s+Y\s+GASTOS|GASTOS)\b/i.test(linea)
+        ) {
+          insertadaEnGastos = true;
+          const trim = linea.trim();
+          const finPunto = /[.:;!?]$/.test(trim);
+          const sep = finPunto ? ' ' : '. ';
+          return `${trim}${sep}${LEYENDA_ITI_DEROGADO}`;
+        }
+        return linea;
+      });
+
+      if (insertadaEnGastos) {
+        cuerpo = lineasMod.join('\n');
+      } else {
+        const regexDeclJuradas = /^(\s*[A-ZÁÉÍÓÚÑ]+(?:\s+[A-ZÁÉÍÓÚÑ]+)?\s*:\s*DECLARACIONES\s+JURADAS\b)/im;
+        if (regexDeclJuradas.test(cuerpo)) {
+          cuerpo = cuerpo.replace(
+            regexDeclJuradas,
+            `CLAUSULA: GASTOS E IMPUESTOS. ${LEYENDA_ITI_DEROGADO}\n\n$1`
+          );
+        } else {
+          cuerpo = `${cuerpo}\n\nCLAUSULA: GASTOS E IMPUESTOS. ${LEYENDA_ITI_DEROGADO}`;
+        }
+        cuerpo = recalcularOrdinalesNotariales(cuerpo);
+      }
+    }
+
+    // Garantizar exactamente una aparición de LEYENDA_ITI_DEROGADO
+    const primeraPos = cuerpo.indexOf(LEYENDA_ITI_DEROGADO);
+    if (primeraPos !== -1) {
+      const antes = cuerpo.slice(0, primeraPos + LEYENDA_ITI_DEROGADO.length);
+      const despues = cuerpo.slice(primeraPos + LEYENDA_ITI_DEROGADO.length).split(LEYENDA_ITI_DEROGADO).join('');
+      cuerpo = antes + despues;
+    }
+  } else if (estadoIti === 'ambigua_o_ausente' && patronMencionIti.test(cuerpo)) {
+    cuerpo = reemplazarSubclausulaItiUnica(cuerpo, LEYENDA_ITI_VERIFICAR_FECHA);
+
+    datosFaltantes = datosFaltantes.filter(
+      (d) => !/(?<!c\.?o\.?\s*)(?<!coti\s*)\b(?:i\.?t\.?i\.?|impuesto\s+a\s+la\s+transferencia\s+de\s+inmuebles|régimen tributario)\b/i.test(d)
+    );
+    datosFaltantes.push(LEYENDA_ITI_VERIFICAR_FECHA);
+
+    advertencias = advertencias.filter(
+      (a) => !a.includes('régimen tributario aplicable')
+    );
+    const advTrib =
+      'Revisión profesional requerida: fecha de otorgamiento no determinada o ambigua. Debe verificarse el régimen tributario aplicable según la fecha efectiva del acto.';
+    advertencias.push(advTrib);
   }
 
   // Sanitizar citas normativas tributarias no verificadas (ej. Ley 23.282, Ley 25.093)
@@ -773,8 +848,14 @@ export function aplicarGuardrailIti(
     }
   }
 
-  // Recalcular y validar ordinales notariales en el cuerpo final
-  cuerpo = recalcularOrdinalesNotariales(cuerpo);
+  // Recalcular y validar ordinales notariales en el cuerpo final si hay cláusulas pendientes, desorden o documento completo
+  if (
+    cuerpo.includes('CLAUSULA:') ||
+    !validarOrdinalesNotariales(cuerpo).ok ||
+    /^\s*PRIMER[AO]:/im.test(cuerpo)
+  ) {
+    cuerpo = recalcularOrdinalesNotariales(cuerpo);
+  }
 
   return {
     ...borrador,
