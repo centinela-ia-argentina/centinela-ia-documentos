@@ -22,6 +22,7 @@ import {
   validarOrdinalesNotariales,
   recalcularOrdinalesNotariales,
   LEYENDA_ORIGEN_FONDOS_FALTANTE,
+  FORMULA_FAIL_CLOSED_UIF,
   CLAUSULA_AUTONOMA_UIF,
   LEYENDA_ITI_DEROGADO,
   LEYENDA_ITI_VERIFICAR_FECHA,
@@ -225,6 +226,93 @@ describe('Coherencia Borrador — UIF / PLA', () => {
       expect(res.cuerpo.toLowerCase()).not.toContain('fondos lícitos');
       expect(res.cuerpo).toContain(LEYENDA_ORIGEN_FONDOS_FALTANTE);
     }
+  });
+
+  it('reemplaza la declaración real de exclusión UIF por la fórmula fail-closed preservando OCTAVA', () => {
+    const textoReal =
+      'OCTAVA: Las partes declaran bajo juramento que no se encuentran comprendidas en las disposiciones de la Ley 25.246 y sus modificatorias, ni en las resoluciones de la Unidad de Información Financiera (UIF) que les sean aplicables, y que los fondos utilizados en esta operación son de lícito origen.';
+
+    const borrador: BorradorEscritura = {
+      titulo: 'Borrador con declaración real',
+      cuerpo: textoReal,
+      datos_faltantes: [],
+      advertencias: [],
+    };
+
+    const res = aplicarGuardrailOrigenFondos(borrador, false);
+
+    expect(res.cuerpo).toContain('OCTAVA: [VERIFICAR: cumplimiento de las obligaciones que resulten aplicables conforme Ley 25.246 y resoluciones UIF vigentes].');
+    expect(res.cuerpo).not.toContain('no se encuentran comprendidas');
+    expect(res.cuerpo).not.toContain('fondos de lícito origen');
+    expect(res.cuerpo).not.toContain('son de .');
+    expect(res.cuerpo).not.toContain('provienen de .');
+  });
+
+  it('procesa una escritura completa con todas las aserciones obligatorias cumplidas', () => {
+    const escrituraCompleta = [
+      'PRIMERA: COMPARECENCIA. Comparecen Juan Pérez y María Gómez.',
+      'SEGUNDA: OBJETO. Compraventa del inmueble sito en calle Cuba 2400.',
+      'TERCERA: PRECIO Y FORMA DE PAGO. La parte compradora abona la suma de USD 150.000 en dinero en efectivo, y que los fondos utilizados en esta operación son de lícito origen.',
+      'CUARTA: MEDIOS DE PAGO Y ORIGEN DE FONDOS. [COMPLETAR/VERIFICAR: declaración y documentación respaldatoria sobre medios y origen de fondos].',
+      'QUINTA: POSESIÓN. Se otorga la posesión en este acto.',
+      'SEXTA: LIBRE DE GRAVÁMENES. Según certificados registrales no constan gravámenes.',
+      'SÉPTIMA: GASTOS E IMPUESTOS. Gastos a cargo de la compradora conforme Ley 17.801.',
+      'OCTAVA: Las partes declaran bajo juramento que no se encuentran comprendidas en las disposiciones de la Ley 25.246 y sus modificatorias, ni en las resoluciones de la Unidad de Información Financiera (UIF) que les sean aplicables, y que los fondos utilizados en esta operación son de lícito origen.',
+    ].join('\n');
+
+    const borrador: BorradorEscritura = {
+      titulo: 'QA Compraventa Palermo Cuba',
+      cuerpo: escrituraCompleta,
+      datos_faltantes: [],
+      advertencias: [],
+    };
+
+    const res = aplicarGuardrailOrigenFondos(borrador, false);
+
+    // 1. Ausencia de "no se encuentran comprendidas"
+    expect(res.cuerpo).not.toContain('no se encuentran comprendidas');
+
+    // 2. Ausencia de "fondos de lícito origen" / "lícito origen"
+    expect(res.cuerpo.toLowerCase()).not.toContain('fondos de lícito origen');
+    expect(res.cuerpo.toLowerCase()).not.toContain('lícito origen');
+
+    // 3. Ausencia de "son de ."
+    expect(res.cuerpo).not.toContain('son de .');
+    expect(res.cuerpo).not.toContain('son de.');
+
+    // 4. Ausencia de "provienen de ."
+    expect(res.cuerpo).not.toContain('provienen de .');
+    expect(res.cuerpo).not.toContain('provienen de.');
+
+    // 5. Presencia de la fórmula fail-closed
+    expect(res.cuerpo).toContain(FORMULA_FAIL_CLOSED_UIF);
+
+    // 6. Una sola CUARTA UIF
+    const coincidenciasCuarta = res.cuerpo.match(/\bCUARTA:\s*(?:MEDIOS DE PAGO Y ORIGEN DE FONDOS)?/gi) || [];
+    expect(coincidenciasCuarta).toHaveLength(1);
+    expect(res.cuerpo).toContain('CUARTA: MEDIOS DE PAGO Y ORIGEN DE FONDOS.');
+
+    // 7. Ordinales continuos (PRIMERA a OCTAVA sin saltos ni duplicados)
+    const validacion = validarOrdinalesNotariales(res.cuerpo);
+    expect(validacion.ok).toBe(true);
+    expect(validacion.duplicados).toHaveLength(0);
+    expect(res.cuerpo).toContain('PRIMERA:');
+    expect(res.cuerpo).toContain('SEGUNDA:');
+    expect(res.cuerpo).toContain('TERCERA:');
+    expect(res.cuerpo).toContain('CUARTA:');
+    expect(res.cuerpo).toContain('QUINTA:');
+    expect(res.cuerpo).toContain('SEXTA:');
+    expect(res.cuerpo).toContain('SÉPTIMA:');
+    expect(res.cuerpo).toContain('OCTAVA:');
+
+    // 8. TERCERA quedó limpia sin residuos
+    expect(res.cuerpo).toContain('TERCERA: PRECIO Y FORMA DE PAGO. La parte compradora abona la suma de USD 150.000 en dinero en efectivo.');
+
+    // 9. OCTAVA quedó limpia con la fórmula fail-closed
+    expect(res.cuerpo).toContain('OCTAVA: [VERIFICAR: cumplimiento de las obligaciones que resulten aplicables conforme Ley 25.246 y resoluciones UIF vigentes].');
+
+    // 10. SÉPTIMA preserva Ley 17.801
+    expect(res.cuerpo).toContain('Ley 17.801');
   });
 });
 

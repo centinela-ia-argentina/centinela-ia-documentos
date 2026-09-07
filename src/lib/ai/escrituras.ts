@@ -262,6 +262,53 @@ export function evaluarEvidenciaOrigenFondosFailClosed(doc: {
   return false;
 }
 
+export const FORMULA_FAIL_CLOSED_UIF =
+  '[VERIFICAR: cumplimiento de las obligaciones que resulten aplicables conforme Ley 25.246 y resoluciones UIF vigentes].';
+
+export const REGEX_EXCLUSION_UIF =
+  /(?:(?:las\s+partes\s+)?(?:declaran|manifiestan)\s+(?:bajo\s+juramento\s+)?que\s+)?no\s+(?:se\s+encuentran|resultan)\s+(?:comprendidas?|alcanzadas?)\s+(?:en|por)\s+[^.;!\n]*(?:Ley\s+25\.246|UIF|Unidad\s+de\s+Informaci[oó]n\s+Financiera)[^.;!\n]*/i;
+
+export function limpiarSubordinadasOrigenFondos(texto: string): string {
+  let limpia = texto;
+
+  const patronesSubordinadas = [
+    /(?:,\s*)?(?:y\s+)?(?:que\s+)?(?:las\s+partes\s+)?(?:declaran|manifiestan)\s+(?:bajo\s+juramento\s+)?que\s+los\s+fondos\s+(?:utilizados\s+)?provienen\s+de\s+(?:actividades\s+)?l[ií]citas[^.;!\n]*/gi,
+    /(?:,\s*)?(?:y\s+)?(?:que\s+)?(?:las\s+partes\s+)?(?:declaran|manifiestan)\s+(?:bajo\s+juramento\s+)?que\s+los\s+fondos\s+(?:utilizados\s+)?(?:son\s+|provienen\s+de\s+)(?:de\s+)?(?:l[ií]cito\s+origen|origen\s+l[ií]cito|actividades\s+l[ií]citas|l[ií]citos)[^.;!\n]*/gi,
+    /(?:,\s*)?(?:y\s+)?(?:que\s+)?los\s+fondos\s+(?:utilizados\s+)?(?:en\s+esta\s+operaci[oó]n\s+)?(?:son\s+|provienen\s+de\s+)(?:de\s+)?(?:l[ií]cito\s+origen|origen\s+l[ií]cito|actividades\s+l[ií]citas|l[ií]citos)[^.;!\n]*/gi,
+    /(?:,\s*)?(?:y\s+)?(?:que\s+)?los\s+fondos\s+(?:utilizados\s+)?(?:son\s+de|provienen\s+de)[^.;!\n]*/gi,
+    /(?:,\s*)?(?:con|de|mediante)\s+fondos\s+(?:de\s+)?(?:l[ií]cito\s+origen|origen\s+l[ií]cito|actividades\s+l[ií]citas|l[ií]citos)[^.;!\n]*/gi,
+    /(?:,\s*)?siendo\s+(?:los\s+fondos\s+utilizados\s+)?(?:de\s+)?(?:l[ií]cito\s+origen|origen\s+l[ií]cito|actividades\s+l[ií]citas)[^.;!\n]*/gi,
+    /(?:,\s*)?dando\s+cumplimiento\s+a\s+las\s+disposiciones\s+(?:de\s+la\s+)?(?:uif|unidad\s+de\s+informaci[oó]n\s+financiera)[^.;!\n]*/gi,
+    /(?:,\s*)?en\s+cumplimiento\s+(?:de\s+|a\s+)(?:las\s+)?disposiciones\s+(?:de\s+la\s+)?(?:uif|unidad\s+de\s+informaci[oó]n\s+financiera)[^.;!\n]*/gi,
+    /(?:,\s*)?acreditando\s+(?:el\s+)?(?:origen\s+l[ií]cito|l[ií]cito\s+origen)[^.;!\n]*/gi,
+    /(?:,\s*)?justificaci[oó]n\s+(?:positiva\s+)?de\s+fondos[^.;!\n]*/gi,
+    /fondos\s+(?:son\s+)?(?:de\s+)?(?:origen\s+l[ií]cito|l[ií]cito\s+origen)/gi,
+    /l[ií]cito\s+origen/gi,
+    /origen\s+l[ií]cito/gi,
+    /fondos\s+l[ií]citos/gi,
+  ];
+
+  for (const pat of patronesSubordinadas) {
+    limpia = limpia.replace(pat, '');
+  }
+
+  limpia = limpia
+    .replace(/(?:,\s*)?y\s+que\s*(?=[.;!\n]|$)/gi, '')
+    .replace(/(?:,\s*)?(?:que\s+)?los\s+fondos\s+(?:utilizados\s+)?(?:son\s+de|provienen\s+de)?\s*(?=[.;!\n]|$)/gi, '')
+    .replace(/(?:,\s*)?son\s+de\s*(?=[.;!\n]|$)/gi, '')
+    .replace(/(?:,\s*)?provienen\s+de\s*(?=[.;!\n]|$)/gi, '')
+    .replace(/(?:,\s*)?de\s*(?=[.;!\n]|$)/gi, '')
+    .replace(/,\s*,/g, ',')
+    .replace(/,\s*\./g, '.')
+    .replace(/:\s*\./g, '.')
+    .replace(/\s+\./g, '.')
+    .replace(/\.\s*\./g, '.')
+    .replace(/[ \t]{2,}/g, ' ')
+    .trim();
+
+  return limpia;
+}
+
 export function aplicarGuardrailOrigenFondos(
   borrador: BorradorEscritura,
   tieneEvidencia: boolean
@@ -273,34 +320,47 @@ export function aplicarGuardrailOrigenFondos(
   if (!tieneEvidencia) {
     const { protegido, restaurar } = protegerAcronimosYNumeros(cuerpo);
     const lineas = protegido.split('\n');
-    let clausulaInsertada = false;
 
     const lineasProcesadas = lineas.map((linea) => {
-      if (!PATRON_DISPARADOR_ORACION_UIF.test(linea) && !/origen\s+de\s+fondos/i.test(linea)) {
-        return linea;
-      }
-
-      // Si la línea es una cláusula dedicada a origen de fondos (ej: CUARTA: ORIGEN DE FONDOS...)
+      // 1. Si la línea es una cláusula dedicada a origen de fondos (ej: CUARTA: ORIGEN DE FONDOS...)
       if (/^\s*[A-ZÁÉÍÓÚÑ]+:\s*(?:MEDIOS\s+DE\s+PAGO\s+Y\s+)?ORIGEN\s+DE\s+FONDOS/i.test(linea)) {
         return `CLAUSULA: ${CLAUSULA_AUTONOMA_UIF}`;
       }
 
-      // Si es una cláusula de precio o mixta, suprimir solo las afirmaciones no acreditadas
-      let limpia = linea;
-      for (const pat of PATRONES_AFIRMACION_FONDOS_LICITOS) {
-        limpia = limpia.replace(pat, '');
-      }
-      limpia = limpia
-        .replace(/(?:,\s*)?(?:con|de|mediante)?\s*fondos\s+l[ií]citos(?:\s+declarados)?/gi, '')
-        .replace(/(?:,\s*)?dando\s+cumplimiento\s+a\s+las\s+disposiciones[^.;!\n]*/gi, '')
-        .replace(/(?:,\s*)?con\s+fondos\s+de\s+l[ií]cito\s+origen[^.;!\n]*/gi, '')
-        .replace(/los\s+fondos\s+provienen\s+de[^.;!\n]*/gi, '')
-        .replace(/,\s*,/g, ',')
-        .replace(/\.\s*\./g, '.')
-        .replace(/[ \t]{2,}/g, ' ')
-        .trim();
+      // 2. Línea que contiene exclusión legal de UIF / Ley 25.246
+      if (REGEX_EXCLUSION_UIF.test(linea)) {
+        const matchOrdinal = linea.match(/^(\s*[A-ZÁÉÍÓÚÑ]+(?:\s+[A-ZÁÉÍÓÚÑ]+)?:\s*)(.*)$/i);
+        if (matchOrdinal) {
+          const prefijo = matchOrdinal[1];
+          const resto = matchOrdinal[2].trim();
+          const restoSinExclusion = resto
+            .replace(REGEX_EXCLUSION_UIF, '')
+            .replace(/(?:,\s*)?(?:y\s+)?(?:que\s+)?los\s+fondos[^.;!\n]*/gi, '')
+            .trim();
 
-      if (limpia.length > 0 && !/[.:;!?]$/.test(limpia)) {
+          if (!restoSinExclusion || /^[^a-zA-Z0-9]*$/.test(restoSinExclusion)) {
+            return `${prefijo}${FORMULA_FAIL_CLOSED_UIF}`;
+          } else {
+            let mod = resto.replace(
+              new RegExp(`${REGEX_EXCLUSION_UIF.source}(?:(?:,\\s*)?(?:y\\s+)?(?:que\\s+)?los\\s+fondos[^.;!\\n]*)?[.;!\\n]?`, 'i'),
+              FORMULA_FAIL_CLOSED_UIF
+            );
+            mod = limpiarSubordinadasOrigenFondos(mod);
+            return `${prefijo}${mod}`;
+          }
+        } else {
+          return FORMULA_FAIL_CLOSED_UIF;
+        }
+      }
+
+      // Si no contiene disparadores UIF ni menciones de fondos, preservar intacta
+      if (!PATRON_DISPARADOR_ORACION_UIF.test(linea) && !/origen\s+de\s+fondos/i.test(linea)) {
+        return linea;
+      }
+
+      // 3. Cláusula de precio o mixta: suprimir afirmaciones subordinadas de fondos no acreditados
+      let limpia = limpiarSubordinadasOrigenFondos(linea);
+      if (limpia.length > 0 && !/[.:;!?]$/.test(limpia) && !limpia.endsWith(':')) {
         limpia += '.';
       }
 
@@ -309,21 +369,18 @@ export function aplicarGuardrailOrigenFondos(
 
     cuerpo = restaurar(lineasProcesadas.join('\n'));
 
-    for (const pat of PATRONES_AFIRMACION_FONDOS_LICITOS) {
-      if (pat.test(cuerpo)) {
-        cuerpo = cuerpo.replace(pat, '');
-      }
+    // Limpieza global de afirmaciones subordinadas y exclusiones residuales
+    cuerpo = limpiarSubordinadasOrigenFondos(cuerpo);
+
+    if (REGEX_EXCLUSION_UIF.test(cuerpo)) {
+      cuerpo = cuerpo.replace(REGEX_EXCLUSION_UIF, FORMULA_FAIL_CLOSED_UIF);
     }
 
-    cuerpo = cuerpo
-      .replace(/,\s*,/g, ',')
-      .replace(/\.\s*\./g, '.')
-      .replace(/dando cumplimiento a las disposiciones[^.]*\./gi, '')
-      .replace(/con fondos de lícito origen[^.]*\./gi, '')
-      .replace(/los\s+fondos\s+provienen\s+de[^.\n;]*[.\n;]?/gi, '')
-      .replace(/[ \t]{2,}/g, ' ');
-
-    if (!cuerpo.includes(CLAUSULA_AUTONOMA_UIF) && !cuerpo.includes(LEYENDA_ORIGEN_FONDOS_FALTANTE)) {
+    if (
+      !cuerpo.includes(CLAUSULA_AUTONOMA_UIF) &&
+      !cuerpo.includes(LEYENDA_ORIGEN_FONDOS_FALTANTE) &&
+      !cuerpo.includes(FORMULA_FAIL_CLOSED_UIF)
+    ) {
       if (/(precio|pago|forma\s+de\s+pago)/i.test(cuerpo)) {
         cuerpo = cuerpo.replace(
           /((?:precio|pago|forma\s+de\s+pago)[^\n]*)(?:\n|$)/i,
@@ -341,11 +398,19 @@ export function aplicarGuardrailOrigenFondos(
       '\n\nCLAUSULA: $1'
     );
 
-    cuerpo = recalcularOrdinalesNotariales(cuerpo);
+    if (cuerpo.includes('CLAUSULA:') || !validarOrdinalesNotariales(cuerpo).ok) {
+      cuerpo = recalcularOrdinalesNotariales(cuerpo);
+    }
 
     const itemFaltante = LEYENDA_ORIGEN_FONDOS_FALTANTE;
     if (!datosFaltantes.some((d) => d.toLowerCase().includes('origen de fondos'))) {
       datosFaltantes.push(itemFaltante);
+    }
+
+    if (cuerpo.includes(FORMULA_FAIL_CLOSED_UIF)) {
+      if (!datosFaltantes.some((d) => d.includes('resoluciones UIF vigentes'))) {
+        datosFaltantes.push(FORMULA_FAIL_CLOSED_UIF);
+      }
     }
 
     const advUif =
