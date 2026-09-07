@@ -312,24 +312,28 @@ test.describe.serial('Centinela IA - Escribania E2E', () => {
       await page.goto(`/expedientes/${CASE_PALERMO_ID}`);
       await expect(page.locator('body')).toBeVisible();
 
-      // Radar: 08/09 y 10/09 presentes; boleto 10/06 y antecedente 15/03 ausentes
-      await expect(page.locator('body')).toContainText('Fecha límite contractual');
-      await expect(page.locator('body')).toContainText('08/09/2026');
-      await expect(page.locator('body')).toContainText('Fecha tentativa de escritura');
-      await expect(page.locator('body')).toContainText('10/09/2026');
-
-      const radarText = await page.locator('body').innerText();
-      expect(radarText).not.toContain('Fecha del boleto · 10/06/2026');
-      expect(radarText).not.toContain('Escritura antecedente · 15/03/2015');
-
-      // Cargar plazo derivado a la Agenda desde el Radar de plazos
+      // Radar scoped: exactamente 1 Fecha límite contractual (08/09/2026) y 1 Fecha tentativa de escritura (10/09/2026)
       const radarSection = page.locator('section[data-testid="radar-plazos"]');
-      const radarItemLimite = radarSection.locator('li:has-text("Fecha límite contractual")').first();
-      const btnCargarAgenda = radarItemLimite.locator('button:has-text("Cargar a agenda")');
-      if (await btnCargarAgenda.isVisible()) {
-        await btnCargarAgenda.click();
-        await expect(radarItemLimite).toContainText(/agenda/i);
-      }
+      await expect(radarSection).toBeVisible();
+
+      const itemLimite = radarSection.locator('li:has-text("Fecha límite contractual")');
+      await expect(itemLimite).toHaveCount(1);
+      await expect(itemLimite).toContainText('08/09/2026');
+
+      const itemTentativa = radarSection.locator('li:has-text("Fecha tentativa de escritura")');
+      await expect(itemTentativa).toHaveCount(1);
+      await expect(itemTentativa).toContainText('10/09/2026');
+
+      // Boleto 10/06/2026 y antecedente 15/03/2015 deben estar ausentes del Radar
+      const radarText = await radarSection.innerText();
+      expect(radarText).not.toContain('10/06/2026');
+      expect(radarText).not.toContain('15/03/2015');
+
+      // Cargar plazo derivado a la Agenda desde el Radar de plazos (botón visible obligatorio)
+      const btnCargarAgenda = itemLimite.locator('button:has-text("Cargar a agenda")');
+      await expect(btnCargarAgenda).toBeVisible();
+      await btnCargarAgenda.click();
+      await expect(itemLimite).toContainText(/agenda/i);
 
       // 6. Accionar UI: Generar resumen con IA
       const btnResumen = page.locator('button:has-text("Generar resumen con IA"), button:has-text("Actualizar resumen con IA")').first();
@@ -369,9 +373,33 @@ test.describe.serial('Centinela IA - Escribania E2E', () => {
       expect(bodyFinal).not.toContain('retención del Impuesto a la Transferencia de Inmuebles');
       expect(bodyFinal).toContain('C.O.T.I. N° 98765432');
 
-      // Verificar ordinales sin duplicados consecutivos en el borrador
-      const ordQuintoCount = (bodyFinal.match(/\bQUINTO:\b/g) || []).length;
-      expect(ordQuintoCount).toBeLessThanOrEqual(1);
+      // Verificar ordinales reales en el bloque <pre> del borrador
+      const preBorrador = page.locator('pre').first();
+      await expect(preBorrador).toBeVisible();
+      const preText = await preBorrador.innerText();
+
+      const contarOrdinal = (ordinal: string) => {
+        const re = new RegExp(`(?:^|\\n)\\s*${ordinal}:\\s`, 'gm');
+        return (preText.match(re) || []).length;
+      };
+
+      expect(contarOrdinal('PRIMERO')).toBe(1);
+      expect(contarOrdinal('SEGUNDO')).toBe(1);
+      expect(contarOrdinal('TERCERO')).toBe(1);
+      expect(contarOrdinal('CUARTO')).toBe(1);
+      expect(contarOrdinal('QUINTO')).toBe(1);
+
+      // Verificar orden relativo ascendente en el texto del pre
+      const pos1 = preText.search(/(?:^|\n)\s*PRIMERO:\s/);
+      const pos2 = preText.search(/(?:^|\n)\s*SEGUNDO:\s/);
+      const pos3 = preText.search(/(?:^|\n)\s*TERCERO:\s/);
+      const pos4 = preText.search(/(?:^|\n)\s*CUARTO:\s/);
+      const pos5 = preText.search(/(?:^|\n)\s*QUINTO:\s/);
+      expect(pos1).toBeGreaterThanOrEqual(0);
+      expect(pos2).toBeGreaterThan(pos1);
+      expect(pos3).toBeGreaterThan(pos2);
+      expect(pos4).toBeGreaterThan(pos3);
+      expect(pos5).toBeGreaterThan(pos4);
 
       // 9. Inspeccionar Observaciones
       await page.goto('/observaciones');

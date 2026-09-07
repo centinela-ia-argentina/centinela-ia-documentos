@@ -381,15 +381,28 @@ export async function cotejarDocumentosConIA(input: {
         const discExacta = `Plazo contractual: la fecha tentativa de escritura (${fTentativa}) supera el límite contractual (${fLimite}) por ${dias} días corridos.`;
         const vigExacta = `La fecha tentativa de escritura (${fTentativa}) excede el plazo máximo de ${diasPlazo} días corridos, cuyo límite es el ${fLimite}.`;
 
-        // Prevenir que el prompt o el modelo omitan o alteren estos textos exactos
-        discrepancias = discrepancias.filter(
-          (d: string) => !d.toLowerCase().includes('plazo') && !d.toLowerCase().includes('supera el límite') && !d.includes(fLimite)
-        );
+        // Filtrar exclusivamente discrepancias o alertas redundantes que representen
+        // este mismo conflicto canónico (tentativa vs límite contractual/máximo),
+        // preservando otros plazos contractuales, términos de pago y vigencias de certificados.
+        const esMismoConflictoCanonico = (txt: string) => {
+          const t = txt.toLowerCase();
+          const mencionaTentativa = t.includes('tentativa') || t.includes(fTentativa) || (rawTentativa && t.includes(rawTentativa));
+          const mencionaLimite =
+            t.includes('límite') ||
+            t.includes('limite') ||
+            t.includes('plazo máximo') ||
+            t.includes('plazo maximo') ||
+            t.includes('supera') ||
+            t.includes('excede') ||
+            t.includes(fLimite) ||
+            (rawLimite && t.includes(rawLimite));
+          return mencionaTentativa && mencionaLimite;
+        };
+
+        discrepancias = discrepancias.filter((d: string) => !esMismoConflictoCanonico(d));
         discrepancias.unshift(discExacta);
 
-        alertas_vigencia = alertas_vigencia.filter(
-          (a: string) => !a.toLowerCase().includes('plazo') && !a.toLowerCase().includes('excede') && !a.includes(fLimite)
-        );
+        alertas_vigencia = alertas_vigencia.filter((a: string) => !esMismoConflictoCanonico(a));
         alertas_vigencia.unshift(vigExacta);
       }
     }

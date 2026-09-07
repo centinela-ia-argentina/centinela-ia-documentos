@@ -237,8 +237,11 @@ export function extraerPlazoCanonicoLegajo(
   // Filtrar aiOutputs para procesar únicamente el análisis más reciente por document_id
   const latestAiOutputs: any[] = [];
   if (Array.isArray(aiOutputs)) {
+    const sortedAi = [...aiOutputs].sort(
+      (a, b) => new Date(b?.created_at || 0).getTime() - new Date(a?.created_at || 0).getTime()
+    );
     const seenDocs = new Set<string>();
-    for (const a of aiOutputs) {
+    for (const a of sortedAi) {
       const docId = a?.document_id || a?.id;
       if (docId) {
         if (!seenDocs.has(docId)) {

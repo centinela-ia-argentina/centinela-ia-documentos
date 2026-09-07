@@ -698,4 +698,177 @@ describe('Subcláusula Única de ITI y Preservación de COTI', () => {
     const validacion = validarOrdinalesNotariales(res.cuerpo);
     expect(validacion.ok).toBe(true);
   });
+
+  it('reemplaza ITI preservando Impuesto a las Ganancias en ausencia de COTI (10/09/2026)', () => {
+    const borrador: BorradorEscritura = {
+      titulo: 'Borrador compraventa',
+      cuerpo: [
+        'PRIMERO: Comparecencia.',
+        'SEGUNDO: Objeto.',
+        'TERCERO: Antecedentes.',
+        'CUARTO: Se abona la suma pactada en concepto de precio de venta.',
+        'QUINTO: Se deja constancia de la retención del Impuesto a la Transferencia de Inmuebles (ITI) por el 1.5% y que no corresponde retención de Impuesto a las Ganancias por tratarse de casa habitación.',
+        'SEXTO: Se otorga la posesión pacífica del inmueble.',
+      ].join('\n'),
+      datos_faltantes: [],
+      advertencias: [],
+    };
+
+    const res = aplicarGuardrailIti(borrador, '2026-09-10');
+    expect(res.cuerpo).toContain(LEYENDA_ITI_DEROGADO);
+    expect(res.cuerpo).toContain('Impuesto a las Ganancias');
+    expect(res.cuerpo).toContain('casa habitación');
+    expect(res.cuerpo).not.toContain('retención del Impuesto a la Transferencia de Inmuebles');
+    expect(res.cuerpo).toContain('CUARTO: Se abona la suma pactada');
+    expect(res.cuerpo).toContain('QUINTO:');
+    expect(res.cuerpo).toContain('SEXTO: Se otorga la posesión pacífica del inmueble.');
+
+    const validacion = validarOrdinalesNotariales(res.cuerpo);
+    expect(validacion.ok).toBe(true);
+  });
+
+  it('reemplaza ITI preservando Impuesto a las Ganancias y C.O.T.I. N° 98765432 en forma simultánea', () => {
+    const borrador: BorradorEscritura = {
+      titulo: 'Borrador compraventa con COTI e IG',
+      cuerpo: [
+        'PRIMERO: Comparecencia.',
+        'SEGUNDO: Objeto.',
+        'TERCERO: Antecedentes.',
+        'CUARTO: Precio y forma de pago.',
+        'QUINTO: Se deja constancia de la retención del Impuesto a la Transferencia de Inmuebles (ITI) por el 1.5% y se agrega C.O.T.I. N° 98765432, haciéndose constar que no procede Impuesto a las Ganancias.',
+        'SEXTO: Otorgamiento.',
+      ].join('\n'),
+      datos_faltantes: [],
+      advertencias: [],
+    };
+
+    const res = aplicarGuardrailIti(borrador, '2026-09-10');
+    expect(res.cuerpo).toContain(LEYENDA_ITI_DEROGADO);
+    expect(res.cuerpo).toContain('C.O.T.I. N° 98765432');
+    expect(res.cuerpo).toContain('Impuesto a las Ganancias');
+    expect(res.cuerpo).not.toContain('retención del Impuesto a la Transferencia de Inmuebles (ITI)');
+    expect(res.cuerpo).toContain('CUARTO: Precio y forma de pago.');
+    expect(res.cuerpo).toContain('QUINTO:');
+    expect(res.cuerpo).toContain('SEXTO: Otorgamiento.');
+
+    const validacion = validarOrdinalesNotariales(res.cuerpo);
+    expect(validacion.ok).toBe(true);
+  });
+});
+
+describe('Deduplicación determinística de análisis documental (Último análisis real)', () => {
+  it('utiliza exclusivamente el análisis más reciente cuando existen dos document_analysis para el mismo document_id', () => {
+    const docId = 'doc-boleto-123';
+
+    // Análisis antiguo con fechas obsoletas
+    const analisisAntiguo = {
+      id: 'out-old',
+      document_id: docId,
+      created_at: '2026-05-01T10:00:00Z',
+      result_json: {
+        tipo_documental_detectado: 'Boleto de compraventa',
+        resumen: 'Boleto antiguo preliminar',
+        fechas_plazos: [
+          { descripcion: 'Fecha del boleto', fecha: '2026-04-01' },
+          { descripcion: 'Fecha tentativa de escritura', fecha: '2026-05-30' },
+          { descripcion: 'Plazo contractual', fecha: '2026-05-01' },
+        ],
+      },
+    };
+
+    // Análisis nuevo con boleto 10/06, plazo 90 y tentativa 10/09
+    const analisisNuevo = {
+      id: 'out-new',
+      document_id: docId,
+      created_at: '2026-06-15T15:00:00Z',
+      result_json: {
+        tipo_documental_detectado: 'Boleto de compraventa definitivo',
+        resumen: 'Boleto final firmado',
+        fechas_plazos: [
+          { descripcion: 'Fecha del boleto', fecha: '2026-06-10' },
+          { descripcion: 'Plazo contractual de 90 días corridos', fecha: '2026-09-08' },
+          { descripcion: 'Fecha tentativa de escritura', fecha: '2026-09-10' },
+        ],
+      },
+    };
+
+    // Probamos pasando intencionalmente el antiguo primero o desordenado
+    const plazoObtenido = extraerPlazoCanonicoLegajo(
+      { id: 'case-test', title: 'Caso Test', metadata: { plazo_dias: 90 } },
+      [analisisAntiguo, analisisNuevo],
+      []
+    );
+
+    expect(plazoObtenido).not.toBeNull();
+    expect(plazoObtenido?.fechaBoleto).toBe('10/06/2026');
+    expect(plazoObtenido?.fechaLimite).toBe('08/09/2026');
+    expect(plazoObtenido?.fechaTentativa).toBe('10/09/2026');
+    expect(plazoObtenido?.excesoDias).toBe(2);
+    expect(plazoObtenido?.excedePlazo).toBe(true);
+  });
+});
+
+describe('Filtro no destructivo de discrepancias y alertas en Cotejo', () => {
+  it('filtra exclusivamente el conflicto canónico tentativa/límite sin suprimir términos de pago ni vencimientos de certificados', () => {
+    const rawTentativa = '2026-09-10';
+    const rawLimite = '2026-09-08';
+    const fTentativa = formatIsoToAr(rawTentativa);
+    const fLimite = formatIsoToAr(rawLimite);
+    const dias = 2;
+    const diasPlazo = 90;
+
+    const discExacta = `Plazo contractual: la fecha tentativa de escritura (${fTentativa}) supera el límite contractual (${fLimite}) por ${dias} días corridos.`;
+    const vigExacta = `La fecha tentativa de escritura (${fTentativa}) excede el plazo máximo de ${diasPlazo} días corridos, cuyo límite es el ${fLimite}.`;
+
+    const discrepanciasOriginales = [
+      'Discrepancia en el precio: el boleto indica USD 150.000 y la minuta USD 140.000.',
+      'Plazo de pago diferido: el saldo de precio debe integrarse a los 30 días corridos de la firma.',
+      'La fecha tentativa de otorgamiento 10/09/2026 excede el plazo contractual límite del 08/09/2026.',
+    ];
+
+    const alertasOriginales = [
+      'Certificado Catastral con vigencia hasta el 20/10/2026.',
+      'Informe de Dominio con vencimiento el 01/11/2026.',
+      'Plazo de entrega de la posesión fijado a las 48 horas de la escrituración.',
+      'Alerta: la tentativa 10/09/2026 supera el límite contractual establecido.',
+    ];
+
+    const esMismoConflictoCanonico = (txt: string) => {
+      const t = txt.toLowerCase();
+      const mencionaTentativa = t.includes('tentativa') || t.includes(fTentativa) || (rawTentativa && t.includes(rawTentativa));
+      const mencionaLimite =
+        t.includes('límite') ||
+        t.includes('limite') ||
+        t.includes('plazo máximo') ||
+        t.includes('plazo maximo') ||
+        t.includes('supera') ||
+        t.includes('excede') ||
+        t.includes(fLimite) ||
+        (rawLimite && t.includes(rawLimite));
+      return mencionaTentativa && mencionaLimite;
+    };
+
+    const discFiltradas = discrepanciasOriginales.filter((d) => !esMismoConflictoCanonico(d));
+    discFiltradas.unshift(discExacta);
+
+    const vigFiltradas = alertasOriginales.filter((a) => !esMismoConflictoCanonico(a));
+    vigFiltradas.unshift(vigExacta);
+
+    // 1. Conflicto canónico estandarizado en primer lugar
+    expect(discFiltradas[0]).toBe(discExacta);
+    expect(vigFiltradas[0]).toBe(vigExacta);
+
+    // 2. Preservación estricta de plazos de pago y diferencias de precio
+    expect(discFiltradas).toContain('Discrepancia en el precio: el boleto indica USD 150.000 y la minuta USD 140.000.');
+    expect(discFiltradas).toContain('Plazo de pago diferido: el saldo de precio debe integrarse a los 30 días corridos de la firma.');
+
+    // 3. Preservación estricta de vigencias de certificados y posesión
+    expect(vigFiltradas).toContain('Certificado Catastral con vigencia hasta el 20/10/2026.');
+    expect(vigFiltradas).toContain('Informe de Dominio con vencimiento el 01/11/2026.');
+    expect(vigFiltradas).toContain('Plazo de entrega de la posesión fijado a las 48 horas de la escrituración.');
+
+    // 4. Se eliminó la variante textual informal previa del conflicto canónico
+    expect(discFiltradas).not.toContain('La fecha tentativa de otorgamiento 10/09/2026 excede el plazo contractual límite del 08/09/2026.');
+    expect(vigFiltradas).not.toContain('Alerta: la tentativa 10/09/2026 supera el límite contractual establecido.');
+  });
 });

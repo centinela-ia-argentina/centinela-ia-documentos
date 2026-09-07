@@ -792,10 +792,27 @@ export async function generarResumenExpediente(caseId: string) {
     .eq('case_id', caseId)
     .eq('organization_id', profile.organization_id)
     .order('event_date', { ascending: true });
-  const eventos = (eventosData ?? []).map((e) => ({
-    fecha: String(e.event_date), tipo: String(e.event_type || 'otro'),
-    titulo: String(e.title || ''), descripcion: String(e.description || ''),
-  }));
+
+  const { data: agendaData } = await supabase
+    .from('agenda_plazos')
+    .select('id, titulo, fecha, detalle, categoria')
+    .eq('organization_id', profile.organization_id)
+    .eq('case_id', caseId);
+
+  const eventos = [
+    ...(eventosData ?? []).map((e) => ({
+      fecha: String(e.event_date),
+      tipo: String(e.event_type || 'otro'),
+      titulo: String(e.title || ''),
+      descripcion: String(e.description || ''),
+    })),
+    ...(agendaData ?? []).map((a) => ({
+      fecha: String(a.fecha),
+      tipo: String(a.categoria || 'agenda'),
+      titulo: String(a.titulo || ''),
+      descripcion: String(a.detalle || ''),
+    })),
+  ];
 
   const industria = await getOrganizationIndustry(supabase, profile.organization_id);
   const plazoCanonico = extraerPlazoCanonicoLegajo(caseRecord, outputsData, eventos);
@@ -806,7 +823,8 @@ export async function generarResumenExpediente(caseId: string) {
     tipo: caseRecord.case_type || '',
     estado: caseRecord.status || '',
     industria,
-    documentos, eventos,
+    documentos,
+    eventos,
     plazoCanonico,
   });
 

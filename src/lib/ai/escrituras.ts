@@ -322,6 +322,8 @@ function reemplazarSubclausulaItiUnica(
 
   const patronMencionIti = /(?:___ITI_\d+___|(?<!c\.?o\.?\s*)(?<!coti\s*)(?:\bi\.t\.i\.|\biti\b|impuesto\s+a\s+la\s+transferencia\s+de\s+inmuebles))/i;
 
+  const regexReemplazoItiEnFrase = /(?:se\s+(?:retiene|deja\s+constancia\s+de\s+la\s+retenci[oó]n|abona)\s+(?:el\s+|la\s+|del\s+)?|retenci[oó]n\s+(?:del\s+)?|exenci[oó]n\s+(?:del\s+)?)(?:___ITI_\d+___|i\.?t\.?i\.?|impuesto\s+a\s+la\s+transferencia\s+de\s+inmuebles)(?:\s*\([^\)]*\))?(?:\s+(?:por\s+el|del)\s+[\d.,]+%)?(?:\s+correspondiente)?(?:\s+(?:y|,)\s*)?/gi;
+
   const procesadas = lineas.map((linea) => {
     if (!patronMencionIti.test(linea)) return linea;
 
@@ -329,34 +331,40 @@ function reemplazarSubclausulaItiUnica(
     const prefijo = ordinalMatch ? ordinalMatch[1] : '';
     const resto = ordinalMatch ? ordinalMatch[2] : linea;
 
-    if (!leyendaAplicada) {
-      leyendaAplicada = true;
+    // Segmentar siempre por oraciones o delimitadores para preservar cláusulas o menciones conexas
+    // (Impuesto a las Ganancias, precio, pago, posesión, COTI, etc.)
+    const oraciones = resto.split(/(?<=[.;])\s+/);
 
-      // Si la línea contiene COTI protegido
-      if (/___COTI_\d+___/i.test(resto)) {
-        const oraciones = resto.split(/(?<=[.;])\s+/);
-        const oracionesProcesadas = oraciones.map((oracion) => {
-          if (!patronMencionIti.test(oracion)) return oracion;
-          if (/___COTI_\d+___/i.test(oracion)) {
-            return oracion.replace(
-              /(?:se\s+(?:retiene|deja\s+constancia\s+de\s+la\s+retenci[oó]n|abona)\s+(?:el\s+|la\s+|del\s+)?|retenci[oó]n\s+(?:del\s+)?|exenci[oó]n\s+(?:del\s+)?)(?:___ITI_\d+___|i\.?t\.?i\.?|impuesto\s+a\s+la\s+transferencia\s+de\s+inmuebles)(?:\s*\([^\)]*\))?(?:\s+del\s+[\d.,]+%)?(?:\s+correspondiente)?(?:\s+y)?/gi,
-              `${leyenda} `
-            ).replace(/[ \t]{2,}/g, ' ').trim();
-          }
-          return leyenda;
-        });
-        return `${prefijo}${oracionesProcesadas.join(' ').replace(/[ \t]{2,}/g, ' ').trim()}`;
+    const oracionesProcesadas = oraciones.map((oracion) => {
+      if (!patronMencionIti.test(oracion)) return oracion;
+
+      if (!leyendaAplicada) {
+        leyendaAplicada = true;
+
+        // Si la oración contiene otros conceptos clave (Ganancias, COTI, precio, etc.), reemplazar solo el segmento de ITI
+        if (
+          /ganancias|___COTI_\d+___|precio|pago|posesi[oó]n/i.test(oracion) &&
+          regexReemplazoItiEnFrase.test(oracion)
+        ) {
+          const reemplazada = oracion.replace(regexReemplazoItiEnFrase, `${leyenda}. `).replace(/[ \t]{2,}/g, ' ').trim();
+          return reemplazada;
+        }
+
+        // Si la oración es fundamentalmente sobre ITI, sustituir por la leyenda
+        return leyenda;
       }
 
-      // Si no contiene COTI, reemplazo limpio de la subcláusula o párrafo impositivo
-      return `${prefijo}${leyenda}`;
-    }
+      // Si la leyenda ya fue aplicada en una oración previa de la misma cláusula:
+      if (/ganancias|___COTI_\d+___|precio|pago|posesi[oó]n/i.test(oracion)) {
+        return oracion.replace(regexReemplazoItiEnFrase, '').replace(/[ \t]{2,}/g, ' ').trim();
+      }
 
-    // Si ya se aplicó la leyenda, limpiar menciones residuales de ITI
-    return linea
-      .replace(/(?:___ITI_\d+___|(?<!c\.?o\.?\s*)(?<!coti\s*)(?:\bi\.t\.i\.|\biti\b|impuesto\s+a\s+la\s+transferencia\s+de\s+inmuebles))[^.;\n]*[.;\n]?/gi, '')
-      .replace(/[ \t]{2,}/g, ' ')
-      .trim();
+      return '';
+    });
+
+    const contenidoFinalLinea = oracionesProcesadas.filter((o) => o.trim().length > 0).join(' ').replace(/[ \t]{2,}/g, ' ').trim();
+    if (!contenidoFinalLinea) return '';
+    return `${prefijo}${contenidoFinalLinea}`;
   });
 
   let out = restaurar(procesadas.filter((l) => l.trim().length > 0).join('\n'));

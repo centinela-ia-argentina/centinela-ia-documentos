@@ -29,6 +29,7 @@ export default async function ObservacionesPage() {
     organizationResult,
     clientsResult,
     propertiesResult,
+    agendaPlazosResult,
   ] = await Promise.all([
     supabase
       .from('documents')
@@ -38,9 +39,10 @@ export default async function ObservacionesPage() {
 
     supabase
       .from('ai_outputs')
-      .select('document_id, result_json, case_id')
+      .select('id, document_id, result_json, case_id, created_at')
       .eq('organization_id', profile.organization_id)
-      .eq('output_type', 'document_analysis'),
+      .eq('output_type', 'document_analysis')
+      .order('created_at', { ascending: false }),
 
     supabase
       .from('cases')
@@ -75,6 +77,11 @@ export default async function ObservacionesPage() {
       .neq('status', 'vendida')
       .neq('status', 'alquilada')
       .order('updated_at', { ascending: true }),
+
+    supabase
+      .from('agenda_plazos')
+      .select('id, titulo, fecha, detalle, categoria, case_id')
+      .eq('organization_id', profile.organization_id),
   ]);
 
   const documents = documentsResult.data ?? [];
@@ -83,6 +90,7 @@ export default async function ObservacionesPage() {
   const checklistItems = checklistItemsResult.data ?? [];
   const clients = clientsResult?.data ?? [];
   const properties = propertiesResult?.data ?? [];
+  const agendaPlazos = agendaPlazosResult?.data ?? [];
 
   const industry = normalizeIndustryType(organizationResult?.data?.industry_type);
   const terms = getIndustryTerms(industry);
@@ -135,12 +143,44 @@ export default async function ObservacionesPage() {
   for (const d of documents) {
     if (d.case_id) docCaseMap.set(d.id, d.case_id);
   }
+
+  // Deduplicación determinística en memoria: último análisis real por document_id
+  const sortedAiOutputs = [...aiOutputs].sort(
+    (a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
+  );
+
   const aiOutputsByCase = new Map<string, any[]>();
-  for (const o of aiOutputs) {
+  const seenDocByCase = new Map<string, Set<string>>();
+
+  for (let idx = 0; idx < sortedAiOutputs.length; idx++) {
+    const o = sortedAiOutputs[idx];
     const cId = o.case_id || (o.document_id ? docCaseMap.get(o.document_id) : null);
     if (cId) {
-      if (!aiOutputsByCase.has(cId)) aiOutputsByCase.set(cId, []);
-      aiOutputsByCase.get(cId)!.push(o);
+      if (!aiOutputsByCase.has(cId)) {
+        aiOutputsByCase.set(cId, []);
+        seenDocByCase.set(cId, new Set());
+      }
+      const docKey = o.document_id ? String(o.document_id) : `out-${o.id || idx}`;
+      const seen = seenDocByCase.get(cId)!;
+      if (!seen.has(docKey)) {
+        seen.add(docKey);
+        aiOutputsByCase.get(cId)!.push(o);
+      }
+    }
+  }
+
+  // Agrupar eventos de agenda_plazos exclusivamente por case_id
+  const agendaEventsByCase = new Map<string, any[]>();
+  for (const a of agendaPlazos) {
+    if (a.case_id) {
+      if (!agendaEventsByCase.has(a.case_id)) agendaEventsByCase.set(a.case_id, []);
+      agendaEventsByCase.get(a.case_id)!.push({
+        id: a.id,
+        titulo: a.titulo,
+        fecha: a.fecha,
+        detalle: a.detalle,
+        categoria: a.categoria,
+      });
     }
   }
 
@@ -149,7 +189,8 @@ export default async function ObservacionesPage() {
 
   for (const c of cases) {
     const outputs = aiOutputsByCase.get(c.id) || [];
-    const fechas = extraerFechasAccionablesLegajo(c, outputs);
+    const agendaParaCaso = agendaEventsByCase.get(c.id) || [];
+    const fechas = extraerFechasAccionablesLegajo(c, outputs, agendaParaCaso);
     for (const f of fechas) {
       const status = getDocumentExpiryStatus(f.fecha);
       if (status === 'por_vencer' || status === 'vencido') {
