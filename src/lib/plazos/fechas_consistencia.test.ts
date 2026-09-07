@@ -18,6 +18,8 @@ import {
   aplicarGuardrailOrigenFondos,
   aplicarGuardrailIti,
   evaluarEvidenciaOrigenFondosFailClosed,
+  validarOrdinalesNotariales,
+  recalcularOrdinalesNotariales,
   LEYENDA_ORIGEN_FONDOS_FALTANTE,
   CLAUSULA_AUTONOMA_UIF,
   LEYENDA_ITI_DEROGADO,
@@ -527,5 +529,173 @@ describe('Guardrail UIF sin Pérdida de Contenido y Cláusula Autónoma', () => 
     expect(res.cuerpo.toLowerCase()).not.toContain('los fondos provienen de');
     expect(res.cuerpo).toContain('El comprador abona en efectivo la suma convenida');
     expect(res.cuerpo).toContain(LEYENDA_ORIGEN_FONDOS_FALTANTE);
+  });
+});
+
+describe('Extractor Canónico con Precedencia Semántica y Trazabilidad', () => {
+  it('retorna cómputo exacto para Palermo Cuba y excluye antecedentes históricos y certificados de la fecha tentativa', () => {
+    const legajo = {
+      id: 'leg-palermo-cuba',
+      title: 'Compraventa Depto Palermo Cuba',
+      metadata: {
+        tipo_acto: 'Compraventa',
+        fecha_boleto: '2026-06-10',
+        plazo_dias: 90,
+        fecha_otorgamiento: '2026-09-10',
+      },
+    };
+
+    const aiOutputs = [
+      {
+        id: 'out-boleto',
+        document_id: 'doc-boleto',
+        result_json: {
+          fechas_plazos: [
+            { descripcion: 'Fecha del boleto', fecha: '2026-06-10', tipo: 'issue_date' },
+            { descripcion: 'Fecha tentativa de escritura', fecha: '2026-09-10', tipo: 'contractual_deadline' },
+          ],
+        },
+      },
+      {
+        id: 'out-antecedente',
+        document_id: 'doc-antecedente',
+        result_json: {
+          fechas_plazos: [
+            { descripcion: 'Escritura antecedente', fecha: '2015-03-15', tipo: 'issue_date' },
+          ],
+        },
+      },
+      {
+        id: 'out-certificados',
+        document_id: 'doc-certificados',
+        result_json: {
+          fechas_plazos: [
+            { descripcion: 'Vencimiento Certificado Catastral', fecha: '2026-10-20', tipo: 'document_expiration' },
+            { descripcion: 'Vencimiento Certificado Dominio', fecha: '2026-11-01', tipo: 'document_expiration' },
+          ],
+        },
+      },
+    ];
+
+    const canonico = extraerPlazoCanonicoLegajo(legajo, aiOutputs, []);
+    expect(canonico).not.toBeNull();
+    expect(canonico?.fechaBoleto).toBe('10/06/2026');
+    expect(canonico?.plazoDias).toBe(90);
+    expect(canonico?.fechaLimite).toBe('08/09/2026');
+    expect(canonico?.fechaTentativa).toBe('10/09/2026');
+    expect(canonico?.excesoDias).toBe(2);
+    expect(canonico?.excedePlazo).toBe(true);
+    expect(canonico?.fuenteFechaBoleto).toBe('metadata.fecha_boleto');
+    expect(canonico?.fuentePlazo).toBe('metadata.plazo_dias');
+    expect(canonico?.fuenteFechaTentativa).toBe('metadata.fecha_otorgamiento');
+
+    // Fechas accionables excluyen boleto y antecedentes históricos (2015-03-15)
+    const accionables = extraerFechasAccionablesLegajo(legajo, aiOutputs, []);
+    expect(accionables.some((a) => a.fecha === '2026-06-10')).toBe(false);
+    expect(accionables.some((a) => a.fecha === '2015-03-15')).toBe(false);
+    expect(accionables.some((a) => a.fecha === '2026-09-08')).toBe(true);
+    expect(accionables.some((a) => a.fecha === '2026-09-10')).toBe(true);
+  });
+
+  it('rechaza fecha de otorgamiento si está asociada a una escritura antecedente', () => {
+    const legajo = {
+      id: 'leg-antecedente-only',
+      title: 'Legajo de prueba',
+      metadata: {},
+    };
+
+    const aiOutputs = [
+      {
+        id: 'out-1',
+        document_id: 'doc-1',
+        result_json: {
+          fechas_plazos: [
+            { descripcion: 'Fecha del boleto firmado', fecha: '2026-06-10' },
+            { descripcion: 'Escritura antecedente de otorgamiento', fecha: '2015-03-15' },
+          ],
+          datos_clave: ['plazo contractual de 90 días corridos'],
+        },
+      },
+    ];
+
+    const canonico = extraerPlazoCanonicoLegajo(legajo, aiOutputs, []);
+    expect(canonico).not.toBeNull();
+    expect(canonico?.fechaBoleto).toBe('10/06/2026');
+    expect(canonico?.plazoDias).toBe(90);
+    expect(canonico?.fechaLimite).toBe('08/09/2026');
+    // La fecha del 2015-03-15 no debe ser adoptada como fecha tentativa
+    expect(canonico?.fechaTentativa).not.toBe('15/03/2015');
+    expect(canonico?.fechaTentativa).toBe('');
+    expect(canonico?.excedePlazo).toBe(false);
+  });
+});
+
+describe('Numeración Notarial Determinística', () => {
+  it('detecta ordinales duplicados correctamente con validarOrdinalesNotariales', () => {
+    const cuerpoDuplicado = [
+      'PRIMERO: Comparecencia.',
+      'SEGUNDO: Objeto.',
+      'TERCERO: Antecedentes.',
+      'CUARTO: Precio.',
+      'QUINTO: MEDIOS DE PAGO Y ORIGEN DE FONDOS.',
+      'QUINTO: Certificados.',
+      'SEXTO: Otorgamiento.',
+    ].join('\n');
+
+    const validacion = validarOrdinalesNotariales(cuerpoDuplicado);
+    expect(validacion.ok).toBe(false);
+    expect(validacion.duplicados).toContain('QUINTO');
+  });
+
+  it('recalcula secuencialmente los ordinales eliminando duplicados y huecos', () => {
+    const cuerpoDesordenado = [
+      'PRIMERO: Comparecencia.',
+      'SEGUNDO: Objeto.',
+      'TERCERO: Antecedentes.',
+      'CUARTO: Precio.',
+      'CLAUSULA: MEDIOS DE PAGO Y ORIGEN DE FONDOS.',
+      'QUINTO: Certificados.',
+      'SEXTO: Otorgamiento.',
+    ].join('\n');
+
+    const recalculado = recalcularOrdinalesNotariales(cuerpoDesordenado);
+    const validacion = validarOrdinalesNotariales(recalculado);
+
+    expect(validacion.ok).toBe(true);
+    expect(validacion.duplicados.length).toBe(0);
+
+    expect(recalculado).toContain('PRIMERO: Comparecencia.');
+    expect(recalculado).toContain('SEGUNDO: Objeto.');
+    expect(recalculado).toContain('TERCERO: Antecedentes.');
+    expect(recalculado).toContain('CUARTO: Precio.');
+    expect(recalculado).toContain('QUINTO: MEDIOS DE PAGO Y ORIGEN DE FONDOS.');
+    expect(recalculado).toContain('SEXTO: Certificados.');
+    expect(recalculado).toContain('SÉPTIMO: Otorgamiento.');
+  });
+});
+
+describe('Subcláusula Única de ITI y Preservación de COTI', () => {
+  it('reemplaza la mención de ITI exactamente una vez y no duplica leyendas en el cuerpo', () => {
+    const borrador: BorradorEscritura = {
+      titulo: 'Borrador compraventa',
+      cuerpo: [
+        'CUARTO: Se abona el precio.',
+        'QUINTO: Se deja constancia de la retención del Impuesto a la Transferencia de Inmuebles (ITI) por el 1.5% y se agrega C.O.T.I. N° 98765432.',
+        'SEXTO: Entrega de posesión.',
+      ].join('\n'),
+      datos_faltantes: [],
+      advertencias: [],
+    };
+
+    const res = aplicarGuardrailIti(borrador, '2026-09-10');
+    expect(res.cuerpo).toContain('C.O.T.I. N° 98765432');
+    expect(res.cuerpo).toContain(LEYENDA_ITI_DEROGADO);
+    // Verificar que la leyenda aparece exactamente 1 vez
+    const conteo = res.cuerpo.split(LEYENDA_ITI_DEROGADO).length - 1;
+    expect(conteo).toBe(1);
+
+    // Cero duplicados de ordinales
+    const validacion = validarOrdinalesNotariales(res.cuerpo);
+    expect(validacion.ok).toBe(true);
   });
 });

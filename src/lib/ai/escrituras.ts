@@ -14,14 +14,103 @@ import { parsearFechaCualquiera } from '@/lib/plazos/fechasCanonicas';
 export const LEYENDA_ORIGEN_FONDOS_FALTANTE =
   '[COMPLETAR/VERIFICAR: declaración y documentación respaldatoria sobre medios y origen de fondos]';
 
+export const TITULO_CLAUSULA_UIF = 'MEDIOS DE PAGO Y ORIGEN DE FONDOS';
+
 export const CLAUSULA_AUTONOMA_UIF =
-  'QUINTO: MEDIOS DE PAGO Y ORIGEN DE FONDOS. [COMPLETAR/VERIFICAR: declaración y documentación respaldatoria sobre medios y origen de fondos].';
+  'MEDIOS DE PAGO Y ORIGEN DE FONDOS. [COMPLETAR/VERIFICAR: declaración y documentación respaldatoria sobre medios y origen de fondos].';
 
 export const LEYENDA_ITI_DEROGADO =
   'I.T.I.: No resulta aplicable por encontrarse derogado conforme Ley 27.743 para operaciones otorgadas a partir del 08/07/2024.';
 
 export const LEYENDA_ITI_VERIFICAR_FECHA =
-  '[VERIFICAR: régimen tributario aplicable según la fecha de otorgamiento]';
+  'I.T.I.: [VERIFICAR: régimen tributario aplicable según la fecha efectiva de otorgamiento].';
+
+export const DATO_FALTANTE_ITI_VERIFICAR_FECHA =
+  '[VERIFICAR: régimen tributario aplicable según la fecha efectiva de otorgamiento]';
+
+export const ORDINALES_NOTARIALES = [
+  'PRIMERO',
+  'SEGUNDO',
+  'TERCERO',
+  'CUARTO',
+  'QUINTO',
+  'SEXTO',
+  'SÉPTIMO',
+  'OCTAVO',
+  'NOVENO',
+  'DÉCIMO',
+  'DÉCIMO PRIMERO',
+  'DÉCIMO SEGUNDO',
+  'DÉCIMO TERCERO',
+  'DÉCIMO CUARTO',
+  'DÉCIMO QUINTO',
+  'DÉCIMO SEXTO',
+  'DÉCIMO SÉPTIMO',
+  'DÉCIMO OCTAVO',
+  'DÉCIMO NOVENO',
+  'VIGÉSIMO',
+] as const;
+
+function normalizarOrdinal(txt: string): string {
+  return txt
+    .toUpperCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim();
+}
+
+const SET_ORDINALES_NORM = new Set(ORDINALES_NOTARIALES.map((o) => normalizarOrdinal(o)));
+SET_ORDINALES_NORM.add('CLAUSULA');
+
+export function validarOrdinalesNotariales(cuerpo: string): { ok: boolean; duplicados: string[] } {
+  const lineas = cuerpo.split('\n');
+  const duplicados: string[] = [];
+  const vistos = new Set<string>();
+
+  for (const linea of lineas) {
+    const match = linea.match(/^\s*([A-ZÁÉÍÓÚÑ]+(?:\s+[A-ZÁÉÍÓÚÑ]+)?)\s*:\s*/i);
+    if (match) {
+      const norm = normalizarOrdinal(match[1]);
+      if (SET_ORDINALES_NORM.has(norm) && norm !== 'CLAUSULA') {
+        if (vistos.has(norm)) {
+          duplicados.push(match[1]);
+        } else {
+          vistos.add(norm);
+        }
+      }
+    }
+  }
+
+  return {
+    ok: duplicados.length === 0,
+    duplicados,
+  };
+}
+
+export function recalcularOrdinalesNotariales(cuerpo: string): string {
+  const lineas = cuerpo.split('\n');
+  let idx = 0;
+
+  const procesadas = lineas.map((linea) => {
+    const match = linea.match(/^(\s*)([A-ZÁÉÍÓÚÑ]+(?:\s+[A-ZÁÉÍÓÚÑ]+)?)\s*:\s*(.*)$/i);
+    if (!match) return linea;
+
+    const spaces = match[1];
+    const rawWord = match[2];
+    const resto = match[3];
+    const norm = normalizarOrdinal(rawWord);
+
+    if (SET_ORDINALES_NORM.has(norm)) {
+      const ordinalCorrecto = ORDINALES_NOTARIALES[idx] || rawWord.toUpperCase();
+      idx++;
+      return `${spaces}${ordinalCorrecto}: ${resto}`;
+    }
+
+    return linea;
+  });
+
+  return procesadas.join('\n');
+}
 
 export const PATRONES_AFIRMACION_FONDOS_LICITOS = [
   /manifiestan?\s+(?:bajo\s+juramento\s+)?que\s+los\s+fondos\s+(?:utilizados\s+)?provienen\s+de\s+(?:actividades\s+)?l[ií]citas/i,
@@ -193,13 +282,15 @@ export function aplicarGuardrailOrigenFondos(
       if (/(precio|pago|forma\s+de\s+pago)/i.test(cuerpo)) {
         cuerpo = cuerpo.replace(
           /((?:precio|pago|forma\s+de\s+pago)[^\n]*)(?:\n|$)/i,
-          `$1\n\n${CLAUSULA_AUTONOMA_UIF}\n`
+          `$1\n\nCLAUSULA: ${CLAUSULA_AUTONOMA_UIF}\n`
         );
       }
       if (!cuerpo.includes(CLAUSULA_AUTONOMA_UIF)) {
-        cuerpo += `\n\n${CLAUSULA_AUTONOMA_UIF}`;
+        cuerpo += `\n\nCLAUSULA: ${CLAUSULA_AUTONOMA_UIF}`;
       }
     }
+
+    cuerpo = recalcularOrdinalesNotariales(cuerpo);
 
     const itemFaltante = LEYENDA_ORIGEN_FONDOS_FALTANTE;
     if (!datosFaltantes.some((d) => d.toLowerCase().includes('origen de fondos'))) {
@@ -219,6 +310,66 @@ export function aplicarGuardrailOrigenFondos(
     datos_faltantes: datosFaltantes,
     advertencias,
   };
+}
+
+function reemplazarSubclausulaItiUnica(
+  cuerpoOriginal: string,
+  leyenda: string
+): string {
+  const { protegido, restaurar } = protegerAcronimosYNumeros(cuerpoOriginal);
+  const lineas = protegido.split('\n');
+  let leyendaAplicada = false;
+
+  const patronMencionIti = /(?:___ITI_\d+___|(?<!c\.?o\.?\s*)(?<!coti\s*)(?:\bi\.t\.i\.|\biti\b|impuesto\s+a\s+la\s+transferencia\s+de\s+inmuebles))/i;
+
+  const procesadas = lineas.map((linea) => {
+    if (!patronMencionIti.test(linea)) return linea;
+
+    const ordinalMatch = linea.match(/^(\s*[A-ZÁÉÍÓÚÑ]+(?:\s+[A-ZÁÉÍÓÚÑ]+)?\s*:\s*)(.*)$/i);
+    const prefijo = ordinalMatch ? ordinalMatch[1] : '';
+    const resto = ordinalMatch ? ordinalMatch[2] : linea;
+
+    if (!leyendaAplicada) {
+      leyendaAplicada = true;
+
+      // Si la línea contiene COTI protegido
+      if (/___COTI_\d+___/i.test(resto)) {
+        const oraciones = resto.split(/(?<=[.;])\s+/);
+        const oracionesProcesadas = oraciones.map((oracion) => {
+          if (!patronMencionIti.test(oracion)) return oracion;
+          if (/___COTI_\d+___/i.test(oracion)) {
+            return oracion.replace(
+              /(?:se\s+(?:retiene|deja\s+constancia\s+de\s+la\s+retenci[oó]n|abona)\s+(?:el\s+|la\s+|del\s+)?|retenci[oó]n\s+(?:del\s+)?|exenci[oó]n\s+(?:del\s+)?)(?:___ITI_\d+___|i\.?t\.?i\.?|impuesto\s+a\s+la\s+transferencia\s+de\s+inmuebles)(?:\s*\([^\)]*\))?(?:\s+del\s+[\d.,]+%)?(?:\s+correspondiente)?(?:\s+y)?/gi,
+              `${leyenda} `
+            ).replace(/[ \t]{2,}/g, ' ').trim();
+          }
+          return leyenda;
+        });
+        return `${prefijo}${oracionesProcesadas.join(' ').replace(/[ \t]{2,}/g, ' ').trim()}`;
+      }
+
+      // Si no contiene COTI, reemplazo limpio de la subcláusula o párrafo impositivo
+      return `${prefijo}${leyenda}`;
+    }
+
+    // Si ya se aplicó la leyenda, limpiar menciones residuales de ITI
+    return linea
+      .replace(/(?:___ITI_\d+___|(?<!c\.?o\.?\s*)(?<!coti\s*)(?:\bi\.t\.i\.|\biti\b|impuesto\s+a\s+la\s+transferencia\s+de\s+inmuebles))[^.;\n]*[.;\n]?/gi, '')
+      .replace(/[ \t]{2,}/g, ' ')
+      .trim();
+  });
+
+  let out = restaurar(procesadas.filter((l) => l.trim().length > 0).join('\n'));
+
+  // Asegurar que no quede ningún fragmento residual duplicado de la leyenda
+  const primeraPos = out.indexOf(leyenda);
+  if (primeraPos !== -1) {
+    const antes = out.slice(0, primeraPos + leyenda.length);
+    const despues = out.slice(primeraPos + leyenda.length).split(leyenda).join('');
+    out = antes + despues;
+  }
+
+  return out;
 }
 
 export function aplicarGuardrailIti(
@@ -250,32 +401,7 @@ export function aplicarGuardrailIti(
 
   if (patronMencionIti.test(cuerpo)) {
     if (estadoIti === 'post_derogacion') {
-      const { protegido, restaurar } = protegerAcronimosYNumeros(cuerpo);
-      const lineas = protegido.split('\n');
-      const procesadas = lineas.map((linea) => {
-        if (!patronMencionIti.test(linea)) return linea;
-
-        if (/\b(?:___COTI_\d+___|c\.?o\.?t\.?i\.?|coti)\b/i.test(linea)) {
-          return linea
-            .replace(/(?:se\s+(?:retiene|deja\s+constancia\s+de\s+la\s+retenci[oó]n|abona)\s+(?:el\s+|la\s+|del\s+)?|retenci[oó]n\s+(?:del\s+)?|exenci[oó]n\s+(?:del\s+)?)(?:___ITI_\d+___|i\.?t\.?i\.?|impuesto\s+a\s+la\s+transferencia\s+de\s+inmuebles)(?:\s*\([^\)]*\))?(?:\s+del\s+[\d.,]+%)?(?:\s+correspondiente)?/gi, 'I.T.I. (no aplicable por Ley 27.743)')
-            .replace(/(?:___ITI_\d+___|(?<!c\.?o\.?\s*)(?<!coti\s*)(?:\bi\.t\.i\.|\biti\b|impuesto\s+a\s+la\s+transferencia\s+de\s+inmuebles))/gi, 'I.T.I. (no aplicable, derogado Ley 27.743)')
-            .replace(/[ \t]{2,}/g, ' ')
-            .trim();
-        }
-
-        if (/(?:retenci[oó]n|exenci[oó]n|al[ií]cuota|pago|afip|no\s+retenci[oó]n)/i.test(linea)) {
-          const ordinalMatch = linea.match(/^([A-ZÁÉÍÓÚÑ]+:\s*)/i);
-          const prefijo = ordinalMatch ? ordinalMatch[1] : '';
-          return `${prefijo}${LEYENDA_ITI_DEROGADO}`;
-        }
-
-        return linea
-          .replace(/(?:___ITI_\d+___|(?<!c\.?o\.?\s*)(?<!coti\s*)(?:\bi\.t\.i\.|\biti\b|impuesto\s+a\s+la\s+transferencia\s+de\s+inmuebles))/gi, 'I.T.I. (no aplicable, derogado Ley 27.743)')
-          .replace(/[ \t]{2,}/g, ' ')
-          .trim();
-      });
-
-      cuerpo = restaurar(procesadas.join('\n'));
+      cuerpo = reemplazarSubclausulaItiUnica(cuerpo, LEYENDA_ITI_DEROGADO);
 
       datosFaltantes = datosFaltantes.filter(
         (d) => !/(?<!c\.?o\.?\s*)(?<!coti\s*)\b(?:i\.?t\.?i\.?|impuesto\s+a\s+la\s+transferencia\s+de\s+inmuebles)\b/i.test(d)
@@ -283,45 +409,25 @@ export function aplicarGuardrailIti(
       advertencias = advertencias.filter(
         (a) => !/(?:retenci[oó]n|aplicar|calcular)\s+(?:del?\s+)?(?:i\.?t\.?i\.?|impuesto\s+a\s+la\s+transferencia\s+de\s+inmuebles)/i.test(a)
       );
-
     } else if (estadoIti === 'ambigua_o_ausente') {
-      const { protegido, restaurar } = protegerAcronimosYNumeros(cuerpo);
-      const lineas = protegido.split('\n');
-      const procesadas = lineas.map((linea) => {
-        if (!patronMencionIti.test(linea)) return linea;
+      cuerpo = reemplazarSubclausulaItiUnica(cuerpo, LEYENDA_ITI_VERIFICAR_FECHA);
 
-        if (/\b(?:___COTI_\d+___|c\.?o\.?t\.?i\.?|coti)\b/i.test(linea)) {
-          return linea
-            .replace(/(?:se\s+(?:retiene|deja\s+constancia\s+de\s+la\s+retenci[oó]n|abona)\s+(?:el\s+|la\s+|del\s+)?|retenci[oó]n\s+(?:del\s+)?|exenci[oó]n\s+(?:del\s+)?)(?:___ITI_\d+___|i\.?t\.?i\.?|impuesto\s+a\s+la\s+transferencia\s+de\s+inmuebles)(?:\s*\([^\)]*\))?(?:\s+del\s+[\d.,]+%)?(?:\s+correspondiente)?/gi, LEYENDA_ITI_VERIFICAR_FECHA)
-            .replace(/(?:___ITI_\d+___|(?<!c\.?o\.?\s*)(?<!coti\s*)(?:\bi\.t\.i\.|\biti\b|impuesto\s+a\s+la\s+transferencia\s+de\s+inmuebles))/gi, LEYENDA_ITI_VERIFICAR_FECHA)
-            .replace(/[ \t]{2,}/g, ' ')
-            .trim();
-        }
+      datosFaltantes = datosFaltantes.filter(
+        (d) => !/(?<!c\.?o\.?\s*)(?<!coti\s*)\b(?:i\.?t\.?i\.?|impuesto\s+a\s+la\s+transferencia\s+de\s+inmuebles|régimen tributario)\b/i.test(d)
+      );
+      datosFaltantes.push(LEYENDA_ITI_VERIFICAR_FECHA);
 
-        if (/(?:retenci[oó]n|exenci[oó]n|al[ií]cuota|pago|afip|no\s+retenci[oó]n)/i.test(linea)) {
-          const ordinalMatch = linea.match(/^([A-ZÁÉÍÓÚÑ]+:\s*)/i);
-          const prefijo = ordinalMatch ? ordinalMatch[1] : '';
-          return `${prefijo}${LEYENDA_ITI_VERIFICAR_FECHA}`;
-        }
-
-        return linea
-          .replace(/(?:___ITI_\d+___|(?<!c\.?o\.?\s*)(?<!coti\s*)(?:\bi\.t\.i\.|\biti\b|impuesto\s+a\s+la\s+transferencia\s+de\s+inmuebles))/gi, LEYENDA_ITI_VERIFICAR_FECHA)
-          .replace(/[ \t]{2,}/g, ' ')
-          .trim();
-      });
-
-      cuerpo = restaurar(procesadas.join('\n'));
-
-      if (!datosFaltantes.includes(LEYENDA_ITI_VERIFICAR_FECHA)) {
-        datosFaltantes.push(LEYENDA_ITI_VERIFICAR_FECHA);
-      }
+      advertencias = advertencias.filter(
+        (a) => !a.includes('régimen tributario aplicable')
+      );
       const advTrib =
         'Revisión profesional requerida: fecha de otorgamiento no determinada o ambigua. Debe verificarse el régimen tributario aplicable según la fecha efectiva del acto.';
-      if (!advertencias.some((a) => a.includes('régimen tributario aplicable'))) {
-        advertencias.push(advTrib);
-      }
+      advertencias.push(advTrib);
     }
   }
+
+  // Recalcular y validar ordinales notariales en el cuerpo final
+  cuerpo = recalcularOrdinalesNotariales(cuerpo);
 
   return {
     ...borrador,

@@ -89,7 +89,7 @@ export function CotejoExpediente({
   const pieAccion = esLegal ? 'revisá antes de presentar' : esInmo ? 'revisá antes de firmar' : 'revisá antes de otorgar';
 
   return (
-    <div className="rounded-3xl border border-white/10 bg-white/[0.02] p-6">
+    <div data-testid="cotejo-expediente" className="rounded-3xl border border-white/10 bg-white/[0.02] p-6">
       <div className="flex items-start justify-between gap-4">
         <div>
           <h2 className="text-lg font-semibold text-white">🔍 {titulo}</h2>
@@ -120,9 +120,13 @@ export function CotejoExpediente({
         <div className="mt-4 space-y-3">
           <p className="text-sm text-slate-200">{cotejo.veredicto}</p>
           <Bloque titulo={rotuloCoincidencias} items={cotejo.coincidencias} tono="emerald" />
-          <Bloque titulo={rotuloDiscrepancias} items={cotejo.discrepancias} tono="rose" />
+          <div data-testid="cotejo-discrepancias">
+            <Bloque titulo={rotuloDiscrepancias} items={cotejo.discrepancias} tono="rose" />
+          </div>
           <Bloque titulo={rotuloFaltantes} items={cotejo.faltantes} tono="slate" />
-          <Bloque titulo={rotuloVigencias} items={cotejo.alertas_vigencia} tono="amber" />
+          <div data-testid="cotejo-vigencias">
+            <Bloque titulo={rotuloVigencias} items={cotejo.alertas_vigencia} tono="amber" />
+          </div>
           {generadoEl && (
             <p className="text-xs text-slate-500">
               Cotejo generado el {new Date(generadoEl).toLocaleString('es-AR')} · Borrador orientativo, {pieAccion}.

@@ -6,7 +6,12 @@ import { createClient } from '@/lib/supabase/server';
 import { getUserProfile } from '@/lib/auth/getUserProfile';
 import { createAuditLog } from '@/lib/audit/createAuditLog';
 import { generarResumenConIA, cotejarDocumentosConIA } from '@/lib/ai/copiloto';
-import { redactarEscrituraConIA, evaluarEvidenciaOrigenFondosFailClosed } from '@/lib/ai/escrituras';
+import {
+  redactarEscrituraConIA,
+  evaluarEvidenciaOrigenFondosFailClosed,
+  validarOrdinalesNotariales,
+  recalcularOrdinalesNotariales,
+} from '@/lib/ai/escrituras';
 import { extraerPlazoCanonicoLegajo } from '@/lib/plazos/fechasCanonicas';
 import { redactarBorradorInmobiliariaConIA } from '@/lib/ai/borradorInmobiliaria';
 import { calificarInquilinoConIA } from '@/lib/ai/preScore';
@@ -898,7 +903,35 @@ export async function cotejarExpediente(caseId: string) {
     };
   });
 
-  const plazoCanonico = extraerPlazoCanonicoLegajo(caseRecord, outputsData);
+  const { data: caseEventsData } = await supabase
+    .from('case_events')
+    .select('event_date, event_type, title, description')
+    .eq('case_id', caseId)
+    .eq('organization_id', profile.organization_id)
+    .order('event_date', { ascending: true });
+
+  const { data: agendaData } = await supabase
+    .from('agenda_plazos')
+    .select('id, titulo, fecha, detalle, categoria')
+    .eq('organization_id', profile.organization_id)
+    .eq('case_id', caseId);
+
+  const eventosCombinados = [
+    ...(caseEventsData ?? []).map((e) => ({
+      fecha: String(e.event_date),
+      tipo: String(e.event_type || 'otro'),
+      titulo: String(e.title || ''),
+      descripcion: String(e.description || ''),
+    })),
+    ...(agendaData ?? []).map((a) => ({
+      fecha: String(a.fecha),
+      tipo: String(a.categoria || 'agenda'),
+      titulo: String(a.titulo || ''),
+      descripcion: String(a.detalle || ''),
+    })),
+  ];
+
+  const plazoCanonico = extraerPlazoCanonicoLegajo(caseRecord, outputsData, eventosCombinados);
 
   const result = await cotejarDocumentosConIA({
     titulo: caseRecord.title || 'Legajo',
@@ -1022,7 +1055,35 @@ export async function redactarEscrituraExpediente(caseId: string) {
   const resumenGeneral = String((resumenData?.result_json as any)?.resumen_general || '');
   const metadata = (caseRecord.metadata || {}) as Record<string, string>;
 
-  const plazoCanonico = extraerPlazoCanonicoLegajo(caseRecord, outputsData, []);
+  const { data: caseEventsData } = await supabase
+    .from('case_events')
+    .select('event_date, event_type, title, description')
+    .eq('case_id', caseId)
+    .eq('organization_id', profile.organization_id)
+    .order('event_date', { ascending: true });
+
+  const { data: agendaData } = await supabase
+    .from('agenda_plazos')
+    .select('id, titulo, fecha, detalle, categoria')
+    .eq('organization_id', profile.organization_id)
+    .eq('case_id', caseId);
+
+  const eventosCombinados = [
+    ...(caseEventsData ?? []).map((e) => ({
+      fecha: String(e.event_date),
+      tipo: String(e.event_type || 'otro'),
+      titulo: String(e.title || ''),
+      descripcion: String(e.description || ''),
+    })),
+    ...(agendaData ?? []).map((a) => ({
+      fecha: String(a.fecha),
+      tipo: String(a.categoria || 'agenda'),
+      titulo: String(a.titulo || ''),
+      descripcion: String(a.detalle || ''),
+    })),
+  ];
+
+  const plazoCanonico = extraerPlazoCanonicoLegajo(caseRecord, outputsData, eventosCombinados);
   const fechaOtorgamiento = metadata.fecha_otorgamiento || plazoCanonico?.fechaTentativa || '';
 
   const result = await redactarEscrituraConIA({
@@ -1037,6 +1098,12 @@ export async function redactarEscrituraExpediente(caseId: string) {
   });
 
   if (!result.ok) { revalidatePath(`/expedientes/${caseId}`); return; }
+
+  // Validar determinísticamente ordinales notariales antes de guardar
+  const checkOrdinales = validarOrdinalesNotariales(result.borrador.cuerpo);
+  if (!checkOrdinales.ok) {
+    result.borrador.cuerpo = recalcularOrdinalesNotariales(result.borrador.cuerpo);
+  }
 
   await supabase.from('ai_outputs').insert({
     organization_id: profile.organization_id,

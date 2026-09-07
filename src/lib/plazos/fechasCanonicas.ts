@@ -213,10 +213,14 @@ export interface PlazoCanonicoLegajo {
   excesoDias: number;
   excedePlazo: boolean;
   advertencia?: string;
+  fuenteFechaBoleto?: string;
+  fuentePlazo?: string;
+  fuenteFechaTentativa?: string;
 }
 
 /**
  * Analiza un legajo extrayendo canónicamente fecha de boleto, plazo, fecha límite y fecha tentativa.
+ * Utiliza candidatos tipados con precedencia semántica estricta y trazabilidad de origen.
  * Admite formatos ISO, argentino (DD/MM/YYYY) y texto en español ("10 de junio de 2026").
  */
 export function extraerPlazoCanonicoLegajo(
@@ -230,23 +234,69 @@ export function extraerPlazoCanonicoLegajo(
 ): PlazoCanonicoLegajo | null {
   const meta = caseRecord?.metadata ?? {};
 
-  // 1. Extraer fecha de boleto
-  let fechaBoletoParsed: { iso: string; ar: string } | null = null;
-
-  if (meta.fecha_boleto) {
-    fechaBoletoParsed = parsearFechaCualquiera(meta.fecha_boleto);
+  // Filtrar aiOutputs para procesar únicamente el análisis más reciente por document_id
+  const latestAiOutputs: any[] = [];
+  if (Array.isArray(aiOutputs)) {
+    const seenDocs = new Set<string>();
+    for (const a of aiOutputs) {
+      const docId = a?.document_id || a?.id;
+      if (docId) {
+        if (!seenDocs.has(docId)) {
+          seenDocs.add(docId);
+          latestAiOutputs.push(a);
+        }
+      } else {
+        latestAiOutputs.push(a);
+      }
+    }
   }
 
-  if (!fechaBoletoParsed && Array.isArray(aiOutputs)) {
-    for (const a of aiOutputs) {
+  // --- 1. Extraer fecha de boleto con precedencia semántica ---
+  let fechaBoletoParsed: { iso: string; ar: string } | null = null;
+  let fuenteFechaBoleto: string | undefined;
+
+  // Candidato 1: metadata explícita
+  if (meta.fecha_boleto) {
+    const p = parsearFechaCualquiera(meta.fecha_boleto);
+    if (p) {
+      fechaBoletoParsed = p;
+      fuenteFechaBoleto = 'metadata.fecha_boleto';
+    }
+  }
+
+  // Candidato 2: descripciones explícitas en análisis documental reciente de IA
+  if (!fechaBoletoParsed) {
+    for (const a of latestAiOutputs) {
       const rj = a?.result_json as any;
       const fechas = Array.isArray(rj?.fechas_plazos) ? rj.fechas_plazos : [];
       for (const fp of fechas) {
-        const desc = String(fp?.descripcion || '').toLowerCase();
-        if (desc.includes('boleto') && !desc.includes('límite') && !desc.includes('limite') && !desc.includes('tentativa')) {
+        const desc = String(fp?.descripcion || '').toLowerCase().trim();
+        // Excluir límite, tentativa, otorgamiento, escritura antecedente y vencimientos
+        if (
+          desc.includes('límite') ||
+          desc.includes('limite') ||
+          desc.includes('tentativa') ||
+          desc.includes('otorgamiento') ||
+          desc.includes('antecedente') ||
+          desc.includes('vencimiento') ||
+          desc.includes('certificado')
+        ) {
+          continue;
+        }
+
+        const esBoletoExplicito =
+          desc.includes('fecha del boleto') ||
+          desc.includes('fecha de boleto') ||
+          desc.includes('boleto celebrado') ||
+          desc.includes('boleto firmado') ||
+          desc.includes('boleto emitido') ||
+          desc.startsWith('boleto');
+
+        if (esBoletoExplicito) {
           const p = parsearFechaCualquiera(fp?.fecha) || parsearFechaCualquiera(fp?.evidencia_textual);
           if (p) {
             fechaBoletoParsed = p;
+            fuenteFechaBoleto = `ai_output.fechas_plazos:${fp.descripcion}`;
             break;
           }
         }
@@ -255,71 +305,117 @@ export function extraerPlazoCanonicoLegajo(
     }
   }
 
+  // Candidato 3: eventos vinculados (Agenda o Actuaciones)
   if (!fechaBoletoParsed && Array.isArray(eventos)) {
     for (const ev of eventos) {
-      const text = `${ev?.titulo || ''} ${ev?.description || ''} ${ev?.tipo || ''}`.toLowerCase();
-      if (text.includes('boleto') && !text.includes('límite') && !text.includes('tentativa')) {
+      const text = `${ev?.titulo || ev?.title || ''} ${ev?.detalle || ev?.description || ''} ${ev?.tipo || ev?.event_type || ''}`.toLowerCase();
+      if (
+        text.includes('límite') ||
+        text.includes('limite') ||
+        text.includes('tentativa') ||
+        text.includes('otorgamiento') ||
+        text.includes('antecedente') ||
+        text.includes('vencimiento')
+      ) {
+        continue;
+      }
+      if (text.includes('boleto')) {
         const p = parsearFechaCualquiera(ev?.fecha || ev?.event_date);
         if (p) {
           fechaBoletoParsed = p;
+          fuenteFechaBoleto = `evento:${ev?.titulo || ev?.title || 'boleto'}`;
           break;
         }
       }
     }
   }
 
-  const dump = JSON.stringify([
-    aiOutputs?.map((a) => a?.result_json ?? a?.content ?? ''),
-    eventos?.map((e) => `${e?.titulo} ${e?.descripcion}`),
-    meta,
-  ]);
-
+  // Fallback textual controlado en análisis
   if (!fechaBoletoParsed) {
+    const dump = JSON.stringify([
+      latestAiOutputs.map((a) => a?.result_json ?? a?.content ?? ''),
+      eventos?.map((e) => `${e?.titulo || e?.title} ${e?.detalle || e?.description}`),
+    ]);
     const mBoleto =
-      dump.match(/(?:boleto|compraventa)[^\d]{1,60}?(\d{1,2}\s+de\s+[a-z]+\s+del?\s+\d{4})/i) ||
-      dump.match(/(?:boleto|compraventa)[^\d]{1,60}?(\d{2}\/\d{2}\/\d{4})/i) ||
-      dump.match(/(?:boleto|compraventa)[^\d]{1,60}?(\d{4}-\d{2}-\d{2})/i);
+      dump.match(/(?:fecha\s+del\s+boleto|boleto\s+firmado|boleto\s+celebrado)[^\d]{1,60}?(\d{1,2}\s+de\s+[a-z]+\s+del?\s+\d{4})/i) ||
+      dump.match(/(?:fecha\s+del\s+boleto|boleto\s+firmado|boleto\s+celebrado)[^\d]{1,60}?(\d{2}\/\d{2}\/\d{4})/i) ||
+      dump.match(/(?:fecha\s+del\s+boleto|boleto\s+firmado|boleto\s+celebrado)[^\d]{1,60}?(\d{4}-\d{2}-\d{2})/i);
     if (mBoleto) {
       fechaBoletoParsed = parsearFechaCualquiera(mBoleto[1]);
-    }
-  }
-
-  // 2. Extraer plazo en días
-  let plazoDias: number | undefined;
-  if (meta.plazo_dias && Number(meta.plazo_dias) > 0) {
-    plazoDias = Number(meta.plazo_dias);
-  } else if (meta.plazo_escrituracion_dias && Number(meta.plazo_escrituracion_dias) > 0) {
-    plazoDias = Number(meta.plazo_escrituracion_dias);
-  }
-
-  if (!plazoDias) {
-    const mPlazo =
-      dump.match(/(\d{1,3})\s*d[ií]as\s+corridos/i) ||
-      dump.match(/plazo\s+(?:contractual\s+)?(?:de\s+)?(\d{1,3})\s*d[ií]as/i);
-    if (mPlazo) {
-      const p = parseInt(mPlazo[1], 10);
-      if (Number.isInteger(p) && p > 0) {
-        plazoDias = p;
+      if (fechaBoletoParsed) {
+        fuenteFechaBoleto = 'texto:boleto';
       }
     }
   }
 
-  // 3. Extraer fecha tentativa de escrituración
-  let fechaTentativaParsed: { iso: string; ar: string } | null = null;
-  if (meta.fecha_otorgamiento || meta.fecha_tentativa) {
-    fechaTentativaParsed = parsearFechaCualquiera(meta.fecha_otorgamiento || meta.fecha_tentativa);
+  // --- 2. Extraer plazo en días enteros positivos ---
+  let plazoDias: number | undefined;
+  let fuentePlazo: string | undefined;
+
+  if (meta.plazo_dias && Number(meta.plazo_dias) > 0) {
+    plazoDias = Math.floor(Number(meta.plazo_dias));
+    fuentePlazo = 'metadata.plazo_dias';
+  } else if (meta.plazo_escrituracion_dias && Number(meta.plazo_escrituracion_dias) > 0) {
+    plazoDias = Math.floor(Number(meta.plazo_escrituracion_dias));
+    fuentePlazo = 'metadata.plazo_escrituracion_dias';
   }
 
-  if (!fechaTentativaParsed && Array.isArray(aiOutputs)) {
-    for (const a of aiOutputs) {
+  if (!plazoDias) {
+    const dumpPlazo = JSON.stringify([
+      latestAiOutputs.map((a) => a?.result_json ?? a?.content ?? ''),
+      eventos?.map((e) => `${e?.titulo || e?.title} ${e?.detalle || e?.description}`),
+    ]);
+    const mPlazo =
+      dumpPlazo.match(/(\d{1,3})\s*d[ií]as\s+corridos/i) ||
+      dumpPlazo.match(/plazo\s+(?:contractual\s+)?(?:de\s+)?(\d{1,3})\s*d[ií]as/i);
+    if (mPlazo) {
+      const p = parseInt(mPlazo[1], 10);
+      if (Number.isInteger(p) && p > 0) {
+        plazoDias = p;
+        fuentePlazo = `texto:${p} dias`;
+      }
+    }
+  }
+
+  // --- 3. Extraer fecha tentativa con precedencia semántica y exclusión de antecedentes ---
+  let fechaTentativaParsed: { iso: string; ar: string } | null = null;
+  let fuenteFechaTentativa: string | undefined;
+
+  // Prioridad 1: metadata explícita de otorgamiento o tentativa
+  if (meta.fecha_otorgamiento || meta.fecha_tentativa) {
+    const p = parsearFechaCualquiera(meta.fecha_otorgamiento || meta.fecha_tentativa);
+    if (p) {
+      fechaTentativaParsed = p;
+      fuenteFechaTentativa = meta.fecha_otorgamiento ? 'metadata.fecha_otorgamiento' : 'metadata.fecha_tentativa';
+    }
+  }
+
+  // Prioridad 2: "Fecha tentativa de escritura" en análisis documental
+  if (!fechaTentativaParsed) {
+    for (const a of latestAiOutputs) {
       const rj = a?.result_json as any;
       const fechas = Array.isArray(rj?.fechas_plazos) ? rj.fechas_plazos : [];
       for (const fp of fechas) {
-        const desc = String(fp?.descripcion || '').toLowerCase();
-        if (desc.includes('tentativa') || desc.includes('estimada') || desc.includes('otorgamiento') || desc.includes('escrituraci')) {
+        const desc = String(fp?.descripcion || '').toLowerCase().trim();
+        // Exclusión estricta de antecedentes y certificados
+        if (
+          desc.includes('antecedente') ||
+          desc.includes('título antecedente') ||
+          desc.includes('titulo antecedente') ||
+          desc.includes('escritura antecedente') ||
+          desc.includes('límite') ||
+          desc.includes('limite') ||
+          desc.includes('plazo máximo') ||
+          desc.includes('certificado')
+        ) {
+          continue;
+        }
+
+        if (desc.includes('fecha tentativa de escritura') || desc.includes('tentativa de escritura')) {
           const p = parsearFechaCualquiera(fp?.fecha) || parsearFechaCualquiera(fp?.evidencia_textual);
           if (p) {
             fechaTentativaParsed = p;
+            fuenteFechaTentativa = `ai_output:${fp.descripcion}`;
             break;
           }
         }
@@ -328,26 +424,84 @@ export function extraerPlazoCanonicoLegajo(
     }
   }
 
+  // Prioridad 3: "Fecha estimada de escritura" en análisis documental
+  if (!fechaTentativaParsed) {
+    for (const a of latestAiOutputs) {
+      const rj = a?.result_json as any;
+      const fechas = Array.isArray(rj?.fechas_plazos) ? rj.fechas_plazos : [];
+      for (const fp of fechas) {
+        const desc = String(fp?.descripcion || '').toLowerCase().trim();
+        if (
+          desc.includes('antecedente') ||
+          desc.includes('límite') ||
+          desc.includes('limite') ||
+          desc.includes('certificado')
+        ) {
+          continue;
+        }
+
+        if (desc.includes('fecha estimada de escritura') || desc.includes('estimada de escritura')) {
+          const p = parsearFechaCualquiera(fp?.fecha) || parsearFechaCualquiera(fp?.evidencia_textual);
+          if (p) {
+            fechaTentativaParsed = p;
+            fuenteFechaTentativa = `ai_output:${fp.descripcion}`;
+            break;
+          }
+        }
+      }
+      if (fechaTentativaParsed) break;
+    }
+  }
+
+  // Prioridad 4: Evento de Agenda explícitamente tentativo
   if (!fechaTentativaParsed && Array.isArray(eventos)) {
     for (const ev of eventos) {
-      const text = `${ev?.titulo || ''} ${ev?.description || ''} ${ev?.tipo || ''}`.toLowerCase();
-      if (text.includes('tentativa') || text.includes('estimada') || text.includes('otorgamiento') || text.includes('escrituraci')) {
+      const text = `${ev?.titulo || ev?.title || ''} ${ev?.detalle || ev?.description || ''} ${ev?.tipo || ev?.categoria || ''}`.toLowerCase();
+      if (
+        text.includes('antecedente') ||
+        text.includes('límite') ||
+        text.includes('limite') ||
+        text.includes('certificado')
+      ) {
+        continue;
+      }
+      if (text.includes('tentativa') || text.includes('estimada') || text.includes('otorgamiento')) {
         const p = parsearFechaCualquiera(ev?.fecha || ev?.event_date);
         if (p) {
           fechaTentativaParsed = p;
+          fuenteFechaTentativa = `agenda:${ev?.titulo || ev?.title || 'tentativa'}`;
           break;
         }
       }
     }
   }
 
+  // Fallback genérico excluyendo antecedentes
   if (!fechaTentativaParsed) {
-    const mTentativa =
-      dump.match(/(?:tentativa|estimada|otorgamiento|escrituraci[oó]n)[^\d]{1,60}?(\d{1,2}\s+de\s+[a-z]+\s+del?\s+\d{4})/i) ||
-      dump.match(/(?:tentativa|estimada|otorgamiento|escrituraci[oó]n)[^\d]{1,60}?(\d{2}\/\d{2}\/\d{4})/i) ||
-      dump.match(/(?:tentativa|estimada|otorgamiento|escrituraci[oó]n)[^\d]{1,60}?(\d{4}-\d{2}-\d{2})/i);
-    if (mTentativa) {
-      fechaTentativaParsed = parsearFechaCualquiera(mTentativa[1]);
+    for (const a of latestAiOutputs) {
+      const rj = a?.result_json as any;
+      const fechas = Array.isArray(rj?.fechas_plazos) ? rj.fechas_plazos : [];
+      for (const fp of fechas) {
+        const desc = String(fp?.descripcion || '').toLowerCase().trim();
+        if (
+          desc.includes('antecedente') ||
+          desc.includes('límite') ||
+          desc.includes('limite') ||
+          desc.includes('boleto') ||
+          desc.includes('certificado')
+        ) {
+          continue;
+        }
+        if (desc.includes('tentativa') || desc.includes('estimada')) {
+          const p = parsearFechaCualquiera(fp?.fecha) || parsearFechaCualquiera(fp?.evidencia_textual);
+          if (p) {
+            fechaTentativaParsed = p;
+            fuenteFechaTentativa = `ai_output:${fp.descripcion}`;
+            break;
+          }
+        }
+      }
+      if (fechaTentativaParsed) break;
     }
   }
 
@@ -367,7 +521,7 @@ export function extraerPlazoCanonicoLegajo(
     if (diff > 0) {
       excedePlazo = true;
       excesoDias = diff;
-      advertencia = `La fecha tentativa de escrituración (${fechaTentativaParsed.ar}) excede el plazo contractual de ${plazoDias} días corridos (límite: ${fechaLimiteAr}) por ${excesoDias} día${excesoDias === 1 ? '' : 's'} corridos.`;
+      advertencia = `La fecha tentativa de escritura (${fechaTentativaParsed.ar}) excede el plazo máximo de ${plazoDias} días corridos, cuyo límite es el ${fechaLimiteAr}.`;
     }
   }
 
@@ -382,6 +536,9 @@ export function extraerPlazoCanonicoLegajo(
     excesoDias,
     excedePlazo,
     advertencia,
+    fuenteFechaBoleto,
+    fuentePlazo,
+    fuenteFechaTentativa,
   };
 }
 
@@ -515,11 +672,15 @@ export function extraerFechasOperativasLegajo(
       const rj = a?.result_json as any;
       const fechas = Array.isArray(rj?.fechas_plazos) ? rj.fechas_plazos : [];
       for (const fp of fechas) {
-        const parsed = parsearFechaCualquiera(fp?.fecha) || parsearFechaCualquiera(fp?.evidencia_textual);
-        if (!parsed) continue;
         const desc = String(fp?.descripcion || '').trim();
         if (!desc) continue;
         const dLower = desc.toLowerCase();
+        // Excluir antecedentes históricos (ej. escrituras antecedentes de 2015)
+        if (dLower.includes('antecedente')) continue;
+
+        const parsed = parsearFechaCualquiera(fp?.fecha) || parsearFechaCualquiera(fp?.evidencia_textual);
+        if (!parsed) continue;
+
         let tipo = desc;
         if (dLower.includes('límite') || dLower.includes('limite') || (dLower.includes('plazo') && dLower.includes('contractual'))) {
           tipo = 'Fecha límite contractual';
@@ -536,11 +697,14 @@ export function extraerFechasOperativasLegajo(
   // 4) Fechas en eventos de Agenda vinculados
   if (Array.isArray(agendaEvents)) {
     for (const ev of agendaEvents) {
+      const desc = String(ev?.titulo || ev?.title || ev?.tipo || ev?.event_type || 'Evento de agenda').trim();
+      const dLower = desc.toLowerCase();
+      if (dLower.includes('antecedente')) continue;
+
       const parsed = parsearFechaCualquiera(ev?.fecha || ev?.event_date);
       if (!parsed) continue;
-      const desc = String(ev?.titulo || ev?.title || ev?.tipo || ev?.event_type || 'Evento de agenda').trim();
+
       let tipo = desc;
-      const dLower = desc.toLowerCase();
       if (dLower.includes('límite') || dLower.includes('limite') || (dLower.includes('plazo') && dLower.includes('contractual'))) {
         tipo = 'Fecha límite contractual';
       } else if (dLower.includes('tentativa') || dLower.includes('estimada') || dLower.includes('escrituraci') || dLower.includes('firma')) {
@@ -557,7 +721,7 @@ export function extraerFechasOperativasLegajo(
 
 /**
  * Extrae exclusivamente las fechas accionables (plazos, vencimientos, audiencias, tentativas),
- * excluyendo explícitamente fechas de emisión histórica (como 'Fecha del boleto') para Radar y Observaciones.
+ * excluyendo explícitamente fechas de emisión histórica (como 'Fecha del boleto' o antecedentes) para Radar y Observaciones.
  */
 export function extraerFechasAccionablesLegajo(
   c: {
@@ -571,7 +735,11 @@ export function extraerFechasAccionablesLegajo(
   const todas = extraerFechasOperativasLegajo(c, aiOutputs, agendaEvents);
   return todas.filter((it) => {
     const tLower = it.tipo.toLowerCase().trim();
-    if (tLower.includes('fecha del boleto') || tLower === 'fecha de boleto') {
+    if (
+      tLower.includes('fecha del boleto') ||
+      tLower === 'fecha de boleto' ||
+      tLower.includes('antecedente')
+    ) {
       return false;
     }
     const clasificacion = clasificarFecha(it.tipo);

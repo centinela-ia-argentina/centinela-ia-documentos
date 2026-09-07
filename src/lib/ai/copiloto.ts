@@ -28,6 +28,7 @@ export function sanitizarTerminologiaEscribania(texto: string): string {
 import {
   analizarPlazoBoletoEscritura,
   parsearFechaCualquiera,
+  formatIsoToAr,
   type PlazoCanonicoLegajo,
 } from '@/lib/plazos/fechasCanonicas';
 
@@ -370,20 +371,26 @@ export async function cotejarDocumentosConIA(input: {
       }
 
       if (plazo && (plazo.excedePlazo || plazo.excesoDias > 0 || plazo.diasExceso > 0)) {
-        const fTentativa = plazo.fechaTentativa || plazo.fechaTentativaAr;
-        const fLimite = plazo.fechaLimite || plazo.fechaLimiteAr;
+        const rawTentativa = plazo.fechaTentativa || plazo.fechaTentativaAr || '';
+        const rawLimite = plazo.fechaLimite || plazo.fechaLimiteAr || '';
+        const fTentativa = formatIsoToAr(rawTentativa);
+        const fLimite = formatIsoToAr(rawLimite);
         const dias = plazo.excesoDias ?? plazo.diasExceso ?? 2;
         const diasPlazo = plazo.plazoDias ?? 90;
 
-        const adv = plazo.advertencia || `La fecha tentativa de escrituración (${fTentativa}) excede el plazo contractual de ${diasPlazo} días corridos (límite: ${fLimite}) por ${dias} día${dias === 1 ? '' : 's'} corridos.`;
-        const disc = `Plazo contractual: la fecha tentativa (${fTentativa}) supera el límite de escrituración (${fLimite}) fijado en el boleto por ${dias} días corridos.`;
+        const discExacta = `Plazo contractual: la fecha tentativa de escritura (${fTentativa}) supera el límite contractual (${fLimite}) por ${dias} días corridos.`;
+        const vigExacta = `La fecha tentativa de escritura (${fTentativa}) excede el plazo máximo de ${diasPlazo} días corridos, cuyo límite es el ${fLimite}.`;
 
-        if (!alertas_vigencia.some((a: string) => a.includes(fLimite) || a.toLowerCase().includes('excede'))) {
-          alertas_vigencia.unshift(adv);
-        }
-        if (!discrepancias.some((d: string) => d.includes(fLimite) || d.toLowerCase().includes('plazo contractual') || d.toLowerCase().includes('supera el límite'))) {
-          discrepancias.unshift(disc);
-        }
+        // Prevenir que el prompt o el modelo omitan o alteren estos textos exactos
+        discrepancias = discrepancias.filter(
+          (d: string) => !d.toLowerCase().includes('plazo') && !d.toLowerCase().includes('supera el límite') && !d.includes(fLimite)
+        );
+        discrepancias.unshift(discExacta);
+
+        alertas_vigencia = alertas_vigencia.filter(
+          (a: string) => !a.toLowerCase().includes('plazo') && !a.toLowerCase().includes('excede') && !a.includes(fLimite)
+        );
+        alertas_vigencia.unshift(vigExacta);
       }
     }
 

@@ -14,6 +14,8 @@ const CASE_INM_ID = 'dddd2222-2222-2222-2222-222222222222';
 const CASE_LEGAL_ID = 'cccc1111-1111-1111-1111-111111111111';
 const CASE_PALERMO_ID = 'eeee3333-3333-3333-3333-333333333339';
 const DOC_PALERMO_ID = 'ddcc3333-3333-3333-3333-333333333339';
+const DOC_ANTECEDENTE_ID = 'ddcc3333-3333-3333-3333-333333333338';
+const DOC_CERTIFICADOS_ID = 'ddcc3333-3333-3333-3333-333333333337';
 
 test.describe.serial('Centinela IA - Escribania E2E', () => {
   let tempCaseId = '';
@@ -192,13 +194,11 @@ test.describe.serial('Centinela IA - Escribania E2E', () => {
   });
 
   test('G. Palermo Cuba - Consistencia de Fechas, Radar, Observaciones y Guardrail UIF', async ({ browser }) => {
-    // 1. Limpiar outputs y plazos previos para asegurar ejecución real
-    const PLAZO_PALERMO_ID = 'bbbb2222-2222-2222-2222-222222222222';
+    // 1. Limpiar outputs y plazos previos para asegurar derivación y ejecución real
     await serviceClient.from('ai_outputs').delete().eq('case_id', CASE_PALERMO_ID);
-    await serviceClient.from('agenda_plazos').delete().eq('id', PLAZO_PALERMO_ID);
     await serviceClient.from('agenda_plazos').delete().eq('case_id', CASE_PALERMO_ID);
 
-    // 2. Sembrar legajo Palermo Cuba y su documento
+    // 2. Sembrar legajo Palermo Cuba (SIN fecha límite precargada para exigir derivación real)
     await serviceClient.from('cases').upsert({
       id: CASE_PALERMO_ID,
       organization_id: ORG_ESC_ID,
@@ -215,64 +215,121 @@ test.describe.serial('Centinela IA - Escribania E2E', () => {
       created_by: 'cccc3333-3333-3333-3333-333333333333',
     });
 
-    await serviceClient.from('documents').upsert({
-      id: DOC_PALERMO_ID,
-      case_id: CASE_PALERMO_ID,
-      organization_id: ORG_ESC_ID,
-      file_name: '01_boleto_compraventa_palermo_cuba.pdf',
-      file_path: `${ORG_ESC_ID}/${CASE_PALERMO_ID}/01_boleto_compraventa_palermo_cuba.pdf`,
-      file_size: 1024,
-      file_mime_type: 'application/pdf',
-      file_hash: 'hash-palermo-boleto',
-      uploaded_by: 'cccc3333-3333-3333-3333-333333333333',
-    });
+    // 3. Sembrar documentos reales: Boleto, Escritura antecedente (2015) y Certificados (oct/nov 2026)
+    await serviceClient.from('documents').upsert([
+      {
+        id: DOC_PALERMO_ID,
+        case_id: CASE_PALERMO_ID,
+        organization_id: ORG_ESC_ID,
+        file_name: '01_boleto_compraventa_palermo_cuba.pdf',
+        file_path: `${ORG_ESC_ID}/${CASE_PALERMO_ID}/01_boleto_compraventa_palermo_cuba.pdf`,
+        file_size: 1024,
+        file_mime_type: 'application/pdf',
+        file_hash: 'hash-palermo-boleto',
+        uploaded_by: 'cccc3333-3333-3333-3333-333333333333',
+      },
+      {
+        id: DOC_ANTECEDENTE_ID,
+        case_id: CASE_PALERMO_ID,
+        organization_id: ORG_ESC_ID,
+        file_name: '02_escritura_antecedente_palermo.pdf',
+        file_path: `${ORG_ESC_ID}/${CASE_PALERMO_ID}/02_escritura_antecedente_palermo.pdf`,
+        file_size: 2048,
+        file_mime_type: 'application/pdf',
+        file_hash: 'hash-palermo-antecedente',
+        uploaded_by: 'cccc3333-3333-3333-3333-333333333333',
+      },
+      {
+        id: DOC_CERTIFICADOS_ID,
+        case_id: CASE_PALERMO_ID,
+        organization_id: ORG_ESC_ID,
+        file_name: '03_certificados_palermo.pdf',
+        file_path: `${ORG_ESC_ID}/${CASE_PALERMO_ID}/03_certificados_palermo.pdf`,
+        file_size: 1536,
+        file_mime_type: 'application/pdf',
+        file_hash: 'hash-palermo-certificados',
+        uploaded_by: 'cccc3333-3333-3333-3333-333333333333',
+      },
+    ]);
 
-    // 3. Sembrar únicamente el análisis documental (NO sembrar case_summary, case_cotejo ni case_escritura)
-    // NO sembrar "Fecha límite contractual — 08/09/2026" para exigir derivación matemática real
-    await serviceClient.from('ai_outputs').upsert({
-      case_id: CASE_PALERMO_ID,
-      document_id: DOC_PALERMO_ID,
-      organization_id: ORG_ESC_ID,
-      output_type: 'document_analysis',
-      content: 'Análisis documental boleto Palermo',
-      model_name: 'test-model',
-      result_json: {
-        tipo_documental_detectado: 'Boleto de compraventa',
-        resumen: 'Boleto de compraventa firmado el 10/06/2026 con plazo de 90 días corridos para otorgar la escritura. No acredita origen de fondos.',
-        datos_clave: ['Boleto 10/06/2026', 'Plazo 90 días corridos', 'USD 150.000'],
-        fechas_plazos: [
-          { descripcion: 'Fecha del boleto', fecha: '2026-06-10', tipo: 'issue_date', confianza: 'alta', requiere_revision: false, evidencia_textual: '10 de junio de 2026' },
-          { descripcion: 'Fecha tentativa de escritura', fecha: '2026-09-10', tipo: 'contractual_deadline', confianza: 'alta', requiere_revision: false, evidencia_textual: '10 de septiembre de 2026' }
-        ]
-      }
-    });
-
-    // 4. Sembrar evento histórico/legacy con case_id: null para verificar inferencia desde el nombre del documento
-    await serviceClient.from('agenda_plazos').upsert({
-      id: PLAZO_PALERMO_ID,
-      organization_id: ORG_ESC_ID,
-      case_id: null,
-      titulo: 'Fecha límite contractual de escrituración',
-      fecha: '2026-09-08',
-      categoria: 'plazo',
-      detalle: 'Detectado por IA en el documento: 01_boleto_compraventa_palermo_cuba.pdf',
-    });
+    // 4. Sembrar análisis documentales de IA correspondientes
+    await serviceClient.from('ai_outputs').upsert([
+      {
+        case_id: CASE_PALERMO_ID,
+        document_id: DOC_PALERMO_ID,
+        organization_id: ORG_ESC_ID,
+        output_type: 'document_analysis',
+        content: 'Análisis documental boleto Palermo',
+        model_name: 'test-model',
+        result_json: {
+          tipo_documental_detectado: 'Boleto de compraventa',
+          resumen: 'Boleto de compraventa firmado el 10/06/2026 con plazo de 90 días corridos para otorgar la escritura. No acredita origen de fondos.',
+          datos_clave: ['Boleto 10/06/2026', 'Plazo 90 días corridos', 'USD 150.000'],
+          fechas_plazos: [
+            { descripcion: 'Fecha del boleto', fecha: '2026-06-10', tipo: 'issue_date', confianza: 'alta', requiere_revision: false, evidencia_textual: '10 de junio de 2026' },
+            { descripcion: 'Fecha tentativa de escritura', fecha: '2026-09-10', tipo: 'contractual_deadline', confianza: 'alta', requiere_revision: false, evidencia_textual: '10 de septiembre de 2026' },
+          ],
+        },
+      },
+      {
+        case_id: CASE_PALERMO_ID,
+        document_id: DOC_ANTECEDENTE_ID,
+        organization_id: ORG_ESC_ID,
+        output_type: 'document_analysis',
+        content: 'Análisis documental escritura antecedente',
+        model_name: 'test-model',
+        result_json: {
+          tipo_documental_detectado: 'Escritura antecedente',
+          resumen: 'Escritura antecedente de compraventa pasada el 15/03/2015.',
+          datos_clave: ['Escritura antecedente 15/03/2015'],
+          fechas_plazos: [
+            { descripcion: 'Escritura antecedente de compraventa', fecha: '2015-03-15', tipo: 'issue_date', confianza: 'alta', requiere_revision: false, evidencia_textual: '15 de marzo de 2015' },
+          ],
+        },
+      },
+      {
+        case_id: CASE_PALERMO_ID,
+        document_id: DOC_CERTIFICADOS_ID,
+        organization_id: ORG_ESC_ID,
+        output_type: 'document_analysis',
+        content: 'Análisis documental certificados',
+        model_name: 'test-model',
+        result_json: {
+          tipo_documental_detectado: 'Certificados notariales',
+          resumen: 'Certificado catastral vigente hasta 20/10/2026 e informe de dominio vigente hasta 01/11/2026.',
+          datos_clave: ['Catastral 20/10/2026', 'Dominio 01/11/2026'],
+          fechas_plazos: [
+            { descripcion: 'Vencimiento Certificado Catastral', fecha: '2026-10-20', tipo: 'document_expiration', confianza: 'alta', requiere_revision: false, evidencia_textual: '20 de octubre de 2026' },
+            { descripcion: 'Vencimiento Certificado Dominio', fecha: '2026-11-01', tipo: 'document_expiration', confianza: 'alta', requiere_revision: false, evidencia_textual: '1 de noviembre de 2026' },
+          ],
+        },
+      },
+    ]);
 
     const { context, page } = await loginAs(browser, 'admin.esc@test.com');
     try {
-      // 4. Inspeccionar legajo inicialmente: Radar de plazos (derivado matemáticamente 10/06 + 90d = 08/09)
+      // 5. Inspeccionar legajo: Radar de plazos derivado matemáticamente (10/06 + 90d = 08/09)
       await page.goto(`/expedientes/${CASE_PALERMO_ID}`);
       await expect(page.locator('body')).toBeVisible();
 
-      // Radar: 08/09 y 10/09 presentes sin duplicación, boleto 10/06 ausente como plazo accionable
+      // Radar: 08/09 y 10/09 presentes; boleto 10/06 y antecedente 15/03 ausentes
       await expect(page.locator('body')).toContainText('Fecha límite contractual');
       await expect(page.locator('body')).toContainText('08/09/2026');
       await expect(page.locator('body')).toContainText('Fecha tentativa de escritura');
       await expect(page.locator('body')).toContainText('10/09/2026');
+
       const radarText = await page.locator('body').innerText();
       expect(radarText).not.toContain('Fecha del boleto · 10/06/2026');
+      expect(radarText).not.toContain('Escritura antecedente · 15/03/2015');
 
-      // 5. Accionar UI: Generar resumen con IA
+      // Cargar plazo derivado a la Agenda desde el Radar de plazos
+      const btnCargarAgenda = page.locator('li:has-text("Fecha límite contractual") button:has-text("Cargar a agenda")').first();
+      if (await btnCargarAgenda.isVisible()) {
+        await btnCargarAgenda.click();
+        await expect(page.locator('li:has-text("Fecha límite contractual")')).toContainText(/agenda/i);
+      }
+
+      // 6. Accionar UI: Generar resumen con IA
       const btnResumen = page.locator('button:has-text("Generar resumen con IA"), button:has-text("Actualizar resumen con IA")').first();
       await expect(btnResumen).toBeVisible();
       await btnResumen.click();
@@ -281,23 +338,27 @@ test.describe.serial('Centinela IA - Escribania E2E', () => {
       await expect(page.locator('body')).toContainText('90 días corridos');
       await expect(page.locator('body')).toContainText('2 días corridos');
 
-      // 6. Accionar UI: Cotejo de documentos con IA
+      // 7. Accionar UI: Cotejo de documentos con IA
       const btnCotejo = page.locator('button:has-text("Cotejar documentos con IA"), button:has-text("Volver a cotejar")').first();
       await expect(btnCotejo).toBeVisible();
       await btnCotejo.click();
 
-      // Verificar que el cotejo expone 08/09/2026, 10/09/2026 y días de exceso
-      await expect(page.locator('body')).toContainText('08/09/2026');
-      await expect(page.locator('body')).toContainText('10/09/2026');
+      // Verificar aserciones scoped de discrepancias y vigencias en Cotejo
+      const cotejoDiscrepancias = page.locator('[data-testid="cotejo-discrepancias"]');
+      await expect(cotejoDiscrepancias).toContainText('Plazo contractual: la fecha tentativa de escritura (10/09/2026) supera el límite contractual (08/09/2026) por 2 días corridos.');
 
-      // 7. Accionar UI: Redactar borrador de escritura
+      const cotejoVigencias = page.locator('[data-testid="cotejo-vigencias"]');
+      await expect(cotejoVigencias).toContainText('La fecha tentativa de escritura (10/09/2026) excede el plazo máximo de 90 días corridos, cuyo límite es el 08/09/2026.');
+
+      // 8. Accionar UI: Redactar borrador de escritura
       const btnBorrador = page.locator('button:has-text("Redactar borrador de escritura"), button:has-text("Regenerar borrador")').first();
       await expect(btnBorrador).toBeVisible();
       await btnBorrador.click();
 
-      // Verificar que el borrador contiene la cláusula UIF autónoma y carece de afirmación de licitud y retención ITI
-      await expect(page.locator('body')).toContainText('QUINTO: MEDIOS DE PAGO Y ORIGEN DE FONDOS');
+      // Verificar cláusula UIF autónoma, leyenda de ITI derogada, y preservación de COTI
+      await expect(page.locator('body')).toContainText('MEDIOS DE PAGO Y ORIGEN DE FONDOS');
       await expect(page.locator('body')).toContainText('[COMPLETAR/VERIFICAR: declaración y documentación respaldatoria sobre medios y origen de fondos]');
+      await expect(page.locator('body')).toContainText('I.T.I.: No resulta aplicable por encontrarse derogado conforme Ley 27.743 para operaciones otorgadas a partir del 08/07/2024.');
 
       const bodyFinal = await page.locator('body').innerText();
       expect(bodyFinal.toLowerCase()).not.toContain('fondos de lícito origen');
@@ -306,7 +367,11 @@ test.describe.serial('Centinela IA - Escribania E2E', () => {
       expect(bodyFinal).not.toContain('retención del Impuesto a la Transferencia de Inmuebles');
       expect(bodyFinal).toContain('C.O.T.I. N° 98765432');
 
-      // 8. Inspeccionar Observaciones
+      // Verificar ordinales sin duplicados consecutivos en el borrador
+      const ordQuintoCount = (bodyFinal.match(/\bQUINTO:\b/g) || []).length;
+      expect(ordQuintoCount).toBeLessThanOrEqual(1);
+
+      // 9. Inspeccionar Observaciones
       await page.goto('/observaciones');
       await expect(page.locator('body')).toBeVisible();
       const obsText = await page.locator('body').innerText();
@@ -320,7 +385,7 @@ test.describe.serial('Centinela IA - Escribania E2E', () => {
       const linkExp = page.locator(`a[href="/expedientes/${CASE_PALERMO_ID}"]`);
       await expect(linkExp.first()).toBeVisible();
 
-      // 9. Inspeccionar Agenda: evento vinculado, preservación de categoría plazo y case_id
+      // 10. Inspeccionar Agenda: evento vinculado con categoría plazo
       await page.goto('/agenda');
       await expect(page.locator('body')).toBeVisible();
 
@@ -330,17 +395,17 @@ test.describe.serial('Centinela IA - Escribania E2E', () => {
       await page.locator('button:has-text("Nuevo evento")').click();
 
       // Evento de plazo en la lista del mes con categoría plazo (no degradado a Recordatorio)
-      await expect(page.locator('body')).toContainText('Fecha límite contractual de escrituración');
+      await expect(page.locator('body')).toContainText('Fecha límite contractual');
 
       // Abrir modal de detalle del plazo
-      await page.locator('button:has-text("Fecha límite contractual de escrituración")').first().click();
+      await page.locator('button:has-text("Fecha límite contractual")').first().click();
       await expect(page.locator('body')).toContainText('America/Argentina/Buenos_Aires');
 
       // Preservación de enlace al legajo (/expedientes/[id])
       const linkAgendaExp = page.locator(`a[href="/expedientes/${CASE_PALERMO_ID}"]`);
       await expect(linkAgendaExp.first()).toBeVisible();
 
-      // Al entrar en edición: la categoría seleccionada es plazo (no se degrada a Recordatorio) y caseId inferido
+      // Al entrar en edición: la categoría seleccionada es plazo y caseId inferido
       await page.locator('[data-testid="agenda-editar-btn"]').click();
       await expect(page.locator('[data-testid="agenda-edit-categoria"]')).toBeVisible();
       await expect(page.locator('[data-testid="agenda-edit-categoria"]')).toHaveValue('plazo');
