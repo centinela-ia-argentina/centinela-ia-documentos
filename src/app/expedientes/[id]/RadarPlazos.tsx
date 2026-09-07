@@ -93,7 +93,7 @@ export function RadarPlazos({
 
   if (plazos.length === 0) {
     return (
-      <section className="rounded-2xl border border-white/10 bg-white/[0.03] p-5 shadow-sm">
+      <section data-testid="radar-plazos" className="rounded-2xl border border-white/10 bg-white/[0.03] p-5 shadow-sm">
         <h2 className="text-base font-semibold text-white">🚦 {titulo}</h2>
         <p className="mt-2 text-sm text-slate-300">
           No hay plazos vencidos ni próximos (30 días). Aparecerán aquí los plazos que detecte la IA o que cargues manualmente.
@@ -107,7 +107,7 @@ export function RadarPlazos({
     .filter((c) => c.n > 0);
 
   return (
-    <section className="rounded-2xl border border-white/10 bg-white/[0.03] p-5 shadow-sm">
+    <section data-testid="radar-plazos" className="rounded-2xl border border-white/10 bg-white/[0.03] p-5 shadow-sm">
       <div className="flex flex-wrap items-center gap-2">
         <h2 className="text-base font-semibold text-white">🚦 {titulo}</h2>
         {conteo.map((c) => (

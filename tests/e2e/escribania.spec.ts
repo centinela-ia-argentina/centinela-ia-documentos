@@ -323,10 +323,12 @@ test.describe.serial('Centinela IA - Escribania E2E', () => {
       expect(radarText).not.toContain('Escritura antecedente · 15/03/2015');
 
       // Cargar plazo derivado a la Agenda desde el Radar de plazos
-      const btnCargarAgenda = page.locator('li:has-text("Fecha límite contractual") button:has-text("Cargar a agenda")').first();
+      const radarSection = page.locator('section[data-testid="radar-plazos"]');
+      const radarItemLimite = radarSection.locator('li:has-text("Fecha límite contractual")').first();
+      const btnCargarAgenda = radarItemLimite.locator('button:has-text("Cargar a agenda")');
       if (await btnCargarAgenda.isVisible()) {
         await btnCargarAgenda.click();
-        await expect(page.locator('li:has-text("Fecha límite contractual")')).toContainText(/agenda/i);
+        await expect(radarItemLimite).toContainText(/agenda/i);
       }
 
       // 6. Accionar UI: Generar resumen con IA
