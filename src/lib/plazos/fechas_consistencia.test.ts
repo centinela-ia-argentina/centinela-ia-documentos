@@ -17,6 +17,7 @@ import { sanitizarTerminologiaEscribania } from '@/lib/ai/copiloto';
 import {
   aplicarGuardrailOrigenFondos,
   aplicarGuardrailIti,
+  sanearCitasNormativasTributarias,
   evaluarEvidenciaOrigenFondosFailClosed,
   validarOrdinalesNotariales,
   recalcularOrdinalesNotariales,
@@ -26,6 +27,7 @@ import {
   LEYENDA_ITI_VERIFICAR_FECHA,
   type BorradorEscritura,
 } from '@/lib/ai/escrituras';
+import { extraerHechosTemporalesLegajo } from './cargarHechosTemporalesLegajo';
 
 describe('Fechas Canónicas y Consistencia Notarial Multi-superficie', () => {
   it('formatea correctamente ISO YYYY-MM-DD a DD/MM/YYYY', () => {
@@ -1184,5 +1186,129 @@ describe('Sanitización de ITI en placeholders y prueba integral con texto real'
     const validacion = validarOrdinalesNotariales(res.cuerpo);
     expect(validacion.ok).toBe(true);
     expect(validacion.duplicados).toHaveLength(0);
+  });
+
+  describe('Sanitización Fail-Closed de Citas Normativas Tributarias', () => {
+    it('preserva las leyes en allowlist (Ley 27.743 y Ley 25.246)', () => {
+      const texto = 'Conforme Ley 27.743 se deroga el ITI y por Ley 25.246 rige UIF.';
+      const res = sanearCitasNormativasTributarias(texto);
+      expect(res).toBe('Conforme Ley 27.743 se deroga el ITI y por Ley 25.246 rige UIF.');
+    });
+
+    it('reemplaza leyes no verificadas como Ley 23.282 y Ley 25.093 por [VERIFICAR: normativa tributaria aplicable]', () => {
+      const t1 = 'Las partes declaran tributar conforme Ley 23.282 y Ley 25.093.';
+      const r1 = sanearCitasNormativasTributarias(t1);
+      expect(r1).not.toContain('23.282');
+      expect(r1).not.toContain('25.093');
+      expect(r1).toContain('[VERIFICAR: normativa tributaria aplicable]');
+
+      const t2 = 'Retención conforme Ley 23.282 / 25.093 sobre la operación.';
+      const r2 = sanearCitasNormativasTributarias(t2);
+      expect(r2).not.toContain('23.282');
+      expect(r2).not.toContain('25.093');
+      expect(r2).toBe('Retención conforme [VERIFICAR: normativa tributaria aplicable] sobre la operación.');
+    });
+
+    it('aplicarGuardrailIti sanitiza citas no verificadas e incorpora datos faltantes y advertencia', () => {
+      const borrador: BorradorEscritura = {
+        titulo: 'Borrador con citas no verificadas',
+        cuerpo: 'SÉPTIMA: IMPUESTOS. La presente operación tributa según Ley 23.282 y Ley 25.093.',
+        datos_faltantes: [],
+        advertencias: [],
+      };
+
+      const res = aplicarGuardrailIti(borrador, '2026-09-10');
+      expect(res.cuerpo).not.toContain('23.282');
+      expect(res.cuerpo).not.toContain('25.093');
+      expect(res.cuerpo).toContain('[VERIFICAR: normativa tributaria aplicable]');
+      expect(res.datos_faltantes).toContain('[VERIFICAR: normativa tributaria aplicable]');
+      expect(res.advertencias.some((a) => a.includes('normativa tributaria aplicable'))).toBe(true);
+    });
+  });
+
+  describe('Cargador Canónico de Hechos Temporales (extraerHechosTemporalesLegajo)', () => {
+    it('extrae hechos temporales completos desde case_summary (Palermo Cuba) con document_analysis vacío', () => {
+      const input = {
+        caseRecord: {
+          id: 'b590d5e1-df13-4c53-8a6c-863d9e806075',
+          title: 'QA Escritura Compraventa Palermo Cuba',
+          metadata: { tipo_acto: 'Compraventa' },
+        },
+        aiOutputs: [
+          // document_analysis legacy sin fechas_plazos
+          {
+            output_type: 'document_analysis',
+            result_json: { resumen: 'Boleto de compraventa Palermo Cuba' },
+          },
+          // case_summary con puntos_clave y riesgos_alertas reales
+          {
+            output_type: 'case_summary',
+            result_json: {
+              puntos_clave: [
+                'Fecha de emisión del Boleto de Compraventa: 10 de junio de 2026.',
+                'Plazo máximo contractual para escriturar: 8 de septiembre de 2026.',
+                'Fecha tentativa de escritura: 10 de septiembre de 2026.',
+              ],
+              riesgos_alertas: [
+                'La fecha tentativa supera el plazo contractual por 2 días corridos.',
+              ],
+            },
+          },
+        ],
+      };
+
+      const hechos = extraerHechosTemporalesLegajo(input);
+
+      expect(hechos.fechaBoleto).toBe('10/06/2026');
+      expect(hechos.fechaBoletoIso).toBe('2026-06-10');
+      expect(hechos.fechaLimite).toBe('08/09/2026');
+      expect(hechos.fechaLimiteIso).toBe('2026-09-08');
+      expect(hechos.fechaTentativa).toBe('10/09/2026');
+      expect(hechos.fechaTentativaIso).toBe('2026-09-10');
+      expect(hechos.plazoDias).toBe(90);
+      expect(hechos.excedePlazo).toBe(true);
+      expect(hechos.excesoDias).toBe(2);
+      expect(hechos.fuentes.length).toBeGreaterThan(0);
+      expect(hechos.fuentes.some((f) => f.tipo === 'case_summary')).toBe(true);
+    });
+
+    it('soporta hechos parciales: tentativa aislada sin boleto ni plazo no devuelve null', () => {
+      const input = {
+        caseRecord: {
+          id: 'caso-parcial',
+          title: 'Legajo con solo fecha tentativa',
+          metadata: { fecha_tentativa: '2026-09-10' },
+        },
+        aiOutputs: [],
+      };
+
+      const hechos = extraerHechosTemporalesLegajo(input);
+      expect(hechos.fechaTentativa).toBe('10/09/2026');
+      expect(hechos.fechaTentativaIso).toBe('2026-09-10');
+      expect(hechos.fechaBoleto).toBeUndefined();
+      expect(hechos.fechaLimite).toBeUndefined();
+      expect(hechos.excedePlazo).toBe(false);
+    });
+
+    it('detecta conflicto entre fecha límite explícita y calculada con trazabilidad', () => {
+      const input = {
+        caseRecord: {
+          metadata: {
+            fecha_boleto: '2026-06-10',
+            plazo_dias: 90, // calculada: 2026-09-08
+            fecha_limite: '2026-09-15', // explícita contradictoria
+          },
+        },
+        aiOutputs: [],
+      };
+
+      const hechos = extraerHechosTemporalesLegajo(input);
+      // Prioriza cálculo determinístico
+      expect(hechos.fechaLimite).toBe('08/09/2026');
+      expect(hechos.conflictos.length).toBe(1);
+      expect(hechos.conflictos[0].campo).toBe('fechaLimite');
+      expect(hechos.conflictos[0].valorCalculado).toBe('08/09/2026');
+      expect(hechos.conflictos[0].valorEncontrado).toBe('15/09/2026');
+    });
   });
 });

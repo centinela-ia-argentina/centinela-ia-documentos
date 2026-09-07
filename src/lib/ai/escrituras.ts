@@ -523,6 +523,38 @@ function reemplazarSubclausulaItiUnica(
   return out;
 }
 
+export function sanearCitasNormativasTributarias(texto: string): string {
+  if (!texto) return texto;
+
+  // Manejar grupos como "Leyes 23.282 / 25.093" o "Ley 23.282 y 25.093"
+  const regexGrupoLeyes = /\b(?:leyes|ley)\s+(?:n[°ºo]?\s*|n[úu]mero\s*)?(\d{1,2}(?:\.\d{3})+|\d{4,6})(?:\s*(?:\/|y|,)\s*(?:ley\s+)?(?:n[°ºo]?\s*|n[úu]mero\s*)?(\d{1,2}(?:\.\d{3})+|\d{4,6}))+/gi;
+
+  let out = texto.replace(regexGrupoLeyes, (match) => {
+    const nums = match.match(/\d{1,2}(?:\.\d{3})+|\d{4,6}/g) || [];
+    const todosPermitidos = nums.length > 0 && nums.every((n) => {
+      const c = n.replace(/\./g, '');
+      return c === '27743' || c === '25246';
+    });
+    if (todosPermitidos) return match;
+    return '[VERIFICAR: normativa tributaria aplicable]';
+  });
+
+  // Manejar citas individuales "Ley 23.282", "Ley N° 25.093"
+  const regexLeyIndividual = /\b(?:ley)\s+(?:n[°ºo]?\s*|n[úu]mero\s*)?(\d{1,2}(?:\.\d{3})+|\d{4,6})\b/gi;
+  out = out.replace(regexLeyIndividual, (match, num) => {
+    const clean = String(num).replace(/\./g, '');
+    if (clean === '27743' || clean === '25246') {
+      return match;
+    }
+    return '[VERIFICAR: normativa tributaria aplicable]';
+  });
+
+  // Limpiar posibles duplicaciones consecutivas del placeholder
+  out = out.replace(/(?:\[VERIFICAR:\s*normativa\s+tributaria\s+aplicable\](?:\s*(?:\/|y|,)\s*|\s+))+\[VERIFICAR:\s*normativa\s+tributaria\s+aplicable\]/gi, '[VERIFICAR: normativa tributaria aplicable]');
+
+  return out;
+}
+
 export function aplicarGuardrailIti(
   borrador: BorradorEscritura,
   fechaOperacion?: string | null
@@ -579,6 +611,20 @@ export function aplicarGuardrailIti(
       const advTrib =
         'Revisión profesional requerida: fecha de otorgamiento no determinada o ambigua. Debe verificarse el régimen tributario aplicable según la fecha efectiva del acto.';
       advertencias.push(advTrib);
+    }
+  }
+
+  // Sanitizar citas normativas tributarias no verificadas (ej. Ley 23.282, Ley 25.093)
+  cuerpo = sanearCitasNormativasTributarias(cuerpo);
+  datosFaltantes = datosFaltantes.map((d) => sanearCitasNormativasTributarias(d));
+  advertencias = advertencias.map((a) => sanearCitasNormativasTributarias(a));
+
+  if (cuerpo.includes('[VERIFICAR: normativa tributaria aplicable]')) {
+    if (!datosFaltantes.some((d) => d.includes('normativa tributaria aplicable'))) {
+      datosFaltantes.push('[VERIFICAR: normativa tributaria aplicable]');
+    }
+    if (!advertencias.some((a) => a.includes('normativa tributaria aplicable'))) {
+      advertencias.push('Revisión profesional requerida: verificar normativa tributaria aplicable al acto.');
     }
   }
 

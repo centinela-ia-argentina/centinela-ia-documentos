@@ -39,9 +39,9 @@ export default async function ObservacionesPage() {
 
     supabase
       .from('ai_outputs')
-      .select('id, document_id, result_json, case_id, created_at')
+      .select('id, document_id, output_type, result_json, case_id, created_at')
       .eq('organization_id', profile.organization_id)
-      .eq('output_type', 'document_analysis')
+      .in('output_type', ['document_analysis', 'case_summary'])
       .order('created_at', { ascending: false }),
 
     supabase
@@ -130,7 +130,11 @@ export default async function ObservacionesPage() {
   const incompletos = incompletosAll.slice(0, 8);
 
   // 4. Análisis IA pendientes
-  const analyzedDocIds = new Set(aiOutputs.map(o => String(o.document_id)));
+  const analyzedDocIds = new Set(
+    aiOutputs
+      .filter((o) => o.output_type === 'document_analysis' && o.document_id)
+      .map((o) => String(o.document_id))
+  );
   const iaPendientesAll = documents.filter((doc) => !analyzedDocIds.has(String(doc.id)));
   const iaPendientes = iaPendientesAll.slice(0, 8);
 

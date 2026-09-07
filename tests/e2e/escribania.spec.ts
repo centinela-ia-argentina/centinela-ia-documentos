@@ -368,6 +368,8 @@ test.describe.serial('Centinela IA - Escribania E2E', () => {
       expect(bodyFinal.toLowerCase()).not.toContain('fondos de origen lícito');
       expect(bodyFinal.toLowerCase()).not.toContain('los fondos provienen de');
       expect(bodyFinal).not.toContain('retención del Impuesto a la Transferencia de Inmuebles');
+      expect(bodyFinal).not.toContain('23.282');
+      expect(bodyFinal).not.toContain('25.093');
       expect(bodyFinal).toContain('Impuesto a las Ganancias');
       expect(bodyFinal).toContain('C.O.T.I. N° 98765432');
 

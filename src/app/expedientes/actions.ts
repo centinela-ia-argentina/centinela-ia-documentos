@@ -13,6 +13,7 @@ import {
   recalcularOrdinalesNotariales,
 } from '@/lib/ai/escrituras';
 import { extraerPlazoCanonicoLegajo } from '@/lib/plazos/fechasCanonicas';
+import { cargarHechosTemporalesLegajo } from '@/lib/plazos/cargarHechosTemporalesLegajo';
 import { redactarBorradorInmobiliariaConIA } from '@/lib/ai/borradorInmobiliaria';
 import { calificarInquilinoConIA } from '@/lib/ai/preScore';
 import { sugerirCoincidencias } from '@/lib/industries/checklistMatch';
@@ -949,7 +950,25 @@ export async function cotejarExpediente(caseId: string) {
     })),
   ];
 
-  const plazoCanonico = extraerPlazoCanonicoLegajo(caseRecord, outputsData, eventosCombinados);
+  const hechos = await cargarHechosTemporalesLegajo(supabase, profile.organization_id, caseId);
+  const plazoCanonico =
+    (hechos.fechaLimite && hechos.fechaTentativa) || (hechos.fechaBoleto && hechos.plazoDias)
+      ? {
+          fechaBoleto: hechos.fechaBoleto || '',
+          fechaBoletoIso: hechos.fechaBoletoIso || '',
+          plazoDias: hechos.plazoDias || (hechos.fechaLimite && hechos.fechaTentativa ? 90 : 0),
+          fechaLimite: hechos.fechaLimite || '',
+          fechaLimiteIso: hechos.fechaLimiteIso || '',
+          fechaTentativa: hechos.fechaTentativa || '',
+          fechaTentativaIso: hechos.fechaTentativaIso || '',
+          excesoDias: hechos.excesoDias || 0,
+          excedePlazo: hechos.excedePlazo,
+          advertencia: hechos.advertencia,
+          fuenteFechaBoleto: hechos.fuentes.find((f) => f.campo === 'fechaBoleto')?.origen,
+          fuentePlazo: hechos.fuentes.find((f) => f.campo === 'plazoDias')?.origen,
+          fuenteFechaTentativa: hechos.fuentes.find((f) => f.campo === 'fechaTentativa')?.origen,
+        }
+      : extraerPlazoCanonicoLegajo(caseRecord, outputsData, eventosCombinados);
 
   const result = await cotejarDocumentosConIA({
     titulo: caseRecord.title || 'Legajo',
@@ -1101,8 +1120,12 @@ export async function redactarEscrituraExpediente(caseId: string) {
     })),
   ];
 
-  const plazoCanonico = extraerPlazoCanonicoLegajo(caseRecord, outputsData, eventosCombinados);
-  const fechaOtorgamiento = metadata.fecha_otorgamiento || plazoCanonico?.fechaTentativa || '';
+  const hechos = await cargarHechosTemporalesLegajo(supabase, profile.organization_id, caseId);
+  const fechaOtorgamiento =
+    metadata.fecha_otorgamiento ||
+    hechos.fechaTentativaIso ||
+    hechos.fechaTentativa ||
+    '';
 
   const result = await redactarEscrituraConIA({
     titulo: caseRecord.title || 'Legajo',
