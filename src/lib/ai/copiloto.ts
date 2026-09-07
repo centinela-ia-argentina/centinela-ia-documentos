@@ -201,15 +201,24 @@ export async function generarResumenConIA(input: {
         const fTentativa = analisis.fechaTentativa || analisis.fechaTentativaAr;
         const fLimite = analisis.fechaLimite || analisis.fechaLimiteAr;
         const dias = analisis.excesoDias ?? analisis.diasExceso ?? 2;
-        const plazoDias = analisis.plazoDias ?? 90;
+        const plazoTxt = analisis.plazoDias
+          ? `el plazo contractual de ${analisis.plazoDias} días corridos (límite: ${fLimite})`
+          : `el límite contractual (${fLimite})`;
 
-        const adv = analisis.advertencia || `La fecha tentativa de escrituración (${fTentativa}) excede el plazo contractual de ${plazoDias} días corridos (límite: ${fLimite}) por ${dias} día${dias === 1 ? '' : 's'} corridos.`;
-        const yaTieneAlerta = riesgosAlertas.some((r) => r.toLowerCase().includes('excede'));
+        const adv =
+          analisis.advertencia ||
+          `La fecha tentativa de escrituración (${fTentativa}) excede ${plazoTxt} por ${dias} día${dias === 1 ? '' : 's'} corridos.`;
+        const yaTieneAlerta = riesgosAlertas.some(
+          (r) => r.toLowerCase().includes('excede') || r.toLowerCase().includes('supera')
+        );
         if (!yaTieneAlerta) {
           riesgosAlertas.unshift(adv);
         }
-        if (!resumenGeneral.toLowerCase().includes('excede')) {
-          resumenGeneral += ` Se advierte que la fecha tentativa de escrituración (${fTentativa}) excede el plazo contractual de ${plazoDias} días corridos (límite: ${fLimite}) por ${dias} día${dias === 1 ? '' : 's'} corridos.`;
+        if (
+          !resumenGeneral.toLowerCase().includes('excede') &&
+          !resumenGeneral.toLowerCase().includes('supera')
+        ) {
+          resumenGeneral += ` Se advierte que la fecha tentativa de escrituración (${fTentativa}) excede ${plazoTxt} por ${dias} día${dias === 1 ? '' : 's'} corridos.`;
         }
       }
     }
@@ -376,10 +385,11 @@ export async function cotejarDocumentosConIA(input: {
         const fTentativa = formatIsoToAr(rawTentativa);
         const fLimite = formatIsoToAr(rawLimite);
         const dias = plazo.excesoDias ?? plazo.diasExceso ?? 2;
-        const diasPlazo = plazo.plazoDias ?? 90;
 
         const discExacta = `Plazo contractual: la fecha tentativa de escritura (${fTentativa}) supera el límite contractual (${fLimite}) por ${dias} días corridos.`;
-        const vigExacta = `La fecha tentativa de escritura (${fTentativa}) excede el plazo máximo de ${diasPlazo} días corridos, cuyo límite es el ${fLimite}.`;
+        const vigExacta = plazo.plazoDias
+          ? `La fecha tentativa de escritura (${fTentativa}) excede el plazo máximo de ${plazo.plazoDias} días corridos, cuyo límite es el ${fLimite}.`
+          : `La fecha tentativa de escritura (${fTentativa}) supera el límite contractual (${fLimite}).`;
 
         const parsedTentativa = parsearFechaCualquiera(plazo.fechaTentativaIso || plazo.fechaTentativa || rawTentativa);
         const parsedLimite = parsearFechaCualquiera(plazo.fechaLimiteIso || plazo.fechaLimite || rawLimite);

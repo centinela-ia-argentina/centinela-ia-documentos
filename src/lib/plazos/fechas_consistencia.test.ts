@@ -1310,5 +1310,137 @@ describe('Sanitización de ITI en placeholders y prueba integral con texto real'
       expect(hechos.conflictos[0].valorCalculado).toBe('08/09/2026');
       expect(hechos.conflictos[0].valorEncontrado).toBe('15/09/2026');
     });
+
+    it('no inventa plazo de 90 días cuando solo existen fecha límite y fecha tentativa', () => {
+      const input = {
+        caseRecord: {
+          id: 'caso-sin-boleto',
+          metadata: {
+            fecha_limite: '2026-09-08',
+            fecha_tentativa: '2026-09-10',
+          },
+        },
+        aiOutputs: [],
+      };
+
+      const hechos = extraerHechosTemporalesLegajo(input);
+      expect(hechos.fechaLimite).toBe('08/09/2026');
+      expect(hechos.fechaTentativa).toBe('10/09/2026');
+      expect(hechos.fechaBoleto).toBeUndefined();
+      expect(hechos.plazoDias).toBeUndefined();
+      expect(hechos.excedePlazo).toBe(true);
+      expect(hechos.excesoDias).toBe(2);
+      expect(hechos.advertencia).toBe(
+        'La fecha tentativa de escritura (10/09/2026) supera el límite contractual (08/09/2026).'
+      );
+      expect(hechos.advertencia).not.toContain('90');
+
+      const plazoCanonico = extraerPlazoCanonicoLegajo(input.caseRecord, input.aiOutputs, []);
+      expect(plazoCanonico).not.toBeNull();
+      expect(plazoCanonico?.plazoDias).toBeUndefined();
+      expect(plazoCanonico?.excesoDias).toBe(2);
+      expect(plazoCanonico?.advertencia).not.toContain('90');
+    });
+
+    it('aplica precedencia y deduplicación: case_summary no desplaza document_analysis y registra conflicto', () => {
+      const input = {
+        caseRecord: { id: 'caso-dedup', metadata: {} },
+        aiOutputs: [
+          // case_summary más reciente en timestamp
+          {
+            output_type: 'case_summary',
+            created_at: '2026-09-07T12:00:00Z',
+            result_json: {
+              puntos_clave: [
+                'Fecha de emisión del Boleto de Compraventa: 01 de enero de 2026.',
+                'Fecha límite contractual: 01 de abril de 2026.',
+              ],
+            },
+          },
+          // document_analysis estructurado (más antiguo que case_summary)
+          {
+            document_id: 'doc-boleto-1',
+            output_type: 'document_analysis',
+            created_at: '2026-09-07T10:00:00Z',
+            result_json: {
+              fechas_plazos: [
+                { descripcion: 'Fecha de emisión del Boleto de Compraventa', fecha: '2026-06-10' },
+                { descripcion: 'Fecha límite contractual', fecha: '2026-09-08' },
+              ],
+            },
+          },
+          // document_analysis anterior del MISMO documento (debe ser ignorado por deduplicación)
+          {
+            document_id: 'doc-boleto-1',
+            output_type: 'document_analysis',
+            created_at: '2026-09-07T08:00:00Z',
+            result_json: {
+              fechas_plazos: [
+                { descripcion: 'Fecha de emisión del Boleto de Compraventa', fecha: '2025-01-01' },
+              ],
+            },
+          },
+        ],
+      };
+
+      const hechos = extraerHechosTemporalesLegajo(input);
+
+      // document_analysis tiene precedencia sobre case_summary
+      expect(hechos.fechaBoleto).toBe('10/06/2026');
+      expect(hechos.fechaLimite).toBe('08/09/2026');
+      expect(hechos.plazoDias).toBe(90); // 10/06 al 08/09 = 90 días
+
+      // Se registra el intento divergente de case_summary en conflictos
+      expect(hechos.conflictos.length).toBeGreaterThanOrEqual(1);
+      const conflictoBoleto = hechos.conflictos.find((c) => c.campo === 'fechaBoleto');
+      expect(conflictoBoleto).toBeDefined();
+      expect(conflictoBoleto?.valorCalculado).toBe('10/06/2026');
+      expect(conflictoBoleto?.valorEncontrado).toBe('01/01/2026');
+    });
+  });
+
+  describe('Microfix Preventivo: Guardrail Tributario Restringido a Contexto Tributario', () => {
+    it('preserva cláusulas no tributarias con Ley 17.801 y Ley 26.994 de forma intacta', () => {
+      const c1 = 'Conforme Ley 17.801 se practica la inscripción registral.';
+      expect(sanearCitasNormativasTributarias(c1)).toBe(c1);
+
+      const c2 = 'Conforme Ley 26.994 se aplican las disposiciones civiles correspondientes.';
+      expect(sanearCitasNormativasTributarias(c2)).toBe(c2);
+
+      const c3 = 'Se autoriza la protocolización registral según Ley N° 17.801 y Código Civil y Comercial.';
+      expect(sanearCitasNormativasTributarias(c3)).toBe(c3);
+    });
+
+    it('sanitiza Ley 27.743 fuera del contexto de ITI a [VERIFICAR: normativa aplicable]', () => {
+      const c1 = 'La inscripción registral se rige por Ley 27.743.';
+      const r1 = sanearCitasNormativasTributarias(c1);
+      expect(r1).toBe('La inscripción registral se rige por [VERIFICAR: normativa aplicable].');
+      expect(r1).not.toContain('27.743');
+
+      // En contexto ITI se preserva
+      const c2 = 'Conforme Ley 27.743 se declara la derogación del Impuesto a la Transferencia de Inmuebles.';
+      expect(sanearCitasNormativasTributarias(c2)).toBe(c2);
+    });
+
+    it('sanitiza Ley 25.246 invocada para impuestos o fuera de UIF a [VERIFICAR: normativa tributaria aplicable]', () => {
+      const c1 = 'La operación tributa conforme Ley 25.246.';
+      const r1 = sanearCitasNormativasTributarias(c1);
+      expect(r1).toBe('La operación tributa conforme [VERIFICAR: normativa tributaria aplicable].');
+      expect(r1).not.toContain('25.246');
+
+      // En contexto UIF se preserva
+      const c2 = 'En cumplimiento de la Ley 25.246 y disposiciones de la UIF se deja constancia.';
+      expect(sanearCitasNormativasTributarias(c2)).toBe(c2);
+    });
+
+    it('procesa párrafos mixtos saneando solo la cláusula tributaria', () => {
+      const parrafo =
+        'Conforme Ley 17.801 se practica la inscripción registral. En materia de retención fiscal, se aplica la Ley 23.282.';
+      const res = sanearCitasNormativasTributarias(parrafo);
+
+      expect(res).toContain('Conforme Ley 17.801 se practica la inscripción registral.');
+      expect(res).not.toContain('23.282');
+      expect(res).toContain('[VERIFICAR: normativa tributaria aplicable]');
+    });
   });
 });

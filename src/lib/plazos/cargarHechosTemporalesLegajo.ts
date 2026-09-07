@@ -15,7 +15,7 @@ import {
   diferenciaDiasCorridos,
   parsearFechaCualquiera,
   formatIsoToAr,
-} from './fechasCanonicas';
+} from './dateUtils';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 export type FuenteTemporalTipo =
@@ -137,160 +137,327 @@ export function extraerHechosTemporalesLegajo(input: ExtraerHechosInput): Hechos
     }
   }
 
-  // 2. aiOutputs (ordenados por created_at desc)
-  const sortedOutputs: any[] = [];
-  if (Array.isArray(input.aiOutputs)) {
-    sortedOutputs.push(
-      ...[...input.aiOutputs].sort(
-        (a, b) => new Date(b?.created_at || 0).getTime() - new Date(a?.created_at || 0).getTime()
-      )
+  // 2. aiOutputs: separar document_analysis y case_summary
+  const allOutputs = Array.isArray(input.aiOutputs) ? [...input.aiOutputs] : [];
+
+  // 2.1 document_analysis: ordenar por created_at desc y deduplicar por document_id
+  const docAnalysisOutputs = allOutputs
+    .filter(
+      (o) =>
+        String(o?.output_type || '') === 'document_analysis' ||
+        Array.isArray((o?.result_json as any)?.fechas_plazos)
+    )
+    .sort(
+      (a, b) => new Date(b?.created_at || 0).getTime() - new Date(a?.created_at || 0).getTime()
     );
+
+  const latestDocAnalysisPerDoc: any[] = [];
+  const seenDocIds = new Set<string>();
+  for (const out of docAnalysisOutputs) {
+    const docId = out?.document_id ? String(out.document_id) : null;
+    if (docId) {
+      if (!seenDocIds.has(docId)) {
+        seenDocIds.add(docId);
+        latestDocAnalysisPerDoc.push(out);
+      }
+    } else {
+      latestDocAnalysisPerDoc.push(out);
+    }
   }
 
-  for (const out of sortedOutputs) {
+  for (const out of latestDocAnalysisPerDoc) {
     const rj = out?.result_json as any;
-    const outType = String(out?.output_type || '');
+    const fechas = Array.isArray(rj?.fechas_plazos) ? rj.fechas_plazos : [];
+    for (const fp of fechas) {
+      const desc = String(fp?.descripcion || '').trim();
+      const descLower = desc.toLowerCase();
 
-    // 2.1 document_analysis -> fechas_plazos
-    if (outType === 'document_analysis' || Array.isArray(rj?.fechas_plazos)) {
-      const fechas = Array.isArray(rj?.fechas_plazos) ? rj.fechas_plazos : [];
-      for (const fp of fechas) {
-        const desc = String(fp?.descripcion || '').trim();
-        const descLower = desc.toLowerCase();
+      // Excluir antecedentes y certificados viejos
+      if (descLower.includes('antecedente') || descLower.includes('certificado')) continue;
 
-        // Excluir antecedentes y certificados viejos
-        if (descLower.includes('antecedente') || descLower.includes('certificado')) continue;
-
-        // Boleto
-        if (!fechaBoletoParsed) {
-          const esBoleto =
-            descLower.includes('boleto') &&
-            !descLower.includes('límite') &&
-            !descLower.includes('limite') &&
-            !descLower.includes('tentativa') &&
-            !descLower.includes('otorgamiento') &&
-            !descLower.includes('vencimiento');
-          if (esBoleto) {
-            const p = parsearFechaCualquiera(fp?.fecha) || parsearFechaCualquiera(fp?.evidencia_textual);
-            if (p) {
-              fechaBoletoParsed = p;
-              fuentes.push({ campo: 'fechaBoleto', tipo: 'document_analysis', origen: 'document_analysis:' + desc, valor: p.ar });
-            }
+      // Boleto
+      if (!fechaBoletoParsed) {
+        const esBoleto =
+          descLower.includes('boleto') &&
+          !descLower.includes('límite') &&
+          !descLower.includes('limite') &&
+          !descLower.includes('tentativa') &&
+          !descLower.includes('otorgamiento') &&
+          !descLower.includes('vencimiento');
+        if (esBoleto) {
+          const p = parsearFechaCualquiera(fp?.fecha) || parsearFechaCualquiera(fp?.evidencia_textual);
+          if (p) {
+            fechaBoletoParsed = p;
+            fuentes.push({
+              campo: 'fechaBoleto',
+              tipo: 'document_analysis',
+              origen: 'document_analysis:' + desc,
+              valor: p.ar,
+            });
           }
         }
+      }
 
-        // Límite
-        if (!fechaLimiteParsed) {
-          const esLimite =
-            descLower.includes('límite') ||
-            descLower.includes('limite') ||
-            (descLower.includes('plazo') && (descLower.includes('máximo') || descLower.includes('maximo') || descLower.includes('contractual')));
-          if (esLimite) {
-            const p = parsearFechaCualquiera(fp?.fecha) || parsearFechaCualquiera(fp?.evidencia_textual);
-            if (p) {
-              fechaLimiteParsed = p;
-              fuentes.push({ campo: 'fechaLimite', tipo: 'document_analysis', origen: 'document_analysis:' + desc, valor: p.ar });
-            }
+      // Límite
+      if (!fechaLimiteParsed) {
+        const esLimite =
+          descLower.includes('límite') ||
+          descLower.includes('limite') ||
+          (descLower.includes('plazo') &&
+            (descLower.includes('máximo') ||
+              descLower.includes('maximo') ||
+              descLower.includes('contractual')));
+        if (esLimite) {
+          const p = parsearFechaCualquiera(fp?.fecha) || parsearFechaCualquiera(fp?.evidencia_textual);
+          if (p) {
+            fechaLimiteParsed = p;
+            fuentes.push({
+              campo: 'fechaLimite',
+              tipo: 'document_analysis',
+              origen: 'document_analysis:' + desc,
+              valor: p.ar,
+            });
           }
         }
+      }
 
-        // Tentativa
-        if (!fechaTentativaParsed) {
-          const esTentativa =
-            descLower.includes('tentativa') ||
-            descLower.includes('estimada') ||
-            descLower.includes('otorgamiento');
-          if (esTentativa && !descLower.includes('límite') && !descLower.includes('limite')) {
-            const p = parsearFechaCualquiera(fp?.fecha) || parsearFechaCualquiera(fp?.evidencia_textual);
-            if (p) {
-              fechaTentativaParsed = p;
-              fuentes.push({ campo: 'fechaTentativa', tipo: 'document_analysis', origen: 'document_analysis:' + desc, valor: p.ar });
+      // Tentativa
+      if (!fechaTentativaParsed) {
+        const esTentativa =
+          descLower.includes('tentativa') ||
+          descLower.includes('estimada') ||
+          descLower.includes('otorgamiento');
+        if (esTentativa && !descLower.includes('límite') && !descLower.includes('limite')) {
+          const p = parsearFechaCualquiera(fp?.fecha) || parsearFechaCualquiera(fp?.evidencia_textual);
+          if (p) {
+            fechaTentativaParsed = p;
+            fuentes.push({
+              campo: 'fechaTentativa',
+              tipo: 'document_analysis',
+              origen: 'document_analysis:' + desc,
+              valor: p.ar,
+            });
+          }
+        }
+      }
+    }
+  }
+
+  // 2.2 case_summary: ordenar por created_at desc y conservar solo el más reciente
+  const caseSummaryOutputs = allOutputs
+    .filter(
+      (o) =>
+        String(o?.output_type || '') === 'case_summary' ||
+        (o?.result_json as any)?.puntos_clave ||
+        (o?.result_json as any)?.riesgos_alertas
+    )
+    .sort(
+      (a, b) => new Date(b?.created_at || 0).getTime() - new Date(a?.created_at || 0).getTime()
+    );
+
+  const latestCaseSummary = caseSummaryOutputs[0] || null;
+
+  if (latestCaseSummary) {
+    const rj = latestCaseSummary?.result_json as any;
+    const puntos = Array.isArray(rj?.puntos_clave) ? rj.puntos_clave.map(String) : [];
+    for (const punto of puntos) {
+      if (REGEX_BOLETO.test(punto)) {
+        const p = parsearFechaCualquiera(punto);
+        if (p) {
+          if (fechaBoletoParsed) {
+            if (p.iso !== fechaBoletoParsed.iso) {
+              conflictos.push({
+                campo: 'fechaBoleto',
+                descripcion:
+                  'case_summary propone fecha de boleto diferente a la determinada por análisis documental / metadata',
+                valorCalculado: fechaBoletoParsed.ar,
+                valorEncontrado: p.ar,
+              });
             }
+          } else {
+            fechaBoletoParsed = p;
+            fuentes.push({
+              campo: 'fechaBoleto',
+              tipo: 'case_summary',
+              origen: 'case_summary.puntos_clave',
+              valor: p.ar,
+            });
+          }
+        }
+      }
+
+      if (REGEX_LIMITE.test(punto)) {
+        const p = parsearFechaCualquiera(punto);
+        if (p) {
+          if (fechaLimiteParsed) {
+            if (p.iso !== fechaLimiteParsed.iso) {
+              conflictos.push({
+                campo: 'fechaLimite',
+                descripcion:
+                  'case_summary propone fecha límite diferente a la determinada previamente',
+                valorCalculado: fechaLimiteParsed.ar,
+                valorEncontrado: p.ar,
+              });
+            }
+          } else {
+            fechaLimiteParsed = p;
+            fuentes.push({
+              campo: 'fechaLimite',
+              tipo: 'case_summary',
+              origen: 'case_summary.puntos_clave',
+              valor: p.ar,
+            });
+          }
+        }
+      }
+
+      if (REGEX_TENTATIVA.test(punto)) {
+        const p = parsearFechaCualquiera(punto);
+        if (p) {
+          if (fechaTentativaParsed) {
+            if (p.iso !== fechaTentativaParsed.iso) {
+              conflictos.push({
+                campo: 'fechaTentativa',
+                descripcion:
+                  'case_summary propone fecha tentativa diferente a la determinada previamente',
+                valorCalculado: fechaTentativaParsed.ar,
+                valorEncontrado: p.ar,
+              });
+            }
+          } else {
+            fechaTentativaParsed = p;
+            fuentes.push({
+              campo: 'fechaTentativa',
+              tipo: 'case_summary',
+              origen: 'case_summary.puntos_clave',
+              valor: p.ar,
+            });
+          }
+        }
+      }
+
+      const mPlazo = punto.match(REGEX_PLAZO_DIAS) || punto.match(REGEX_PLAZO_GENERICO);
+      if (mPlazo) {
+        const num = parseInt(mPlazo[1], 10);
+        if (num > 0) {
+          if (plazoDias) {
+            if (num !== plazoDias) {
+              conflictos.push({
+                campo: 'plazoDias',
+                descripcion:
+                  'case_summary propone plazo diferente al determinado previamente',
+                valorCalculado: String(plazoDias),
+                valorEncontrado: String(num),
+              });
+            }
+          } else {
+            plazoDias = num;
+            fuentes.push({
+              campo: 'plazoDias',
+              tipo: 'case_summary',
+              origen: 'case_summary.puntos_clave',
+              valor: num,
+            });
           }
         }
       }
     }
 
-    // 2.2 case_summary -> puntos_clave, riesgos_alertas, resumen_general
-    if (outType === 'case_summary' || rj?.puntos_clave || rj?.riesgos_alertas) {
-      const puntos = Array.isArray(rj?.puntos_clave) ? rj.puntos_clave.map(String) : [];
-      for (const punto of puntos) {
-        if (!fechaBoletoParsed && REGEX_BOLETO.test(punto)) {
-          const p = parsearFechaCualquiera(punto);
-          if (p) {
-            fechaBoletoParsed = p;
-            fuentes.push({ campo: 'fechaBoleto', tipo: 'case_summary', origen: 'case_summary.puntos_clave', valor: p.ar });
-          }
-        }
-
-        if (!fechaLimiteParsed && REGEX_LIMITE.test(punto)) {
-          const p = parsearFechaCualquiera(punto);
-          if (p) {
-            fechaLimiteParsed = p;
-            fuentes.push({ campo: 'fechaLimite', tipo: 'case_summary', origen: 'case_summary.puntos_clave', valor: p.ar });
-          }
-        }
-
-        if (!fechaTentativaParsed && REGEX_TENTATIVA.test(punto)) {
-          const p = parsearFechaCualquiera(punto);
-          if (p) {
-            fechaTentativaParsed = p;
-            fuentes.push({ campo: 'fechaTentativa', tipo: 'case_summary', origen: 'case_summary.puntos_clave', valor: p.ar });
-          }
-        }
-
-        if (!plazoDias) {
-          const mPlazo = punto.match(REGEX_PLAZO_DIAS) || punto.match(REGEX_PLAZO_GENERICO);
-          if (mPlazo) {
-            const num = parseInt(mPlazo[1], 10);
-            if (num > 0) {
-              plazoDias = num;
-              fuentes.push({ campo: 'plazoDias', tipo: 'case_summary', origen: 'case_summary.puntos_clave', valor: num });
-            }
-          }
+    const alertas = Array.isArray(rj?.riesgos_alertas) ? rj.riesgos_alertas.map(String) : [];
+    for (const alerta of alertas) {
+      if (excesoDiasExtraido === undefined) {
+        const mExceso = alerta.match(REGEX_EXCESO_DIAS);
+        if (mExceso) {
+          excesoDiasExtraido = parseInt(mExceso[1], 10);
         }
       }
+    }
 
-      const alertas = Array.isArray(rj?.riesgos_alertas) ? rj.riesgos_alertas.map(String) : [];
-      for (const alerta of alertas) {
-        if (excesoDiasExtraido === undefined) {
-          const mExceso = alerta.match(REGEX_EXCESO_DIAS);
-          if (mExceso) {
-            excesoDiasExtraido = parseInt(mExceso[1], 10);
+    const resumenGen = String(rj?.resumen_general || '');
+    if (REGEX_BOLETO.test(resumenGen)) {
+      const p = parsearFechaCualquiera(resumenGen);
+      if (p) {
+        if (fechaBoletoParsed) {
+          if (p.iso !== fechaBoletoParsed.iso) {
+            conflictos.push({
+              campo: 'fechaBoleto',
+              descripcion:
+                'case_summary propone fecha de boleto diferente a la determinada previamente',
+              valorCalculado: fechaBoletoParsed.ar,
+              valorEncontrado: p.ar,
+            });
           }
-        }
-      }
-
-      const resumenGen = String(rj?.resumen_general || '');
-      if (!fechaBoletoParsed && REGEX_BOLETO.test(resumenGen)) {
-        const p = parsearFechaCualquiera(resumenGen);
-        if (p) {
+        } else {
           fechaBoletoParsed = p;
-          fuentes.push({ campo: 'fechaBoleto', tipo: 'case_summary', origen: 'case_summary.resumen_general', valor: p.ar });
+          fuentes.push({
+            campo: 'fechaBoleto',
+            tipo: 'case_summary',
+            origen: 'case_summary.resumen_general',
+            valor: p.ar,
+          });
         }
       }
-      if (!fechaLimiteParsed && REGEX_LIMITE.test(resumenGen)) {
-        const p = parsearFechaCualquiera(resumenGen);
-        if (p) {
-          fechaLimiteParsed = p;
-          fuentes.push({ campo: 'fechaLimite', tipo: 'case_summary', origen: 'case_summary.resumen_general', valor: p.ar });
-        }
-      }
-      if (!fechaTentativaParsed && REGEX_TENTATIVA.test(resumenGen)) {
-        const p = parsearFechaCualquiera(resumenGen);
-        if (p) {
-          fechaTentativaParsed = p;
-          fuentes.push({ campo: 'fechaTentativa', tipo: 'case_summary', origen: 'case_summary.resumen_general', valor: p.ar });
-        }
-      }
-      if (!plazoDias) {
-        const mPlazo = resumenGen.match(REGEX_PLAZO_DIAS) || resumenGen.match(REGEX_PLAZO_GENERICO);
-        if (mPlazo) {
-          const num = parseInt(mPlazo[1], 10);
-          if (num > 0) {
-            plazoDias = num;
-            fuentes.push({ campo: 'plazoDias', tipo: 'case_summary', origen: 'case_summary.resumen_general', valor: num });
+    }
+    if (REGEX_LIMITE.test(resumenGen)) {
+      const p = parsearFechaCualquiera(resumenGen);
+      if (p) {
+        if (fechaLimiteParsed) {
+          if (p.iso !== fechaLimiteParsed.iso) {
+            conflictos.push({
+              campo: 'fechaLimite',
+              descripcion:
+                'case_summary propone fecha límite diferente a la determinada previamente',
+              valorCalculado: fechaLimiteParsed.ar,
+              valorEncontrado: p.ar,
+            });
           }
+        } else {
+          fechaLimiteParsed = p;
+          fuentes.push({
+            campo: 'fechaLimite',
+            tipo: 'case_summary',
+            origen: 'case_summary.resumen_general',
+            valor: p.ar,
+          });
+        }
+      }
+    }
+    if (REGEX_TENTATIVA.test(resumenGen)) {
+      const p = parsearFechaCualquiera(resumenGen);
+      if (p) {
+        if (fechaTentativaParsed) {
+          if (p.iso !== fechaTentativaParsed.iso) {
+            conflictos.push({
+              campo: 'fechaTentativa',
+              descripcion:
+                'case_summary propone fecha tentativa diferente a la determinada previamente',
+              valorCalculado: fechaTentativaParsed.ar,
+              valorEncontrado: p.ar,
+            });
+          }
+        } else {
+          fechaTentativaParsed = p;
+          fuentes.push({
+            campo: 'fechaTentativa',
+            tipo: 'case_summary',
+            origen: 'case_summary.resumen_general',
+            valor: p.ar,
+          });
+        }
+      }
+    }
+    if (!plazoDias) {
+      const mPlazo = resumenGen.match(REGEX_PLAZO_DIAS) || resumenGen.match(REGEX_PLAZO_GENERICO);
+      if (mPlazo) {
+        const num = parseInt(mPlazo[1], 10);
+        if (num > 0) {
+          plazoDias = num;
+          fuentes.push({
+            campo: 'plazoDias',
+            tipo: 'case_summary',
+            origen: 'case_summary.resumen_general',
+            valor: num,
+          });
         }
       }
     }
@@ -302,27 +469,60 @@ export function extraerHechosTemporalesLegajo(input: ExtraerHechosInput): Hechos
       const texto = `${ev?.titulo || ev?.title || ''} ${ev?.detalle || ev?.description || ''} ${ev?.tipo || ev?.event_type || ''}`.toLowerCase();
       if (texto.includes('antecedente') || texto.includes('certificado')) continue;
 
-      if (!fechaBoletoParsed && texto.includes('boleto') && !texto.includes('límite') && !texto.includes('tentativa')) {
+      if (texto.includes('boleto') && !texto.includes('límite') && !texto.includes('tentativa')) {
         const p = parsearFechaCualquiera(ev?.fecha || ev?.event_date);
         if (p) {
-          fechaBoletoParsed = p;
-          fuentes.push({ campo: 'fechaBoleto', tipo: 'agenda', origen: 'evento:' + (ev?.titulo || 'boleto'), valor: p.ar });
+          if (fechaBoletoParsed) {
+            if (p.iso !== fechaBoletoParsed.iso) {
+              conflictos.push({
+                campo: 'fechaBoleto',
+                descripcion: 'agenda/evento propone fecha de boleto diferente a la determinada previamente',
+                valorCalculado: fechaBoletoParsed.ar,
+                valorEncontrado: p.ar,
+              });
+            }
+          } else {
+            fechaBoletoParsed = p;
+            fuentes.push({ campo: 'fechaBoleto', tipo: 'agenda', origen: 'evento:' + (ev?.titulo || 'boleto'), valor: p.ar });
+          }
         }
       }
 
-      if (!fechaLimiteParsed && (texto.includes('límite') || texto.includes('limite'))) {
+      if (texto.includes('límite') || texto.includes('limite')) {
         const p = parsearFechaCualquiera(ev?.fecha || ev?.event_date);
         if (p) {
-          fechaLimiteParsed = p;
-          fuentes.push({ campo: 'fechaLimite', tipo: 'agenda', origen: 'evento:' + (ev?.titulo || 'limite'), valor: p.ar });
+          if (fechaLimiteParsed) {
+            if (p.iso !== fechaLimiteParsed.iso) {
+              conflictos.push({
+                campo: 'fechaLimite',
+                descripcion: 'agenda/evento propone fecha límite diferente a la determinada previamente',
+                valorCalculado: fechaLimiteParsed.ar,
+                valorEncontrado: p.ar,
+              });
+            }
+          } else {
+            fechaLimiteParsed = p;
+            fuentes.push({ campo: 'fechaLimite', tipo: 'agenda', origen: 'evento:' + (ev?.titulo || 'limite'), valor: p.ar });
+          }
         }
       }
 
-      if (!fechaTentativaParsed && (texto.includes('tentativa') || texto.includes('estimada') || texto.includes('otorgamiento'))) {
+      if (texto.includes('tentativa') || texto.includes('estimada') || texto.includes('otorgamiento')) {
         const p = parsearFechaCualquiera(ev?.fecha || ev?.event_date);
         if (p) {
-          fechaTentativaParsed = p;
-          fuentes.push({ campo: 'fechaTentativa', tipo: 'agenda', origen: 'evento:' + (ev?.titulo || 'tentativa'), valor: p.ar });
+          if (fechaTentativaParsed) {
+            if (p.iso !== fechaTentativaParsed.iso) {
+              conflictos.push({
+                campo: 'fechaTentativa',
+                descripcion: 'agenda/evento propone fecha tentativa diferente a la determinada previamente',
+                valorCalculado: fechaTentativaParsed.ar,
+                valorEncontrado: p.ar,
+              });
+            }
+          } else {
+            fechaTentativaParsed = p;
+            fuentes.push({ campo: 'fechaTentativa', tipo: 'agenda', origen: 'evento:' + (ev?.titulo || 'tentativa'), valor: p.ar });
+          }
         }
       }
     }
@@ -330,7 +530,7 @@ export function extraerHechosTemporalesLegajo(input: ExtraerHechosInput): Hechos
 
   // 4. Fallback textual en dump completo si algo sigue faltando
   const dump = JSON.stringify([
-    sortedOutputs.map((a) => a?.result_json ?? a?.content ?? ''),
+    allOutputs.map((a) => a?.result_json ?? a?.content ?? ''),
     input.eventos?.map((e) => `${e?.titulo || e?.title} ${e?.detalle || e?.description}`),
   ]);
 
@@ -438,8 +638,11 @@ export function extraerHechosTemporalesLegajo(input: ExtraerHechosInput): Hechos
     if (diff > 0) {
       excedePlazo = true;
       excesoDias = diff;
-      const diasPlazoTxt = plazoDias ? `${plazoDias} días corridos` : 'contractual';
-      advertencia = `La fecha tentativa de escritura (${fechaTentativaParsed.ar}) excede el plazo máximo de ${diasPlazoTxt}, cuyo límite es el ${fechaLimiteParsed.ar}.`;
+      if (plazoDias) {
+        advertencia = `La fecha tentativa de escritura (${fechaTentativaParsed.ar}) excede el plazo máximo de ${plazoDias} días corridos, cuyo límite es el ${fechaLimiteParsed.ar}.`;
+      } else {
+        advertencia = `La fecha tentativa de escritura (${fechaTentativaParsed.ar}) supera el límite contractual (${fechaLimiteParsed.ar}).`;
+      }
     } else {
       excedePlazo = false;
       excesoDias = 0;

@@ -956,7 +956,7 @@ export async function cotejarExpediente(caseId: string) {
       ? {
           fechaBoleto: hechos.fechaBoleto || '',
           fechaBoletoIso: hechos.fechaBoletoIso || '',
-          plazoDias: hechos.plazoDias || (hechos.fechaLimite && hechos.fechaTentativa ? 90 : 0),
+          plazoDias: hechos.plazoDias,
           fechaLimite: hechos.fechaLimite || '',
           fechaLimiteIso: hechos.fechaLimiteIso || '',
           fechaTentativa: hechos.fechaTentativa || '',

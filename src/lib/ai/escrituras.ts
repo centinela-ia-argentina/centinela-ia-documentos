@@ -523,34 +523,105 @@ function reemplazarSubclausulaItiUnica(
   return out;
 }
 
+const REGEX_CONTEXTO_TRIBUTARIO =
+  /(?:(?<!c\.?o\.?\s*)(?<!coti\s*)(?:\bi\.t\.i\.|\biti\b|impuesto\s+a\s+la\s+transferencia\s+de\s+inmuebles)|impuesto\s+a\s+las\s+ganancias|c\.?o\.?t\.?i\.?|\btribut[a-z]*|\bimpuestos?\b|retenci[oó]n(?:\s+fiscal|\s+impositiva)?)/i;
+
+const REGEX_CONTEXTO_UIF =
+  /(?:uif|pla\/?ft|lavado\s+de\s+activos|financiaci[oó]n\s+del\s+terrorismo|encubrimiento)/i;
+
+const REGEX_CONTEXTO_ITI =
+  /(?:(?<!c\.?o\.?\s*)(?<!coti\s*)(?:\bi\.t\.i\.|\biti\b|impuesto\s+a\s+la\s+transferencia\s+de\s+inmuebles)|derog)/i;
+
 export function sanearCitasNormativasTributarias(texto: string): string {
   if (!texto) return texto;
 
-  // Manejar grupos como "Leyes 23.282 / 25.093" o "Ley 23.282 y 25.093"
-  const regexGrupoLeyes = /\b(?:leyes|ley)\s+(?:n[°ºo]?\s*|n[úu]mero\s*)?(\d{1,2}(?:\.\d{3})+|\d{4,6})(?:\s*(?:\/|y|,)\s*(?:ley\s+)?(?:n[°ºo]?\s*|n[úu]mero\s*)?(\d{1,2}(?:\.\d{3})+|\d{4,6}))+/gi;
-
-  let out = texto.replace(regexGrupoLeyes, (match) => {
-    const nums = match.match(/\d{1,2}(?:\.\d{3})+|\d{4,6}/g) || [];
-    const todosPermitidos = nums.length > 0 && nums.every((n) => {
-      const c = n.replace(/\./g, '');
-      return c === '27743' || c === '25246';
-    });
-    if (todosPermitidos) return match;
-    return '[VERIFICAR: normativa tributaria aplicable]';
-  });
-
-  // Manejar citas individuales "Ley 23.282", "Ley N° 25.093"
-  const regexLeyIndividual = /\b(?:ley)\s+(?:n[°ºo]?\s*|n[úu]mero\s*)?(\d{1,2}(?:\.\d{3})+|\d{4,6})\b/gi;
-  out = out.replace(regexLeyIndividual, (match, num) => {
-    const clean = String(num).replace(/\./g, '');
-    if (clean === '27743' || clean === '25246') {
-      return match;
+  // Proteger abreviaturas comunes para no romper delimitación de oraciones
+  const marcadores: Array<{ key: string; val: string }> = [];
+  let protegido = texto.replace(
+    /\b(?:i\.t\.i\.|c\.o\.t\.i\.|d\.n\.i\.|c\.u\.i\.t\.|c\.u\.i\.l\.|art\.|inc\.|n[°ºo]\.|nro\.|p[aá]g\.|fs\.)/gi,
+    (m) => {
+      const key = `___ABBR_${marcadores.length}___`;
+      marcadores.push({ key, val: m });
+      return key;
     }
-    return '[VERIFICAR: normativa tributaria aplicable]';
+  );
+
+  // Dividir en oraciones preservando delimitadores exactos
+  const partes = protegido.split(/(\r?\n+|(?<=[.;])\s+)/);
+
+  const procesadas = partes.map((segmento) => {
+    if (!segmento || /^\s+$/.test(segmento)) return segmento;
+
+    let sDesc = segmento;
+    for (const { key, val } of marcadores) {
+      sDesc = sDesc.split(key).join(val);
+    }
+
+    const hasTax = REGEX_CONTEXTO_TRIBUTARIO.test(sDesc);
+    const hasUif = REGEX_CONTEXTO_UIF.test(sDesc);
+    const hasIti = REGEX_CONTEXTO_ITI.test(sDesc);
+    const claimsTax = /(?:tribut|retenci[oó]n|impuesto|gravad)/i.test(sDesc);
+
+    if (!/\b(?:leyes|ley)\b/i.test(segmento)) {
+      return segmento;
+    }
+
+    // Procesar grupos de leyes: "Leyes 23.282 / 25.093", "Ley 23.282 y 25.093"
+    const regexGrupoLeyes =
+      /\b(?:leyes|ley)\s+(?:n[°ºo]?\s*|n[úu]mero\s*)?(\d{1,2}(?:\.\d{3})+|\d{4,6})(?:\s*(?:\/|y|,)\s*(?:ley\s+)?(?:n[°ºo]?\s*|n[úu]mero\s*)?(\d{1,2}(?:\.\d{3})+|\d{4,6}))+/gi;
+
+    let res = segmento.replace(regexGrupoLeyes, (match) => {
+      const nums = match.match(/\d{1,2}(?:\.\d{3})+|\d{4,6}/g) || [];
+      const todosPermitidos =
+        nums.length > 0 &&
+        nums.every((n) => {
+          const c = n.replace(/\./g, '');
+          if (c === '27743') return hasIti;
+          if (c === '25246') return hasUif && !claimsTax;
+          return !hasTax;
+        });
+      if (todosPermitidos) return match;
+
+      if (hasTax) return '[VERIFICAR: normativa tributaria aplicable]';
+      return '[VERIFICAR: normativa aplicable]';
+    });
+
+    // Procesar citas individuales: "Ley 23.282", "Ley 17.801", "Ley 27.743"
+    const regexLeyIndividual =
+      /\b(?:ley)\s+(?:n[°ºo]?\s*|n[úu]mero\s*)?(\d{1,2}(?:\.\d{3})+|\d{4,6})\b/gi;
+    res = res.replace(regexLeyIndividual, (match, num) => {
+      const clean = String(num).replace(/\./g, '');
+      if (clean === '27743') {
+        if (hasIti) return match;
+        return '[VERIFICAR: normativa aplicable]';
+      }
+      if (clean === '25246') {
+        if (hasUif && !claimsTax) return match;
+        return '[VERIFICAR: normativa tributaria aplicable]';
+      }
+      if (hasTax) {
+        return '[VERIFICAR: normativa tributaria aplicable]';
+      }
+      return match;
+    });
+
+    // Limpiar duplicaciones consecutivas del placeholder
+    res = res.replace(
+      /(?:\[VERIFICAR:\s*normativa\s+(?:tributaria\s+)?aplicable\](?:\s*(?:\/|y|,)\s*|\s+))+\[VERIFICAR:\s*normativa\s+(?:tributaria\s+)?aplicable\]/gi,
+      (m) => {
+        return m.includes('tributaria')
+          ? '[VERIFICAR: normativa tributaria aplicable]'
+          : '[VERIFICAR: normativa aplicable]';
+      }
+    );
+
+    return res;
   });
 
-  // Limpiar posibles duplicaciones consecutivas del placeholder
-  out = out.replace(/(?:\[VERIFICAR:\s*normativa\s+tributaria\s+aplicable\](?:\s*(?:\/|y|,)\s*|\s+))+\[VERIFICAR:\s*normativa\s+tributaria\s+aplicable\]/gi, '[VERIFICAR: normativa tributaria aplicable]');
+  let out = procesadas.join('');
+  for (const { key, val } of marcadores) {
+    out = out.split(key).join(val);
+  }
 
   return out;
 }
@@ -625,6 +696,15 @@ export function aplicarGuardrailIti(
     }
     if (!advertencias.some((a) => a.includes('normativa tributaria aplicable'))) {
       advertencias.push('Revisión profesional requerida: verificar normativa tributaria aplicable al acto.');
+    }
+  }
+
+  if (cuerpo.includes('[VERIFICAR: normativa aplicable]')) {
+    if (!datosFaltantes.some((d) => d.includes('normativa aplicable'))) {
+      datosFaltantes.push('[VERIFICAR: normativa aplicable]');
+    }
+    if (!advertencias.some((a) => a.includes('normativa aplicable'))) {
+      advertencias.push('Revisión profesional requerida: verificar normativa legal aplicable al acto.');
     }
   }
 
