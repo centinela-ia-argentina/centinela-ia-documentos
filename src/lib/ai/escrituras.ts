@@ -51,6 +51,29 @@ export const ORDINALES_NOTARIALES = [
   'VIGÉSIMO',
 ] as const;
 
+export const ORDINALES_NOTARIALES_FEMENINOS = [
+  'PRIMERA',
+  'SEGUNDA',
+  'TERCERA',
+  'CUARTA',
+  'QUINTA',
+  'SEXTA',
+  'SÉPTIMA',
+  'OCTAVA',
+  'NOVENA',
+  'DÉCIMA',
+  'DÉCIMA PRIMERA',
+  'DÉCIMA SEGUNDA',
+  'DÉCIMA TERCERA',
+  'DÉCIMA CUARTA',
+  'DÉCIMA QUINTA',
+  'DÉCIMA SEXTA',
+  'DÉCIMA SÉPTIMA',
+  'DÉCIMA OCTAVA',
+  'DÉCIMA NOVENA',
+  'VIGÉSIMA',
+] as const;
+
 function normalizarOrdinal(txt: string): string {
   return txt
     .toUpperCase()
@@ -59,8 +82,30 @@ function normalizarOrdinal(txt: string): string {
     .trim();
 }
 
-const SET_ORDINALES_NORM = new Set(ORDINALES_NOTARIALES.map((o) => normalizarOrdinal(o)));
-SET_ORDINALES_NORM.add('CLAUSULA');
+export const SET_ORDINALES_MASC_NORM = new Set(ORDINALES_NOTARIALES.map((o) => normalizarOrdinal(o)));
+export const SET_ORDINALES_FEM_NORM = new Set(ORDINALES_NOTARIALES_FEMENINOS.map((o) => normalizarOrdinal(o)));
+export const SET_ORDINALES_NORM = new Set([
+  ...SET_ORDINALES_MASC_NORM,
+  ...SET_ORDINALES_FEM_NORM,
+  'CLAUSULA',
+]);
+
+export function detectarEstiloOrdinales(cuerpo: string): 'femenino' | 'masculino' {
+  const lineas = cuerpo.split('\n');
+  for (const linea of lineas) {
+    const match = linea.match(/^\s*([A-ZÁÉÍÓÚÑ]+(?:\s+[A-ZÁÉÍÓÚÑ]+)?)\s*:\s*/i);
+    if (match) {
+      const norm = normalizarOrdinal(match[1]);
+      if (norm === 'PRIMERA' || norm === 'SEGUNDA' || SET_ORDINALES_FEM_NORM.has(norm)) {
+        return 'femenino';
+      }
+      if (norm === 'PRIMERO' || norm === 'SEGUNDO' || SET_ORDINALES_MASC_NORM.has(norm)) {
+        return 'masculino';
+      }
+    }
+  }
+  return 'masculino';
+}
 
 export function validarOrdinalesNotariales(cuerpo: string): { ok: boolean; duplicados: string[] } {
   const lineas = cuerpo.split('\n');
@@ -71,7 +116,9 @@ export function validarOrdinalesNotariales(cuerpo: string): { ok: boolean; dupli
     const match = linea.match(/^\s*([A-ZÁÉÍÓÚÑ]+(?:\s+[A-ZÁÉÍÓÚÑ]+)?)\s*:\s*/i);
     if (match) {
       const norm = normalizarOrdinal(match[1]);
-      if (SET_ORDINALES_NORM.has(norm) && norm !== 'CLAUSULA') {
+      if (norm === 'CLAUSULA') {
+        duplicados.push('CLAUSULA');
+      } else if (SET_ORDINALES_NORM.has(norm)) {
         if (vistos.has(norm)) {
           duplicados.push(match[1]);
         } else {
@@ -88,6 +135,8 @@ export function validarOrdinalesNotariales(cuerpo: string): { ok: boolean; dupli
 }
 
 export function recalcularOrdinalesNotariales(cuerpo: string): string {
+  const estilo = detectarEstiloOrdinales(cuerpo);
+  const listaOrdinales = estilo === 'femenino' ? ORDINALES_NOTARIALES_FEMENINOS : ORDINALES_NOTARIALES;
   const lineas = cuerpo.split('\n');
   let idx = 0;
 
@@ -101,7 +150,7 @@ export function recalcularOrdinalesNotariales(cuerpo: string): string {
     const norm = normalizarOrdinal(rawWord);
 
     if (SET_ORDINALES_NORM.has(norm)) {
-      const ordinalCorrecto = ORDINALES_NOTARIALES[idx] || rawWord.toUpperCase();
+      const ordinalCorrecto = listaOrdinales[idx] || rawWord.toUpperCase();
       idx++;
       return `${spaces}${ordinalCorrecto}: ${resto}`;
     }
@@ -231,35 +280,31 @@ export function aplicarGuardrailOrigenFondos(
         return linea;
       }
 
-      const oraciones = linea.match(/[^.;!?]+(?:[.;!?]+|$)/g) || [linea];
-      const oracionesProcesadas = oraciones.map((oracion) => {
-        if (!PATRON_DISPARADOR_ORACION_UIF.test(oracion) && !/origen\s+de\s+fondos/i.test(oracion)) {
-          return oracion;
-        }
+      // Si la línea es una cláusula dedicada a origen de fondos (ej: CUARTA: ORIGEN DE FONDOS...)
+      if (/^\s*[A-ZÁÉÍÓÚÑ]+:\s*(?:MEDIOS\s+DE\s+PAGO\s+Y\s+)?ORIGEN\s+DE\s+FONDOS/i.test(linea)) {
+        return `CLAUSULA: ${CLAUSULA_AUTONOMA_UIF}`;
+      }
 
-        const subClausulas = oracion.match(/[^,;]+(?:[,;]+|$)/g) || [oracion];
-        if (subClausulas.length > 1) {
-          const subProcesadas = subClausulas.map((sub) => {
-            if (!PATRON_DISPARADOR_ORACION_UIF.test(sub) && !/origen\s+de\s+fondos/i.test(sub)) {
-              return sub;
-            }
-            if (!clausulaInsertada) {
-              clausulaInsertada = true;
-              return ` ${CLAUSULA_AUTONOMA_UIF} `;
-            }
-            return '';
-          });
-          return subProcesadas.join('').replace(/[ \t]{2,}/g, ' ');
-        }
+      // Si es una cláusula de precio o mixta, suprimir solo las afirmaciones no acreditadas
+      let limpia = linea;
+      for (const pat of PATRONES_AFIRMACION_FONDOS_LICITOS) {
+        limpia = limpia.replace(pat, '');
+      }
+      limpia = limpia
+        .replace(/(?:,\s*)?(?:con|de|mediante)?\s*fondos\s+l[ií]citos(?:\s+declarados)?/gi, '')
+        .replace(/(?:,\s*)?dando\s+cumplimiento\s+a\s+las\s+disposiciones[^.;!\n]*/gi, '')
+        .replace(/(?:,\s*)?con\s+fondos\s+de\s+l[ií]cito\s+origen[^.;!\n]*/gi, '')
+        .replace(/los\s+fondos\s+provienen\s+de[^.;!\n]*/gi, '')
+        .replace(/,\s*,/g, ',')
+        .replace(/\.\s*\./g, '.')
+        .replace(/[ \t]{2,}/g, ' ')
+        .trim();
 
-        if (!clausulaInsertada) {
-          clausulaInsertada = true;
-          return ` ${CLAUSULA_AUTONOMA_UIF} `;
-        }
-        return '';
-      });
+      if (limpia.length > 0 && !/[.:;!?]$/.test(limpia)) {
+        limpia += '.';
+      }
 
-      return oracionesProcesadas.join('').replace(/[ \t]{2,}/g, ' ').trim();
+      return limpia;
     });
 
     cuerpo = restaurar(lineasProcesadas.join('\n'));
@@ -290,6 +335,12 @@ export function aplicarGuardrailOrigenFondos(
       }
     }
 
+    // Asegurar que si la cláusula UIF quedó sin prefijo ordinal, se le asigne
+    cuerpo = cuerpo.replace(
+      /(?:^|\n)\s*(?:CLAUSULA:?\s*)?(MEDIOS DE PAGO Y ORIGEN DE FONDOS\b)/gi,
+      '\n\nCLAUSULA: $1'
+    );
+
     cuerpo = recalcularOrdinalesNotariales(cuerpo);
 
     const itemFaltante = LEYENDA_ORIGEN_FONDOS_FALTANTE;
@@ -312,17 +363,57 @@ export function aplicarGuardrailOrigenFondos(
   };
 }
 
+export function sanearPlaceholdersIti(texto: string): string {
+  let s = texto;
+
+  // 1. Declaraciones juradas y marcadores con ITI y Ganancias
+  s = s.replace(
+    /Declaraci[oó]n\s+jurada\s+(?:de\s+)?(?:Impuesto\s+a\s+la\s+Transferencia\s+de\s+Inmuebles(?:\s*\([^\)]*\))?|I\.?T\.?I\.?)\s*(?:o\s+|\/\s*)(?:de\s+)?IG\b/gi,
+    'Declaración jurada de Impuesto a las Ganancias (IG)'
+  );
+  s = s.replace(
+    /Declaraci[oó]n\s+jurada\s+(?:de\s+)?(?:Impuesto\s+a\s+la\s+Transferencia\s+de\s+Inmuebles(?:\s*\([^\)]*\))?|I\.?T\.?I\.?)\s*(?:o\s+|\/\s*)(?:de\s+)?Impuesto\s+a\s+las\s+Ganancias\b/gi,
+    'Declaración jurada de Impuesto a las Ganancias'
+  );
+  s = s.replace(
+    /Declaraci[oó]n\s+jurada\s+(?:de\s+)?(?:Impuesto\s+a\s+la\s+Transferencia\s+de\s+Inmuebles(?:\s*\([^\)]*\))?|I\.?T\.?I\.?)\b/gi,
+    'Declaración jurada de Impuesto a las Ganancias'
+  );
+  s = s.replace(/\bI\.?T\.?I\.?\s*\/\s*IG\b/gi, 'Impuesto a las Ganancias (IG)');
+  s = s.replace(/\bI\.?T\.?I\.?\s*\/\s*Impuesto\s+a\s+las\s+Ganancias\b/gi, 'de Impuesto a las Ganancias');
+  s = s.replace(/\bde\s+de\s+Impuesto/gi, 'de Impuesto');
+
+  // 2. Cláusulas de gastos y alternativas fiscales dentro de placeholders o texto:
+  s = s.replace(
+    /(con\s+excepci[oó]n\s+(?:de\s+|del\s+)?)(?:___ITI_\d+___|i\.?t\.?i\.?|impuesto\s+a\s+la\s+transferencia\s+de\s+inmuebles)(?:\s*\([^\)]*\))?\s*(?:o,\s+en\s+su\s+caso,\s*(?:del?|por\s+el)|o\s+en\s+su\s+caso\s*(?:del?|por\s+el)|o\s+(?:del?\s+|por\s+el\s+)?)\s*(?:el\s+)?(impuesto\s+a\s+las\s+ganancias)/gi,
+    'con excepción del Impuesto a las Ganancias'
+  );
+
+  s = s.replace(
+    /(con\s+excepci[oó]n\s+(?:de\s+|del\s+)?)(?:___ITI_\d+___|i\.?t\.?i\.?|impuesto\s+a\s+la\s+transferencia\s+de\s+inmuebles)(?:\s*\([^\)]*\))?\s*(?:o,\s+en\s+su\s+caso,\s*(?:del?|por\s+el)|o\s+en\s+su\s+caso\s*(?:del?|por\s+el)|o\s+(?:del?\s+|por\s+el\s+)?)\s*(?:el\s+)?(ig\b)/gi,
+    'con excepción del Impuesto a las Ganancias (IG)'
+  );
+
+  // 3. Fórmulas generales de disyunción: "Impuesto a la Transferencia de Inmuebles (ITI) o Impuesto a las Ganancias"
+  s = s.replace(
+    /(?:el\s+|del\s+)?(?:___ITI_\d+___|i\.?t\.?i\.?|impuesto\s+a\s+la\s+transferencia\s+de\s+inmuebles)(?:\s*\([^\)]*\))?\s*(?:o,\s+en\s+su\s+caso,\s*(?:por\s+el|del?)|o\s+en\s+su\s+caso\s*(?:por\s+el|del?)|o\s+(?:del?\s+|por\s+el\s+)?)\s*(?:el\s+)?impuesto\s+a\s+las\s+ganancias/gi,
+    'el Impuesto a las Ganancias'
+  );
+
+  // 4. "con excepción del Impuesto a la Transferencia de Inmuebles (ITI)" aislado (sin Ganancias)
+  s = s.replace(
+    /(?:,\s*)?con\s+excepci[oó]n\s+(?:de\s+|del\s+)?(?:___ITI_\d+___|i\.?t\.?i\.?|impuesto\s+a\s+la\s+transferencia\s+de\s+inmuebles)(?:\s*\([^\)]*\))?/gi,
+    ''
+  );
+
+  return s;
+}
+
 function reemplazarSubclausulaItiUnica(
   cuerpoOriginal: string,
   leyenda: string
 ): string {
-  // Normalizar marcadores de ITI/IG al inicio para que no sean eliminados por error
-  const textoPreviamenteSaneado = cuerpoOriginal
-    .replace(/\[COMPLETAR:\s*Declaraci[oó]n\s+jurada\s+de\s+ITI\/IG\]/gi, '[COMPLETAR: Declaración jurada de Impuesto a las Ganancias (IG)]')
-    .replace(/\bI\.?T\.?I\.?\s*\/\s*IG\b/gi, 'Impuesto a las Ganancias (IG)')
-    .replace(/\bI\.?T\.?I\.?\s*\/\s*Impuesto\s+a\s+las\s+Ganancias\b/gi, 'Impuesto a las Ganancias');
-
-  const { protegido, restaurar } = protegerAcronimosYNumeros(textoPreviamenteSaneado);
+  const { protegido, restaurar } = protegerAcronimosYNumeros(cuerpoOriginal);
   const lineas = protegido.split('\n');
   let leyendaAplicada = false;
 
@@ -338,13 +429,18 @@ function reemplazarSubclausulaItiUnica(
     const resto = ordinalMatch ? ordinalMatch[2] : linea;
 
     // Segmentar siempre por oraciones o delimitadores para preservar cláusulas o menciones conexas
-    // (Impuesto a las Ganancias, precio, pago, posesión, COTI, etc.)
     const oraciones = resto.split(/(?<=[.;])\s+/);
 
     const oracionesProcesadas = oraciones.map((oracion) => {
-      // Preservar marcadores o placeholders explícitos de revisión profesional
-      if (/\[(?:COMPLETAR|VERIFICAR)[^\]]*\]/i.test(oracion)) {
-        return oracion.trim();
+      const esPlaceholder = /\[(?:COMPLETAR|VERIFICAR)/i.test(oracion);
+
+      if (esPlaceholder) {
+        const saneada = sanearPlaceholdersIti(oracion);
+        if (!leyendaAplicada && (patronMencionIti.test(oracion) || patronMencionIti.test(resto))) {
+          leyendaAplicada = true;
+          return `${leyenda} ${saneada}`.trim();
+        }
+        return saneada.trim();
       }
 
       if (!patronMencionIti.test(oracion)) return oracion;
@@ -358,7 +454,6 @@ function reemplazarSubclausulaItiUnica(
           regexReemplazoItiEnFrase.test(oracion)
         ) {
           let reemplazada = oracion.replace(regexReemplazoItiEnFrase, (match) => {
-            // Si la frase conectaba con Ganancias como alternativa fiscal
             if (
               /se\s+encuentra\s+alcanzada|resulta\s+alcanzada/i.test(match) &&
               /por\s+el\s*$/i.test(match)
@@ -374,9 +469,7 @@ function reemplazarSubclausulaItiUnica(
             return `${leyenda} `;
           });
 
-          // Limpiar referencias compuestas como ITI/IG si quedaron en la oración
-          reemplazada = reemplazada.replace(/\bi\.?t\.?i\.?\s*\/\s*ig\b/gi, 'Impuesto a las Ganancias (IG)');
-          reemplazada = reemplazada.replace(/\bi\.?t\.?i\.?\s*\/\s*impuesto\s+a\s+las\s+ganancias\b/gi, 'Impuesto a las Ganancias');
+          reemplazada = sanearPlaceholdersIti(reemplazada);
 
           // Capitalizar la primera letra tras la leyenda si quedó en minúscula
           const idxLeyenda = reemplazada.indexOf(leyenda);
@@ -401,10 +494,9 @@ function reemplazarSubclausulaItiUnica(
       }
 
       // Si la leyenda ya fue aplicada en una oración previa de la misma cláusula:
-      if (/ganancias|\big\b|___COTI_\d+___|precio|pago|posesi[oó]n|\[(?:COMPLETAR|VERIFICAR)/i.test(oracion)) {
+      if (/ganancias|\big\b|___COTI_\d+___|precio|pago|posesi[oó]n/i.test(oracion)) {
         let limpia = oracion.replace(regexReemplazoItiEnFrase, '');
-        limpia = limpia.replace(/\bi\.?t\.?i\.?\s*\/\s*ig\b/gi, 'Impuesto a las Ganancias (IG)');
-        limpia = limpia.replace(/\bi\.?t\.?i\.?\s*\/\s*impuesto\s+a\s+las\s+ganancias\b/gi, 'Impuesto a las Ganancias');
+        limpia = sanearPlaceholdersIti(limpia);
         return limpia.replace(/[ \t]{2,}/g, ' ').trim();
       }
 
@@ -426,9 +518,7 @@ function reemplazarSubclausulaItiUnica(
     out = antes + despues;
   }
 
-  // Normalizar cualquier referencia residual de ITI/IG en el cuerpo a IG
-  out = out.replace(/\bI\.?T\.?I\.?\s*\/\s*IG\b/gi, 'Impuesto a las Ganancias (IG)');
-  out = out.replace(/\bI\.?T\.?I\.?\s*\/\s*Impuesto\s+a\s+las\s+Ganancias\b/gi, 'Impuesto a las Ganancias');
+  out = sanearPlaceholdersIti(out);
 
   return out;
 }
@@ -464,25 +554,17 @@ export function aplicarGuardrailIti(
     if (estadoIti === 'post_derogacion') {
       cuerpo = reemplazarSubclausulaItiUnica(cuerpo, LEYENDA_ITI_DEROGADO);
 
-      // Limpiar marcadores en el cuerpo como [COMPLETAR: Declaración jurada de ITI/IG]
-      cuerpo = cuerpo.replace(/\[COMPLETAR:\s*Declaraci[oó]n\s+jurada\s+de\s+ITI\/IG\]/gi, '[COMPLETAR: Declaración jurada de Impuesto a las Ganancias (IG)]');
-      cuerpo = cuerpo.replace(/\bITI\/IG\b/g, 'Impuesto a las Ganancias (IG)');
-
       datosFaltantes = datosFaltantes.filter(
         (d) => !/(?<!c\.?o\.?\s*)(?<!coti\s*)\b(?:i\.?t\.?i\.?|impuesto\s+a\s+la\s+transferencia\s+de\s+inmuebles)\b/i.test(d) ||
                /ganancias|\big\b/i.test(d)
       );
-      datosFaltantes = datosFaltantes.map((d) =>
-        d.replace(/\bITI\/IG\b/g, 'Impuesto a las Ganancias (IG)')
-      );
+      datosFaltantes = datosFaltantes.map((d) => sanearPlaceholdersIti(d));
 
       advertencias = advertencias.filter(
         (a) => !/(?:retenci[oó]n|aplicar|calcular)\s+(?:del?\s+)?(?:i\.?t\.?i\.?|impuesto\s+a\s+la\s+transferencia\s+de\s+inmuebles)/i.test(a) ||
                /ganancias|\big\b/i.test(a)
       );
-      advertencias = advertencias.map((a) =>
-        a.replace(/\bITI\/IG\b/g, 'Impuesto a las Ganancias (IG)')
-      );
+      advertencias = advertencias.map((a) => sanearPlaceholdersIti(a));
     } else if (estadoIti === 'ambigua_o_ausente') {
       cuerpo = reemplazarSubclausulaItiUnica(cuerpo, LEYENDA_ITI_VERIFICAR_FECHA);
 
@@ -538,7 +620,8 @@ export async function redactarEscrituraConIA(input: {
 
   const prompt = [
     'Sos un escribano público argentino con amplia experiencia en redacción de escrituras y actos notariales. En base a los datos del legajo y a los documentos ya analizados, redactá un BORRADOR de escritura pública, claro y con estructura notarial profesional en español rioplatense.',
-    'Estructura sugerida del cuerpo (adaptala al tipo de acto): encabezado y número, lugar y fecha, comparecencia e identificación de los comparecientes, antecedentes de dominio/título, objeto del acto, precio y forma de pago (si corresponde), medios de pago y origen de fondos, estado de ocupación y entrega de posesión (si corresponde), certificados y libre de gravámenes/inhibiciones, cláusulas especiales, y cierre/otorgamiento.',
+    'Estructura sugerida del cuerpo (adaptala al tipo de acto): encabezado y número, lugar y fecha, comparecencia e identificación de los comparecientes, antecedentes de dominio/título, objeto del acto, precio y forma de pago (si corresponde), medios de pago y origen de fondos, estado de ocupación y entrega de posesión (si corresponde), certificados y libre de gravámenes/inhibiciones, gastos e impuestos, declaraciones juradas, y cierre/otorgamiento.',
+    'Cláusulas numeradas ordinalmente en estilo notarial femenino tradicional (PRIMERA:, SEGUNDA:, TERCERA:, CUARTA:, QUINTA:, SEXTA:, SÉPTIMA:, OCTAVA:, etc.).',
     'Respondé SOLO un objeto JSON válido (sin texto adicional) con esta forma exacta:',
     '{',
     '  "titulo": "título breve del borrador, ej: Borrador de escritura de compraventa",',

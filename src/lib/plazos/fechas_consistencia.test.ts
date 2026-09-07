@@ -1003,3 +1003,186 @@ describe('Filtro no destructivo de discrepancias y alertas en Cotejo', () => {
     expect(filtrada).toContain(mensajeIndependiente);
   });
 });
+
+describe('Extracción canónica con payload real sin metadata presembrada', () => {
+  it('extrae 10/06, 90d, límite 08/09, tentativa 10/09 y exceso 2d desde payload real sin metadata temporal', () => {
+    const caseRecord = {
+      id: 'case-palermo-real',
+      title: 'Compraventa Depto Palermo Cuba',
+      metadata: {
+        tipo_acto: 'Compraventa',
+      },
+    };
+
+    const aiOutputs = [
+      {
+        created_at: '2026-09-06T10:00:00Z',
+        document_id: 'doc-boleto-1',
+        output_type: 'document_analysis',
+        result_json: {
+          tipo_documental_detectado: 'Boleto de compraventa',
+          datos_clave: [
+            'Plazo máximo contractual para escriturar: 90 días corridos.',
+            'USD 150.000',
+          ],
+          fechas_plazos: [
+            { descripcion: 'Fecha de emisión del Boleto de Compraventa', fecha: '2026-06-10' },
+            { descripcion: 'Fecha tentativa de escritura', fecha: '2026-09-10' },
+          ],
+        },
+      },
+    ];
+
+    const plazo = extraerPlazoCanonicoLegajo(caseRecord, aiOutputs, []);
+    expect(plazo).not.toBeNull();
+    expect(plazo?.fechaBoleto).toBe('10/06/2026');
+    expect(plazo?.plazoDias).toBe(90);
+    expect(plazo?.fechaLimite).toBe('08/09/2026');
+    expect(plazo?.fechaTentativa).toBe('10/09/2026');
+    expect(plazo?.excesoDias).toBe(2);
+    expect(plazo?.excedePlazo).toBe(true);
+  });
+
+  it('reconoce semánticamente todas las variantes válidas de fecha de boleto', () => {
+    const variantes = [
+      'Fecha de emisión del Boleto de Compraventa',
+      'Fecha de emisión del boleto',
+      'Fecha de firma del boleto',
+      'Fecha de celebración del boleto',
+      'Fecha de suscripción del boleto',
+      'Fecha del Boleto de Compraventa',
+      'Boleto de Compraventa emitido el 10 de junio de 2026',
+      'Boleto de Compraventa firmado el 10/06/2026',
+    ];
+
+    for (const desc of variantes) {
+      const caseRecord = { id: 'c1', metadata: { tipo_acto: 'Compraventa' } };
+      const aiOutputs = [
+        {
+          created_at: '2026-09-06T10:00:00Z',
+          document_id: 'doc-var',
+          output_type: 'document_analysis',
+          result_json: {
+            datos_clave: ['90 días corridos'],
+            fechas_plazos: [
+              { descripcion: desc, fecha: '2026-06-10' },
+              { descripcion: 'Fecha tentativa de escritura', fecha: '2026-09-10' },
+            ],
+          },
+        },
+      ];
+      const plazo = extraerPlazoCanonicoLegajo(caseRecord, aiOutputs, []);
+      expect(plazo?.fechaBoleto).toBe('10/06/2026');
+      expect(plazo?.fechaLimite).toBe('08/09/2026');
+      expect(plazo?.excesoDias).toBe(2);
+    }
+  });
+});
+
+describe('Ordinales notariales femeninos y preservación de encabezados romanos', () => {
+  it('detecta estilo femenino, preserva encabezados romanos de comparecientes y asigna ordinal a cláusula UIF', () => {
+    const borrador: BorradorEscritura = {
+      titulo: 'Borrador femenino',
+      cuerpo: [
+        'I.- COMPARECIENTES: Don Juan Pérez por una parte y Doña María Gómez por la otra.',
+        'II.- INTERVENCIÓN: Actúan en nombre propio.',
+        'PRIMERA: ANTECEDENTES DE DOMINIO.',
+        'SEGUNDA: OBJETO.',
+        'TERCERA: PRECIO Y FORMA DE PAGO. Se abona en efectivo el precio pactado de fondos lícitos declarados.',
+        'QUINTA: ESTADO DE OCUPACIÓN Y ENTREGA DE POSESIÓN.',
+        'SEXTA: CERTIFICADOS.',
+        'SÉPTIMA: GASTOS E IMPUESTOS.',
+        'OCTAVA: DECLARACIONES JURADAS.',
+      ].join('\n'),
+      datos_faltantes: [],
+      advertencias: [],
+    };
+
+    // Sin evidencia de fondos: debe insertar la cláusula UIF y recalcular ordinales en femenino
+    const conUif = aplicarGuardrailOrigenFondos(borrador, false);
+
+    // 1. Debe conservar estilo femenino
+    expect(conUif.cuerpo).toContain('PRIMERA: ANTECEDENTES DE DOMINIO.');
+    expect(conUif.cuerpo).toContain('SEGUNDA: OBJETO.');
+    expect(conUif.cuerpo).toContain('TERCERA: PRECIO Y FORMA DE PAGO.');
+    expect(conUif.cuerpo).toMatch(/(?:^|\n)\s*CUARTA:\s*MEDIOS DE PAGO Y ORIGEN DE FONDOS\./);
+    expect(conUif.cuerpo).toContain('QUINTA: ESTADO DE OCUPACIÓN Y ENTREGA DE POSESIÓN.');
+    expect(conUif.cuerpo).toContain('SEXTA: CERTIFICADOS.');
+    expect(conUif.cuerpo).toContain('SÉPTIMA: GASTOS E IMPUESTOS.');
+    expect(conUif.cuerpo).toContain('OCTAVA: DECLARACIONES JURADAS.');
+
+    // 2. Encabezados romanos intactos
+    expect(conUif.cuerpo).toContain('I.- COMPARECIENTES:');
+    expect(conUif.cuerpo).toContain('II.- INTERVENCIÓN:');
+
+    // 3. Ninguna cláusula sin ordinal ni "CLAUSULA:" residual
+    expect(conUif.cuerpo).not.toMatch(/\bCLAUSULA:/);
+
+    // 4. Validación estricta sin duplicados
+    const validacion = validarOrdinalesNotariales(conUif.cuerpo);
+    expect(validacion.ok).toBe(true);
+    expect(validacion.duplicados).toHaveLength(0);
+  });
+});
+
+describe('Sanitización de ITI en placeholders y prueba integral con texto real', () => {
+  it('sanea la fórmula real observada en SÉPTIMA: GASTOS E IMPUESTOS con fecha 10/09/2026', () => {
+    const cuerpoObservado = [
+      'PRIMERA: ANTECEDENTES DE DOMINIO.',
+      'SEGUNDA: OBJETO.',
+      'TERCERA: PRECIO Y FORMA DE PAGO.',
+      'CUARTA: MEDIOS DE PAGO Y ORIGEN DE FONDOS. [COMPLETAR/VERIFICAR: declaración y documentación respaldatoria sobre medios y origen de fondos].',
+      'QUINTA: ESTADO DE OCUPACIÓN Y ENTREGA DE POSESIÓN.',
+      'SEXTA: CERTIFICADOS.',
+      'SÉPTIMA: GASTOS E IMPUESTOS. [COMPLETAR: cláusula de gastos, ej: Los gastos e impuestos que demande la presente escritura, así como los honorarios notariales, serán a cargo de la parte compradora, con excepción del Impuesto a la Transferencia de Inmuebles (ITI) o Impuesto a las Ganancias que corresponda, que será a cargo de la parte vendedora]. [COMPLETAR: Declaración jurada ITI/Impuesto a las Ganancias].',
+      'OCTAVA: DECLARACIONES JURADAS.',
+    ].join('\n');
+
+    const borrador: BorradorEscritura = {
+      titulo: 'Borrador real observado',
+      cuerpo: cuerpoObservado,
+      datos_faltantes: [
+        '[COMPLETAR: Declaración jurada ITI/Impuesto a las Ganancias]',
+      ],
+      advertencias: [
+        'Verificar retención del Impuesto a la Transferencia de Inmuebles (ITI) o Impuesto a las Ganancias.',
+      ],
+    };
+
+    const res = aplicarGuardrailIti(borrador, '2026-09-10');
+
+    // 1. Conservar SÉPTIMA: GASTOS E IMPUESTOS
+    expect(res.cuerpo).toMatch(/(?:^|\n)\s*SÉPTIMA:\s*GASTOS E IMPUESTOS\./);
+
+    // 2. Conservar la asignación de gastos
+    expect(res.cuerpo).toContain('Los gastos e impuestos que demande la presente escritura');
+    expect(res.cuerpo).toContain('serán a cargo de la parte compradora');
+    expect(res.cuerpo).toContain('que será a cargo de la parte vendedora');
+
+    // 3. Conservar Ganancias
+    expect(res.cuerpo).toContain('con excepción del Impuesto a las Ganancias que corresponda');
+    expect(res.cuerpo).toContain('[COMPLETAR: Declaración jurada de Impuesto a las Ganancias]');
+
+    // 4. Eliminar la alternativa ITI del placeholder y del texto
+    expect(res.cuerpo).not.toContain('con excepción del Impuesto a la Transferencia de Inmuebles (ITI)');
+    expect(res.cuerpo).not.toContain('Impuesto a la Transferencia de Inmuebles (ITI) o');
+
+    // 5. Producir una única leyenda ITI derogado
+    expect(res.cuerpo).toContain(LEYENDA_ITI_DEROGADO);
+    const conteoLeyenda = res.cuerpo.split(LEYENDA_ITI_DEROGADO).length - 1;
+    expect(conteoLeyenda).toBe(1);
+
+    // 6. No dejar ITI/IG ni fórmulas positivas
+    expect(res.cuerpo).not.toMatch(/\bITI\/IG\b/);
+    expect(res.cuerpo).not.toMatch(/\bITI\/Impuesto\b/);
+
+    // 7. No duplicar placeholders
+    const conteoMarcadorJurada = res.cuerpo.split('[COMPLETAR: Declaración jurada de Impuesto a las Ganancias]').length - 1;
+    expect(conteoMarcadorJurada).toBe(1);
+
+    // 8. Validación de ordinales notariales femeninos
+    const validacion = validarOrdinalesNotariales(res.cuerpo);
+    expect(validacion.ok).toBe(true);
+    expect(validacion.duplicados).toHaveLength(0);
+  });
+});

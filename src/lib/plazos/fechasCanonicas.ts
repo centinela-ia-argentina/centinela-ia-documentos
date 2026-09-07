@@ -274,7 +274,7 @@ export function extraerPlazoCanonicoLegajo(
       const fechas = Array.isArray(rj?.fechas_plazos) ? rj.fechas_plazos : [];
       for (const fp of fechas) {
         const desc = String(fp?.descripcion || '').toLowerCase().trim();
-        // Excluir límite, tentativa, otorgamiento, escritura antecedente y vencimientos
+        // Excluir límite, tentativa, otorgamiento, escritura antecedente, vencimientos y certificados
         if (
           desc.includes('límite') ||
           desc.includes('limite') ||
@@ -287,15 +287,23 @@ export function extraerPlazoCanonicoLegajo(
           continue;
         }
 
-        const esBoletoExplicito =
-          desc.includes('fecha del boleto') ||
-          desc.includes('fecha de boleto') ||
-          desc.includes('boleto celebrado') ||
-          desc.includes('boleto firmado') ||
-          desc.includes('boleto emitido') ||
+        const tieneBoleto = desc.includes('boleto');
+        const tieneAccionOFecha =
+          desc.includes('fecha') ||
+          desc.includes('emisión') ||
+          desc.includes('emision') ||
+          desc.includes('firma') ||
+          desc.includes('celebración') ||
+          desc.includes('celebracion') ||
+          desc.includes('suscripción') ||
+          desc.includes('suscripcion') ||
+          desc.includes('emitido') ||
+          desc.includes('firmado') ||
+          desc.includes('celebrado') ||
+          desc.includes('suscripto') ||
           desc.startsWith('boleto');
 
-        if (esBoletoExplicito) {
+        if (tieneBoleto && tieneAccionOFecha) {
           const p = parsearFechaCualquiera(fp?.fecha) || parsearFechaCualquiera(fp?.evidencia_textual);
           if (p) {
             fechaBoletoParsed = p;
@@ -318,11 +326,27 @@ export function extraerPlazoCanonicoLegajo(
         text.includes('tentativa') ||
         text.includes('otorgamiento') ||
         text.includes('antecedente') ||
-        text.includes('vencimiento')
+        text.includes('vencimiento') ||
+        text.includes('certificado')
       ) {
         continue;
       }
-      if (text.includes('boleto')) {
+      const tieneBoleto = text.includes('boleto');
+      const tieneAccionOFecha =
+        text.includes('fecha') ||
+        text.includes('emisión') ||
+        text.includes('emision') ||
+        text.includes('firma') ||
+        text.includes('celebración') ||
+        text.includes('celebracion') ||
+        text.includes('suscripción') ||
+        text.includes('suscripcion') ||
+        text.includes('emitido') ||
+        text.includes('firmado') ||
+        text.includes('celebrado') ||
+        text.includes('suscripto');
+
+      if (tieneBoleto && (tieneAccionOFecha || text.trim().startsWith('boleto'))) {
         const p = parsearFechaCualquiera(ev?.fecha || ev?.event_date);
         if (p) {
           fechaBoletoParsed = p;
@@ -339,10 +363,11 @@ export function extraerPlazoCanonicoLegajo(
       latestAiOutputs.map((a) => a?.result_json ?? a?.content ?? ''),
       eventos?.map((e) => `${e?.titulo || e?.title} ${e?.detalle || e?.description}`),
     ]);
+    const patronRegexBoleto = /(?:fecha\s+(?:de\s+(?:emisi[oó]n|firma|celebraci[oó]n|suscripci[oó]n)\s+(?:del?\s+)?)?boleto(?:\s+de\s+compraventa)?|boleto(?:\s+de\s+compraventa)?\s+(?:emitido|firmado|celebrado|suscripto)(?:\s+el)?|fecha\s+del?\s+boleto(?:\s+de\s+compraventa)?)/;
     const mBoleto =
-      dump.match(/(?:fecha\s+del\s+boleto|boleto\s+firmado|boleto\s+celebrado)[^\d]{1,60}?(\d{1,2}\s+de\s+[a-z]+\s+del?\s+\d{4})/i) ||
-      dump.match(/(?:fecha\s+del\s+boleto|boleto\s+firmado|boleto\s+celebrado)[^\d]{1,60}?(\d{2}\/\d{2}\/\d{4})/i) ||
-      dump.match(/(?:fecha\s+del\s+boleto|boleto\s+firmado|boleto\s+celebrado)[^\d]{1,60}?(\d{4}-\d{2}-\d{2})/i);
+      dump.match(new RegExp(`${patronRegexBoleto.source}[^\\d]{1,60}?(\\d{1,2}\\s+de\\s+[a-z]+\\s+del?\\s+\\d{4})`, 'i')) ||
+      dump.match(new RegExp(`${patronRegexBoleto.source}[^\\d]{1,60}?(\\d{2}\\/\\d{2}\\/\\d{4})`, 'i')) ||
+      dump.match(new RegExp(`${patronRegexBoleto.source}[^\\d]{1,60}?(\\d{4}-\\d{2}-\\d{2})`, 'i'));
     if (mBoleto) {
       fechaBoletoParsed = parsearFechaCualquiera(mBoleto[1]);
       if (fechaBoletoParsed) {
@@ -370,7 +395,7 @@ export function extraerPlazoCanonicoLegajo(
     ]);
     const mPlazo =
       dumpPlazo.match(/(\d{1,3})\s*d[ií]as\s+corridos/i) ||
-      dumpPlazo.match(/plazo\s+(?:contractual\s+)?(?:de\s+)?(\d{1,3})\s*d[ií]as/i);
+      dumpPlazo.match(/plazo\s*(?:m[aá]ximo\s+)?(?:contractual\s+)?(?:para\s+escriturar\s+)?(?::|\s+de)?\s*(\d{1,3})\s*d[ií]as/i);
     if (mPlazo) {
       const p = parseInt(mPlazo[1], 10);
       if (Number.isInteger(p) && p > 0) {

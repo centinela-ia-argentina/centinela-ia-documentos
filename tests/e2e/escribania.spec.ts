@@ -208,9 +208,6 @@ test.describe.serial('Centinela IA - Escribania E2E', () => {
       client_name: 'Comprador Palermo',
       metadata: {
         tipo_acto: 'Compraventa',
-        fecha_boleto: '2026-06-10',
-        plazo_dias: 90,
-        fecha_otorgamiento: '2026-09-10',
       },
       created_by: 'cccc3333-3333-3333-3333-333333333333',
     });
@@ -264,9 +261,9 @@ test.describe.serial('Centinela IA - Escribania E2E', () => {
         result_json: {
           tipo_documental_detectado: 'Boleto de compraventa',
           resumen: 'Boleto de compraventa firmado el 10/06/2026 con plazo de 90 días corridos para otorgar la escritura. No acredita origen de fondos.',
-          datos_clave: ['Boleto 10/06/2026', 'Plazo 90 días corridos', 'USD 150.000'],
+          datos_clave: ['Plazo máximo contractual para escriturar: 90 días corridos.', 'USD 150.000'],
           fechas_plazos: [
-            { descripcion: 'Fecha del boleto', fecha: '2026-06-10', tipo: 'issue_date', confianza: 'alta', requiere_revision: false, evidencia_textual: '10 de junio de 2026' },
+            { descripcion: 'Fecha de emisión del Boleto de Compraventa', fecha: '2026-06-10', tipo: 'issue_date', confianza: 'alta', requiere_revision: false, evidencia_textual: '10 de junio de 2026' },
             { descripcion: 'Fecha tentativa de escritura', fecha: '2026-09-10', tipo: 'contractual_deadline', confianza: 'alta', requiere_revision: false, evidencia_textual: '10 de septiembre de 2026' },
           ],
         },
@@ -371,9 +368,10 @@ test.describe.serial('Centinela IA - Escribania E2E', () => {
       expect(bodyFinal.toLowerCase()).not.toContain('fondos de origen lícito');
       expect(bodyFinal.toLowerCase()).not.toContain('los fondos provienen de');
       expect(bodyFinal).not.toContain('retención del Impuesto a la Transferencia de Inmuebles');
+      expect(bodyFinal).toContain('Impuesto a las Ganancias');
       expect(bodyFinal).toContain('C.O.T.I. N° 98765432');
 
-      // Verificar ordinales reales en el bloque <pre> del borrador
+      // Verificar ordinales femeninos reales en el bloque <pre> del borrador
       const preBorrador = page.locator('pre').first();
       await expect(preBorrador).toBeVisible();
       const preText = await preBorrador.innerText();
@@ -383,23 +381,35 @@ test.describe.serial('Centinela IA - Escribania E2E', () => {
         return (preText.match(re) || []).length;
       };
 
-      expect(contarOrdinal('PRIMERO')).toBe(1);
-      expect(contarOrdinal('SEGUNDO')).toBe(1);
-      expect(contarOrdinal('TERCERO')).toBe(1);
-      expect(contarOrdinal('CUARTO')).toBe(1);
-      expect(contarOrdinal('QUINTO')).toBe(1);
+      expect(contarOrdinal('PRIMERA')).toBe(1);
+      expect(contarOrdinal('SEGUNDA')).toBe(1);
+      expect(contarOrdinal('TERCERA')).toBe(1);
+      expect(contarOrdinal('CUARTA')).toBe(1);
+      expect(contarOrdinal('QUINTA')).toBe(1);
+      expect(contarOrdinal('SEXTA')).toBe(1);
+      expect(contarOrdinal('SÉPTIMA')).toBe(1);
+      expect(contarOrdinal('OCTAVA')).toBe(1);
+
+      // CUARTA asignada autónomamente a MEDIOS DE PAGO Y ORIGEN DE FONDOS
+      expect(preText).toMatch(/(?:^|\n)\s*CUARTA:\s*MEDIOS DE PAGO Y ORIGEN DE FONDOS\b/i);
 
       // Verificar orden relativo ascendente en el texto del pre
-      const pos1 = preText.search(/(?:^|\n)\s*PRIMERO:\s/);
-      const pos2 = preText.search(/(?:^|\n)\s*SEGUNDO:\s/);
-      const pos3 = preText.search(/(?:^|\n)\s*TERCERO:\s/);
-      const pos4 = preText.search(/(?:^|\n)\s*CUARTO:\s/);
-      const pos5 = preText.search(/(?:^|\n)\s*QUINTO:\s/);
+      const pos1 = preText.search(/(?:^|\n)\s*PRIMERA:\s/);
+      const pos2 = preText.search(/(?:^|\n)\s*SEGUNDA:\s/);
+      const pos3 = preText.search(/(?:^|\n)\s*TERCERA:\s/);
+      const pos4 = preText.search(/(?:^|\n)\s*CUARTA:\s/);
+      const pos5 = preText.search(/(?:^|\n)\s*QUINTA:\s/);
+      const pos6 = preText.search(/(?:^|\n)\s*SEXTA:\s/);
+      const pos7 = preText.search(/(?:^|\n)\s*SÉPTIMA:\s/);
+      const pos8 = preText.search(/(?:^|\n)\s*OCTAVA:\s/);
       expect(pos1).toBeGreaterThanOrEqual(0);
       expect(pos2).toBeGreaterThan(pos1);
       expect(pos3).toBeGreaterThan(pos2);
       expect(pos4).toBeGreaterThan(pos3);
       expect(pos5).toBeGreaterThan(pos4);
+      expect(pos6).toBeGreaterThan(pos5);
+      expect(pos7).toBeGreaterThan(pos6);
+      expect(pos8).toBeGreaterThan(pos7);
 
       // 9. Inspeccionar Observaciones
       await page.goto('/observaciones');

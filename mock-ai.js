@@ -82,7 +82,7 @@ global.fetch = async (input, init) => {
       if (prompt.includes('BORRADOR de escritura') || prompt.includes('escribano público')) {
         return geminiResponse(JSON.stringify({
           titulo: 'Borrador de escritura de compraventa',
-          cuerpo: 'PRIMERO: En la Ciudad Autónoma de Buenos Aires. COMPARECEN las partes.\nSEGUNDO: Venta de departamento en Palermo, calle Cuba.\nTERCERO: Precio y forma de pago abonado en efectivo.\nCUARTO: La presente operación se realiza con fondos de lícito origen, dando cumplimiento a las disposiciones de la Unidad de Información Financiera (UIF). Los fondos provienen de ahorros propios.\nQUINTO: Se deja constancia de la retención del Impuesto a la Transferencia de Inmuebles (I.T.I.) del 1.5%, y certificado C.O.T.I. N° 98765432.\nSEXTO: Posesión y libre deuda.',
+          cuerpo: 'PRIMERA: En la Ciudad Autónoma de Buenos Aires. COMPARECEN las partes.\nSEGUNDA: Venta de departamento en Palermo, calle Cuba.\nTERCERA: Precio y forma de pago abonado en efectivo de fondos lícitos declarados.\nQUINTA: Posesión y libre deuda.\nSEXTA: CERTIFICADOS.\nSÉPTIMA: GASTOS E IMPUESTOS. Las partes declaran que la presente operación se encuentra alcanzada por el Impuesto a la Transferencia de Inmuebles (I.T.I.) o, en su caso, por el Impuesto a las Ganancias (IG), según corresponda, y se comprometen a cumplir con las obligaciones fiscales pertinentes, y certificado C.O.T.I. N° 98765432. [COMPLETAR: Declaración jurada ITI/Impuesto a las Ganancias].\nOCTAVA: DECLARACIONES JURADAS.',
           datos_faltantes: [],
           advertencias: []
         }));
