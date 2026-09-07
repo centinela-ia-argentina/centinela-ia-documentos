@@ -316,13 +316,19 @@ function reemplazarSubclausulaItiUnica(
   cuerpoOriginal: string,
   leyenda: string
 ): string {
-  const { protegido, restaurar } = protegerAcronimosYNumeros(cuerpoOriginal);
+  // Normalizar marcadores de ITI/IG al inicio para que no sean eliminados por error
+  const textoPreviamenteSaneado = cuerpoOriginal
+    .replace(/\[COMPLETAR:\s*Declaraci[oó]n\s+jurada\s+de\s+ITI\/IG\]/gi, '[COMPLETAR: Declaración jurada de Impuesto a las Ganancias (IG)]')
+    .replace(/\bI\.?T\.?I\.?\s*\/\s*IG\b/gi, 'Impuesto a las Ganancias (IG)')
+    .replace(/\bI\.?T\.?I\.?\s*\/\s*Impuesto\s+a\s+las\s+Ganancias\b/gi, 'Impuesto a las Ganancias');
+
+  const { protegido, restaurar } = protegerAcronimosYNumeros(textoPreviamenteSaneado);
   const lineas = protegido.split('\n');
   let leyendaAplicada = false;
 
   const patronMencionIti = /(?:___ITI_\d+___|(?<!c\.?o\.?\s*)(?<!coti\s*)(?:\bi\.t\.i\.|\biti\b|impuesto\s+a\s+la\s+transferencia\s+de\s+inmuebles))/i;
 
-  const regexReemplazoItiEnFrase = /(?:se\s+(?:retiene|deja\s+constancia\s+de\s+la\s+retenci[oó]n|abona)\s+(?:el\s+|la\s+|del\s+)?|retenci[oó]n\s+(?:del\s+)?|exenci[oó]n\s+(?:del\s+)?)(?:___ITI_\d+___|i\.?t\.?i\.?|impuesto\s+a\s+la\s+transferencia\s+de\s+inmuebles)(?:\s*\([^\)]*\))?(?:\s+(?:por\s+el|del)\s+[\d.,]+%)?(?:\s+correspondiente)?(?:\s+(?:y|,)\s*)?/gi;
+  const regexReemplazoItiEnFrase = /(?:(?:las\s+partes\s+(?:declaran|manifiestan)\s+que\s+)?(?:la\s+presente\s+operaci[oó]n\s+|la\s+operaci[oó]n\s+)?(?:se\s+encuentra\s+alcanzada|resulta\s+alcanzada|tributa|corresponde)\s+(?:por\s+el\s+|el\s+|la\s+)?|se\s+(?:retiene|deja\s+constancia\s+de\s+la\s+retenci[oó]n|abona)\s+(?:el\s+|la\s+|del\s+)?|retenci[oó]n\s+(?:del\s+)?|exenci[oó]n\s+(?:del\s+)?)(?:___ITI_\d+___|i\.?t\.?i\.?|impuesto\s+a\s+la\s+transferencia\s+de\s+inmuebles)(?:\s*\([^\)]*\))?(?:\s+(?:por\s+el|del)\s+[\d.,]+%)?(?:\s+correspondiente)?(?:\s*(?:o,\s+en\s+su\s+caso,\s*por\s+el|o\s+en\s+su\s+caso\s+por\s+el|o,\s+en\s+su\s+caso,\s*|o\s+en\s+su\s+caso\s*|o\s+por\s+el|o\s+|y\s+que\s+|y\s+|,)\s*)?/gi;
 
   const procesadas = lineas.map((linea) => {
     if (!patronMencionIti.test(linea)) return linea;
@@ -336,6 +342,11 @@ function reemplazarSubclausulaItiUnica(
     const oraciones = resto.split(/(?<=[.;])\s+/);
 
     const oracionesProcesadas = oraciones.map((oracion) => {
+      // Preservar marcadores o placeholders explícitos de revisión profesional
+      if (/\[(?:COMPLETAR|VERIFICAR)[^\]]*\]/i.test(oracion)) {
+        return oracion.trim();
+      }
+
       if (!patronMencionIti.test(oracion)) return oracion;
 
       if (!leyendaAplicada) {
@@ -343,11 +354,46 @@ function reemplazarSubclausulaItiUnica(
 
         // Si la oración contiene otros conceptos clave (Ganancias, COTI, precio, etc.), reemplazar solo el segmento de ITI
         if (
-          /ganancias|___COTI_\d+___|precio|pago|posesi[oó]n/i.test(oracion) &&
+          /ganancias|\big\b|___COTI_\d+___|precio|pago|posesi[oó]n/i.test(oracion) &&
           regexReemplazoItiEnFrase.test(oracion)
         ) {
-          const reemplazada = oracion.replace(regexReemplazoItiEnFrase, `${leyenda}. `).replace(/[ \t]{2,}/g, ' ').trim();
-          return reemplazada;
+          let reemplazada = oracion.replace(regexReemplazoItiEnFrase, (match) => {
+            // Si la frase conectaba con Ganancias como alternativa fiscal
+            if (
+              /se\s+encuentra\s+alcanzada|resulta\s+alcanzada/i.test(match) &&
+              /por\s+el\s*$/i.test(match)
+            ) {
+              return `${leyenda} Las partes declaran que la presente operación se encuentra alcanzada por el `;
+            }
+            if (
+              /se\s+encuentra\s+alcanzada|resulta\s+alcanzada/i.test(match) &&
+              /o,\s+en\s+su\s+caso/i.test(match)
+            ) {
+              return `${leyenda} Las partes declaran que la presente operación se encuentra alcanzada por `;
+            }
+            return `${leyenda} `;
+          });
+
+          // Limpiar referencias compuestas como ITI/IG si quedaron en la oración
+          reemplazada = reemplazada.replace(/\bi\.?t\.?i\.?\s*\/\s*ig\b/gi, 'Impuesto a las Ganancias (IG)');
+          reemplazada = reemplazada.replace(/\bi\.?t\.?i\.?\s*\/\s*impuesto\s+a\s+las\s+ganancias\b/gi, 'Impuesto a las Ganancias');
+
+          // Capitalizar la primera letra tras la leyenda si quedó en minúscula
+          const idxLeyenda = reemplazada.indexOf(leyenda);
+          if (idxLeyenda !== -1) {
+            const posDespues = idxLeyenda + leyenda.length;
+            const restoStr = reemplazada.slice(posDespues);
+            const matchPrimeraLetra = restoStr.match(/^(\s*)([a-záéíóúñ])/);
+            if (matchPrimeraLetra) {
+              reemplazada =
+                reemplazada.slice(0, posDespues) +
+                matchPrimeraLetra[1] +
+                matchPrimeraLetra[2].toUpperCase() +
+                restoStr.slice(matchPrimeraLetra[0].length);
+            }
+          }
+
+          return reemplazada.replace(/[ \t]{2,}/g, ' ').trim();
         }
 
         // Si la oración es fundamentalmente sobre ITI, sustituir por la leyenda
@@ -355,8 +401,11 @@ function reemplazarSubclausulaItiUnica(
       }
 
       // Si la leyenda ya fue aplicada en una oración previa de la misma cláusula:
-      if (/ganancias|___COTI_\d+___|precio|pago|posesi[oó]n/i.test(oracion)) {
-        return oracion.replace(regexReemplazoItiEnFrase, '').replace(/[ \t]{2,}/g, ' ').trim();
+      if (/ganancias|\big\b|___COTI_\d+___|precio|pago|posesi[oó]n|\[(?:COMPLETAR|VERIFICAR)/i.test(oracion)) {
+        let limpia = oracion.replace(regexReemplazoItiEnFrase, '');
+        limpia = limpia.replace(/\bi\.?t\.?i\.?\s*\/\s*ig\b/gi, 'Impuesto a las Ganancias (IG)');
+        limpia = limpia.replace(/\bi\.?t\.?i\.?\s*\/\s*impuesto\s+a\s+las\s+ganancias\b/gi, 'Impuesto a las Ganancias');
+        return limpia.replace(/[ \t]{2,}/g, ' ').trim();
       }
 
       return '';
@@ -376,6 +425,10 @@ function reemplazarSubclausulaItiUnica(
     const despues = out.slice(primeraPos + leyenda.length).split(leyenda).join('');
     out = antes + despues;
   }
+
+  // Normalizar cualquier referencia residual de ITI/IG en el cuerpo a IG
+  out = out.replace(/\bI\.?T\.?I\.?\s*\/\s*IG\b/gi, 'Impuesto a las Ganancias (IG)');
+  out = out.replace(/\bI\.?T\.?I\.?\s*\/\s*Impuesto\s+a\s+las\s+Ganancias\b/gi, 'Impuesto a las Ganancias');
 
   return out;
 }
@@ -411,11 +464,24 @@ export function aplicarGuardrailIti(
     if (estadoIti === 'post_derogacion') {
       cuerpo = reemplazarSubclausulaItiUnica(cuerpo, LEYENDA_ITI_DEROGADO);
 
+      // Limpiar marcadores en el cuerpo como [COMPLETAR: Declaración jurada de ITI/IG]
+      cuerpo = cuerpo.replace(/\[COMPLETAR:\s*Declaraci[oó]n\s+jurada\s+de\s+ITI\/IG\]/gi, '[COMPLETAR: Declaración jurada de Impuesto a las Ganancias (IG)]');
+      cuerpo = cuerpo.replace(/\bITI\/IG\b/g, 'Impuesto a las Ganancias (IG)');
+
       datosFaltantes = datosFaltantes.filter(
-        (d) => !/(?<!c\.?o\.?\s*)(?<!coti\s*)\b(?:i\.?t\.?i\.?|impuesto\s+a\s+la\s+transferencia\s+de\s+inmuebles)\b/i.test(d)
+        (d) => !/(?<!c\.?o\.?\s*)(?<!coti\s*)\b(?:i\.?t\.?i\.?|impuesto\s+a\s+la\s+transferencia\s+de\s+inmuebles)\b/i.test(d) ||
+               /ganancias|\big\b/i.test(d)
       );
+      datosFaltantes = datosFaltantes.map((d) =>
+        d.replace(/\bITI\/IG\b/g, 'Impuesto a las Ganancias (IG)')
+      );
+
       advertencias = advertencias.filter(
-        (a) => !/(?:retenci[oó]n|aplicar|calcular)\s+(?:del?\s+)?(?:i\.?t\.?i\.?|impuesto\s+a\s+la\s+transferencia\s+de\s+inmuebles)/i.test(a)
+        (a) => !/(?:retenci[oó]n|aplicar|calcular)\s+(?:del?\s+)?(?:i\.?t\.?i\.?|impuesto\s+a\s+la\s+transferencia\s+de\s+inmuebles)/i.test(a) ||
+               /ganancias|\big\b/i.test(a)
+      );
+      advertencias = advertencias.map((a) =>
+        a.replace(/\bITI\/IG\b/g, 'Impuesto a las Ganancias (IG)')
       );
     } else if (estadoIti === 'ambigua_o_ausente') {
       cuerpo = reemplazarSubclausulaItiUnica(cuerpo, LEYENDA_ITI_VERIFICAR_FECHA);

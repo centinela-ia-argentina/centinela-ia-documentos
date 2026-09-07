@@ -754,6 +754,82 @@ describe('Subcláusula Única de ITI y Preservación de COTI', () => {
     const validacion = validarOrdinalesNotariales(res.cuerpo);
     expect(validacion.ok).toBe(true);
   });
+
+  it('reemplaza la fórmula real autenticada de ITI preservando ordinal, título IMPUESTOS, Ganancias y deberes fiscales (10/09/2026)', () => {
+    const borrador: BorradorEscritura = {
+      titulo: 'Borrador compraventa fórmula real',
+      cuerpo: [
+        'PRIMERO: Comparecencia.',
+        'SEGUNDO: Objeto.',
+        'TERCERO: Antecedentes.',
+        'CUARTO: Precio.',
+        'QUINTO: Posesión.',
+        'SEXTO: Certificados.',
+        'SÉPTIMO: IMPUESTOS. Las partes declaran que la presente operación se encuentra alcanzada por el Impuesto a la Transferencia de Inmuebles (I.T.I.) o, en su caso, por el Impuesto a las Ganancias (IG), según corresponda, y se comprometen a cumplir con las obligaciones fiscales pertinentes. [COMPLETAR: Declaración jurada de ITI/IG].',
+      ].join('\n'),
+      datos_faltantes: ['[COMPLETAR: Declaración jurada de ITI/IG]'],
+      advertencias: ['Verificar retención del Impuesto a la Transferencia de Inmuebles (ITI) o Ganancias.'],
+    };
+
+    const res = aplicarGuardrailIti(borrador, '2026-09-10');
+
+    // 1. Contener exactamente 1 vez la leyenda de derogación
+    expect(res.cuerpo).toContain(LEYENDA_ITI_DEROGADO);
+    const conteoLeyenda = res.cuerpo.split(LEYENDA_ITI_DEROGADO).length - 1;
+    expect(conteoLeyenda).toBe(1);
+
+    // 2. Conservar Impuesto a las Ganancias (IG) y obligaciones fiscales pertinentes
+    expect(res.cuerpo).toContain('Impuesto a las Ganancias (IG)');
+    expect(res.cuerpo).toContain('obligaciones fiscales pertinentes');
+
+    // 3. Conservar una referencia profesional pendiente respecto de Ganancias si corresponde
+    expect(res.cuerpo).toContain('[COMPLETAR: Declaración jurada de Impuesto a las Ganancias (IG)]');
+    expect(res.datos_faltantes.some((d) => d.includes('Impuesto a las Ganancias (IG)'))).toBe(true);
+
+    // 4. Eliminar la retención o aplicación positiva de ITI
+    expect(res.cuerpo).not.toContain('se encuentra alcanzada por el Impuesto a la Transferencia de Inmuebles');
+    expect(res.cuerpo).not.toContain('retención del Impuesto a la Transferencia de Inmuebles');
+
+    // 5. No producir ITI/IG defectuoso
+    expect(res.cuerpo).not.toMatch(/\bITI\/IG\b/);
+
+    // 6. No duplicar placeholders
+    const conteoPlaceholder = res.cuerpo.split('[COMPLETAR: Declaración jurada de Impuesto a las Ganancias (IG)]').length - 1;
+    expect(conteoPlaceholder).toBe(1);
+
+    // 7. No borrar el ordinal ni el título IMPUESTOS
+    expect(res.cuerpo).toMatch(/(?:^|\n)\s*SÉPTIMO:\s*IMPUESTOS\./);
+
+    // 8. Ordinales válidos
+    const validacion = validarOrdinalesNotariales(res.cuerpo);
+    expect(validacion.ok).toBe(true);
+  });
+
+  it('reemplaza variante resulta alcanzada por el I.T.I. preservando íntegramente C.O.T.I. N° 98765432 y Ganancias', () => {
+    const borrador: BorradorEscritura = {
+      titulo: 'Borrador compraventa con COTI y fórmula resulta alcanzada',
+      cuerpo: [
+        'PRIMERO: Comparecencia.',
+        'SEGUNDO: Objeto.',
+        'TERCERO: Antecedentes.',
+        'CUARTO: Precio y forma de pago.',
+        'QUINTO: Las partes manifiestan que la operación resulta alcanzada por el I.T.I. y se deja constancia de la tramitación del C.O.T.I. N° 98765432, tributando en subsidio Impuesto a las Ganancias.',
+        'SEXTO: Otorgamiento.',
+      ].join('\n'),
+      datos_faltantes: [],
+      advertencias: [],
+    };
+
+    const res = aplicarGuardrailIti(borrador, '2026-09-10');
+
+    expect(res.cuerpo).toContain(LEYENDA_ITI_DEROGADO);
+    expect(res.cuerpo).toContain('C.O.T.I. N° 98765432');
+    expect(res.cuerpo).toContain('Impuesto a las Ganancias');
+    expect(res.cuerpo).not.toContain('resulta alcanzada por el I.T.I.');
+
+    const validacion = validarOrdinalesNotariales(res.cuerpo);
+    expect(validacion.ok).toBe(true);
+  });
 });
 
 describe('Deduplicación determinística de análisis documental (Último análisis real)', () => {
@@ -833,19 +909,33 @@ describe('Filtro no destructivo de discrepancias y alertas en Cotejo', () => {
       'Alerta: la tentativa 10/09/2026 supera el límite contractual establecido.',
     ];
 
+    const parsedTentativa = parsearFechaCualquiera(rawTentativa);
+    const parsedLimite = parsearFechaCualquiera(rawLimite);
+    const isoTentativa = parsedTentativa?.iso || '';
+    const arTentativa = parsedTentativa?.ar || fTentativa;
+    const isoLimite = parsedLimite?.iso || '';
+    const arLimite = parsedLimite?.ar || fLimite;
+
     const esMismoConflictoCanonico = (txt: string) => {
       const t = txt.toLowerCase();
-      const mencionaTentativa = t.includes('tentativa') || t.includes(fTentativa) || (rawTentativa && t.includes(rawTentativa));
+      const mencionaTentativa = t.includes('tentativa') || t.includes('estimada') || t.includes('otorgamiento');
       const mencionaLimite =
         t.includes('límite') ||
         t.includes('limite') ||
         t.includes('plazo máximo') ||
         t.includes('plazo maximo') ||
         t.includes('supera') ||
-        t.includes('excede') ||
-        t.includes(fLimite) ||
-        (rawLimite && t.includes(rawLimite));
-      return mencionaTentativa && mencionaLimite;
+        t.includes('excede');
+
+      const tieneFechaTentativa =
+        (arTentativa && t.includes(arTentativa)) ||
+        (isoTentativa && t.includes(isoTentativa));
+
+      const tieneFechaLimite =
+        (arLimite && t.includes(arLimite)) ||
+        (isoLimite && t.includes(isoLimite));
+
+      return mencionaTentativa && mencionaLimite && tieneFechaTentativa && tieneFechaLimite;
     };
 
     const discFiltradas = discrepanciasOriginales.filter((d) => !esMismoConflictoCanonico(d));
@@ -867,8 +957,49 @@ describe('Filtro no destructivo de discrepancias y alertas en Cotejo', () => {
     expect(vigFiltradas).toContain('Informe de Dominio con vencimiento el 01/11/2026.');
     expect(vigFiltradas).toContain('Plazo de entrega de la posesión fijado a las 48 horas de la escrituración.');
 
-    // 4. Se eliminó la variante textual informal previa del conflicto canónico
+    // 4. Se eliminó la variante textual informal previa del conflicto canónico (tenía ambas fechas: 10/09 y 08/09)
     expect(discFiltradas).not.toContain('La fecha tentativa de otorgamiento 10/09/2026 excede el plazo contractual límite del 08/09/2026.');
-    expect(vigFiltradas).not.toContain('Alerta: la tentativa 10/09/2026 supera el límite contractual establecido.');
+  });
+
+  it('preserva mensajes independientes con fecha no canónica (p. ej. tentativa 10/09 y límite de pago diferido 20/09)', () => {
+    const rawTentativa = '2026-09-10';
+    const rawLimite = '2026-09-08';
+    const parsedTentativa = parsearFechaCualquiera(rawTentativa);
+    const parsedLimite = parsearFechaCualquiera(rawLimite);
+    const isoTentativa = parsedTentativa?.iso || '';
+    const arTentativa = parsedTentativa?.ar || '10/09/2026';
+    const isoLimite = parsedLimite?.iso || '';
+    const arLimite = parsedLimite?.ar || '08/09/2026';
+
+    const esMismoConflictoCanonico = (txt: string) => {
+      const t = txt.toLowerCase();
+      const mencionaTentativa = t.includes('tentativa') || t.includes('estimada') || t.includes('otorgamiento');
+      const mencionaLimite =
+        t.includes('límite') ||
+        t.includes('limite') ||
+        t.includes('plazo máximo') ||
+        t.includes('plazo maximo') ||
+        t.includes('supera') ||
+        t.includes('excede');
+
+      const tieneFechaTentativa =
+        (arTentativa && t.includes(arTentativa)) ||
+        (isoTentativa && t.includes(isoTentativa));
+
+      const tieneFechaLimite =
+        (arLimite && t.includes(arLimite)) ||
+        (isoLimite && t.includes(isoLimite));
+
+      return mencionaTentativa && mencionaLimite && tieneFechaTentativa && tieneFechaLimite;
+    };
+
+    const mensajeIndependiente = 'La fecha tentativa de firma es 10/09/2026 y el límite del pago diferido es 20/09/2026.';
+
+    // No debe considerarse duplicado porque 20/09 no es la fecha límite canónica 08/09/2026
+    expect(esMismoConflictoCanonico(mensajeIndependiente)).toBe(false);
+
+    const lista = [mensajeIndependiente];
+    const filtrada = lista.filter((m) => !esMismoConflictoCanonico(m));
+    expect(filtrada).toContain(mensajeIndependiente);
   });
 });

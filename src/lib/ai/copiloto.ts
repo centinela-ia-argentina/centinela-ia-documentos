@@ -381,22 +381,39 @@ export async function cotejarDocumentosConIA(input: {
         const discExacta = `Plazo contractual: la fecha tentativa de escritura (${fTentativa}) supera el límite contractual (${fLimite}) por ${dias} días corridos.`;
         const vigExacta = `La fecha tentativa de escritura (${fTentativa}) excede el plazo máximo de ${diasPlazo} días corridos, cuyo límite es el ${fLimite}.`;
 
-        // Filtrar exclusivamente discrepancias o alertas redundantes que representen
-        // este mismo conflicto canónico (tentativa vs límite contractual/máximo),
-        // preservando otros plazos contractuales, términos de pago y vigencias de certificados.
+        const parsedTentativa = parsearFechaCualquiera(plazo.fechaTentativaIso || plazo.fechaTentativa || rawTentativa);
+        const parsedLimite = parsearFechaCualquiera(plazo.fechaLimiteIso || plazo.fechaLimite || rawLimite);
+        const isoTentativa = parsedTentativa ? parsedTentativa.iso : '';
+        const arTentativa = parsedTentativa ? parsedTentativa.ar : fTentativa;
+        const isoLimite = parsedLimite ? parsedLimite.iso : '';
+        const arLimite = parsedLimite ? parsedLimite.ar : fLimite;
+
+        // Considerar duplicado solamente si contiene simultáneamente:
+        // 1) semántica de tentativa
+        // 2) semántica de límite/exceso
+        // 3) la fecha tentativa canónica (en formato AR o ISO)
+        // 4) la fecha límite canónica (en formato AR o ISO)
+        // Si no aparecen ambas fechas canónicas exactas, preservar el mensaje.
         const esMismoConflictoCanonico = (txt: string) => {
           const t = txt.toLowerCase();
-          const mencionaTentativa = t.includes('tentativa') || t.includes(fTentativa) || (rawTentativa && t.includes(rawTentativa));
+          const mencionaTentativa = t.includes('tentativa') || t.includes('estimada') || t.includes('otorgamiento');
           const mencionaLimite =
             t.includes('límite') ||
             t.includes('limite') ||
             t.includes('plazo máximo') ||
             t.includes('plazo maximo') ||
             t.includes('supera') ||
-            t.includes('excede') ||
-            t.includes(fLimite) ||
-            (rawLimite && t.includes(rawLimite));
-          return mencionaTentativa && mencionaLimite;
+            t.includes('excede');
+
+          const tieneFechaTentativa =
+            (arTentativa && t.includes(arTentativa)) ||
+            (isoTentativa && t.includes(isoTentativa));
+
+          const tieneFechaLimite =
+            (arLimite && t.includes(arLimite)) ||
+            (isoLimite && t.includes(isoLimite));
+
+          return mencionaTentativa && mencionaLimite && tieneFechaTentativa && tieneFechaLimite;
         };
 
         discrepancias = discrepancias.filter((d: string) => !esMismoConflictoCanonico(d));
