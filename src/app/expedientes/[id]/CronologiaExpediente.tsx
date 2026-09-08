@@ -1,5 +1,7 @@
 import { formatPlazoDate } from '@/lib/format/date';
 import { Badge } from '@/components/ui/Badge';
+import { pluralHito } from '@/lib/format/pluralize';
+import type { IndustryType } from '@/lib/industries/documentTypes';
 
 export type ItemCronologia = {
   fecha: string;
@@ -24,21 +26,42 @@ const ORIGEN_DOT: Record<string, string> = {
   agenda: 'bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.6)]',
 };
 
-const ORIGEN_ICON: Record<string, string> = {
-  actuacion: '⚖️',
-  detectada: '🤖',
-  documento: '📄',
-  agenda: '📌',
-};
+export function CronologiaExpediente({
+  items,
+  titulo = 'Cronología',
+  industry = 'legal',
+}: {
+  items: ItemCronologia[];
+  titulo?: string;
+  industry?: IndustryType;
+}) {
+  const isImmo = industry === 'inmobiliaria';
+  const isEscr = industry === 'escribania';
 
-export function CronologiaExpediente({ items, titulo = 'Cronología' }: { items: ItemCronologia[], titulo?: string }) {
+  const origenIcon: Record<string, string> = {
+    actuacion: isImmo ? '📍' : isEscr ? '✒️' : '⚖️',
+    detectada: '🤖',
+    documento: '📄',
+    agenda: '📌',
+  };
+
+  const emptyText = isImmo
+    ? 'Todavía no hay fechas para mostrar. Se irá armando sola con los movimientos, las fechas detectadas por la IA en los documentos y las cargas de archivos.'
+    : isEscr
+    ? 'Todavía no hay fechas para mostrar. Se irá armando sola con los hitos notariales, las fechas detectadas por la IA en los documentos y las cargas de archivos.'
+    : 'Todavía no hay fechas para mostrar. Se irá armando sola con las actuaciones, las fechas detectadas por la IA en los documentos y las cargas de archivos.';
+
+  const subtituloText = isImmo
+    ? 'Todas las fechas de la operación unificadas y ordenadas: movimientos, fechas detectadas por la IA y cargas de documentos.'
+    : isEscr
+    ? 'Todas las fechas del legajo unificadas y ordenadas: hitos notariales, fechas detectadas por la IA y cargas de documentos.'
+    : 'Todas las fechas del expediente unificadas y ordenadas: actuaciones, fechas detectadas por la IA y cargas de documentos.';
+
   if (items.length === 0) {
     return (
       <section className="rounded-2xl border border-white/10 bg-white/[0.03] p-6">
         <h2 className="font-display text-lg font-semibold text-white">{titulo}</h2>
-        <p className="mt-2 text-sm text-slate-400">
-          Todavía no hay fechas para mostrar. Se irá armando sola con las actuaciones, las fechas detectadas por la IA en los documentos y las cargas de archivos.
-        </p>
+        <p className="mt-2 text-sm text-slate-400">{emptyText}</p>
       </section>
     );
   }
@@ -47,17 +70,15 @@ export function CronologiaExpediente({ items, titulo = 'Cronología' }: { items:
     <section className="rounded-2xl border border-white/10 bg-white/[0.03] p-6">
       <div className="mb-1 flex items-center gap-2">
         <h2 className="font-display text-lg font-semibold text-white">{titulo}</h2>
-        <span className="rounded-full bg-white/10 px-2 py-0.5 text-xs text-slate-400">{items.length} hitos</span>
+        <span className="rounded-full bg-white/10 px-2 py-0.5 text-xs text-slate-400">{pluralHito(items.length)}</span>
       </div>
-      <p className="mb-5 text-sm text-slate-400">
-        Todas las fechas del expediente unificadas y ordenadas: actuaciones, fechas detectadas por la IA y cargas de documentos.
-      </p>
+      <p className="mb-5 text-sm text-slate-400">{subtituloText}</p>
 
       <ol className="relative space-y-5 border-l border-white/10 pl-6">
         {items.map((it, i) => {
           const tone = ORIGEN_TONE[it.origen] ?? 'neutral';
           const dot = ORIGEN_DOT[it.origen] ?? ORIGEN_DOT.documento;
-          const icon = ORIGEN_ICON[it.origen] ?? ORIGEN_ICON.documento;
+          const icon = origenIcon[it.origen] ?? origenIcon.documento;
 
           return (
             <li key={i} className="relative">

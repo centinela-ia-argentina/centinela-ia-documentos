@@ -82,4 +82,18 @@ describe('checklistMatch - Exclusiones de jurisdicción y partes', () => {
     expect(matchComprador).toBeDefined();
     expect(matchComprador?.documentId).toBe('doc-c');
   });
+
+  it('no satisface "Título de propiedad" ni "Escritura traslativa de dominio" con un "Informe de dominio"', () => {
+    const docInforme: DocumentoParaMatch = {
+      id: 'doc-informe',
+      file_name: 'informe_de_dominio_inmueble.pdf',
+      document_type: 'informe_dominio',
+    };
+
+    const scoreTitulo = puntuarCoincidencia('Título de propiedad', docInforme);
+    expect(scoreTitulo).toBe(0);
+
+    const scoreEscritura = puntuarCoincidencia('Escritura traslativa de dominio', docInforme);
+    expect(scoreEscritura).toBe(0);
+  });
 });

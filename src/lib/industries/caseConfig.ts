@@ -77,6 +77,12 @@ export const caseFieldsByIndustry: Record<IndustryType, CaseFieldDef[]> = {
     { key: 'direccion_inmueble', label: 'Dirección del inmueble', type: 'text' },
     { key: 'contraparte', label: 'Cliente / contraparte', type: 'text' },
     { key: 'valor_operacion', label: 'Valor de la operación', type: 'text' },
+    {
+      key: 'moneda_operacion',
+      label: 'Moneda de la operación',
+      type: 'select',
+      options: ['USD', 'ARS'],
+    },
     { key: 'fecha_relevante', label: 'Fecha relevante', type: 'date' },
     {
       key: 'sensibilidad',
@@ -148,6 +154,42 @@ export function isCaseTypeCompatibleWithIndustry(
   if (!canonicalTypes || canonicalTypes.length === 0) return false;
   const normalized = caseType.trim().toLowerCase();
   return canonicalTypes.some((t) => t.trim().toLowerCase() === normalized);
+}
+
+/**
+ * Determina si un tipo de operación es compatible con la calificación de inquilinos (Pre-Score)
+ * y modelos de locación en el rubro inmobiliario.
+ * Acepta exclusivamente: 'Alquiler', 'RENTAL', 'Contrato de locación' (y variantes normalizadas).
+ * Excluye explícitamente compraventa, reserva, operaciones notariales, judiciales o generales.
+ */
+export function isRentalCompatibleCaseType(caseType?: string | null): boolean {
+  if (!caseType || typeof caseType !== 'string') return false;
+  const t = caseType.trim().toLowerCase();
+  if (
+    t.includes('compra') ||
+    t.includes('venta') ||
+    t.includes('reserva') ||
+    t.includes('escritura') ||
+    t.includes('demanda') ||
+    t.includes('judicial')
+  ) {
+    return false;
+  }
+  return t === 'alquiler' || t === 'rental' || t.includes('locaci') || t.includes('alquiler');
+}
+
+/**
+ * Determina si un tipo de operación inmobiliaria es compatible con la derivación a Escribanía
+ * (ej: compraventas que requieran escritura traslativa o reserva ad referéndum).
+ * Excluye explícitamente alquileres y operaciones ajenas a transmisión de dominio.
+ */
+export function isDerivacionEscribaniaCompatible(caseType?: string | null): boolean {
+  if (!caseType || typeof caseType !== 'string') return false;
+  const t = caseType.trim().toLowerCase();
+  if (t.includes('alquiler') || t.includes('rental') || t.includes('locaci')) {
+    return false;
+  }
+  return t.includes('compraventa') || t.includes('venta') || t.includes('escritura') || t.includes('reserva');
 }
 
 /**

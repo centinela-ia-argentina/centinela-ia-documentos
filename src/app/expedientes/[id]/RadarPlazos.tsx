@@ -63,18 +63,58 @@ export function RadarPlazos({
 }) {
   const [estados, setEstados] = useState<Record<string, 'idle' | 'loading' | 'ok' | 'existing' | 'error'>>({});
 
-  const plazos: PlazoRadar[] = items
+  const plazosFiltrados: PlazoRadar[] = items
     .filter((it) => {
       if (it.origen === 'documento') return false;
       
       const texto = `${it.titulo} ${it.detalle || ''}`.toLowerCase();
-      if (texto.includes('emisión') || texto.includes('emision') || texto.includes('fecha del boleto') || texto.includes('fecha de boleto')) return false;
+      if (
+        texto.includes('emisión') ||
+        texto.includes('emision') ||
+        texto.includes('fecha del boleto') ||
+        texto.includes('fecha de boleto') ||
+        texto.includes('comprobante de pago') ||
+        texto.includes('recibo de sueldo')
+      ) {
+        return false;
+      }
 
       return esPlazoRadar(it.titulo) || (it.detalle && esPlazoRadar(it.detalle));
     })
     .map((it) => ({ item: it, dias: diasDesdeHoy(it.fecha), nivel: nivelDe(diasDesdeHoy(it.fecha)) }))
     .filter((p): p is PlazoRadar => !Number.isNaN(p.dias) && p.nivel !== null)
     .sort((a, b) => a.dias - b.dias);
+
+  // Deduplicación conservadora: si hay múltiples plazos en la misma fecha para el mismo evento
+  // (ej. 'Fecha relevante' en metadata y 'Vigencia de la oferta' detectada por IA), se unifican
+  // preservando el título más informativo y combinando los orígenes sin perder trazabilidad.
+  const plazosMap = new Map<string, PlazoRadar>();
+  for (const p of plazosFiltrados) {
+    const key = p.item.fecha;
+    const existente = plazosMap.get(key);
+    if (!existente) {
+      plazosMap.set(key, { ...p });
+    } else {
+      // Si el existente es genérico (ej. "Fecha relevante" o "Próximo vencimiento") y el nuevo es específico
+      const tNorm = existente.item.titulo.toLowerCase();
+      const nNorm = p.item.titulo.toLowerCase();
+      const existenteEsGenerico = tNorm.includes('relevante') || tNorm.includes('clave') || tNorm.includes('detectada');
+      const nuevoEsMasEspecifico = !nNorm.includes('relevante') && !nNorm.includes('clave') && nNorm.length > 5;
+      const tituloElegido = (existenteEsGenerico && nuevoEsMasEspecifico) ? p.item.titulo : existente.item.titulo;
+      const etiquetasCombinadas = Array.from(new Set([existente.item.etiquetaOrigen, p.item.etiquetaOrigen])).join(' + ');
+
+      plazosMap.set(key, {
+        ...existente,
+        item: {
+          ...existente.item,
+          titulo: tituloElegido,
+          etiquetaOrigen: etiquetasCombinadas,
+        },
+      });
+    }
+  }
+
+  const plazos = Array.from(plazosMap.values()).sort((a, b) => a.dias - b.dias);
 
   async function cargar(key: string, p: PlazoRadar) {
     setEstados((prev) => ({ ...prev, [key]: 'loading' }));

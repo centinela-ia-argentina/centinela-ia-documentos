@@ -183,4 +183,130 @@ test.describe.serial('Centinela IA - Inmobiliaria E2E', () => {
       await context.close();
     }
   });
+
+  test('G. Listado y alta de propiedad con moneda USD/ARS, superficie y ambientes', async ({ browser }) => {
+    const { context, page } = await loginAs(browser, 'admin.inm@test.com');
+    try {
+      await page.goto('/propiedades');
+      await expect(page.locator('text=Cartera de propiedades')).toBeVisible();
+
+      await page.goto('/propiedades/nueva');
+      await expect(page.locator('text=Alta de ficha técnica')).toBeVisible();
+
+      const nameInput = page.locator('input[name="name"]');
+      await expect(nameInput).toBeVisible();
+      const currencySelect = page.locator('select[name="currency"]');
+      await expect(currencySelect).toBeVisible();
+
+      const currencyOptions = await currencySelect.locator('option').evaluateAll(
+        opts => opts.map(o => (o as HTMLOptionElement).value)
+      );
+      expect(currencyOptions).toContain('USD');
+      expect(currencyOptions).toContain('ARS');
+
+      await expect(page.locator('input[name="surface_total_m2"]')).toBeVisible();
+      await expect(page.locator('input[name="rooms"]')).toBeVisible();
+    } finally {
+      await page.close();
+      await context.close();
+    }
+  });
+
+  test('H. Cartera de clientes y preferencias de búsqueda', async ({ browser }) => {
+    const { context, page } = await loginAs(browser, 'admin.inm@test.com');
+    try {
+      await page.goto('/clientes');
+      await expect(page.locator('text=Clientes e interesados')).toBeVisible();
+
+      await page.goto('/clientes/nuevo');
+      await expect(page.locator('text=Nuevo cliente / interesado')).toBeVisible();
+      await expect(page.locator('input[name="full_name"]')).toBeVisible();
+      await expect(page.locator('select[name="client_type"]')).toBeVisible();
+    } finally {
+      await page.close();
+      await context.close();
+    }
+  });
+
+  test('I. Cartera de alquileres y vencimientos de ajuste', async ({ browser }) => {
+    const { context, page } = await loginAs(browser, 'admin.inm@test.com');
+    try {
+      await page.goto('/alquileres');
+      await expect(page.locator('text=Contratos de alquiler')).toBeVisible();
+    } finally {
+      await page.close();
+      await context.close();
+    }
+  });
+
+  test('J. Pre-Score visible en Alquiler y oculto en Compraventa', async ({ browser }) => {
+    const { context, page } = await loginAs(browser, 'admin.inm@test.com');
+    try {
+      // 1. En operación Compraventa (CASE_INM_ID es compraventa): Pre-Score NO debe estar visible
+      await page.goto(`/expedientes/${CASE_INM_ID}`);
+      await expect(page.locator('text=Pre-Score de Inquilino y Garantía')).toHaveCount(0);
+
+      // 2. Creamos una operación de Alquiler para verificar que SÍ muestre Pre-Score
+      await page.goto('/expedientes/nuevo');
+      const rentalTitle = `Alquiler QA E2E ${Date.now()}`;
+      await page.fill('[data-testid="case-title"]', rentalTitle);
+      await page.fill('[data-testid="case-client"]', 'Inquilino Postulante QA');
+      await page.selectOption('[data-testid="case-type"]', 'Alquiler');
+      await page.click('[data-testid="case-submit"]');
+
+      await expect(page).toHaveURL(/\/expedientes\/[a-f0-9\-]+/);
+      const rentalCaseId = page.url().split('/').pop() || '';
+
+      // En la operación de alquiler debe renderizarse el contenedor de Pre-Score
+      await expect(page.locator('text=Pre-Score de Inquilino y Garantía')).toBeVisible();
+
+      // Limpieza del caso creado
+      await serviceClient.from('cases').delete().eq('id', rentalCaseId);
+    } finally {
+      await page.close();
+      await context.close();
+    }
+  });
+
+  test('K. Biblioteca de modelos incluye Contrato de locación y prellenado de moneda/precio', async ({ browser }) => {
+    const { context, page } = await loginAs(browser, 'admin.inm@test.com');
+    try {
+      await page.goto('/modelos');
+      await expect(page.locator('text=Biblioteca de modelos')).toBeVisible();
+
+      // Debe estar presente el modelo de locación
+      await expect(page.locator('text=Contrato de locación (vivienda)')).toBeVisible();
+    } finally {
+      await page.close();
+      await context.close();
+    }
+  });
+
+  test('L. Radar de plazos y cronología en operación', async ({ browser }) => {
+    const { context, page } = await loginAs(browser, 'admin.inm@test.com');
+    try {
+      await page.goto(`/expedientes/${CASE_INM_ID}`);
+      await expect(page.locator('[data-testid="radar-plazos"]')).toBeVisible();
+
+      // Pestaña Cronología debe tener botón adaptado para Inmobiliaria
+      const cronTab = page.locator('button, a', { hasText: 'Cronología' }).first();
+      await cronTab.click();
+      await expect(page.locator('button', { hasText: 'Agregar movimiento' })).toBeVisible();
+    } finally {
+      await page.close();
+      await context.close();
+    }
+  });
+
+  test('M. Cómo Funciona refleja flujos comerciales inmobiliarios', async ({ browser }) => {
+    const { context, page } = await loginAs(browser, 'admin.inm@test.com');
+    try {
+      await page.goto('/como-funciona');
+      await expect(page.locator('text=Inventario de propiedades y cartera de clientes')).toBeVisible();
+      await expect(page.locator('text=Pre-Score crediticio de inquilinos y garantías')).toBeVisible();
+    } finally {
+      await page.close();
+      await context.close();
+    }
+  });
 });

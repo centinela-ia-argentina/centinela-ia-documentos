@@ -5,7 +5,16 @@ import { createClient } from '@/lib/supabase/server';
 import { getUserProfile } from '@/lib/auth/getUserProfile';
 import { getDocumentTypeLabel } from '@/lib/industries/documentTypes';
 import { formatFileSize } from '@/lib/format/fileSize';
-import { getDocumentExpiryStatus, expiryStatusLabel, getExpiryBadgeStyles, getDaysUntilExpiry } from '@/lib/documents/expiry';
+import {
+  getDocumentExpiryStatus,
+  expiryStatusLabel,
+  getExpiryBadgeStyles,
+  getDaysUntilExpiry,
+} from '@/lib/documents/expiry';
+import {
+  pluralDocumentoVencido,
+  pluralDocumentoPorVencer,
+} from '@/lib/format/pluralize';
 import { sensitivityLabel } from '@/lib/documents/sensitivity';
 import { MetricCard } from '@/components/dashboard/MetricCard';
 import { Banner } from '@/components/ui/Banner';
@@ -137,6 +146,8 @@ export default async function DocumentsPage({
     return matchesFilter && matchesTerm;
   });
 
+  const isArchivedView = estado === 'archivadas';
+  const stateParam = isArchivedView ? '&estado=archivadas' : '';
   const qs = normalizedTerm ? `&q=${encodeURIComponent(searchTerm)}` : '';
 
   const filters: {
@@ -146,22 +157,26 @@ export default async function DocumentsPage({
     href: string;
   }[] = [
     {
-      label: 'Todos',
+      label: isArchivedView ? 'Todos archivados' : 'Todos activos',
       value: 'todos',
       count: totalDocuments,
-      href: normalizedTerm ? `/documentos?q=${encodeURIComponent(searchTerm)}` : '/documentos',
+      href: normalizedTerm
+        ? `/documentos?q=${encodeURIComponent(searchTerm)}${stateParam}`
+        : isArchivedView
+        ? '/documentos?estado=archivadas'
+        : '/documentos',
     },
     {
-      label: 'Pendientes IA',
+      label: isArchivedView ? 'Archivados pendientes' : 'Pendientes activos',
       value: 'pendientes',
       count: pendingDocuments,
-      href: `/documentos?ia=pendientes${qs}`,
+      href: `/documentos?ia=pendientes${qs}${stateParam}`,
     },
     {
-      label: 'Analizados',
+      label: isArchivedView ? 'Archivados analizados' : 'Activos analizados',
       value: 'analizados',
       count: analyzedDocuments,
-      href: `/documentos?ia=analizados${qs}`,
+      href: `/documentos?ia=analizados${qs}${stateParam}`,
     },
   ];
 
@@ -192,7 +207,7 @@ export default async function DocumentsPage({
                   : 'border-white/10 bg-white/[0.025] text-slate-300 hover:bg-white/[0.05]'
               }`}
             >
-              {estado === 'archivadas' ? 'Ver activas' : 'Ver archivadas'}
+              {estado === 'archivadas' ? 'Ver activos' : 'Ver archivados'}
             </Link>
             <Link href="/documentos/subir">
               <MotionButton className="bg-gradient-to-r from-accent to-brandviolet text-white">
@@ -203,15 +218,33 @@ export default async function DocumentsPage({
         </div>
 
         <div className="mb-6 grid gap-4 sm:grid-cols-3">
-          <MetricCard index={0} label="Documentos totales" value={String(totalDocuments)} helper="Bóveda privada" />
-          <MetricCard index={1} label="Pendientes de revisión" value={String(pendingDocuments)} helper="Sin análisis IA" />
-          <MetricCard index={2} label="Con análisis IA" value={String(analyzedDocuments)} helper="Al menos un análisis" />
+          <MetricCard
+            index={0}
+            label={isArchivedView ? 'Documentos archivados' : 'Documentos activos'}
+            value={String(totalDocuments)}
+            helper={isArchivedView ? 'Bóveda archivada' : 'Bóveda activa'}
+          />
+          <MetricCard
+            index={1}
+            label={isArchivedView ? 'Archivados pendientes' : 'Pendientes activos'}
+            value={String(pendingDocuments)}
+            helper={isArchivedView ? 'Archivados sin análisis IA' : 'Activos sin análisis IA'}
+          />
+          <MetricCard
+            index={2}
+            label={isArchivedView ? 'Archivados con análisis IA' : 'Activos con análisis IA'}
+            value={String(analyzedDocuments)}
+            helper={isArchivedView ? 'Archivados con análisis' : 'Activos con análisis'}
+          />
         </div>
       </Reveal>
 
       <form method="get" className="mb-6 flex gap-2">
         {activeFilter !== 'todos' ? (
           <input type="hidden" name="ia" value={activeFilter} />
+        ) : null}
+        {isArchivedView ? (
+          <input type="hidden" name="estado" value="archivadas" />
         ) : null}
         <input
           type="search"
@@ -249,9 +282,9 @@ export default async function DocumentsPage({
         <div className="mb-6">
           <Banner
             variant="warning"
-            title="Hay documentos pendientes de análisis IA."
+            title={isArchivedView ? "Hay documentos archivados pendientes de análisis IA." : "Hay documentos pendientes de análisis IA."}
             description="Revisá los pendientes y ejecutá el análisis IA para completar la cobertura documental."
-            action={<Link href="/documentos?ia=pendientes" className="quick-action text-white">Ver pendientes IA</Link>}
+            action={<Link href={`/documentos?ia=pendientes${stateParam}`} className="quick-action text-white">Ver pendientes IA</Link>}
           />
         </div>
       ) : (
@@ -259,7 +292,7 @@ export default async function DocumentsPage({
           <Banner
             variant="success"
             title="Cobertura IA completa."
-            description="Todos los documentos cargados tienen al menos un análisis IA registrado."
+            description={isArchivedView ? "Todos los documentos archivados tienen al menos un análisis IA registrado." : "Todos los documentos cargados tienen al menos un análisis IA registrado."}
           />
         </div>
       )}
@@ -269,7 +302,7 @@ export default async function DocumentsPage({
           <Banner
             variant="warning"
             title="Alertas de vencimiento"
-            description={`${expiringDocs > 0 ? `${expiringDocs} documento(s) por vencer` : ''}${expiringDocs > 0 && expiredDocs > 0 ? ' y ' : ''}${expiredDocs > 0 ? `${expiredDocs} documento(s) vencido(s)` : ''}.`}
+            description={`${expiringDocs > 0 ? pluralDocumentoPorVencer(expiringDocs) : ''}${expiringDocs > 0 && expiredDocs > 0 ? ' y ' : ''}${expiredDocs > 0 ? pluralDocumentoVencido(expiredDocs) : ''}.`}
           />
         </div>
       ) : null}

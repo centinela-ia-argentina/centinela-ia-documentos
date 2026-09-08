@@ -9,6 +9,8 @@ import {
   getCaseStatusLabel,
   getCaseTypeLabel,
   isEscrituraCompatibleCase,
+  isRentalCompatibleCaseType,
+  isDerivacionEscribaniaCompatible,
 } from '@/lib/industries/caseConfig';
 import {
   getDocumentTypeLabel,
@@ -120,12 +122,30 @@ type CaseEventRecord = {
   created_by: string | null;
 };
 
+const INMOBILIARIA_EVENT_TYPES: Record<string, string> = {
+  visita: 'Visita al inmueble',
+  reserva_oferta: 'Reserva / Oferta',
+  documentacion: 'Documentación / Solicitud',
+  negociacion: 'Negociación de condiciones',
+  firma: 'Firma de instrumento',
+  ajuste: 'Ajuste de canon / precio',
+  vencimiento: 'Vencimiento contractual',
+  otro: 'Otro movimiento',
+};
+
 const CASE_EVENT_TYPE_LABELS: Record<string,string> = {
   escrito: 'Escrito / Presentación',
   audiencia: 'Audiencia',
   notificacion: 'Notificación / Cédula',
   resolucion: 'Resolución / Sentencia',
   prueba: 'Prueba / Pericia',
+  visita: 'Visita al inmueble',
+  reserva_oferta: 'Reserva / Oferta',
+  documentacion: 'Documentación / Solicitud',
+  negociacion: 'Negociación de condiciones',
+  firma: 'Firma de instrumento',
+  ajuste: 'Ajuste de canon / precio',
+  vencimiento: 'Vencimiento contractual',
   otro: 'Otro movimiento',
 };
 
@@ -136,6 +156,13 @@ function getEventTypeBadgeColor(type: string): "warning" | "success" | "accent" 
     notificacion: 'accent',
     resolucion: 'success',
     prueba: 'accent',
+    visita: 'accent',
+    reserva_oferta: 'warning',
+    documentacion: 'neutral',
+    negociacion: 'accent',
+    firma: 'success',
+    ajuste: 'warning',
+    vencimiento: 'warning',
     otro: 'neutral',
   };
   return tones[type] || 'neutral';
@@ -934,7 +961,7 @@ export default async function CaseDetailPage({ params, searchParams }: CaseDetai
                     )}
                   </div>
                 )}
-                {industry === 'inmobiliaria' && (
+                {industry === 'inmobiliaria' && isRentalCompatibleCaseType(caseRecord.case_type) && (
                   <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-5">
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                       <h3 className="flex items-center gap-2 text-sm font-semibold text-white">✨ Pre-Score de Inquilino y Garantía</h3>
@@ -1181,7 +1208,9 @@ export default async function CaseDetailPage({ params, searchParams }: CaseDetai
                   </div>
                 )}
 
-                {industry === 'inmobiliaria' && <DerivarEscribania caseId={caseRecord.id} />}
+                {industry === 'inmobiliaria' && isDerivacionEscribaniaCompatible(caseRecord.case_type) && (
+                  <DerivarEscribania caseId={caseRecord.id} />
+                )}
 
                 <MotionCard index={industry === 'inmobiliaria' ? 1 : 0}>
           <h3 className="font-display text-lg font-semibold text-white">
@@ -1425,9 +1454,13 @@ export default async function CaseDetailPage({ params, searchParams }: CaseDetai
             label: '🕑 Cronología',
             content: (
               <div className="space-y-6">
-                <CronologiaExpediente items={cronologia} titulo={`🕒 Cronología del ${terms.expedienteSingular.toLowerCase()}`} />
+                <CronologiaExpediente
+                  items={cronologia}
+                  titulo={`🕒 Cronología ${terms.delExpediente}`}
+                  industry={industry}
+                />
                 <MotionCard index={0}>
-            <h3 className="font-display text-lg font-semibold text-white">Línea de tiempo del {terms.expedienteSingular.toLowerCase()}</h3>
+            <h3 className="font-display text-lg font-semibold text-white">Línea de tiempo {terms.delExpediente}</h3>
             <p className="mt-1 text-sm text-slate-400">{terms.cronologiaSubtitulo}</p>
             
             <form action={async (formData: FormData) => {
@@ -1448,7 +1481,7 @@ export default async function CaseDetailPage({ params, searchParams }: CaseDetai
                 <div>
                   <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">Tipo</label>
                   <select name="eventType" defaultValue="otro" className="mt-1 w-full rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-white placeholder:text-slate-500 outline-none focus:ring-2 focus:ring-sky-400">
-                    {Object.entries(CASE_EVENT_TYPE_LABELS).map(([val, label]) => (
+                    {Object.entries(industry === 'inmobiliaria' ? INMOBILIARIA_EVENT_TYPES : CASE_EVENT_TYPE_LABELS).map(([val, label]) => (
                       <option key={val} value={val} style={darkOptionStyle} className="bg-[#0C2340] text-white">{label}</option>
                     ))}
                   </select>
@@ -1456,20 +1489,30 @@ export default async function CaseDetailPage({ params, searchParams }: CaseDetai
               </div>
               <div>
                 <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">Título</label>
-                <input type="text" name="title" required placeholder="Ej: Se presentó la demanda" className="mt-1 w-full rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-white placeholder:text-slate-500 outline-none focus:ring-2 focus:ring-sky-400" />
+                <input
+                  type="text"
+                  name="title"
+                  required
+                  placeholder={industry === 'inmobiliaria' ? 'Ej: Visita al inmueble / Reserva firmada' : 'Ej: Se presentó la demanda'}
+                  className="mt-1 w-full rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-white placeholder:text-slate-500 outline-none focus:ring-2 focus:ring-sky-400"
+                />
               </div>
               <div>
                 <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">Descripción (opcional)</label>
                 <textarea name="description" rows={2} className="mt-1 w-full rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-white placeholder:text-slate-500 outline-none focus:ring-2 focus:ring-sky-400" />
               </div>
               <button type="submit" className="justify-self-start rounded-xl bg-slate-900 px-4 py-2 text-sm font-bold text-white hover:bg-slate-800 transition-all">
-                Agregar actuación
+                {industry === 'inmobiliaria' ? 'Agregar movimiento' : 'Agregar actuación'}
               </button>
             </form>
 
             <div className="mt-6 space-y-4 border-l-2 border-white/10 pl-4">
               {eventos.length === 0 ? (
-                <div className="text-sm text-slate-400">Todavía no hay actuaciones registradas en este expediente.</div>
+                <div className="text-sm text-slate-400">
+                  {industry === 'inmobiliaria'
+                    ? 'Todavía no hay movimientos registrados en esta operación.'
+                    : `Todavía no hay actuaciones registradas en este ${terms.expedienteSingular.toLowerCase()}.`}
+                </div>
               ) : (
                 eventos.map((item) => (
                   <div key={item.id} className="relative mb-6 last:mb-0">
@@ -1667,8 +1710,10 @@ export default async function CaseDetailPage({ params, searchParams }: CaseDetai
                         {item.match_source === 'manual' ? (
                           <Badge tone="accent" data-testid={`checklist-badge-manual-${idx}`}>Manual</Badge>
                         ) : item.match_source === 'automatic' ? (
-                          <Badge tone="neutral" data-testid={`checklist-badge-auto-${idx}`}>Auto</Badge>
-                        ) : null}
+                          <Badge tone="neutral" data-testid={`checklist-badge-auto-${idx}`}>Auto (IA)</Badge>
+                        ) : (
+                          <Badge tone="neutral" data-testid={`checklist-badge-unspecified-${idx}`}>Sin origen registrado</Badge>
+                        )}
                       </div>
                     ) : null}
 

@@ -25,6 +25,25 @@ export function sanitizarTerminologiaEscribania(texto: string): string {
     .replace(/\briesgo procesal\b/gi, 'observación notarial');
 }
 
+export function sanitizarTerminologiaInmobiliaria(texto: string): string {
+  return texto
+    .replace(/^El presente expediente\b/gi, 'La presente operación')
+    .replace(/\bel presente expediente\b/gi, 'la presente operación')
+    .replace(/\beste expediente\b/gi, 'esta operación')
+    .replace(/\bdel expediente\b/gi, 'de la operación')
+    .replace(/\bal expediente\b/gi, 'a la operación')
+    .replace(/\bel expediente\b/gi, 'la operación')
+    .replace(/\blos expedientes\b/gi, 'las operaciones')
+    .replace(/\ben el expediente\b/gi, 'en la operación')
+    .replace(/\betapa procesal\b/gi, 'etapa de la operación')
+    .replace(/\briesgo procesal\b/gi, 'riesgo operativo o documental')
+    .replace(/\bactuaciones\b/gi, 'movimientos')
+    .replace(/\bactuación\b/gi, 'movimiento')
+    .replace(/\bel caso\b/gi, 'la operación')
+    .replace(/\bdel caso\b/gi, 'de la operación')
+    .replace(/\bde este caso\b/gi, 'de esta operación');
+}
+
 import {
   analizarPlazoBoletoEscritura,
   parsearFechaCualquiera,
@@ -124,6 +143,17 @@ export async function generarResumenConIA(input: {
           '  "proximas_acciones": ["trámites notariales concretos sugeridos para el escribano"]',
           '}',
         ].join('\n')
+      : input.industria === 'inmobiliaria'
+      ? [
+          '{',
+          '  "resumen_general": "2-4 oraciones sobre de qué se trata la operación y su situación (NUNCA uses \\"expediente\\" ni \\"etapa procesal\\"; referite a la operación)",',
+          '  "estado_actual": "una oración sobre en qué etapa de la operación se encuentra (captación, reserva, disponible, cierre)",',
+          '  "partes": ["cada parte interviniente y su rol"],',
+          '  "puntos_clave": ["inmueble, dirección, montos, fechas clave y condiciones"],',
+          '  "riesgos_alertas": ["plazos de vigencia, gravámenes, deudas o inconsistencias documentales"],',
+          '  "proximas_acciones": ["acciones comerciales u operativas concretas sugeridas para la inmobiliaria"]',
+          '}',
+        ].join('\n')
       : [
           '{',
           '  "resumen_general": "2-4 oraciones sobre de qué se trata el expediente y su situación",',
@@ -183,7 +213,16 @@ export async function generarResumenConIA(input: {
       puntosClave = puntosClave.map(sanitizarTerminologiaEscribania);
       riesgosAlertas = riesgosAlertas.map(sanitizarTerminologiaEscribania);
       proximasAcciones = proximasAcciones.map(sanitizarTerminologiaEscribania);
+    } else if (input.industria === 'inmobiliaria') {
+      resumenGeneral = sanitizarTerminologiaInmobiliaria(resumenGeneral);
+      estadoActual = sanitizarTerminologiaInmobiliaria(estadoActual);
+      partes = partes.map(sanitizarTerminologiaInmobiliaria);
+      puntosClave = puntosClave.map(sanitizarTerminologiaInmobiliaria);
+      riesgosAlertas = riesgosAlertas.map(sanitizarTerminologiaInmobiliaria);
+      proximasAcciones = proximasAcciones.map(sanitizarTerminologiaInmobiliaria);
+    }
 
+    if (input.industria === 'escribania') {
       // Verificación determinística de plazo contractual de boleto vs fecha tentativa de escritura
       let analisis: any = input.plazoCanonico;
       if (!analisis) {

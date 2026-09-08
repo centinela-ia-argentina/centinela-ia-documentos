@@ -23,6 +23,9 @@ import { canUseAi } from '@/lib/permissions/roles';
 import {
   getCaseStatuses,
   getWritableCaseStatuses,
+  getCaseStatusLabel,
+  isRentalCompatibleCaseType,
+  isDerivacionEscribaniaCompatible,
 } from '@/lib/industries/caseConfig';
 import { getCaseTemplate } from '@/lib/industries/caseTemplates';
 import { normalizeIndustryType, type IndustryType } from '@/lib/industries/documentTypes';
@@ -822,7 +825,7 @@ export async function generarResumenExpediente(caseId: string) {
     titulo: caseRecord.title || 'Expediente',
     cliente: caseRecord.client_name || '',
     tipo: caseRecord.case_type || '',
-    estado: caseRecord.status || '',
+    estado: getCaseStatusLabel(caseRecord.status, industria),
     industria,
     documentos,
     eventos,
@@ -1451,12 +1454,12 @@ export async function derivarAEscribania(formData: FormData) {
 
   const { data: caseRecord } = await supabase
     .from('cases')
-    .select('id, title')
+    .select('id, title, case_type')
     .eq('id', caseId)
     .eq('organization_id', profile.organization_id)
     .maybeSingle();
 
-  if (!caseRecord) {
+  if (!caseRecord || !isDerivacionEscribaniaCompatible(caseRecord.case_type)) {
     redirect('/expedientes');
   }
 
@@ -1505,24 +1508,32 @@ export async function redactarAvisoExpediente(caseId: string) {
     .maybeSingle();
   if (!caseRecord) { revalidatePath(`/expedientes/${caseId}`); return; }
 
-  // Propiedad vinculada (si la hay)
-  let propiedad: { nombre: string; direccion: string; tipo: string; estado: string } | null = null;
-  if (caseRecord.property_id) {
-    const { data: prop } = await supabase
-      .from('properties')
-      .select('name, address, property_type, status')
-      .eq('id', caseRecord.property_id)
-      .eq('organization_id', profile.organization_id)
-      .maybeSingle();
-    if (prop) {
-      propiedad = {
-        nombre: String(prop.name || ''),
-        direccion: String(prop.address || ''),
-        tipo: String(prop.property_type || ''),
-        estado: String(prop.status || ''),
-      };
-    }
+  // Solo operaciones compatibles con publicación comercial
+  const caseTypeNorm = (caseRecord.case_type || '').toLowerCase();
+  const esCompatibleAviso = caseTypeNorm.includes('compra') || caseTypeNorm.includes('venta') || caseTypeNorm.includes('alquiler') || caseTypeNorm.includes('reserva');
+  if (!esCompatibleAviso || !caseRecord.property_id) {
+    revalidatePath(`/expedientes/${caseId}`);
+    return;
   }
+
+  // Propiedad vinculada (obligatoria)
+  let propiedad: { nombre: string; direccion: string; tipo: string; estado: string } | null = null;
+  const { data: prop } = await supabase
+    .from('properties')
+    .select('name, address, property_type, status')
+    .eq('id', caseRecord.property_id)
+    .eq('organization_id', profile.organization_id)
+    .maybeSingle();
+  if (!prop) {
+    revalidatePath(`/expedientes/${caseId}`);
+    return;
+  }
+  propiedad = {
+    nombre: String(prop.name || ''),
+    direccion: String(prop.address || ''),
+    tipo: String(prop.property_type || ''),
+    estado: String(prop.status || ''),
+  };
 
   const { data: docsData } = await supabase
     .from('documents')
@@ -1667,10 +1678,24 @@ export async function redactarBorradorInmobiliaria(caseId: string) {
 
   const resumenGeneral = String((resumenData?.result_json as any)?.resumen_general || '');
   const metadata = (caseRecord.metadata || {}) as Record<string, string>;
+  let tipoDocumento = metadata.tipo_documento;
+  if (!tipoDocumento) {
+    const cTypeLower = (caseRecord.case_type || '').toLowerCase();
+    if (cTypeLower.includes('compra') || cTypeLower.includes('venta')) {
+      tipoDocumento = 'Boleto de compraventa';
+    } else if (cTypeLower.includes('alquiler') || cTypeLower.includes('locaci')) {
+      tipoDocumento = 'Contrato de locación';
+    } else if (cTypeLower.includes('reserva')) {
+      tipoDocumento = 'Reserva / Oferta de compra';
+    } else {
+      revalidatePath(`/expedientes/${caseId}`);
+      return;
+    }
+  }
 
   const result = await redactarBorradorInmobiliariaConIA({
     titulo: caseRecord.title || 'Operación',
-    tipoDocumento: metadata.tipo_documento || caseRecord.case_type || 'Boleto de compraventa',
+    tipoDocumento,
     tipoOperacion: caseRecord.case_type || '',
     partes: metadata.contraparte || caseRecord.client_name || '',
     valorOperacion: metadata.valor_operacion || '',
@@ -1876,11 +1901,26 @@ export async function calificarInquilinoExpediente(formData: FormData) {
 
   const alquilerStr = formData.get('alquiler');
   const alquilerParsed = parseNumber(alquilerStr);
-  const alquilerMensual = alquilerParsed ?? null;
+  if (alquilerParsed === null || !Number.isFinite(alquilerParsed) || alquilerParsed <= 0) {
+    revalidatePath(`/expedientes/${caseId}`);
+    return;
+  }
+  const alquilerMensual = alquilerParsed;
 
-  const moneda = formData.get('moneda') as string || 'ARS';
+  const rawMoneda = (formData.get('moneda') as string || 'ARS').trim().toUpperCase();
+  if (rawMoneda !== 'ARS' && rawMoneda !== 'USD') {
+    revalidatePath(`/expedientes/${caseId}`);
+    return;
+  }
+  const moneda = rawMoneda;
 
   const supabase = await createClient();
+
+  const industry = await getOrganizationIndustry(supabase, profile.organization_id);
+  if (industry !== 'inmobiliaria') {
+    revalidatePath(`/expedientes/${caseId}`);
+    return;
+  }
 
   const { data: caseRecord } = await supabase
     .from('cases')
@@ -1888,7 +1928,10 @@ export async function calificarInquilinoExpediente(formData: FormData) {
     .eq('id', caseId)
     .eq('organization_id', profile.organization_id)
     .maybeSingle();
-  if (!caseRecord) { revalidatePath(`/expedientes/${caseId}`); return; }
+  if (!caseRecord || !isRentalCompatibleCaseType(caseRecord.case_type)) {
+    revalidatePath(`/expedientes/${caseId}`);
+    return;
+  }
 
   const { data: docsData } = await supabase
     .from('documents')
@@ -1904,6 +1947,11 @@ export async function calificarInquilinoExpediente(formData: FormData) {
     .eq('organization_id', profile.organization_id)
     .eq('output_type', 'document_analysis')
     .order('created_at', { ascending: false });
+
+  if (!outputsData || outputsData.length === 0) {
+    revalidatePath(`/expedientes/${caseId}`);
+    return;
+  }
 
   const latestByDoc = new Map<string, any>();
   for (const o of outputsData ?? []) {
@@ -1924,7 +1972,7 @@ export async function calificarInquilinoExpediente(formData: FormData) {
 
   const result = await calificarInquilinoConIA({
     titulo: caseRecord.title || 'Expediente',
-    alquilerMensual: alquilerMensual ?? 0,
+    alquilerMensual,
     moneda,
     documentos,
   });

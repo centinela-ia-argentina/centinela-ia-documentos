@@ -38,7 +38,8 @@ function tokens(texto: string): string[] {
 // mismo grupo, se consideran del mismo "concepto documental".
 const GRUPOS_SINONIMOS: string[][] = [
   ['boleto', 'compraventa', 'compra', 'venta'],
-  ['titulo', 'dominio', 'propiedad'],
+  ['titulo', 'propiedad'],
+  ['informe', 'dominio'],
   ['escritura', 'traslativa', 'escrituracion'],
   ['dni', 'identidad', 'pasaporte'],
   ['cuit', 'cuil', 'cdi'],
@@ -97,6 +98,12 @@ export function puntuarCoincidencia(
     return 0;
   }
   if (tituloNorm.includes('comprador') && textoDocRaw.includes('vendedor') && !textoDocRaw.includes('comprador')) {
+    return 0;
+  }
+  // Exclusión: un informe o certificado de dominio NO es un título de propiedad ni una escritura traslativa
+  const esItemTituloOEscritura = tituloNorm.includes('titulo') || tituloNorm.includes('título') || tituloNorm.includes('escritura');
+  const esDocInformeDominio = (textoDocRaw.includes('informe') || textoDocRaw.includes('certificado')) && textoDocRaw.includes('dominio');
+  if (esItemTituloOEscritura && esDocInformeDominio && !textoDocRaw.includes('escritura') && !textoDocRaw.includes('titulo') && !textoDocRaw.includes('título')) {
     return 0;
   }
 

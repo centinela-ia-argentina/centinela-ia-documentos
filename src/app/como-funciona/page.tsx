@@ -13,16 +13,16 @@ const whatsappUrl =
   'https://wa.me/543794733321?text=Hola,%20quiero%20coordinar%20una%20presentaci%C3%B3n%20de%20Centinela%20IA';
 
 const demoSteps = [
-  'Login seguro',
-  'Dashboard operativo',
-  'Expedientes',
-  'Carga documental',
-  'Visor PDF',
-  'Análisis documental',
-  'Reportes',
-  'Usuarios y permisos',
-  'Auditoría',
-  'Propuesta beta',
+  'Login seguro y multi-organización',
+  'Dashboard operativo y bóveda documental',
+  'Gestión de expedientes y operaciones',
+  'Inventario de propiedades y cartera de clientes',
+  'Matching comercial inteligente y comparables',
+  'Pre-Score crediticio de inquilinos y garantías',
+  'Radar de plazos y agenda de vencimientos',
+  'Biblioteca de modelos y borradores guiados',
+  'Colaboración y derivación con Escribanía',
+  'Auditoría y control de accesos por rol',
 ];
 
 function SectionLabel({ children }: { children: React.ReactNode }) {

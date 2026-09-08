@@ -37,8 +37,9 @@ function datosDeExpediente(exp: ExpedienteLite): Record<string, string> {
     // Inmobiliaria fallbacks
     direccion_inmueble: meta.direccion_inmueble ?? meta.direccion ?? meta.ubicacion ?? meta.inmueble,
     tipo_inmueble: meta.tipo_inmueble ?? meta.tipo,
-    moneda: meta.moneda ?? meta.divisa,
-    precio: meta.precio ?? meta.valor,
+    moneda: meta.moneda_operacion ?? meta.moneda ?? meta.divisa,
+    precio: meta.valor_operacion ?? meta.precio ?? meta.valor,
+    precio_mensual: meta.valor_operacion ?? meta.precio ?? meta.valor,
     vendedor: meta.vendedor ?? (exp.case_type?.toLowerCase().includes('venta') ? exp.client_name : undefined),
     comprador: meta.comprador,
     locador: meta.locador ?? (exp.case_type?.toLowerCase().includes('alquiler') ? exp.client_name : undefined),
