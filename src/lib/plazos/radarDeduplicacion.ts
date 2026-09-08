@@ -62,6 +62,8 @@ export function esPlazoRadarTexto(texto: string): boolean {
     t.includes('entrega') ||
     t.includes('clave') ||
     t.includes('relevante') ||
+    t.includes('límite') ||
+    t.includes('limite') ||
     t.includes('escrituración') ||
     t.includes('escrituracion')
   );
@@ -154,12 +156,17 @@ export function deduplicarPlazosRadar(
       const semExistente = clasificarPlazoSemantico(existente.item.titulo, existente.item.detalle);
 
       // Fusión conservadora:
-      // Si uno es genérico y el otro específico -> fusionar
-      // Si ambos tienen la misma categoría semántica concreta (ej: ambos 'oferta_reserva') -> fusionar
+      // 1. Si uno es genérico y el otro específico -> fusionar.
+      // 2. Si ambos son específicos, NO fusionar solo por compartir categoría: solo fusionar si representan
+      //    el mismo hecho (mismo título normalizado sin puntuación/artículos).
+      const t1 = existente.item.titulo.toLowerCase().replace(/[^a-z0-9]/g, '');
+      const t2 = p.item.titulo.toLowerCase().replace(/[^a-z0-9]/g, '');
+      const mismoTitulo = t1 === t2;
+
       const mismoHecho =
         (semExistente.esGenerico && !sem.esGenerico) ||
         (!semExistente.esGenerico && sem.esGenerico) ||
-        (!semExistente.esGenerico && !sem.esGenerico && semExistente.categoria !== 'otro' && semExistente.categoria === sem.categoria);
+        (mismoTitulo);
 
       if (mismoHecho) {
         const tituloElegido = (semExistente.esGenerico && !sem.esGenerico) ? p.item.titulo : existente.item.titulo;
@@ -181,7 +188,7 @@ export function deduplicarPlazosRadar(
     }
 
     if (!merged) {
-      const uniqueKey = `${p.item.fecha}_${sem.claveSemantica}_${p.item.titulo}`;
+      const uniqueKey = `${p.item.fecha}_${sem.claveSemantica}_${p.item.titulo}_${p.item.etiquetaOrigen}`;
       plazosMap.set(uniqueKey, { ...p });
     }
   }

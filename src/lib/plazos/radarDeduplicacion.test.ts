@@ -131,6 +131,50 @@ describe('Radar Semántico - Deduplicación conservadora (Punto 1)', () => {
     expect(result[0].item.titulo).toBe('Vencimiento de la reserva');
   });
 
+  it('reconoce "Fecha límite contractual" como término de plazo válido en Radar', () => {
+    const items: ItemCronologia[] = [
+      {
+        fecha: '2026-09-08',
+        titulo: 'Fecha límite contractual',
+        detalle: 'Plazo contractual de escrituración',
+        origen: 'actuacion',
+        etiquetaOrigen: 'Boleto',
+        esFuturo: true,
+      },
+    ];
+
+    const result = deduplicarPlazosRadar(items, mockCalcDias);
+    expect(result).toHaveLength(1);
+    expect(result[0].item.titulo).toBe('Fecha límite contractual');
+  });
+
+  it('no fusiona dos vencimientos específicos distintos solo por compartir fecha y categoría general', () => {
+    const items: ItemCronologia[] = [
+      {
+        fecha: '2026-09-15',
+        titulo: 'Vencimiento de cláusula resolutoria',
+        detalle: 'Cláusula 3 de la reserva',
+        origen: 'detectada',
+        etiquetaOrigen: 'IA · Contrato',
+        esFuturo: true,
+      },
+      {
+        fecha: '2026-09-15',
+        titulo: 'Vencimiento plazo de observaciones de títulos',
+        detalle: 'Cláusula 7 de la reserva',
+        origen: 'detectada',
+        etiquetaOrigen: 'IA · Reserva',
+        esFuturo: true,
+      },
+    ];
+
+    const result = deduplicarPlazosRadar(items, mockCalcDias);
+    expect(result).toHaveLength(2);
+    const titulos = result.map((r) => r.item.titulo);
+    expect(titulos).toContain('Vencimiento de cláusula resolutoria');
+    expect(titulos).toContain('Vencimiento plazo de observaciones de títulos');
+  });
+
   it('clasificarPlazoSemantico identifica correctamente hechos genéricos vs específicos', () => {
     expect(clasificarPlazoSemantico('Fecha relevante').esGenerico).toBe(true);
     expect(clasificarPlazoSemantico('Próxima fecha clave').esGenerico).toBe(true);

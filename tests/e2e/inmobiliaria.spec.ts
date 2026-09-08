@@ -19,18 +19,21 @@ test.describe.serial('Centinela IA - Inmobiliaria E2E', () => {
   async function cleanUpCaseById(caseId: string) {
     if (!caseId) return;
     try {
-      const { data: checklists } = await serviceClient
+      const { data: checklists, error: chkSelectErr } = await serviceClient
         .from('checklists')
         .select('id')
         .eq('case_id', caseId);
+      if (chkSelectErr) throw chkSelectErr;
 
-      if (checklists && checklists.length > 0) {
-        for (const checklist of checklists) {
+      const checklistIds = (checklists ?? []).map((c) => c.id);
+
+      if (checklistIds.length > 0) {
+        for (const chkId of checklistIds) {
           const { error: itemsErr } = await serviceClient
             .from('checklist_items')
             .delete()
-            .eq('checklist_id', checklist.id);
-          expect(itemsErr).toBeNull();
+            .eq('checklist_id', chkId);
+          if (itemsErr) throw itemsErr;
         }
       }
 
@@ -38,32 +41,65 @@ test.describe.serial('Centinela IA - Inmobiliaria E2E', () => {
         .from('checklists')
         .delete()
         .eq('case_id', caseId);
-      expect(chkErr).toBeNull();
+      if (chkErr) throw chkErr;
 
       const { error: caseErr } = await serviceClient
         .from('cases')
         .delete()
         .eq('id', caseId);
-      expect(caseErr).toBeNull();
+      if (caseErr) throw caseErr;
 
-      const { data: verifyCases } = await serviceClient
+      // Verificación estricta de cero registros remanentes
+      if (checklistIds.length > 0) {
+        const { data: verifyItems, error: vItemsErr } = await serviceClient
+          .from('checklist_items')
+          .select('id')
+          .in('checklist_id', checklistIds);
+        if (vItemsErr) throw vItemsErr;
+        expect(verifyItems?.length ?? 0).toBe(0);
+      }
+
+      const { data: verifyChecklists, error: vChkErr } = await serviceClient
+        .from('checklists')
+        .select('id')
+        .eq('case_id', caseId);
+      if (vChkErr) throw vChkErr;
+      expect(verifyChecklists?.length ?? 0).toBe(0);
+
+      const { data: verifyCases, error: vCasesErr } = await serviceClient
         .from('cases')
         .select('id')
         .eq('id', caseId);
-      expect(verifyCases?.length).toBe(0);
+      if (vCasesErr) throw vCasesErr;
+      expect(verifyCases?.length ?? 0).toBe(0);
     } catch (e) {
-      console.error(`Error cleaning up case ${caseId}:`, e);
+      console.error(`[CRITICAL] Fallo en cleanUpCaseById para el expediente ${caseId}:`, e);
+      throw e;
     }
   }
 
   test.afterAll(async () => {
+    const errors: any[] = [];
     if (tempCaseId) {
-      await cleanUpCaseById(tempCaseId);
-      tempCaseId = '';
+      try {
+        await cleanUpCaseById(tempCaseId);
+      } catch (err) {
+        errors.push(err);
+      } finally {
+        tempCaseId = '';
+      }
     }
     if (tempRentalCaseId) {
-      await cleanUpCaseById(tempRentalCaseId);
-      tempRentalCaseId = '';
+      try {
+        await cleanUpCaseById(tempRentalCaseId);
+      } catch (err) {
+        errors.push(err);
+      } finally {
+        tempRentalCaseId = '';
+      }
+    }
+    if (errors.length > 0) {
+      throw new Error(`[CRITICAL] afterAll: Limpieza incompleta detectada en ${errors.length} casos: ${errors.map(e => e.message || String(e)).join('; ')}`);
     }
   });
 
@@ -253,8 +289,8 @@ test.describe.serial('Centinela IA - Inmobiliaria E2E', () => {
       await expect(page.locator('text=Clientes e interesados')).toBeVisible();
 
       await page.goto('/clientes/nuevo');
-      await expect(page.locator('text=Nuevo cliente / interesado')).toBeVisible();
-      await expect(page.locator('input[name="full_name"]')).toBeVisible();
+      await expect(page.locator('text=Registrar contacto o interesado')).toBeVisible();
+      await expect(page.locator('input[name="name"]')).toBeVisible();
       await expect(page.locator('select[name="client_type"]')).toBeVisible();
 
       // Verificar existencia y conducta de los campos de preferencias de búsqueda
@@ -262,12 +298,12 @@ test.describe.serial('Centinela IA - Inmobiliaria E2E', () => {
       await expect(page.locator('select[name="desired_property_type"]')).toBeVisible();
       await expect(page.locator('input[name="desired_city"]')).toBeVisible();
 
-      await page.locator('input[name="full_name"]').fill('Cliente Preferencias QA');
+      await page.locator('input[name="name"]').fill('Cliente Preferencias QA');
       await page.locator('select[name="operation_interest"]').selectOption('compra');
       await page.locator('select[name="desired_property_type"]').selectOption('departamento');
       await page.locator('input[name="desired_city"]').fill('CABA');
 
-      expect(await page.locator('input[name="full_name"]').inputValue()).toBe('Cliente Preferencias QA');
+      expect(await page.locator('input[name="name"]').inputValue()).toBe('Cliente Preferencias QA');
       expect(await page.locator('select[name="operation_interest"]').inputValue()).toBe('compra');
       expect(await page.locator('select[name="desired_property_type"]').inputValue()).toBe('departamento');
       expect(await page.locator('input[name="desired_city"]').inputValue()).toBe('CABA');
@@ -352,8 +388,8 @@ test.describe.serial('Centinela IA - Inmobiliaria E2E', () => {
     const { context, page } = await loginAs(browser, 'admin.inm@test.com');
     try {
       await page.goto('/como-funciona');
-      await expect(page.locator('text=Inventario de propiedades y cartera de clientes')).toBeVisible();
-      await expect(page.locator('text=Pre-Score crediticio de inquilinos y garantías')).toBeVisible();
+      await expect(page.locator('text=Herramientas inmobiliarias: inventario de propiedades y cartera de clientes')).toBeVisible();
+      await expect(page.locator('text=Módulos específicos: Pre-Score crediticio y matching comercial')).toBeVisible();
     } finally {
       await page.close();
       await context.close();

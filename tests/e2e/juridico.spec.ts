@@ -436,11 +436,14 @@ test.describe.serial('Centinela IA - Flujo Jurídico E2E Obligatorio', () => {
   test('14. RAG y guardrails', async () => {
     await gotoStable(`${caseUrl}?tab=documentos`);
     // Need to wait for RAG component to load
-    await expect(page.locator('[data-testid="rag-input"]')).toBeVisible();
-    await page.fill('[data-testid="rag-input"]', '¿Qué dice el documento?');
+    const ragInput = page.locator('[data-testid="rag-input"]');
+    await expect(ragInput).toBeVisible({ timeout: 15000 });
+    await ragInput.fill('¿Qué dice el documento?');
     await page.click('[data-testid="rag-submit"]');
 
-    await expect(page.locator('[data-testid="rag-response"]')).toBeVisible({ timeout: 15000 });
+    // Espera observable y estabilizada de rag-response (máximo 30s por latencia de embeddings/server action)
+    const ragResponse = page.locator('[data-testid="rag-response"]');
+    await expect(ragResponse).toBeVisible({ timeout: 30000 });
   });
 
   test('14b. vinculación manual discordante en checklist y persistencia tras reload', async () => {
