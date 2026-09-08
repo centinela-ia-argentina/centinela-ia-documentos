@@ -14,33 +14,56 @@ const CASE_LEGAL_ID = 'cccc1111-1111-1111-1111-111111111111';
 
 test.describe.serial('Centinela IA - Inmobiliaria E2E', () => {
   let tempCaseId = '';
+  let tempRentalCaseId = '';
+
+  async function cleanUpCaseById(caseId: string) {
+    if (!caseId) return;
+    try {
+      const { data: checklists } = await serviceClient
+        .from('checklists')
+        .select('id')
+        .eq('case_id', caseId);
+
+      if (checklists && checklists.length > 0) {
+        for (const checklist of checklists) {
+          const { error: itemsErr } = await serviceClient
+            .from('checklist_items')
+            .delete()
+            .eq('checklist_id', checklist.id);
+          expect(itemsErr).toBeNull();
+        }
+      }
+
+      const { error: chkErr } = await serviceClient
+        .from('checklists')
+        .delete()
+        .eq('case_id', caseId);
+      expect(chkErr).toBeNull();
+
+      const { error: caseErr } = await serviceClient
+        .from('cases')
+        .delete()
+        .eq('id', caseId);
+      expect(caseErr).toBeNull();
+
+      const { data: verifyCases } = await serviceClient
+        .from('cases')
+        .select('id')
+        .eq('id', caseId);
+      expect(verifyCases?.length).toBe(0);
+    } catch (e) {
+      console.error(`Error cleaning up case ${caseId}:`, e);
+    }
+  }
 
   test.afterAll(async () => {
     if (tempCaseId) {
-      try {
-        const { data: checklists } = await serviceClient
-          .from('checklists')
-          .select('id')
-          .eq('case_id', tempCaseId);
-          
-        if (checklists && checklists.length > 0) {
-          for (const checklist of checklists) {
-            const { error: itemsErr } = await serviceClient.from('checklist_items').delete().eq('checklist_id', checklist.id);
-            expect(itemsErr).toBeNull();
-          }
-        }
-
-        const { error: chkErr } = await serviceClient.from('checklists').delete().eq('case_id', tempCaseId);
-        expect(chkErr).toBeNull();
-
-        const { error: caseErr } = await serviceClient.from('cases').delete().eq('id', tempCaseId);
-        expect(caseErr).toBeNull();
-
-        const { data: verifyCases } = await serviceClient.from('cases').select('id').eq('id', tempCaseId);
-        expect(verifyCases?.length).toBe(0);
-      } finally {
-        tempCaseId = '';
-      }
+      await cleanUpCaseById(tempCaseId);
+      tempCaseId = '';
+    }
+    if (tempRentalCaseId) {
+      await cleanUpCaseById(tempRentalCaseId);
+      tempRentalCaseId = '';
     }
   });
 
@@ -206,6 +229,17 @@ test.describe.serial('Centinela IA - Inmobiliaria E2E', () => {
 
       await expect(page.locator('input[name="surface_total_m2"]')).toBeVisible();
       await expect(page.locator('input[name="rooms"]')).toBeVisible();
+
+      // Validación de conducta de entrada en campos técnicos
+      await nameInput.fill('Propiedad QA Test');
+      await currencySelect.selectOption('USD');
+      await page.locator('input[name="surface_total_m2"]').fill('120');
+      await page.locator('input[name="rooms"]').fill('3');
+
+      expect(await nameInput.inputValue()).toBe('Propiedad QA Test');
+      expect(await currencySelect.inputValue()).toBe('USD');
+      expect(await page.locator('input[name="surface_total_m2"]').inputValue()).toBe('120');
+      expect(await page.locator('input[name="rooms"]').inputValue()).toBe('3');
     } finally {
       await page.close();
       await context.close();
@@ -222,6 +256,21 @@ test.describe.serial('Centinela IA - Inmobiliaria E2E', () => {
       await expect(page.locator('text=Nuevo cliente / interesado')).toBeVisible();
       await expect(page.locator('input[name="full_name"]')).toBeVisible();
       await expect(page.locator('select[name="client_type"]')).toBeVisible();
+
+      // Verificar existencia y conducta de los campos de preferencias de búsqueda
+      await expect(page.locator('select[name="operation_interest"]')).toBeVisible();
+      await expect(page.locator('select[name="desired_property_type"]')).toBeVisible();
+      await expect(page.locator('input[name="desired_city"]')).toBeVisible();
+
+      await page.locator('input[name="full_name"]').fill('Cliente Preferencias QA');
+      await page.locator('select[name="operation_interest"]').selectOption('compra');
+      await page.locator('select[name="desired_property_type"]').selectOption('departamento');
+      await page.locator('input[name="desired_city"]').fill('CABA');
+
+      expect(await page.locator('input[name="full_name"]').inputValue()).toBe('Cliente Preferencias QA');
+      expect(await page.locator('select[name="operation_interest"]').inputValue()).toBe('compra');
+      expect(await page.locator('select[name="desired_property_type"]').inputValue()).toBe('departamento');
+      expect(await page.locator('input[name="desired_city"]').inputValue()).toBe('CABA');
     } finally {
       await page.close();
       await context.close();
@@ -255,13 +304,14 @@ test.describe.serial('Centinela IA - Inmobiliaria E2E', () => {
       await page.click('[data-testid="case-submit"]');
 
       await expect(page).toHaveURL(/\/expedientes\/[a-f0-9\-]+/);
-      const rentalCaseId = page.url().split('/').pop() || '';
+      tempRentalCaseId = page.url().split('/').pop() || '';
 
       // En la operación de alquiler debe renderizarse el contenedor de Pre-Score
       await expect(page.locator('text=Pre-Score de Inquilino y Garantía')).toBeVisible();
 
-      // Limpieza del caso creado
-      await serviceClient.from('cases').delete().eq('id', rentalCaseId);
+      // Limpieza exhaustiva y comprobable del caso creado
+      await cleanUpCaseById(tempRentalCaseId);
+      tempRentalCaseId = '';
     } finally {
       await page.close();
       await context.close();

@@ -1452,6 +1452,11 @@ export async function derivarAEscribania(formData: FormData) {
 
   const supabase = await createClient();
 
+  const industry = await getOrganizationIndustry(supabase, profile.organization_id);
+  if (industry !== 'inmobiliaria') {
+    redirect('/expedientes');
+  }
+
   const { data: caseRecord } = await supabase
     .from('cases')
     .select('id, title, case_type')
@@ -1499,6 +1504,12 @@ export async function redactarAvisoExpediente(caseId: string) {
   }
 
   const supabase = await createClient();
+
+  const industry = await getOrganizationIndustry(supabase, profile.organization_id);
+  if (industry !== 'inmobiliaria') {
+    revalidatePath(`/expedientes/${caseId}`);
+    return;
+  }
 
   const { data: caseRecord } = await supabase
     .from('cases')
@@ -1625,6 +1636,12 @@ export async function redactarBorradorInmobiliaria(caseId: string) {
   }
 
   const supabase = await createClient();
+
+  const industry = await getOrganizationIndustry(supabase, profile.organization_id);
+  if (industry !== 'inmobiliaria') {
+    revalidatePath(`/expedientes/${caseId}`);
+    return;
+  }
 
   const { data: caseRecord } = await supabase
     .from('cases')

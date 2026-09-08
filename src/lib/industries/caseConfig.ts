@@ -181,16 +181,25 @@ export function isRentalCompatibleCaseType(caseType?: string | null): boolean {
 /**
  * Determina si un tipo de operación inmobiliaria es compatible con la derivación a Escribanía
  * (ej: compraventas que requieran escritura traslativa o reserva ad referéndum).
- * Excluye explícitamente alquileres y operaciones ajenas a transmisión de dominio.
+ * Excluye explícitamente escrituras (tipo notarial de destino, no de origen inmobiliario), alquileres y operaciones ajenas.
  */
+const DERIVACION_ESCRIBANIA_ALLOWED_TYPES = new Set([
+  'compraventa de inmueble',
+  'compraventa',
+  'reserva',
+  'real_estate_purchase',
+  'reservation',
+]);
+
 export function isDerivacionEscribaniaCompatible(caseType?: string | null): boolean {
   if (!caseType || typeof caseType !== 'string') return false;
   const t = caseType.trim().toLowerCase();
-  if (t.includes('alquiler') || t.includes('rental') || t.includes('locaci')) {
+  if (t === 'escritura' || t.includes('escritura') || t.includes('alquiler') || t.includes('rental') || t.includes('locaci')) {
     return false;
   }
-  return t.includes('compraventa') || t.includes('venta') || t.includes('escritura') || t.includes('reserva');
+  return DERIVACION_ESCRIBANIA_ALLOWED_TYPES.has(t);
 }
+
 
 /**
  * Determina si un tipo de legajo notarial es compatible con la redacción de un borrador de escritura

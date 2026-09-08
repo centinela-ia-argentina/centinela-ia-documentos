@@ -314,11 +314,11 @@ export default async function CasesPage({
         <MotionCard index={0} className="mt-4 text-center py-12">
           {error ? (
             <p className="font-bold text-rose-400 text-lg">
-              Ocurrió un error al cargar los expedientes.
+              Ocurrió un error al cargar {terms.losExpedientes}.
             </p>
           ) : isCountError ? (
             <p className="font-bold text-rose-400 text-lg">
-              No se pudo obtener el total de expedientes. Volvé a intentarlo.
+              No se pudo obtener el total de {terms.expedientePlural.toLowerCase()}. Volvé a intentarlo.
             </p>
           ) : searchError ? (
             <p className="font-bold text-amber-400 text-lg">
@@ -345,7 +345,7 @@ export default async function CasesPage({
       {!isCountError && !searchError && totalCount > 0 && (
         <div className="mt-8 flex flex-col items-center justify-between gap-4 border-t border-white/10 pt-6 sm:flex-row">
           <p className="text-sm text-slate-400">
-            Mostrando {start + 1}–{Math.min(end + 1, totalCount)} de {totalCount} expedientes
+            Mostrando {start + 1}–{Math.min(end + 1, totalCount)} de {totalCount} {terms.expedientePlural.toLowerCase()}
           </p>
           <div className="flex items-center gap-2">
             <Link

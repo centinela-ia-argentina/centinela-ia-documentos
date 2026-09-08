@@ -265,9 +265,12 @@ export default async function CaseDetailPage({ params, searchParams }: CaseDetai
         { value: caseRecord.status, label: getCaseStatusLabel(caseRecord.status, industry) },
         ...caseStatuses,
       ];
-  const visibleMetadataFields = caseFields.filter((field) =>
-    getMetadataValue(caseRecord.metadata, field.key)
-  );
+  const visibleMetadataFields = caseFields.filter((field) => {
+    if (industry === 'inmobiliaria' && field.key === 'moneda_operacion') {
+      return true;
+    }
+    return Boolean(getMetadataValue(caseRecord.metadata, field.key));
+  });
 
   const { data: caseChecklist } = await supabase
     .from('checklists')
@@ -1045,6 +1048,7 @@ export default async function CaseDetailPage({ params, searchParams }: CaseDetai
                   caseId={caseRecord.id}
                   titulo={terms.radarTitulo}
                   subtitulo={terms.radarSubtitulo}
+                  industry={industry}
                 />
                 {industry === 'escribania' && (
                   <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-5">
@@ -1262,13 +1266,14 @@ export default async function CaseDetailPage({ params, searchParams }: CaseDetai
                   </div>
                 );
               }
+              const displayValue = field.key === 'moneda_operacion' && !value ? 'Sin definir' : value;
               return (
                 <div key={field.key} className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
                   <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
                     {field.label}
                   </p>
                   <p className="mt-2 font-bold text-white">
-                    {value}
+                    {displayValue}
                   </p>
                 </div>
               );

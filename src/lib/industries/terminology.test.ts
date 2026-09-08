@@ -168,4 +168,22 @@ describe('T-AUD-P2-012 & T-AUD-P2-013: Terminología transversal y etiquetas por
     expect(normInmob).not.toContain('CONTEXTO DEL OPERACIÓN');
     expect(promptInmobiliaria).not.toContain('${terms');
   });
+
+  it('9. Inmobiliaria: sugerencias del agente, copiloto y cronología no contienen palabras judiciales', () => {
+    const terms = getIndustryTerms('inmobiliaria');
+    const combinedTexts = [
+      ...terms.agentePreguntasGlobales,
+      ...terms.agenteSugerenciasLocales,
+      terms.agenteEjemploPlazos,
+      terms.copilotoSubtitulo,
+      terms.cronologiaSubtitulo,
+    ].join(' ').toLowerCase();
+
+    expect(combinedTexts).not.toContain('riesgo procesal');
+    expect(combinedTexts).not.toContain('estudio');
+    expect(combinedTexts).not.toContain('expedientes urgentes');
+    expect(combinedTexts).not.toContain('actuaciones');
+    expect(combinedTexts).not.toContain('judicial');
+    expect(combinedTexts).not.toContain('tribunales');
+  });
 });
