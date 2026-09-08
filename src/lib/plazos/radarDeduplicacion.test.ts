@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { deduplicarPlazosRadar, clasificarPlazoSemantico } from './radarDeduplicacion';
+import { deduplicarPlazosRadar, clasificarPlazoSemantico, esPlazoRadarTexto } from './radarDeduplicacion';
 import type { ItemCronologia } from '@/app/expedientes/[id]/CronologiaExpediente';
 
 describe('Radar Semántico - Deduplicación conservadora (Punto 1)', () => {
@@ -227,5 +227,36 @@ describe('Radar Semántico - Deduplicación conservadora (Punto 1)', () => {
     // La fecha del boleto 2026-06-10 queda excluida
     const fechas = result.map((r) => r.item.fecha);
     expect(fechas).not.toContain('2026-06-10');
+  });
+
+  it('prueba negativa: "Escritura firmada" o "Escritura antecedente" no aparecen como vencimiento por la sola presencia de la palabra escritura', () => {
+    const items: ItemCronologia[] = [
+      {
+        fecha: '2026-09-10',
+        titulo: 'Escritura firmada',
+        detalle: 'Copia simple archivada',
+        origen: 'detectada',
+        etiquetaOrigen: 'IA',
+        esFuturo: true,
+      },
+      {
+        fecha: '2026-09-12',
+        titulo: 'Escritura antecedente',
+        detalle: 'Antecedente dominial 2015',
+        origen: 'detectada',
+        etiquetaOrigen: 'IA',
+        esFuturo: true,
+      },
+    ];
+
+    const result = deduplicarPlazosRadar(items, mockCalcDias);
+    expect(result).toHaveLength(0);
+
+    // Verificación individual directa de la función predictora
+    expect(esPlazoRadarTexto('Escritura firmada')).toBe(false);
+    expect(esPlazoRadarTexto('Escritura antecedente')).toBe(false);
+    expect(esPlazoRadarTexto('Fecha tentativa de escritura')).toBe(true);
+    expect(esPlazoRadarTexto('Plazo para escritura')).toBe(true);
+    expect(esPlazoRadarTexto('Vencimiento de escrituración')).toBe(true);
   });
 });

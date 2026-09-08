@@ -360,7 +360,12 @@ test.describe.serial('Centinela IA - Inmobiliaria E2E', () => {
     const { context, page } = await loginAs(browser, 'admin.inm@test.com');
     try {
       await page.goto('/modelos');
-      await expect(page.locator('text=Biblioteca de modelos')).toBeVisible();
+      await expect(
+        page.getByRole('heading', {
+          name: 'Modelos inmobiliarios',
+          exact: true,
+        })
+      ).toBeVisible();
 
       // Debe estar presente el modelo de locación
       await expect(page.locator('text=Contrato de locación (vivienda)')).toBeVisible();
