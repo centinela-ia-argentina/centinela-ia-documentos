@@ -182,4 +182,50 @@ describe('Radar Semántico - Deduplicación conservadora (Punto 1)', () => {
     expect(clasificarPlazoSemantico('Vigencia de la oferta').categoria).toBe('oferta_reserva');
     expect(clasificarPlazoSemantico('Visita al inmueble').categoria).toBe('visita');
   });
+
+  it('conserva Fecha límite contractual y Fecha tentativa de escritura como 2 tarjetas distintas y descarta fecha de boleto', () => {
+    const items: ItemCronologia[] = [
+      {
+        fecha: '2026-06-10',
+        titulo: 'Fecha de emisión del Boleto de Compraventa',
+        detalle: '10 de junio de 2026',
+        origen: 'detectada',
+        etiquetaOrigen: 'IA',
+        esFuturo: true,
+      },
+      {
+        fecha: '2026-09-08',
+        titulo: 'Fecha límite contractual',
+        detalle: 'Plazo contractual de escrituración',
+        origen: 'actuacion',
+        etiquetaOrigen: 'Boleto',
+        esFuturo: true,
+      },
+      {
+        fecha: '2026-09-10',
+        titulo: 'Fecha tentativa de escritura',
+        detalle: '10 de septiembre de 2026',
+        origen: 'detectada',
+        etiquetaOrigen: 'IA',
+        esFuturo: true,
+      },
+    ];
+
+    const result = deduplicarPlazosRadar(items, mockCalcDias);
+    expect(result).toHaveLength(2);
+
+    const titulos = result.map((r) => r.item.titulo);
+    expect(titulos).toContain('Fecha límite contractual');
+    expect(titulos).toContain('Fecha tentativa de escritura');
+
+    const itemLimite = result.find((r) => r.item.titulo === 'Fecha límite contractual');
+    const itemTentativa = result.find((r) => r.item.titulo === 'Fecha tentativa de escritura');
+
+    expect(itemLimite?.item.fecha).toBe('2026-09-08');
+    expect(itemTentativa?.item.fecha).toBe('2026-09-10');
+
+    // La fecha del boleto 2026-06-10 queda excluida
+    const fechas = result.map((r) => r.item.fecha);
+    expect(fechas).not.toContain('2026-06-10');
+  });
 });

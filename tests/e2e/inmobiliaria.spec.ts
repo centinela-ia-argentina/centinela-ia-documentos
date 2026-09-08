@@ -317,7 +317,9 @@ test.describe.serial('Centinela IA - Inmobiliaria E2E', () => {
     const { context, page } = await loginAs(browser, 'admin.inm@test.com');
     try {
       await page.goto('/alquileres');
-      await expect(page.locator('text=Contratos de alquiler')).toBeVisible();
+      await expect(
+        page.getByRole('heading', { name: 'Radar de alquileres', exact: true })
+      ).toBeVisible();
     } finally {
       await page.close();
       await context.close();

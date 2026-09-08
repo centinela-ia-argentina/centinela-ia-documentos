@@ -64,6 +64,8 @@ export function esPlazoRadarTexto(texto: string): boolean {
     t.includes('relevante') ||
     t.includes('límite') ||
     t.includes('limite') ||
+    t.includes('tentativa') ||
+    t.includes('escritura') ||
     t.includes('escrituración') ||
     t.includes('escrituracion')
   );
