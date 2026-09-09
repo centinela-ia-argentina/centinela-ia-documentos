@@ -481,7 +481,7 @@ test.describe.serial('Centinela IA - Inmobiliaria E2E', () => {
           file_name: `doc-checklist-e2e-${uniqueSuffix}.pdf`,
           file_path: `${ORG_INM_ID}/${fixtCaseId}/doc-checklist-e2e-${uniqueSuffix}.pdf`,
           file_size: 1024,
-          mime_type: 'application/pdf',
+          file_mime_type: 'application/pdf',
           document_type: 'Otro',
           sensitivity_level: 'low',
           uploaded_by: adminId,
