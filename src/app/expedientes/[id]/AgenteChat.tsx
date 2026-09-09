@@ -110,7 +110,7 @@ type Props = {
 
 export function AgenteChat({ caseId, caseTitle, industry, puedeUsarIA, historialInicial, modeloUrl }: Props) {
   const terms = getIndustryTerms(industry as IndustryType);
-  const titulo = `Agente IA del ${terms.expedienteSingular.toLowerCase()}`;
+  const titulo = `Agente IA ${terms.delExpediente}`;
   const [mensajes, setMensajes] = useState<MensajeUI[]>(historialInicial ?? []);
   const [input, setInput] = useState('');
   const [cargando, setCargando] = useState(false);

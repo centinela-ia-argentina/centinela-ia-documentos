@@ -26,6 +26,7 @@ import {
   getCaseStatusLabel,
   isRentalCompatibleCaseType,
   isDerivacionEscribaniaCompatible,
+  getCaseBasePath,
 } from '@/lib/industries/caseConfig';
 import { getCaseTemplate } from '@/lib/industries/caseTemplates';
 import { normalizeIndustryType, type IndustryType } from '@/lib/industries/documentTypes';
@@ -267,6 +268,7 @@ export async function createCase(formData: FormData) {
 
   revalidatePath('/dashboard');
   revalidatePath('/expedientes');
+  revalidatePath('/operaciones');
   redirect(`/expedientes/${data.id}`);
 }
 
@@ -507,12 +509,31 @@ export async function linkChecklistItemDocument(formData: FormData) {
     });
   }
 
+  // Obtener industria de la organización para determinar la ruta base canónica
+  let orgIndustry: IndustryType = 'general';
+  try {
+    const orgQuery = supabase.from?.('organizations');
+    if (orgQuery && typeof orgQuery.select === 'function') {
+      const { data: orgData } = await orgQuery
+        .select('industry_type')
+        .eq('id', profile.organization_id)
+        .maybeSingle();
+      orgIndustry = normalizeIndustryType(orgData?.industry_type);
+    }
+  } catch {
+    orgIndustry = 'general';
+  }
+  const basePath = getCaseBasePath(orgIndustry);
+
   revalidatePath(`/expedientes/${caseId}`);
+  revalidatePath(`/operaciones/${caseId}`);
+  revalidatePath('/expedientes');
+  revalidatePath('/operaciones');
 
   if (linkedDocumentId) {
-    redirect(`/expedientes/${caseId}?tab=checklist&checklist_document=linked`);
+    redirect(`${basePath}/${caseId}?tab=checklist&checklist_document=linked`);
   } else {
-    redirect(`/expedientes/${caseId}?tab=checklist&checklist_document=unlinked`);
+    redirect(`${basePath}/${caseId}?tab=checklist&checklist_document=unlinked`);
   }
 }
 

@@ -12,6 +12,8 @@ import { parseAndAlignRagResponse } from '@/lib/ai/ragAlignment';
 export type FuenteBusqueda = {
   documentId: string;
   fileName: string;
+  caseId?: string;
+  caseTitle?: string;
   fragmento: string;
   similitud: number;
 };
@@ -126,21 +128,40 @@ export async function preguntarADocumentos(pregunta: string): Promise<RespuestaB
     };
   }
 
-  // 3) Nombres de archivo para citar
+  // 3) Nombres de archivo y datos de la operación/expediente para citar
   const docIds = [...new Set(filteredMatches.map((m) => m.document_id))];
   const { data: docs } = await supabase
     .from('documents')
-    .select('id, file_name')
+    .select('id, file_name, case_id')
     .in('id', docIds)
     .eq('organization_id', profile.organization_id);
-  const nombrePorId = new Map((docs ?? []).map((d: any) => [d.id, d.file_name]));
 
-  const fuentes: FuenteBusqueda[] = filteredMatches.map((m) => ({
-    documentId: m.document_id,
-    fileName: nombrePorId.get(m.document_id) ?? 'Documento',
-    fragmento: m.content,
-    similitud: m.similarity,
-  }));
+  const nombrePorId = new Map((docs ?? []).map((d: any) => [d.id, d.file_name]));
+  const caseIdPorDoc = new Map((docs ?? []).map((d: any) => [d.id, d.case_id]));
+
+  const caseIds = [...new Set((docs ?? []).map((d: any) => d.case_id).filter(Boolean))];
+  let caseTitlePorId = new Map<string, string>();
+  if (caseIds.length > 0) {
+    const { data: foundCases } = await supabase
+      .from('cases')
+      .select('id, title')
+      .in('id', caseIds)
+      .eq('organization_id', profile.organization_id);
+    caseTitlePorId = new Map((foundCases ?? []).map((c: any) => [c.id, c.title]));
+  }
+
+  const fuentes: FuenteBusqueda[] = filteredMatches.map((m) => {
+    const cId = caseIdPorDoc.get(m.document_id) ?? undefined;
+    const cTitle = cId ? caseTitlePorId.get(cId) ?? undefined : undefined;
+    return {
+      documentId: m.document_id,
+      fileName: nombrePorId.get(m.document_id) ?? 'Documento',
+      caseId: cId,
+      caseTitle: cTitle,
+      fragmento: m.content,
+      similitud: m.similarity,
+    };
+  });
 
   // 4) Prompt RAG
   const contexto = fuentes

@@ -234,6 +234,7 @@ export default async function DashboardPage() {
           hasTeam={hasTeam}
           isAdmin={isAdmin}
           userName={profile.full_name}
+          industry={industry}
         />
       )}
 

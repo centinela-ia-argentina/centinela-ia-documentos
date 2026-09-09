@@ -5,16 +5,22 @@ import { useRouter } from 'next/navigation';
 import { uploadSingleDocumentAsync } from '../actions';
 import { UploadCloud, X, Loader2, FileIcon, CheckCircle2, AlertCircle } from 'lucide-react';
 
+import { IndustryType } from '@/lib/industries/documentTypes';
+import { getIndustryTerms } from '@/lib/industries/uiLabels';
+
 export function UploadClient({
   cases,
   documentTypes,
   initialCaseId,
+  industry = 'general',
 }: {
   cases: { id: string; title: string }[];
   documentTypes: string[];
   initialCaseId: string;
+  industry?: IndustryType;
 }) {
   const router = useRouter();
+  const terms = getIndustryTerms(industry);
   const MAX_FILE_SIZE_MB = 50;
   const [files, setFiles] = useState<{ id: string; file: File }[]>([]);
   const [caseId, setCaseId] = useState(initialCaseId);
@@ -183,14 +189,15 @@ export function UploadClient({
                   e.preventDefault();
                   router.refresh();
                   if (caseId) {
-                    router.push(`/expedientes/${caseId}?tab=documentos`);
+                    const basePath = industry === 'inmobiliaria' ? '/operaciones' : '/expedientes';
+                    router.push(`${basePath}/${caseId}?tab=documentos`);
                   } else {
                     router.push('/documentos');
                   }
                 }}
                 className="w-full sm:w-auto px-4 py-2 bg-slate-900 text-white rounded-lg text-sm font-medium hover:bg-slate-800 transition-colors"
               >
-                {caseId ? 'Ver en el legajo' : 'Ver documentos'}
+                {caseId ? `Ver en ${terms.elExpediente}` : 'Ver documentos'}
               </button>
             </div>
           )}
@@ -200,7 +207,7 @@ export function UploadClient({
     <form onSubmit={handleSubmit} className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
       <div className="grid gap-5">
         <div>
-          <label className="text-sm font-semibold text-slate-700">Expediente</label>
+          <label className="text-sm font-semibold text-slate-700">{terms.expedienteSingular}</label>
           <select
             value={caseId}
             data-testid="upload-case"
@@ -208,7 +215,7 @@ export function UploadClient({
             className="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none focus:ring-2 focus:ring-sky-400"
             disabled={isUploading}
           >
-            <option value="">Sin expediente / general</option>
+            <option value="">Sin {terms.expedienteSingular.toLowerCase()} / general</option>
             {cases.map((item) => (
               <option key={item.id} value={item.id}>{item.title}</option>
             ))}

@@ -427,3 +427,8 @@ export function isCaseActive(status?: string | null): boolean {
   if (!status) return false;
   return OPEN_CASE_STATUSES.includes(status);
 }
+
+export function getCaseBasePath(industry?: IndustryType | null): string {
+  if (industry === 'inmobiliaria') return '/operaciones';
+  return '/expedientes';
+}

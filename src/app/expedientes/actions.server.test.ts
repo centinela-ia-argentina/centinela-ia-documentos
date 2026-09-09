@@ -249,6 +249,32 @@ describe('Checklist mutations (T-AUD-P1-006)', () => {
     });
   });
 
+  it('E2. Desvinculacion positiva fuerte (linkChecklistItemDocument con document_id vacio)', async () => {
+    const { redirect } = await import('next/navigation');
+    setupMockQuery([
+      { data: { id: 'item-A', checklist_id: 'check-A', status: 'received' } },
+      { data: { id: 'check-A', case_id: 'case-A' } },
+      { data: { industry_type: 'inmobiliaria' } },
+    ]);
+
+    const formData = new FormData();
+    formData.append('case_id', 'case-A');
+    formData.append('item_id', 'item-A');
+    formData.append('document_id', '');
+
+    await expect(linkChecklistItemDocument(formData)).rejects.toThrow('NEXT_REDIRECT');
+
+    expect(mockUpdate).toHaveBeenCalledTimes(1);
+    expect(mockUpdate).toHaveBeenCalledWith({
+      document_id: null,
+      match_source: null,
+      status: 'pending',
+    });
+    expect(createAuditLog).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(createAuditLog).mock.calls[0][0].action).toBe('checklist_item_unlinked');
+    expect(redirect).toHaveBeenCalledWith('/operaciones/case-A?tab=checklist&checklist_document=unlinked');
+  });
+
   it('F. Operacion positiva de eliminacion (removeChecklistItem)', async () => {
     setupMockQuery([
       { data: { id: 'item-A', checklist_id: 'check-A', status: 'pending' } },

@@ -158,18 +158,38 @@ export function BuscarClient({ industry = null }: { industry?: IndustryType | nu
               <ol className="space-y-2">
                 {fuentes.map((f, i) => (
                   <li key={i} className="rounded-xl border border-white/10 bg-white/[0.02] p-3 text-sm transition hover:bg-white/[0.04]">
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="font-medium text-slate-300">
-                        [{i + 1}] {f.fileName}
-                      </span>
-                      <Link
-                        href={`/documentos/${f.documentId}`}
-                        className="shrink-0 text-xs font-semibold text-cyan-400 hover:underline"
-                      >
-                        Ver documento →
-                      </Link>
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="font-semibold text-cyan-300">
+                          [{i + 1}]
+                        </span>
+                        {f.caseTitle && (
+                          <span className="rounded-md bg-white/5 px-2 py-0.5 text-xs font-medium text-slate-300">
+                            {terms?.expedienteSingular ?? 'Operación'}: {f.caseTitle}
+                          </span>
+                        )}
+                        <span className="font-medium text-slate-200">
+                          Documento: {f.fileName}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-3 mt-1 sm:mt-0">
+                        {f.caseId && (
+                          <Link
+                            href={industry === 'inmobiliaria' ? `/operaciones/${f.caseId}` : `/expedientes/${f.caseId}`}
+                            className="shrink-0 text-xs font-semibold text-slate-400 hover:text-white hover:underline"
+                          >
+                            Ver {terms?.expedienteSingular?.toLowerCase() ?? 'operación'} →
+                          </Link>
+                        )}
+                        <Link
+                          href={`/documentos/${f.documentId}`}
+                          className="shrink-0 text-xs font-semibold text-cyan-400 hover:underline"
+                        >
+                          Ver documento →
+                        </Link>
+                      </div>
                     </div>
-                    <p className="mt-1 line-clamp-3 text-xs text-slate-400">{f.fragmento}</p>
+                    <p className="mt-2 line-clamp-3 text-xs text-slate-400">{f.fragmento}</p>
                   </li>
                 ))}
               </ol>

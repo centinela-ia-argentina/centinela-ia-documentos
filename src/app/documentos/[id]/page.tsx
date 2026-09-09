@@ -6,6 +6,7 @@ import { getUserProfile } from '@/lib/auth/getUserProfile';
 import { canUseAi } from '@/lib/permissions/roles';
 import { createAuditLog } from '@/lib/audit/createAuditLog';
 import { getDocumentTypeLabel, normalizeIndustryType } from '@/lib/industries/documentTypes';
+import { getIndustryTerms } from '@/lib/industries/uiLabels';
 import { formatFileSize } from '@/lib/format/fileSize';
 import { getDocumentExpiryStatus, expiryStatusLabel, getExpiryBadgeStyles } from '@/lib/documents/expiry';
 import { esPlazoAccionable } from '@/lib/plazos/plazos';
@@ -117,8 +118,10 @@ function normalizeText(value?: string | null) {
 
 function getRiskAssessment(
   document: DocumentRecord,
-  aiResult?: AiAnalysisResult | null
+  aiResult?: AiAnalysisResult | null,
+  industry?: any
 ) {
+  const terms = getIndustryTerms(industry ?? 'general');
   const manualSensitivity = normalizeText(document.sensitivity_level);
   const detectedSensitivity = normalizeText(aiResult?.sensibilidad_detectada);
   const alertsCount = aiResult?.alertas?.length ?? 0;
@@ -147,7 +150,7 @@ function getRiskAssessment(
       className: 'bg-rose-50 text-rose-700 border-rose-200',
       barClassName: 'bg-rose-500',
       description:
-        `Documento de alta sensibilidad. Conviene mantener acceso restringido, revisar permisos y asociarlo correctamente al expediente/legajo/operación.`,
+        `Documento de alta sensibilidad. Conviene mantener acceso restringido, revisar permisos y asociarlo correctamente ${terms.delExpediente}.`,
     };
   }
 
@@ -206,8 +209,10 @@ function toText(x: unknown): string {
 
 function buildSuggestedChecklist(
   document: DocumentRecord,
-  aiResult?: AiAnalysisResult | null
+  aiResult?: AiAnalysisResult | null,
+  industry?: any
 ) {
+  const terms = getIndustryTerms(industry ?? 'general');
   const detectedType = normalizeText(aiResult?.tipo_documental_detectado);
   const manualType = normalizeText(document.document_type);
   const fileName = normalizeText(document.file_name);
@@ -224,7 +229,7 @@ function buildSuggestedChecklist(
       'Verificar identificación de las partes intervinientes.',
       'Controlar fechas, firmas y vigencia del documento.',
       'Revisar montos, condiciones, cláusulas y anexos asociados.',
-      `Confirmar que el documento esté vinculado al expediente/legajo/operación correcto.`,
+      `Confirmar que el documento esté vinculado ${terms.delExpediente} correspondiente.`,
       'Validar si corresponde marcarlo como documento sensible.',
     ];
   }
@@ -240,14 +245,14 @@ function buildSuggestedChecklist(
       'Revisar materias, carga horaria, correlatividades y fechas.',
       'Confirmar si el documento requiere certificación o firma institucional.',
       'Clasificar el archivo como académico o curricular.',
-      `Asociar el documento al expediente/legajo/operación correspondiente si aplica.`,
+      `Asociar el documento ${terms.delExpediente} correspondiente si aplica.`,
     ];
   }
 
   return [
     'Verificar nombre del archivo y tipo documental.',
     'Revisar si contiene datos personales, financieros o institucionales.',
-    `Confirmar que esté asociado al expediente/legajo/operación correcto.`,
+    `Confirmar que esté asociado ${terms.delExpediente} correspondiente.`,
     'Validar nivel de sensibilidad asignado.',
     'Registrar observaciones si requiere revisión manual.',
   ];
@@ -299,9 +304,11 @@ function buildMissingDocuments(
 
 function buildSecurityRecommendations(
   document: DocumentRecord,
-  aiResult?: AiAnalysisResult | null
+  aiResult?: AiAnalysisResult | null,
+  industry?: any
 ) {
-  const risk = getRiskAssessment(document, aiResult);
+  const terms = getIndustryTerms(industry ?? 'general');
+  const risk = getRiskAssessment(document, aiResult, industry);
 
   if (risk.score >= 60) {
     return [
@@ -314,27 +321,29 @@ function buildSecurityRecommendations(
 
   return [
     'Mantener clasificación documental actualizada.',
-    `Revisar permisos si el documento se asocia a un expediente/legajo/operación sensible.`,
+    `Revisar permisos si el documento se asocia a ${terms.unExpediente} sensible.`,
     'Usar enlaces temporales únicamente cuando sea necesario.',
   ];
 }
 
 function buildOperationalOpinion(
   document: DocumentRecord,
-  aiResult?: AiAnalysisResult | null
+  aiResult?: AiAnalysisResult | null,
+  industry?: any
 ) {
   if (!aiResult) {
     return 'El documento todavía no cuenta con análisis IA. Se recomienda ejecutar el análisis para generar una lectura operativa inicial.';
   }
 
-  const risk = getRiskAssessment(document, aiResult);
+  const terms = getIndustryTerms(industry ?? 'general');
+  const risk = getRiskAssessment(document, aiResult, industry);
 
   if (risk.score >= 80) {
-    return `Dictamen IA: documento crítico. Requiere revisión prioritaria, control de acceso estricto y validación manual antes de compartir o cerrar el expediente/legajo/operación.`;
+    return `Dictamen IA: documento crítico. Requiere revisión prioritaria, control de acceso estricto y validación manual antes de compartir o cerrar ${terms.elExpediente}.`;
   }
 
   if (risk.score >= 60) {
-    return `Dictamen IA: documento sensible. Conviene revisar contenido, faltantes y permisos antes de considerarlo completo dentro del expediente/legajo/operación.`;
+    return `Dictamen IA: documento sensible. Conviene revisar contenido, faltantes y permisos antes de considerarlo completo dentro de ${terms.elExpediente}.`;
   }
 
   if (risk.score >= 35) {
@@ -424,11 +433,11 @@ export default async function DocumentDetailPage({
     .limit(1)
     .maybeSingle();
 
-  const risk = getRiskAssessment(document, aiResult);
-  const checklist = buildSuggestedChecklist(document, aiResult);
+  const risk = getRiskAssessment(document, aiResult, industria);
+  const checklist = buildSuggestedChecklist(document, aiResult, industria);
   const missingDocuments = buildMissingDocuments(document, aiResult);
-  const securityRecommendations = buildSecurityRecommendations(document, aiResult);
-  const operationalOpinion = buildOperationalOpinion(document, aiResult);
+  const securityRecommendations = buildSecurityRecommendations(document, aiResult, industria);
+  const operationalOpinion = buildOperationalOpinion(document, aiResult, industria);
 
   const errorMessage = getErrorMessage(query.error);
   const analyzeButtonLabel = aiResult

@@ -1071,6 +1071,27 @@ export default async function CaseDetailPage({ params, searchParams }: CaseDetai
                   </div>
                 )}
 
+                {industry === 'inmobiliaria' && isRentalCompatibleCaseType(caseRecord.case_type) && (
+                  <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-5">
+                    <div className="flex flex-wrap items-center justify-between gap-4">
+                      <div>
+                        <h3 className="flex items-center gap-2 text-sm font-semibold text-white">
+                          📄 Contrato de locación
+                        </h3>
+                        <p className="mt-1 text-sm text-slate-400">
+                          Prepará el contrato de locación prellenando las partes, el inmueble y las condiciones de la operación.
+                        </p>
+                      </div>
+                      <Link
+                        href={`/modelos?modelo=contrato-locacion&operacion=${caseRecord.id}&expediente=${caseRecord.id}`}
+                        className="shrink-0 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-500 px-4 py-2 text-sm font-semibold text-white transition hover:opacity-90"
+                      >
+                        Preparar contrato de locación
+                      </Link>
+                    </div>
+                  </div>
+                )}
+
                 {industry === 'inmobiliaria' && (
                   <MotionCard index={0} className="mb-6">
                     <h3 className="font-display text-lg font-semibold text-white flex items-center gap-2">
