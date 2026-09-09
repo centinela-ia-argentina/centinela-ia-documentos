@@ -31,7 +31,8 @@ describe('sanitizerInmobiliaria', () => {
     expect(sanitizeTextoInmobiliario('El expediente contiene documentos')).toBe('La operación contiene documentos');
     expect(sanitizeTextoInmobiliario('Del expediente surge la información')).toBe('De la operación surge la información');
     expect(sanitizeTextoInmobiliario('Documentos del legajo disponibles')).toBe('Documentos de la operación disponibles');
-    expect(sanitizeTextoInmobiliario('El legajo fue archivado')).toBe('La operación fue archivado');
+    expect(sanitizeTextoInmobiliario('El legajo fue archivado')).toBe('La operación fue archivada');
+    expect(sanitizeTextoInmobiliario('El expediente fue archivado')).toBe('La operación fue archivada');
   });
 
   it('detecta correctamente términos judiciales inapropiados', () => {

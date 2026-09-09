@@ -28,7 +28,8 @@ export function sanitizeTextoInmobiliario(texto: string): string {
     .replace(/\bexpedientes\b/gi, (m) => m[0] === 'E' ? 'Operaciones' : 'operaciones')
     .replace(/\bexpediente\b/gi, (m) => m[0] === 'E' ? 'Operación' : 'operación')
     .replace(/\blegajos\b/gi, (m) => m[0] === 'L' ? 'Operaciones' : 'operaciones')
-    .replace(/\blegajo\b/gi, (m) => m[0] === 'L' ? 'Operación' : 'operación');
+    .replace(/\blegajo\b/gi, (m) => m[0] === 'L' ? 'Operación' : 'operación')
+    .replace(/\b(la operación(?: [^.]+?)?) fue archivado\b/gi, '$1 fue archivada');
 }
 
 export function contieneTerminosJudicialesInapropiados(texto: string): boolean {

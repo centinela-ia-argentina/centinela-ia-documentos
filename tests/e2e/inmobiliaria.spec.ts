@@ -403,59 +403,179 @@ test.describe.serial('Centinela IA - Inmobiliaria E2E', () => {
     }
   });
 
-  test('N. Checklist documental: vinculación manual, persistencia y desvinculación', async ({ browser }) => {
+  test('N. Checklist documental: vinculación manual, persistencia y desvinculación (fixture aislado)', async ({ browser }, testInfo) => {
+    // Fixture completamente independiente por browser para evitar colisiones entre Chromium/Firefox/WebKit
+    const browserLabel = testInfo.project.name || testInfo.title;
+    const uniqueSuffix = `${Date.now()}-${browserLabel.replace(/\s+/g, '_')}`;
+    let fixtCaseId = '';
+    let fixtChecklistId = '';
+    let fixtItemId = '';
+    let fixtDocId = '';
+
+    // 1. Obtener el id del usuario admin de la org inmobiliaria
+    const { data: adminProfile } = await serviceClient
+      .from('profiles')
+      .select('id')
+      .eq('organization_id', ORG_INM_ID)
+      .eq('role', 'admin')
+      .limit(1)
+      .single();
+    const adminId = adminProfile?.id ?? null;
+
+    // 2. Crear operación propia vía service role
+    const { data: newCase, error: caseErr } = await serviceClient
+      .from('cases')
+      .insert({
+        organization_id: ORG_INM_ID,
+        title: `Operacion Checklist E2E ${uniqueSuffix}`,
+        client_name: 'Cliente Checklist E2E',
+        case_type: 'Compraventa de inmueble',
+        status: 'active',
+        created_by: adminId,
+      })
+      .select('id')
+      .single();
+
+    expect(caseErr).toBeNull();
+    expect(newCase?.id).toBeTruthy();
+    fixtCaseId = newCase!.id;
+
+    // 3. Crear checklist y un ítem propios
+    const { data: newChecklist, error: chkErr } = await serviceClient
+      .from('checklists')
+      .insert({
+        organization_id: ORG_INM_ID,
+        case_id: fixtCaseId,
+        template_type: 'Compraventa de inmueble',
+      })
+      .select('id')
+      .single();
+
+    expect(chkErr).toBeNull();
+    fixtChecklistId = newChecklist!.id;
+
+    const { data: newItem, error: itemErr } = await serviceClient
+      .from('checklist_items')
+      .insert({
+        organization_id: ORG_INM_ID,
+        checklist_id: fixtChecklistId,
+        title: `Documento prueba ${uniqueSuffix}`,
+        status: 'pending',
+      })
+      .select('id')
+      .single();
+
+    expect(itemErr).toBeNull();
+    fixtItemId = newItem!.id;
+
+    // 4. Crear documento propio (fila en documents, sin storage real)
+    const { data: newDoc, error: docErr } = await serviceClient
+      .from('documents')
+      .insert({
+        organization_id: ORG_INM_ID,
+        case_id: fixtCaseId,
+        file_name: `doc-checklist-e2e-${uniqueSuffix}.pdf`,
+        file_path: `${ORG_INM_ID}/${fixtCaseId}/doc-checklist-e2e-${uniqueSuffix}.pdf`,
+        file_size: 1024,
+        mime_type: 'application/pdf',
+        document_type: 'Otro',
+        sensitivity_level: 'low',
+        uploaded_by: adminId,
+      })
+      .select('id')
+      .single();
+
+    expect(docErr).toBeNull();
+    fixtDocId = newDoc!.id;
+
     const { context, page } = await loginAs(browser, 'admin.inm@test.com');
     try {
-      await page.goto(`/operaciones/${CASE_INM_ID}?tab=checklist`);
+      // 5. Navegar al checklist de la operación creada
+      await page.goto(`/operaciones/${fixtCaseId}?tab=checklist`);
       const linkToggle = page.locator('[data-testid="checklist-link-toggle-0"]').first();
-      await expect(linkToggle).toBeVisible();
+      await expect(linkToggle).toBeVisible({ timeout: 15000 });
 
-      // Abrir acordeón si no está abierto
       await linkToggle.click();
 
       const form = linkToggle.locator('..');
-      const select = form.locator('select[name="document_id"]').first();
-      const options = select.locator('option');
-      const count = await options.count();
+      const docSelect = form.locator('select[name="document_id"]').first();
+      await expect.poll(async () => docSelect.locator('option').count(), { timeout: 10000 }).toBeGreaterThan(1);
 
-      if (count > 1) {
-        const firstDocOption = select.locator('option:not([value=""])').first();
-        const docVal = await firstDocOption.getAttribute('value');
-        expect(docVal).toBeTruthy();
+      // 6. Vincular manualmente al documento propio
+      await docSelect.selectOption(fixtDocId);
+      const saveBtn = form.locator('button', { hasText: 'Guardar' }).first();
+      await saveBtn.click();
 
-        // Vincular manualmente
-        await select.selectOption(docVal!);
-        const saveBtn = form.locator('button', { hasText: 'Guardar' }).first();
-        await saveBtn.click();
+      await expect(page).toHaveURL(/checklist_document=linked/);
+      await expect(page.locator('[data-testid="checklist-document-feedback"]')).toContainText('Documento vinculado correctamente');
+      await expect(page.locator('[data-testid="checklist-badge-manual-0"]')).toBeVisible();
 
-        await expect(page).toHaveURL(/checklist_document=linked/);
-        await expect(page.locator('[data-testid="checklist-document-feedback"]')).toContainText('Documento vinculado correctamente');
-        await expect(page.locator('[data-testid="checklist-badge-manual-0"]')).toBeVisible();
+      // 7. Verificar persistencia en DB: document_id, match_source=manual, status=received
+      const { data: itemAfterLink } = await serviceClient
+        .from('checklist_items')
+        .select('document_id, match_source, status')
+        .eq('id', fixtItemId)
+        .single();
+      expect(itemAfterLink?.document_id).toBe(fixtDocId);
+      expect(itemAfterLink?.match_source).toBe('manual');
+      expect(itemAfterLink?.status).toBe('received');
 
-        // Persistencia tras recargar página
-        await page.reload();
-        await expect(page.locator('[data-testid="checklist-badge-manual-0"]')).toBeVisible();
+      // 8. Persistencia en UI tras recarga
+      await page.reload();
+      await expect(page.locator('[data-testid="checklist-badge-manual-0"]')).toBeVisible();
 
-        // Desvincular documento
-        const reloadLinkToggle = page.locator('[data-testid="checklist-link-toggle-0"]').first();
-        await reloadLinkToggle.click();
-        const reloadForm = reloadLinkToggle.locator('..');
-        const reloadSelect = reloadForm.locator('select[name="document_id"]').first();
-        await reloadSelect.selectOption('');
-        const reloadSaveBtn = reloadForm.locator('button', { hasText: 'Guardar' }).first();
-        await reloadSaveBtn.click();
+      // 9. Desvincular
+      const toggleAfterReload = page.locator('[data-testid="checklist-link-toggle-0"]').first();
+      await toggleAfterReload.click();
+      const formAfterReload = toggleAfterReload.locator('..');
+      const selectAfterReload = formAfterReload.locator('select[name="document_id"]').first();
+      await selectAfterReload.selectOption('');
+      const saveBtnUnlink = formAfterReload.locator('button', { hasText: 'Guardar' }).first();
+      await saveBtnUnlink.click();
 
-        await expect(page).toHaveURL(/checklist_document=unlinked/);
-        await expect(page.locator('[data-testid="checklist-document-feedback"]')).toContainText('Documento desvinculado correctamente');
-        await expect(page.locator('[data-testid="checklist-badge-manual-0"]')).toBeHidden();
+      await expect(page).toHaveURL(/checklist_document=unlinked/);
+      await expect(page.locator('[data-testid="checklist-document-feedback"]')).toContainText('Documento desvinculado correctamente');
+      await expect(page.locator('[data-testid="checklist-badge-manual-0"]')).toBeHidden();
 
-        // Persistencia de desvinculación
-        await page.reload();
-        await expect(page.locator('[data-testid="checklist-badge-manual-0"]')).toBeHidden();
-      }
+      // 10. Verificar persistencia de desvinculación en DB: document_id=null, match_source=null, status=pending
+      const { data: itemAfterUnlink } = await serviceClient
+        .from('checklist_items')
+        .select('document_id, match_source, status')
+        .eq('id', fixtItemId)
+        .single();
+      expect(itemAfterUnlink?.document_id).toBeNull();
+      expect(itemAfterUnlink?.match_source).toBeNull();
+      expect(itemAfterUnlink?.status).toBe('pending');
+
+      // 11. Persistencia de desvinculación en UI tras recarga
+      await page.reload();
+      await expect(page.locator('[data-testid="checklist-badge-manual-0"]')).toBeHidden();
+
+      // 12. Verificar que checklist e ítem siguen existiendo (no se eliminaron)
+      const { data: stillItem } = await serviceClient.from('checklist_items').select('id').eq('id', fixtItemId).single();
+      expect(stillItem?.id).toBe(fixtItemId);
+
+      // 13. Reversibilidad: volver a vincular
+      const toggleFinal = page.locator('[data-testid="checklist-link-toggle-0"]').first();
+      await toggleFinal.click();
+      const formFinal = toggleFinal.locator('..');
+      const selectFinal = formFinal.locator('select[name="document_id"]').first();
+      await selectFinal.selectOption(fixtDocId);
+      await formFinal.locator('button', { hasText: 'Guardar' }).first().click();
+      await expect(page).toHaveURL(/checklist_document=linked/);
+      await expect(page.locator('[data-testid="checklist-badge-manual-0"]')).toBeVisible();
     } finally {
       await page.close();
       await context.close();
+
+      // Limpiar todos los fixtures en orden correcto
+      if (fixtDocId) {
+        await serviceClient.from('checklist_items').update({ document_id: null, match_source: null }).eq('document_id', fixtDocId);
+        await serviceClient.from('documents').delete().eq('id', fixtDocId);
+      }
+      if (fixtItemId) await serviceClient.from('checklist_items').delete().eq('id', fixtItemId);
+      if (fixtChecklistId) await serviceClient.from('checklists').delete().eq('id', fixtChecklistId);
+      if (fixtCaseId) await serviceClient.from('cases').delete().eq('id', fixtCaseId);
     }
   });
 

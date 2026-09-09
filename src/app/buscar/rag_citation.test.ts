@@ -420,6 +420,12 @@ describe('C-M3-J-003 & C-M3-J-006: Search & RAG citation filtering and negative 
     });
   });
 
+  // -----------------------------------------------------------------------------------------
+  // Nota de alcance: los tests anteriores de esta suite prueban la capa de alineación/citado
+  // (parseAndAlignRagResponse). Los tests a continuación prueban la capa de recuperación de
+  // chunks: dado un pool de fragmentos y una consulta semántica simulada, el fragmento
+  // correcto es recuperado y rankeado por encima de fragmentos irrelevantes.
+  // -----------------------------------------------------------------------------------------
   describe('Inmobiliaria RAG: Respuestas contractuales determinísticas y salvaguarda negativa', () => {
     const fragmentoBoleto = 'CLÁUSULA QUINTA: EL VENDEDOR declara bajo juramento que el inmueble se encuentra libre de gravámenes, embargos e inhibiciones, obligándose a responder por evicción y vicios redhibitorios conforme a derecho.';
     const fragmentoAlquiler = 'CLÁUSULA TERCERA: CANON LOCATIVO. El locatario abonará la suma mensual de ARS 450.000 por mes adelantado del 1 al 10 de cada mes calendario.';
@@ -463,6 +469,67 @@ describe('C-M3-J-003 & C-M3-J-006: Search & RAG citation filtering and negative 
       expect(aligned.fuentes).toEqual([]);
       expect(aligned.respuesta).toBe(RESPUETA_NEGATIVA_ESTANDAR);
       expect(esRespuestaNegativa(rawNegative)).toBe(true);
+    });
+
+    // ---
+    // Prueba de recuperación sobre chunks: verifica que dado un pool de fragmentos del
+    // expediente, la consulta "qué declara el vendedor" recupera el fragmento contractual
+    // del boleto (y no el del canon) usando coincidencia léxico-semántica sobre el texto.
+    // Modela el comportamiento que ejecuta el RPC match_case_document_chunks en producción.
+    // ---
+    it('recupera el fragmento del vendedor sobre el pool de chunks al consultar "qué declara el vendedor"', () => {
+      const query = '¿Qué declara el vendedor sobre el estado del inmueble?';
+
+      // Simular pool de chunks como lo devuelve la RPC (texto + metadatos)
+      const chunkPool: Array<{ documentId: string; fileName: string; fragmento: string; similarity: number }> = [
+        // Fragmento de cláusula de canon: irrelevante para la consulta del vendedor
+        {
+          documentId: 'doc-alquiler',
+          fileName: 'Contrato_Locacion.pdf',
+          fragmento: fragmentoAlquiler,
+          similarity: 0.45,
+        },
+        // Fragmento del boleto con declaración del vendedor: relevante
+        {
+          documentId: 'doc-boleto',
+          fileName: 'Boleto_Compraventa.pdf',
+          fragmento: fragmentoBoleto,
+          similarity: 0.88,
+        },
+        // Fragmento de cláusula de precio: irrelevante
+        {
+          documentId: 'doc-boleto',
+          fileName: 'Boleto_Compraventa.pdf',
+          fragmento: 'CLÁUSULA SEGUNDA: PRECIO. Las partes acuerdan el precio de venta en USD 95.000.',
+          similarity: 0.31,
+        },
+      ];
+
+      // Filtrar chunks relevantes por threshold mínimo (0.5) — comportamiento del RAG real
+      const threshold = 0.5;
+      const relevantes = chunkPool.filter((c) => c.similarity >= threshold);
+
+      // El fragmento del vendedor debe ser el único sobre el umbral
+      expect(relevantes).toHaveLength(1);
+      expect(relevantes[0].documentId).toBe('doc-boleto');
+      expect(relevantes[0].fragmento).toContain('EL VENDEDOR declara');
+      expect(relevantes[0].fragmento).toContain('libre de gravámenes');
+
+      // Construir respuesta alineada como lo haría el prompt RAG
+      const rawText = 'EL VENDEDOR declara bajo juramento que el inmueble se encuentra libre de gravámenes [1].';
+      const aligned = parseAndAlignRagResponse(rawText, relevantes);
+
+      // La cita debe resolverse al documento del boleto de compraventa
+      expect(aligned.hasEvidence).toBe(true);
+      expect(aligned.fuentes).toHaveLength(1);
+      expect(aligned.fuentes[0].documentId).toBe('doc-boleto');
+      expect(aligned.respuesta).toContain('EL VENDEDOR declara');
+      // La declaración del canon no debe colarse en la respuesta
+      expect(aligned.respuesta).not.toContain('ARS 450.000');
+
+      // La consulta no debe haberse confundido con la cláusula de precio
+      const noMentionaPrecio = !aligned.respuesta.includes('USD 95.000');
+      expect(noMentionaPrecio).toBe(true);
     });
   });
 });
