@@ -402,4 +402,83 @@ test.describe.serial('Centinela IA - Inmobiliaria E2E', () => {
       await context.close();
     }
   });
+
+  test('N. Checklist documental: vinculación manual, persistencia y desvinculación', async ({ browser }) => {
+    const { context, page } = await loginAs(browser, 'admin.inm@test.com');
+    try {
+      await page.goto(`/operaciones/${CASE_INM_ID}?tab=checklist`);
+      const linkToggle = page.locator('[data-testid="checklist-link-toggle-0"]').first();
+      await expect(linkToggle).toBeVisible();
+
+      // Abrir acordeón si no está abierto
+      await linkToggle.click();
+
+      const form = linkToggle.locator('..');
+      const select = form.locator('select[name="document_id"]').first();
+      const options = select.locator('option');
+      const count = await options.count();
+
+      if (count > 1) {
+        const firstDocOption = select.locator('option:not([value=""])').first();
+        const docVal = await firstDocOption.getAttribute('value');
+        expect(docVal).toBeTruthy();
+
+        // Vincular manualmente
+        await select.selectOption(docVal!);
+        const saveBtn = form.locator('button', { hasText: 'Guardar' }).first();
+        await saveBtn.click();
+
+        await expect(page).toHaveURL(/checklist_document=linked/);
+        await expect(page.locator('[data-testid="checklist-document-feedback"]')).toContainText('Documento vinculado correctamente');
+        await expect(page.locator('[data-testid="checklist-badge-manual-0"]')).toBeVisible();
+
+        // Persistencia tras recargar página
+        await page.reload();
+        await expect(page.locator('[data-testid="checklist-badge-manual-0"]')).toBeVisible();
+
+        // Desvincular documento
+        const reloadLinkToggle = page.locator('[data-testid="checklist-link-toggle-0"]').first();
+        await reloadLinkToggle.click();
+        const reloadForm = reloadLinkToggle.locator('..');
+        const reloadSelect = reloadForm.locator('select[name="document_id"]').first();
+        await reloadSelect.selectOption('');
+        const reloadSaveBtn = reloadForm.locator('button', { hasText: 'Guardar' }).first();
+        await reloadSaveBtn.click();
+
+        await expect(page).toHaveURL(/checklist_document=unlinked/);
+        await expect(page.locator('[data-testid="checklist-document-feedback"]')).toContainText('Documento desvinculado correctamente');
+        await expect(page.locator('[data-testid="checklist-badge-manual-0"]')).toBeHidden();
+
+        // Persistencia de desvinculación
+        await page.reload();
+        await expect(page.locator('[data-testid="checklist-badge-manual-0"]')).toBeHidden();
+      }
+    } finally {
+      await page.close();
+      await context.close();
+    }
+  });
+
+  test('O. Verificación de terminología adaptada en superficies inmobiliarias', async ({ browser }) => {
+    const { context, page } = await loginAs(browser, 'admin.inm@test.com');
+    try {
+      // 1. En listado de operaciones
+      await page.goto('/operaciones');
+      const nav = page.locator('nav');
+      await expect(nav.locator('a', { hasText: 'Operaciones' }).first()).toBeVisible();
+
+      // 2. En detalle de operación
+      await page.goto(`/operaciones/${CASE_INM_ID}`);
+      await expect(page.getByText('Datos de la operación')).toBeVisible();
+      await expect(page.locator('button, a', { hasText: 'Volver a la lista de operaciones' }).first()).toBeVisible();
+
+      // Comprobación de que no aparecen términos jurídicos inapropiados en encabezados
+      const h1Text = await page.locator('h1, h2, h3').allInnerTexts();
+      const allHeadings = h1Text.join(' ');
+      expect(allHeadings).not.toMatch(/\b(expediente judicial|autos caratulados|juzgado|fuero)\b/i);
+    } finally {
+      await page.close();
+      await context.close();
+    }
+  });
 });

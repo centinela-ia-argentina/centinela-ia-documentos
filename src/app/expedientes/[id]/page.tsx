@@ -20,6 +20,7 @@ import {
 import { sugerirModeloNotarialPorTipo } from '@/lib/legal/modelos';
 import { AiDisclaimer } from '@/lib/industries/disclaimers';
 import { getIndustryTerms } from '@/lib/industries/uiLabels';
+import { sanitizeTextoInmobiliario } from '@/lib/format/sanitizerInmobiliaria';
 import { summarizeChecklistStatuses } from '@/lib/checklist/progress';
 import { getDocumentExpiryStatus, expiryStatusLabel, getExpiryBadgeStyles, getDaysUntilExpiry } from '@/lib/documents/expiry';
 import { sensitivityLabel } from '@/lib/documents/sensitivity';
@@ -377,7 +378,7 @@ export default async function CaseDetailPage({ params, searchParams }: CaseDetai
     (item) => item.status === 'pending' || item.status === 'rejected'
   );
 
-  const { data: resumenData } = await supabase
+  const { data: rawResumenData } = await supabase
     .from('ai_outputs')
     .select('result_json, created_at')
     .eq('case_id', caseRecord.id)
@@ -386,6 +387,24 @@ export default async function CaseDetailPage({ params, searchParams }: CaseDetai
     .order('created_at', { ascending: false })
     .limit(1)
     .maybeSingle();
+
+  const resumenData = rawResumenData ? {
+    ...rawResumenData,
+    result_json: industry === 'inmobiliaria' && rawResumenData.result_json ? {
+      ...rawResumenData.result_json,
+      resumen_general: sanitizeTextoInmobiliario(rawResumenData.result_json.resumen_general || ''),
+      estado_actual: sanitizeTextoInmobiliario(rawResumenData.result_json.estado_actual || ''),
+      puntos_clave: Array.isArray(rawResumenData.result_json.puntos_clave)
+        ? rawResumenData.result_json.puntos_clave.map((p: string) => sanitizeTextoInmobiliario(p))
+        : [],
+      riesgos_alertas: Array.isArray(rawResumenData.result_json.riesgos_alertas)
+        ? rawResumenData.result_json.riesgos_alertas.map((r: string) => sanitizeTextoInmobiliario(r))
+        : [],
+      proximas_acciones: Array.isArray(rawResumenData.result_json.proximas_acciones)
+        ? rawResumenData.result_json.proximas_acciones.map((a: string) => sanitizeTextoInmobiliario(a))
+        : [],
+    } : rawResumenData.result_json,
+  } : null;
 
   const { data: cotejoData } = await supabase
     .from('ai_outputs')
@@ -983,7 +1002,7 @@ export default async function CaseDetailPage({ params, searchParams }: CaseDetai
                             {prescore.nivel_calificacion === 'apto' ? 'Apto'
                             : prescore.nivel_calificacion === 'condicional' ? 'Condicional'
                             : prescore.nivel_calificacion === 'no_apto' ? 'No apto'
-                            : prescore.nivel_calificacion === 'indeterminado' ? 'Revisión Manual (Disparidad de Moneda)'
+                            : prescore.nivel_calificacion === 'indeterminado' ? 'Revisión manual'
                             : 'Información insuficiente'}
                           </span>
                           {prescore.veces_alquiler != null && (
@@ -996,7 +1015,7 @@ export default async function CaseDetailPage({ params, searchParams }: CaseDetai
                           <p>
                             <span className="font-medium text-white">Ingreso estimado:</span> {
                               prescore.ingreso_neto_mensual_estimado 
-                                ? new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(prescore.ingreso_neto_mensual_estimado)
+                                ? new Intl.NumberFormat('es-AR', { style: 'currency', currency: prescore.moneda_ingreso || 'ARS' }).format(prescore.ingreso_neto_mensual_estimado)
                                 : 'No se pudo estimar'
                             }
                           </p>
@@ -1391,7 +1410,7 @@ export default async function CaseDetailPage({ params, searchParams }: CaseDetai
             content: (
               <MotionCard index={0}>
                 <div className="mb-6">
-                  <PreguntarDocumentos caseId={caseRecord.id} puedeUsarIA={puedeUsarIA} />
+                  <PreguntarDocumentos caseId={caseRecord.id} puedeUsarIA={puedeUsarIA} industry={industry} />
                 </div>
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div>

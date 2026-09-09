@@ -248,7 +248,7 @@ export function AgenteChat({ caseId, caseTitle, industry, puedeUsarIA, historial
           <div className="flex flex-wrap items-center gap-2">
             <h3 className="text-base font-semibold text-slate-50">{titulo}</h3>
             <span className="inline-flex items-center gap-1 rounded-full bg-cyan-500/15 px-2.5 py-0.5 text-xs font-medium text-cyan-300 border border-cyan-500/20">
-              📁 Contexto: {caseTitle || 'Este caso'}
+              📁 Contexto: {caseTitle || terms.itemSinTitulo}
             </span>
             {memoriaEstado === 'saved' && (
               <span className="inline-flex items-center gap-1 rounded-full bg-violet-500/15 px-2.5 py-0.5 text-xs font-medium text-violet-300 border border-violet-500/20">
@@ -269,14 +269,14 @@ export function AgenteChat({ caseId, caseTitle, industry, puedeUsarIA, historial
                 type="button"
                 onClick={borrarConversacion}
                 className="ml-auto rounded-lg border border-slate-700 bg-slate-800/40 px-2.5 py-1 text-xs text-slate-400 transition hover:border-rose-500/50 hover:text-rose-300"
-                title="Borrar la conversación de este caso"
+                title={`Borrar la conversación de ${terms.elExpediente}`}
               >
                 🗑️ Borrar conversación
               </button>
             )}
           </div>
           <p className="mt-1.5 text-xs text-slate-300">
-            Trabaja con los documentos y antecedentes de este caso. Puede proponer acciones que solo se ejecutan con tu aprobación.
+            Trabaja con los documentos y antecedentes de {terms.eseExpediente || (industry === 'inmobiliaria' ? 'esa operación' : industry === 'escribania' ? 'ese legajo' : 'ese expediente')}. Puede proponer acciones que solo se ejecutan con tu aprobación.
           </p>
         </div>
       </div>

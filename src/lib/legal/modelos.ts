@@ -2398,6 +2398,37 @@ export function sugerirModeloNotarialPorTipo(tipo?: string | null): ModeloEscrit
   return encontrado;
 }
 
+export function sugerirModeloInmobiliarioPorTipo(tipo?: string | null): ModeloEscrito | null {
+  const t = (tipo ?? '').toLowerCase().trim();
+  if (!t) return null;
+
+  let id: string | null = null;
+
+  if (t.includes('locaci') || t.includes('alquiler') || t.includes('arrend') || t.includes('inquilin')) {
+    id = 'contrato-locacion';
+  } else if (
+    t.includes('boleto') ||
+    t.includes('compraventa') ||
+    t.includes('venta') ||
+    t.includes('escritura') ||
+    t.includes('dominio')
+  ) {
+    id = 'boleto-compraventa';
+  } else if (t.includes('reserva') || t.includes('oferta')) {
+    id = 'reserva-oferta-compra';
+  } else if (t.includes('autorizaci') || t.includes('comercializ') || t.includes('encargo')) {
+    id = 'autorizacion-venta';
+  }
+
+  if (!id) return null;
+  const encontrado = MODELOS.find((m) => m.id === id);
+  if (!encontrado || encontrado.reviewStatus === 'outdated' || encontrado.reviewStatus === 'retired') {
+    return null;
+  }
+  return encontrado;
+}
+
+
 export function extractModelVars(cuerpo: string): string[] {
   const set = new Set<string>();
   const re = /\{\{\s*([\w-]+)\s*\}\}/g;

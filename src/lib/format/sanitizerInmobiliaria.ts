@@ -12,15 +12,23 @@ export function sanitizeTextoInmobiliario(texto: string): string {
   return texto
     .replace(/expediente\/legajo\/operaci[oó]n/gi, 'operación')
     .replace(/expediente\s*\/\s*legajo/gi, 'operación')
-    .replace(/\bdel expediente\b/gi, 'de la operación')
-    .replace(/\bal expediente\b/gi, 'a la operación')
-    .replace(/\bel expediente\b/gi, 'la operación')
-    .replace(/\bun expediente\b/gi, 'una operación')
+    .replace(/\bdel expediente\b/gi, (m) => m[0] === 'D' ? 'De la operación' : 'de la operación')
+    .replace(/\bal expediente\b/gi, (m) => m[0] === 'A' ? 'A la operación' : 'a la operación')
+    .replace(/\bel expediente\b/gi, (m) => m[0] === 'E' ? 'La operación' : 'la operación')
+    .replace(/\bun expediente\b/gi, (m) => m[0] === 'U' ? 'Una operación' : 'una operación')
+    .replace(/\bese expediente\b/gi, (m) => m[0] === 'E' ? 'Esa operación' : 'esa operación')
+    .replace(/\blos expedientes\b/gi, (m) => m[0] === 'L' ? 'Las operaciones' : 'las operaciones')
     .replace(/\blibro de expedientes\b/gi, 'registro de operaciones')
-    .replace(/\bexpedientes\b/gi, 'operaciones')
-    .replace(/\bexpediente\b/gi, 'operación')
-    .replace(/\blegajos\b/gi, 'operaciones')
-    .replace(/\blegajo\b/gi, 'operación');
+    .replace(/\bdel legajo\b/gi, (m) => m[0] === 'D' ? 'De la operación' : 'de la operación')
+    .replace(/\bal legajo\b/gi, (m) => m[0] === 'A' ? 'A la operación' : 'a la operación')
+    .replace(/\bel legajo\b/gi, (m) => m[0] === 'E' ? 'La operación' : 'la operación')
+    .replace(/\bun legajo\b/gi, (m) => m[0] === 'U' ? 'Una operación' : 'una operación')
+    .replace(/\bese legajo\b/gi, (m) => m[0] === 'E' ? 'Esa operación' : 'esa operación')
+    .replace(/\blos legajos\b/gi, (m) => m[0] === 'L' ? 'Las operaciones' : 'las operaciones')
+    .replace(/\bexpedientes\b/gi, (m) => m[0] === 'E' ? 'Operaciones' : 'operaciones')
+    .replace(/\bexpediente\b/gi, (m) => m[0] === 'E' ? 'Operación' : 'operación')
+    .replace(/\blegajos\b/gi, (m) => m[0] === 'L' ? 'Operaciones' : 'operaciones')
+    .replace(/\blegajo\b/gi, (m) => m[0] === 'L' ? 'Operación' : 'operación');
 }
 
 export function contieneTerminosJudicialesInapropiados(texto: string): boolean {

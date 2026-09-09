@@ -419,4 +419,50 @@ describe('C-M3-J-003 & C-M3-J-006: Search & RAG citation filtering and negative 
       expect(normalizarMarkdownTexto('El valor es `1500 USD` y fue pagado')).toBe('El valor es 1500 USD y fue pagado');
     });
   });
+
+  describe('Inmobiliaria RAG: Respuestas contractuales determinísticas y salvaguarda negativa', () => {
+    const fragmentoBoleto = 'CLÁUSULA QUINTA: EL VENDEDOR declara bajo juramento que el inmueble se encuentra libre de gravámenes, embargos e inhibiciones, obligándose a responder por evicción y vicios redhibitorios conforme a derecho.';
+    const fragmentoAlquiler = 'CLÁUSULA TERCERA: CANON LOCATIVO. El locatario abonará la suma mensual de ARS 450.000 por mes adelantado del 1 al 10 de cada mes calendario.';
+
+    const mockFuentesInmobiliarias = [
+      { documentId: 'doc-boleto', fileName: 'Boleto_Compraventa.pdf', fragmento: fragmentoBoleto },
+      { documentId: 'doc-alquiler', fileName: 'Contrato_Locacion.pdf', fragmento: fragmentoAlquiler },
+    ];
+
+    it('atribuye la declaración de gravámenes expresamente al vendedor sin garantizar estado registral por la plataforma', () => {
+      // Simula respuesta generada siguiendo la instrucción de INMOBILIARIA_RAG_PROMPT
+      const rawText = 'EL VENDEDOR declara en el boleto de compraventa que el inmueble se encuentra libre de gravámenes, embargos e inhibiciones [1].';
+      const aligned = parseAndAlignRagResponse(rawText, mockFuentesInmobiliarias);
+
+      expect(aligned.hasEvidence).toBe(true);
+      expect(aligned.respuesta).toContain('EL VENDEDOR declara');
+      expect(aligned.respuesta).toContain('libre de gravámenes');
+      expect(aligned.fuentes).toHaveLength(1);
+      expect(aligned.fuentes[0].documentId).toBe('doc-boleto');
+      // No debe contener afirmaciones absolutas descontextualizadas de la plataforma
+      expect(aligned.respuesta).not.toContain('El sistema certifica');
+      expect(aligned.respuesta).not.toContain('Garantizamos que');
+    });
+
+    it('responde certeramente sobre el canon locativo acordado con cita precisa', () => {
+      const rawText = 'El canon locativo mensual acordado es de ARS 450.000 pagadero del 1 al 10 de cada mes [2].';
+      const aligned = parseAndAlignRagResponse(rawText, mockFuentesInmobiliarias);
+
+      expect(aligned.hasEvidence).toBe(true);
+      // d2 pasa a ser la fuente [1] en renumbering
+      expect(aligned.respuesta).toBe('El canon locativo mensual acordado es de ARS 450.000 pagadero del 1 al 10 de cada mes [1].');
+      expect(aligned.fuentes).toHaveLength(1);
+      expect(aligned.fuentes[0].documentId).toBe('doc-alquiler');
+    });
+
+    it('emite respuesta negativa estricta sin fuentes al consultar por una póliza inexistente en los fragmentos', () => {
+      const rawNegative = 'La información sobre el número de póliza de seguro de caución no surge de los documentos disponibles [1].';
+      const aligned = parseAndAlignRagResponse(rawNegative, mockFuentesInmobiliarias);
+
+      expect(aligned.hasEvidence).toBe(false);
+      expect(aligned.fuentes).toEqual([]);
+      expect(aligned.respuesta).toBe(RESPUETA_NEGATIVA_ESTANDAR);
+      expect(esRespuestaNegativa(rawNegative)).toBe(true);
+    });
+  });
 });

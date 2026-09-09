@@ -47,6 +47,12 @@ export function formatAuditActionLabel(action?: string | null, terms?: IndustryT
     if (terms && terms.expedienteSingular.toLowerCase() !== 'expediente') {
       label = label.replace(/Expediente/g, terms.expedienteSingular);
       label = label.replace(/expediente/g, terms.expedienteSingular.toLowerCase());
+      if (terms.expedienteSingular.toLowerCase() === 'operación') {
+        label = label.replace(/(?:^|\s)Operación creado(?:\s|$)/g, (m) => m.replace('creado', 'creada'));
+        label = label.replace(/(?:^|\s)Operación actualizado(?:\s|$)/g, (m) => m.replace('actualizado', 'actualizada'));
+        label = label.replace(/(?:^|\s)Operación archivado(?:\s|$)/g, (m) => m.replace('archivado', 'archivada'));
+        label = label.replace(/(?:^|\s)Operación eliminado(?:\s|$)/g, (m) => m.replace('eliminado', 'eliminada'));
+      }
     }
     return label;
   }

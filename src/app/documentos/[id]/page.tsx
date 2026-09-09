@@ -16,7 +16,8 @@ import { FileSignature, Archive, ArchiveRestore } from 'lucide-react';
 import { archiveDocument, unarchiveDocument, deleteDocument } from '../actions';
 import { canArchiveDocument, canDeleteDocument, isUserRole } from '@/lib/permissions/roles';
 import { DocumentDeleteButton } from './DocumentDeleteButton';
-import { sugerirModeloPorTipo, sugerirModeloNotarialPorTipo } from '@/lib/legal/modelos';
+import { sugerirModeloPorTipo, sugerirModeloNotarialPorTipo, sugerirModeloInmobiliarioPorTipo } from '@/lib/legal/modelos';
+import { getCaseBasePath } from '@/lib/industries/caseConfig';
 import { Badge } from '@/components/ui/Badge';
 import { AnalyzeDetailButtonClient } from './AnalyzeDetailButtonClient';
 import { AnalizarPoderButton } from './AnalizarPoderButton';
@@ -337,20 +338,21 @@ function buildOperationalOpinion(
 
   const terms = getIndustryTerms(industry ?? 'general');
   const risk = getRiskAssessment(document, aiResult, industry);
+  const prefix = industry === 'inmobiliaria' ? 'Diagnóstico documental IA' : 'Dictamen IA';
 
   if (risk.score >= 80) {
-    return `Dictamen IA: documento crítico. Requiere revisión prioritaria, control de acceso estricto y validación manual antes de compartir o cerrar ${terms.elExpediente}.`;
+    return `${prefix}: documento crítico. Requiere revisión prioritaria, control de acceso estricto y validación manual antes de compartir o cerrar ${terms.elExpediente}.`;
   }
 
   if (risk.score >= 60) {
-    return `Dictamen IA: documento sensible. Conviene revisar contenido, faltantes y permisos antes de considerarlo completo dentro de ${terms.elExpediente}.`;
+    return `${prefix}: documento sensible. Conviene revisar contenido, faltantes y permisos antes de considerarlo completo dentro de ${terms.elExpediente}.`;
   }
 
   if (risk.score >= 35) {
-    return 'Dictamen IA: documento de riesgo medio. Puede continuar en circuito normal, pero se recomienda validar clasificación y documentación asociada.';
+    return `${prefix}: documento de riesgo medio. Puede continuar en circuito normal, pero se recomienda validar clasificación y documentación asociada.`;
   }
 
-  return 'Dictamen IA: documento de riesgo bajo. No se detectan señales críticas, aunque se recomienda mantener trazabilidad y clasificación correcta.';
+  return `${prefix}: documento de riesgo bajo. No se detectan señales críticas, aunque se recomienda mantener trazabilidad y clasificación correcta.`;
 }
 
 export default async function DocumentDetailPage({
@@ -510,10 +512,10 @@ export default async function DocumentDetailPage({
 
           {document.case_id ? (
             <Link
-              href={`/expedientes/${document.case_id}?tab=documentos`}
+              href={`${getCaseBasePath(industria)}/${document.case_id}?tab=documentos`}
               className="rounded-2xl border border-white/10 px-5 py-3 text-center text-sm font-bold text-slate-300 hover:border-cyan-400 hover:text-cyan-400 transition-colors"
             >
-              Volver al {industria === 'escribania' ? 'legajo' : 'expediente'}
+              Volver a {industria === 'inmobiliaria' ? 'la operación' : industria === 'escribania' ? 'el legajo' : 'el expediente'}
             </Link>
           ) : (
             <Link
@@ -629,7 +631,7 @@ export default async function DocumentDetailPage({
             <div className="flex items-start justify-between gap-4">
               <div>
                 <p className="text-xs font-bold uppercase tracking-[0.2em]">
-Dictamen IA documental
+                  {industria === 'inmobiliaria' ? 'Diagnóstico documental IA' : 'Dictamen IA documental'}
                 </p>
 
                 <h3 className="mt-2 text-2xl font-bold">
@@ -901,15 +903,29 @@ Dictamen IA documental
                 {(() => {
                   const tipoParaSugerir = document.document_type || aiResult?.tipo_documental_detectado;
                   const modeloSugerido =
-                    industria === 'escribania'
+                    industria === 'inmobiliaria'
+                      ? sugerirModeloInmobiliarioPorTipo(tipoParaSugerir)
+                      : industria === 'escribania'
                       ? sugerirModeloNotarialPorTipo(tipoParaSugerir)
                       : sugerirModeloPorTipo(tipoParaSugerir);
                   if (!modeloSugerido) return null;
+                  const cardTitle =
+                    industria === 'inmobiliaria'
+                      ? 'Modelo inmobiliario sugerido'
+                      : industria === 'escribania'
+                      ? 'Instrumento sugerido'
+                      : 'Escrito sugerido';
+                  const ctaTitle =
+                    industria === 'inmobiliaria'
+                      ? 'Redactar este modelo'
+                      : industria === 'escribania'
+                      ? 'Redactar este instrumento'
+                      : 'Redactar este escrito';
                   return (
                     <div className="mt-4 rounded-2xl border border-violet-500/20 bg-violet-900/20 p-4">
                       <div className="flex items-center gap-2 text-sm font-semibold text-violet-200">
                         <FileSignature className="h-4 w-4" />
-                        {industria === 'escribania' ? 'Instrumento sugerido' : 'Escrito sugerido'}
+                        {cardTitle}
                       </div>
                       <p className="mt-1 text-sm text-violet-300">
                         Según el tipo detectado
@@ -923,7 +939,7 @@ Dictamen IA documental
                         className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-violet-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-violet-700"
                       >
                         <FileSignature className="h-4 w-4" />
-                        {industria === 'escribania' ? 'Redactar este instrumento' : 'Redactar este escrito'}
+                        {ctaTitle}
                       </Link>
                     </div>
                   );

@@ -27,6 +27,13 @@ describe('sanitizerInmobiliaria', () => {
     expect(res).toBe('Cerrar la operación una vez completado.');
   });
 
+  it('reemplaza variantes con mayúscula inicial y legajo', () => {
+    expect(sanitizeTextoInmobiliario('El expediente contiene documentos')).toBe('La operación contiene documentos');
+    expect(sanitizeTextoInmobiliario('Del expediente surge la información')).toBe('De la operación surge la información');
+    expect(sanitizeTextoInmobiliario('Documentos del legajo disponibles')).toBe('Documentos de la operación disponibles');
+    expect(sanitizeTextoInmobiliario('El legajo fue archivado')).toBe('La operación fue archivado');
+  });
+
   it('detecta correctamente términos judiciales inapropiados', () => {
     expect(contieneTerminosJudicialesInapropiados('Ver expediente en juzgado')).toBe(true);
     expect(contieneTerminosJudicialesInapropiados('Revisar legajo')).toBe(true);

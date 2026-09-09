@@ -6,6 +6,7 @@ import { canUseAi, isUserRole } from '@/lib/permissions/roles';
 import { generarEmbedding } from '@/lib/ai/embeddings';
 import { createAuditLog } from '@/lib/audit/createAuditLog';
 import { normalizeIndustryType } from '@/lib/industries/documentTypes';
+import { getIndustryTerms } from '@/lib/industries/uiLabels';
 import { getRagSystemPrompt } from '@/lib/industries/aiConfig';
 import { parseAndAlignRagResponse } from '@/lib/ai/ragAlignment';
 import crypto from 'crypto';
@@ -61,6 +62,8 @@ export async function preguntarADocumentosLegajo(
       .eq('id', profile.organization_id)
       .single();
     const industry = normalizeIndustryType(orgData?.industry_type);
+    const terms = getIndustryTerms(industry);
+    const terminoContenedor = industry === 'inmobiliaria' ? 'esta operación' : industry === 'escribania' ? 'este legajo' : 'este expediente';
 
     // 1) Documentos que pertenecen a ESTE legajo
     const { data: docsCaso } = await supabase
@@ -73,9 +76,10 @@ export async function preguntarADocumentosLegajo(
     const nombrePorId = new Map((docsCaso ?? []).map((d: any) => [d.id, d.file_name]));
 
     if (idsCaso.size === 0) {
+      const terminoCap = terminoContenedor.charAt(0).toUpperCase() + terminoContenedor.slice(1);
       return {
         ok: true,
-        respuesta: 'Este legajo todavía no tiene documentos cargados para consultar.',
+        respuesta: `${terminoCap} todavía no tiene documentos cargados para consultar.`,
         fuentes: [],
       };
     }
@@ -139,7 +143,7 @@ export async function preguntarADocumentosLegajo(
       return {
         ok: true,
         respuesta:
-          'No encontré información relacionada en los documentos de este legajo. Puede que todavía no estén analizados con IA (indexados): analizalos desde la pestaña Documentos y volvé a preguntar.',
+          `No encontré información relacionada en los documentos de ${terminoContenedor}. Puede que todavía no estén analizados con IA (indexados): analizalos desde la pestaña Documentos y volvé a preguntar.`,
         fuentes: [],
       };
     }

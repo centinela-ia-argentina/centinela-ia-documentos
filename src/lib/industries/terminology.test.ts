@@ -4,6 +4,7 @@ vi.mock('server-only', () => ({}));
 
 import { getIndustryTerms } from './uiLabels';
 import { buildAgentSystemInstruction } from '@/lib/ai/agente';
+import { formatAuditActionLabel, formatResourceTypeLabel } from '@/lib/audit/actionLabels';
 
 describe('T-AUD-P2-012 & T-AUD-P2-013: Terminología transversal y etiquetas por industria', () => {
   it('1. Legal: devuelve términos de expediente y etiquetas judiciales consistentes', () => {
@@ -185,5 +186,14 @@ describe('T-AUD-P2-012 & T-AUD-P2-013: Terminología transversal y etiquetas por
     expect(combinedTexts).not.toContain('actuaciones');
     expect(combinedTexts).not.toContain('judicial');
     expect(combinedTexts).not.toContain('tribunales');
+  });
+
+  it('10. Inmobiliaria: etiquetas de auditoría adaptan terminología a operación', () => {
+    const terms = getIndustryTerms('inmobiliaria');
+    expect(formatAuditActionLabel('case_created', terms)).toBe('Operación creada');
+    expect(formatAuditActionLabel('case_updated', terms)).toBe('Operación actualizada');
+    expect(formatAuditActionLabel('case_status_updated', terms)).toBe('Estado de operación actualizado');
+    expect(formatAuditActionLabel('case_summary_generated', terms)).toBe('Resumen de operación generado');
+    expect(formatResourceTypeLabel('case', terms)).toBe('Operación');
   });
 });
