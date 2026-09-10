@@ -56,7 +56,7 @@ export default async function CopilotoPage() {
             </div>
             <div>
               <h1 className="text-2xl font-semibold text-white">Panel inmobiliario</h1>
-              <p className="text-sm text-slate-400">Centro de control de operaciones inmobiliarias de tu organización: casos activos, vencimientos y alertas.</p>
+              <p className="text-sm text-slate-400">Centro de control de operaciones inmobiliarias de tu organización: operaciones activas, vencimientos y alertas.</p>
             </div>
           </div>
           <div className="rounded-xl border border-cyan-500/20 bg-slate-900/50 px-4 py-2.5 text-xs text-slate-300">

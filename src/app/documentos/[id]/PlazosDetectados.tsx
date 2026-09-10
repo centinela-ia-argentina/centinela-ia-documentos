@@ -15,9 +15,11 @@ function formatFecha(iso: string) {
 export function PlazosDetectados({
   plazos,
   docNombre,
+  caseId,
 }: {
   plazos: Plazo[];
   docNombre: string;
+  caseId?: string;
 }) {
   const [estados, setEstados] = useState<
     Record<number, 'idle' | 'loading' | 'ok' | 'existing' | 'error'>
@@ -30,6 +32,7 @@ export function PlazosDetectados({
         titulo: plazo.descripcion,
         fecha: plazo.fecha,
         detalle: `Detectado por IA en el documento: ${docNombre}`,
+        caseId,
       });
       setEstados((prev) => ({ ...prev, [index]: res.ok ? (res.existing ? 'existing' : 'ok') : 'error' }));
     } catch {

@@ -60,9 +60,9 @@ function buildMetricCard(
       };
     case 'documentos_cargados':
       return {
-        label: 'Documentos cargados',
+        label: 'Documentos cargados totales',
         value: String(values.loadedDocuments),
-        helper: 'Documentos almacenados',
+        helper: 'Bóveda total (incluye archivados)',
       };
 
     case 'documentos_sensibles':
@@ -234,6 +234,7 @@ export default async function DashboardPage() {
           hasTeam={hasTeam}
           isAdmin={isAdmin}
           userName={profile.full_name}
+          industry={industry}
         />
       )}
 

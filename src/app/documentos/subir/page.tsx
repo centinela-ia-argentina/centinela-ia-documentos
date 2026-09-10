@@ -82,6 +82,7 @@ export default async function UploadDocumentPage({
           cases={cases ?? []}
           documentTypes={documentTypes}
           initialCaseId={selectedCaseId}
+          industry={normalizeIndustryType(organization?.industry_type)}
         />
       </div>
     </AppShell>

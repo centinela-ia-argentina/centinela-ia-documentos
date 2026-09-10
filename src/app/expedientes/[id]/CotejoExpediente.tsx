@@ -52,6 +52,8 @@ function Bloque({
   );
 }
 
+import { sanitizeTextoInmobiliario } from '@/lib/format/sanitizerInmobiliaria';
+
 export function CotejoExpediente({
   caseId,
   industry,
@@ -71,6 +73,8 @@ export function CotejoExpediente({
   const esLegal = industry === 'legal';
   const esInmo = industry === 'inmobiliaria';
 
+  const terminoContenedor = esLegal ? 'este expediente' : esInmo ? 'esta operación' : 'este legajo';
+
   const titulo = esLegal
     ? 'Cotejo del expediente con IA'
     : esInmo
@@ -88,8 +92,14 @@ export function CotejoExpediente({
   const rotuloVigencias = esLegal ? '⏳ Alertas procesales' : '⏳ Vigencias';
   const pieAccion = esLegal ? 'revisá antes de presentar' : esInmo ? 'revisá antes de firmar' : 'revisá antes de otorgar';
 
+  const veredicto = esInmo && cotejo?.veredicto ? sanitizeTextoInmobiliario(cotejo.veredicto) : cotejo?.veredicto;
+  const coincidencias = esInmo && cotejo?.coincidencias ? cotejo.coincidencias.map(sanitizeTextoInmobiliario) : cotejo?.coincidencias ?? [];
+  const discrepancias = esInmo && cotejo?.discrepancias ? cotejo.discrepancias.map(sanitizeTextoInmobiliario) : cotejo?.discrepancias ?? [];
+  const faltantes = esInmo && cotejo?.faltantes ? cotejo.faltantes.map(sanitizeTextoInmobiliario) : cotejo?.faltantes ?? [];
+  const alertasVigencia = esInmo && cotejo?.alertas_vigencia ? cotejo.alertas_vigencia.map(sanitizeTextoInmobiliario) : cotejo?.alertas_vigencia ?? [];
+
   return (
-    <div className="rounded-3xl border border-white/10 bg-white/[0.02] p-6">
+    <div data-testid="cotejo-expediente" className="rounded-3xl border border-white/10 bg-white/[0.02] p-6">
       <div className="flex items-start justify-between gap-4">
         <div>
           <h2 className="text-lg font-semibold text-white">🔍 {titulo}</h2>
@@ -104,25 +114,29 @@ export function CotejoExpediente({
         )}
       </div>
 
-      {documentosAnalizados < 2 && !cotejo && (
+      {documentosAnalizados < 1 && !cotejo && (
         <p className="mt-4 text-sm text-slate-400">
-          Necesitás al menos 2 documentos analizados en este legajo para poder cotejarlos.
+          Necesitás al menos 1 documento analizado en {terminoContenedor} para poder cotejarlo.
         </p>
       )}
 
-      {documentosAnalizados >= 2 && !cotejo && (
+      {documentosAnalizados >= 1 && !cotejo && (
         <p className="mt-4 text-sm text-slate-400">
-          Hay {documentosAnalizados} documentos analizados. Tocá “Cotejar documentos con IA” para cruzarlos.
+          Hay {documentosAnalizados} documento{documentosAnalizados > 1 ? 's' : ''} analizado{documentosAnalizados > 1 ? 's' : ''}. Tocá “Cotejar documentos con IA” para cruzarlos.
         </p>
       )}
 
       {cotejo && (
         <div className="mt-4 space-y-3">
-          <p className="text-sm text-slate-200">{cotejo.veredicto}</p>
-          <Bloque titulo={rotuloCoincidencias} items={cotejo.coincidencias} tono="emerald" />
-          <Bloque titulo={rotuloDiscrepancias} items={cotejo.discrepancias} tono="rose" />
-          <Bloque titulo={rotuloFaltantes} items={cotejo.faltantes} tono="slate" />
-          <Bloque titulo={rotuloVigencias} items={cotejo.alertas_vigencia} tono="amber" />
+          <p className="text-sm text-slate-200">{veredicto}</p>
+          <Bloque titulo={rotuloCoincidencias} items={coincidencias} tono="emerald" />
+          <div data-testid="cotejo-discrepancias">
+            <Bloque titulo={rotuloDiscrepancias} items={discrepancias} tono="rose" />
+          </div>
+          <Bloque titulo={rotuloFaltantes} items={faltantes} tono="slate" />
+          <div data-testid="cotejo-vigencias">
+            <Bloque titulo={rotuloVigencias} items={alertasVigencia} tono="amber" />
+          </div>
           {generadoEl && (
             <p className="text-xs text-slate-500">
               Cotejo generado el {new Date(generadoEl).toLocaleString('es-AR')} · Borrador orientativo, {pieAccion}.

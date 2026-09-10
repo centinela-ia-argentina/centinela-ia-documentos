@@ -23,7 +23,7 @@
     "lucide-react": "latest",
     "mammoth": "latest",
     "motion": "^12.42.2",
-    "next": "16.3.1",
+    "next": "16.3.4",
     "openai": "latest",
     "pdf-lib": "^1.17.1",
     "pdf-parse": "^1.1.1",

@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import type { ReactNode } from 'react';
 import { Calculator, Landmark, Receipt, Coins, Info } from 'lucide-react';
+import { calcularImpuestoSellos } from '@/lib/legal/sellos';
 
 // --- Helpers ---
 const currency = (n: number) =>
@@ -184,20 +185,29 @@ export function CalculadorasNotarialesClient() {
 
 function EscrituraCalc() {
   const [monto, setMonto] = useState('');
+  const [valuacion, setValuacion] = useState('');
   const [sellosAlic, setSellosAlic] = useState(String(DEFAULT_SELLOS));
   const [itiAlic, setItiAlic] = useState(String(DEFAULT_ITI));
   const [honAlic, setHonAlic] = useState(String(DEFAULT_HONORARIOS));
   const [aporteAlic, setAporteAlic] = useState(String(DEFAULT_APORTE));
-  const [conIti, setConIti] = useState(true);
+  const [conIti, setConIti] = useState(false);
   const [conIva, setConIva] = useState(false);
 
-  const base = num(monto);
-  const sellos = base * (num(sellosAlic) / 100);
-  const iti = conIti ? base * (num(itiAlic) / 100) : 0;
-  const honorarios = base * (num(honAlic) / 100);
+  const basePrecio = num(monto);
+  const baseValuacion = num(valuacion);
+  const sellosRes = calcularImpuestoSellos({
+    precio: basePrecio,
+    valuacionFiscal: baseValuacion,
+    alicuota: sellosAlic,
+    dividirPartes: false,
+  });
+
+  const baseHonorarios = basePrecio;
+  const iti = conIti ? basePrecio * (num(itiAlic) / 100) : 0;
+  const honorarios = baseHonorarios * (num(honAlic) / 100);
   const aporte = honorarios * (num(aporteAlic) / 100);
   const iva = conIva ? honorarios * (IVA / 100) : 0;
-  const total = sellos + iti + honorarios + aporte + iva;
+  const total = sellosRes.sellosTotal + iti + honorarios + aporte + iva;
 
   return (
     <div className="grid gap-4 lg:grid-cols-2">
@@ -205,13 +215,14 @@ function EscrituraCalc() {
         title="Datos de la operación"
         subtitle="Cargá el valor y ajustá las alícuotas según la jurisdicción y el caso."
       >
-        <Field label="Valor de la operación" value={monto} onChange={setMonto} suffix="ARS" placeholder="Ej: 85000000" />
+        <Field label="Precio / valor de la operación" value={monto} onChange={setMonto} suffix="ARS" placeholder="Ej: 85000000" />
+        <Field label="Valuación fiscal / base imponible" value={valuacion} onChange={setValuacion} suffix="ARS" placeholder="Ej: 90000000" />
         <Field label="Impuesto de Sellos" value={sellosAlic} onChange={setSellosAlic} suffix="%" />
         <Field label="Honorarios notariales" value={honAlic} onChange={setHonAlic} suffix="%" />
         <Field label="Aporte Colegio/Caja (sobre honorarios)" value={aporteAlic} onChange={setAporteAlic} suffix="%" />
         <Field label="ITI" value={itiAlic} onChange={setItiAlic} suffix="%" />
         <Check checked={conIti} onChange={setConIti}>
-          Incluir ITI (venta por persona humana, inmueble pre-2018)
+          Incluir ITI (solo para actos previos al 08/07/2024 — derogado por Ley 27.743 art. 67)
         </Check>
         <Check checked={conIva} onChange={setConIva}>
           Sumar IVA 21% sobre honorarios
@@ -219,7 +230,8 @@ function EscrituraCalc() {
       </Card>
 
       <Card title="Estimación de costos" subtitle="Desglose orientativo del cierre de la escritura.">
-        <Result label="Impuesto de Sellos" value={currency(sellos)} />
+        <Result label="Base imponible de Sellos" value={`${currency(sellosRes.baseImponible)} (${sellosRes.baseUtilizada === 'valuacion_fiscal' ? 'Valuación fiscal' : sellosRes.baseUtilizada === 'precio' ? 'Precio' : 'Equivalente'})`} />
+        <Result label="Impuesto de Sellos" value={currency(sellosRes.sellosTotal)} />
         {conIti && <Result label="ITI" value={currency(iti)} />}
         <Result label="Honorarios notariales" value={currency(honorarios)} />
         <Result label="Aporte Colegio/Caja" value={currency(aporte)} />
@@ -231,22 +243,38 @@ function EscrituraCalc() {
 }
 
 function SellosCalc() {
-  const [monto, setMonto] = useState('');
+  const [precio, setPrecio] = useState('');
+  const [valuacion, setValuacion] = useState('');
   const [alic, setAlic] = useState(String(DEFAULT_SELLOS));
   const [dividir, setDividir] = useState(true);
-  const total = num(monto) * (num(alic) / 100);
+
+  const res = calcularImpuestoSellos({
+    precio,
+    valuacionFiscal: valuacion,
+    alicuota: alic,
+    dividirPartes: dividir,
+  });
+
   return (
     <Card
-      title="Impuesto de Sellos (CABA)"
-      subtitle="Compraventa de inmueble. Se calcula sobre el mayor valor entre el precio y la valuación fiscal."
+      title="Impuesto de Sellos (CABA / Provincial)"
+      subtitle="Compraventa de inmueble. Se liquida sobre el mayor valor entre el precio y la valuación fiscal (art. 268 Código Fiscal CABA y leyes tarifarias provinciales)."
     >
-      <Field label="Valor de la operación" value={monto} onChange={setMonto} suffix="ARS" placeholder="Ej: 85000000" />
-      <Field label="Alícuota" value={alic} onChange={setAlic} suffix="%" />
+      <div className="rounded-xl border border-sky-500/20 bg-sky-500/10 p-3 text-xs text-sky-200">
+        ℹ️ <strong>Criterio normativo:</strong> El impuesto se determina sobre el valor que resulte mayor entre el precio convenido por las partes y la valuación fiscal homogénea / base imponible del inmueble. Las alícuotas y exenciones (ej. vivienda única) son orientativas y sujetas a la normativa vigente.
+      </div>
+      <Field label="Precio / valor de la operación" value={precio} onChange={setPrecio} suffix="ARS" placeholder="Ej: 85000000" />
+      <Field label="Valuación fiscal / base imponible" value={valuacion} onChange={setValuacion} suffix="ARS" placeholder="Ej: 90000000" />
+      <Field label="Alícuota orientativa" value={alic} onChange={setAlic} suffix="%" />
       <Check checked={dividir} onChange={setDividir}>
         Dividir 50/50 entre comprador y vendedor
       </Check>
-      <Result label="Sellos total" value={currency(total)} strong />
-      {dividir && <Result label="A cargo de cada parte" value={currency(total / 2)} />}
+      <Result
+        label="Base imponible aplicada"
+        value={`${currency(res.baseImponible)} (${res.baseUtilizada === 'valuacion_fiscal' ? 'Mayor: Valuación fiscal' : res.baseUtilizada === 'precio' ? 'Mayor: Precio de la operación' : 'Valores equivalentes'})`}
+      />
+      <Result label="Sellos total" value={currency(res.sellosTotal)} strong />
+      {dividir && <Result label="A cargo de cada parte" value={currency(res.aCargoCadaParte)} />}
     </Card>
   );
 }
@@ -260,6 +288,9 @@ function ItiCalc() {
       title="ITI — Impuesto a la Transferencia de Inmuebles"
       subtitle="Aplica a personas humanas que venden inmuebles no alcanzados por Impuesto a las Ganancias (adquiridos antes del 01/01/2018)."
     >
+      <div className="rounded-xl border border-amber-500/20 bg-amber-500/10 p-3 text-xs text-amber-200">
+        ⚠️ <strong>Atención normativa:</strong> El art. 67 de la Ley 27.743 (B.O. 08/07/2024) derogó el Título VII de la Ley 23.905 (Impuesto a la Transferencia de Inmuebles - ITI) para las transferencias y operaciones formalizadas a partir del 8 de julio de 2024. Este cálculo se conserva como referencia histórica para operaciones formalizadas u obligaciones devengadas con anterioridad a dicha fecha.
+      </div>
       <Field label="Valor de transferencia" value={monto} onChange={setMonto} suffix="ARS" placeholder="Ej: 85000000" />
       <Field label="Alícuota" value={alic} onChange={setAlic} suffix="%" />
       <Result label="ITI estimado" value={currency(total)} strong />

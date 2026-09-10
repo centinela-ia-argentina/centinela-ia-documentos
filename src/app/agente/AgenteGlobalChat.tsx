@@ -150,18 +150,18 @@ export function AgenteGlobalChat({ industry, puedeUsarIA }: Props) {
         <div className="flex flex-wrap items-center justify-center gap-2">
           <h2 className="text-lg font-bold text-white">Agente IA general</h2>
           <span className="inline-flex items-center gap-1 rounded-full bg-cyan-500/15 px-2.5 py-0.5 text-xs font-medium text-cyan-300 border border-cyan-500/20">
-            🌐 Contexto: panorama del estudio
+            🌐 Contexto: panorama {industry === 'inmobiliaria' ? 'de la inmobiliaria' : industry === 'escribania' ? 'de la escribanía' : industry === 'legal' ? 'del estudio' : 'general'}
           </span>
           <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2 py-0.5 text-xs font-medium text-emerald-300">
             <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400" /> En línea
           </span>
         </div>
         <p className="mt-1.5 max-w-lg text-sm text-slate-300">
-          Consultá el panorama general de tu organización: casos recientes, plazos, vencimientos y alertas.
+          Consultá el panorama general de tu organización: {terms.expedientePlural.toLowerCase()} recientes, plazos, vencimientos y alertas.
         </p>
         <div className="mt-3 flex flex-col items-center gap-1.5 text-xs text-slate-400 max-w-lg">
           <p className="rounded-lg bg-slate-950/50 border border-slate-800 px-3 py-2 text-slate-300 w-full text-center">
-            ℹ️ Para trabajar sobre documentos o ejecutar acciones, abrí un registro y usá su Agente IA.
+            ℹ️ Para trabajar sobre documentos o ejecutar acciones, abrí {terms.unExpediente} y usá su Agente IA.
           </p>
           <p className="text-slate-500">
             ⌛ Por privacidad, esta conversación no se guarda en Centinela IA y se reinicia al salir o recargar.

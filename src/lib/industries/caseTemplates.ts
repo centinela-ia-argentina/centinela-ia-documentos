@@ -102,14 +102,15 @@ export const caseTemplatesByIndustryAndType: Record<string, Record<string, CaseT
     'Escritura': {
       checklist: [
         'Título antecedente (dominio del vendedor)',
-        'DNI de los comparecientes (vendedor y comprador)',
+        'DNI de la parte vendedora',
+        'DNI de la parte compradora',
         'Constancia de CUIT / CUIL / CDI de las partes',
         'Estado civil / asentimiento conyugal (art. 456 CCyCN)',
         'Certificado de dominio (Registro de la Propiedad Inmueble)',
         'Certificado de inhibiciones de los otorgantes',
         'Certificado catastral / valuación fiscal (cédula catastral)',
-        'Libre deuda de impuesto inmobiliario (provincial / ARBA)',
-        'Libre deuda municipal (tasas / ABL)',
+        'Impuesto inmobiliario (ARBA / AGIP según jurisdicción)',
+        'Tasas municipales / ABL (según jurisdicción)',
         'Libre deuda de expensas y reglamento de copropiedad (si es PH)',
         'Plano de mensura / subdivisión',
         'Comprobante de impuesto de sellos e ITI / retención de ganancias',

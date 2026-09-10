@@ -12,10 +12,93 @@ export type ResumenExpediente = {
 type DocInput = { nombre: string; tipo: string; resumen: string; alertas: string[]; datos: string[] };
 type EventoInput = { fecha: string; tipo: string; titulo: string; descripcion: string };
 
+export function sanitizarTerminologiaEscribania(texto: string): string {
+  return texto
+    .replace(/^El presente expediente\b/gi, 'El presente legajo')
+    .replace(/\bel presente expediente\b/gi, 'el presente legajo')
+    .replace(/\beste expediente\b/gi, 'este legajo')
+    .replace(/\bdel expediente\b/gi, 'del legajo')
+    .replace(/\bal expediente\b/gi, 'al legajo')
+    .replace(/\bel expediente\b/gi, 'el legajo')
+    .replace(/\ben el expediente\b/gi, 'en el legajo')
+    .replace(/\betapa procesal\b/gi, 'etapa notarial')
+    .replace(/\briesgo procesal\b/gi, 'observación notarial');
+}
+
+export function sanitizarTerminologiaInmobiliaria(texto: string): string {
+  return texto
+    .replace(/^El presente expediente\b/gi, 'La presente operación')
+    .replace(/\bel presente expediente\b/gi, 'la presente operación')
+    .replace(/\beste expediente\b/gi, 'esta operación')
+    .replace(/\bdel expediente\b/gi, 'de la operación')
+    .replace(/\bal expediente\b/gi, 'a la operación')
+    .replace(/\bel expediente\b/gi, 'la operación')
+    .replace(/\blos expedientes\b/gi, 'las operaciones')
+    .replace(/\ben el expediente\b/gi, 'en la operación')
+    .replace(/\betapa procesal\b/gi, 'etapa de la operación')
+    .replace(/\briesgo procesal\b/gi, 'riesgo operativo o documental')
+    .replace(/\bactuaciones\b/gi, 'movimientos')
+    .replace(/\bactuación\b/gi, 'movimiento')
+    .replace(/\bel caso\b/gi, 'la operación')
+    .replace(/\bdel caso\b/gi, 'de la operación')
+    .replace(/\bde este caso\b/gi, 'de esta operación');
+}
+
+import {
+  analizarPlazoBoletoEscritura,
+  parsearFechaCualquiera,
+  formatIsoToAr,
+  type PlazoCanonicoLegajo,
+} from '@/lib/plazos/fechasCanonicas';
+
+function detectarDatosBoleto(documentos: DocInput[], eventos: EventoInput[]): {
+  fechaBoleto?: string;
+  plazoDias?: number;
+  fechaTentativa?: string;
+} {
+  const allText = [
+    ...documentos.flatMap((d) => [d.nombre, d.tipo, d.resumen, ...d.alertas, ...d.datos]),
+    ...eventos.flatMap((e) => [e.fecha, e.tipo, e.titulo, e.descripcion]),
+  ].join(' ');
+
+  let fechaBoleto: string | undefined;
+  let plazoDias: number | undefined;
+  let fechaTentativa: string | undefined;
+
+  const mBoleto =
+    allText.match(/(?:boleto|compraventa)[^\d]{1,60}?(\d{1,2}\s+de\s+[a-z]+\s+del?\s+\d{4})/i) ||
+    allText.match(/(?:boleto|compraventa)[^\d]{1,60}?(\d{4}-\d{2}-\d{2})/i) ||
+    allText.match(/(?:boleto|compraventa)[^\d]{1,60}?(\d{2}\/\d{2}\/\d{4})/i);
+  if (mBoleto) {
+    const p = parsearFechaCualquiera(mBoleto[1]);
+    if (p) fechaBoleto = p.iso;
+  }
+
+  const mPlazo =
+    allText.match(/(\d{1,3})\s*d[ií]as\s+corridos/i) ||
+    allText.match(/plazo\s+(?:contractual\s+)?(?:de\s+)?(\d{1,3})\s*d[ií]as/i);
+  if (mPlazo) {
+    const p = parseInt(mPlazo[1], 10);
+    if (!Number.isNaN(p) && p > 0) plazoDias = p;
+  }
+
+  const mTentativa =
+    allText.match(/(?:tentativa|estimada|escrituraci[oó]n)[^\d]{1,60}?(\d{1,2}\s+de\s+[a-z]+\s+del?\s+\d{4})/i) ||
+    allText.match(/(?:tentativa|estimada|escrituraci[oó]n)[^\d]{1,60}?(\d{4}-\d{2}-\d{2})/i) ||
+    allText.match(/(?:tentativa|estimada|escrituraci[oó]n)[^\d]{1,60}?(\d{2}\/\d{2}\/\d{4})/i);
+  if (mTentativa) {
+    const p = parsearFechaCualquiera(mTentativa[1]);
+    if (p) fechaTentativa = p.iso;
+  }
+
+  return { fechaBoleto, plazoDias, fechaTentativa };
+}
+
 export async function generarResumenConIA(input: {
   titulo: string; cliente: string; tipo: string; estado: string;
   industria?: string;
   documentos: DocInput[]; eventos: EventoInput[];
+  plazoCanonico?: PlazoCanonicoLegajo | null;
 }): Promise<
   | { ok: false; motivo: 'sin_api_key' | 'sin_datos' | 'error' }
   | { ok: true; resumen: ResumenExpediente; model: string }
@@ -36,26 +119,59 @@ export async function generarResumenConIA(input: {
 
   const introPorRubro =
     input.industria === 'escribania'
-      ? 'Sos un escribano argentino. En base a los documentos ya analizados y las actuaciones de un legajo notarial, redactá un RESUMEN EJECUTIVO del trámite, claro y profesional, para entender su estado de un vistazo.'
+      ? 'Sos un escribano argentino. En base a los documentos ya analizados y las actuaciones de un legajo notarial, redactá un RESUMEN EJECUTIVO del trámite, claro y profesional, para entender su estado de un vistazo. TERMINOLOGÍA: PROHIBIDO utilizar la palabra "expediente". Utilizá "legajo", "acto", "instrumento" u "operación notarial" según el contexto.'
       : input.industria === 'inmobiliaria'
       ? 'Sos un asesor inmobiliario argentino. En base a los documentos ya analizados y los movimientos de una operación (compraventa, alquiler o reserva), redactá un RESUMEN EJECUTIVO de la operación, claro y profesional, para entender su estado de un vistazo.'
       : 'Sos un abogado senior argentino. En base a los documentos ya analizados y las actuaciones de un expediente, redactá un RESUMEN EJECUTIVO del caso completo, claro y profesional, para entender el estado del asunto de un vistazo.';
 
+  const headerPorRubro =
+    input.industria === 'escribania'
+      ? `LEGAJO NOTARIAL: ${input.titulo}\nCliente / Solicitante: ${input.cliente || '-'} | Tipo de acto: ${input.tipo || '-'} | Estado: ${input.estado || '-'}`
+      : input.industria === 'inmobiliaria'
+      ? `OPERACIÓN: ${input.titulo}\nCliente: ${input.cliente || '-'} | Tipo: ${input.tipo || '-'} | Estado: ${input.estado || '-'}`
+      : `EXPEDIENTE: ${input.titulo}\nCliente: ${input.cliente || '-'} | Tipo: ${input.tipo || '-'} | Estado: ${input.estado || '-'}`;
+
+  const jsonTemplate =
+    input.industria === 'escribania'
+      ? [
+          '{',
+          '  "resumen_general": "2-4 oraciones sobre de qué se trata el legajo y su situación (NUNCA comiences con \\"El presente expediente\\"; referite al legajo o al acto)",',
+          '  "estado_actual": "una oración sobre en qué etapa notarial se encuentra el trámite",',
+          '  "partes": ["cada compareciente/otorgante y su rol notarial"],',
+          '  "puntos_clave": ["inmueble, montos, fechas clave de boleto y escrituración"],',
+          '  "riesgos_alertas": ["plazos contractuales, vigencia de certificados o inconsistencias a vigilar (si la fecha tentativa de firma excede el plazo contractual de días corridos, señalar los días exactos de exceso)"],',
+          '  "proximas_acciones": ["trámites notariales concretos sugeridos para el escribano"]',
+          '}',
+        ].join('\n')
+      : input.industria === 'inmobiliaria'
+      ? [
+          '{',
+          '  "resumen_general": "2-4 oraciones sobre de qué se trata la operación y su situación (NUNCA uses \\"expediente\\" ni \\"etapa procesal\\"; referite a la operación)",',
+          '  "estado_actual": "una oración sobre en qué etapa de la operación se encuentra (captación, reserva, disponible, cierre)",',
+          '  "partes": ["cada parte interviniente y su rol"],',
+          '  "puntos_clave": ["inmueble, dirección, montos, fechas clave y condiciones"],',
+          '  "riesgos_alertas": ["plazos de vigencia, gravámenes, deudas o inconsistencias documentales"],',
+          '  "proximas_acciones": ["acciones comerciales u operativas concretas sugeridas para la inmobiliaria"]',
+          '}',
+        ].join('\n')
+      : [
+          '{',
+          '  "resumen_general": "2-4 oraciones sobre de qué se trata el expediente y su situación",',
+          '  "estado_actual": "una oración sobre en qué etapa procesal está",',
+          '  "partes": ["cada parte y su rol"],',
+          '  "puntos_clave": ["hechos, montos, fechas y datos determinantes"],',
+          '  "riesgos_alertas": ["riesgos, plazos críticos o inconsistencias a vigilar"],',
+          '  "proximas_acciones": ["acciones concretas sugeridas para el profesional a cargo"]',
+          '}',
+        ].join('\n');
+
   const prompt = [
     introPorRubro,
     'Respondé SOLO un objeto JSON válido (sin texto adicional) con esta forma exacta:',
-    '{',
-    '  "resumen_general": "2-4 oraciones sobre de qué se trata el expediente y su situación",',
-    '  "estado_actual": "una oración sobre en qué etapa procesal está",',
-    '  "partes": ["cada parte y su rol"],',
-    '  "puntos_clave": ["hechos, montos, fechas y datos determinantes"],',
-    '  "riesgos_alertas": ["riesgos, plazos críticos o inconsistencias a vigilar"],',
-    '  "proximas_acciones": ["acciones concretas sugeridas para el profesional a cargo"]',
-    '}',
+    jsonTemplate,
     'Reglas: NO inventes datos, montos, fechas ni artículos. Si algo no surge de la información, devolvé un array vacío. Basate SOLO en lo aportado.',
     '',
-    `EXPEDIENTE: ${input.titulo}`,
-    `Cliente: ${input.cliente || '-'} | Tipo: ${input.tipo || '-'} | Estado: ${input.estado || '-'}`,
+    headerPorRubro,
     '',
     'DOCUMENTOS ANALIZADOS:',
     docsTexto || '(sin documentos analizados)',
@@ -82,15 +198,79 @@ export async function generarResumenConIA(input: {
     if (!raw.trim()) return { ok: false, motivo: 'error' };
     const parsed = JSON.parse(raw);
     const arr = (v: unknown): string[] => (Array.isArray(v) ? v.map((x) => String(x)) : []);
+
+    let resumenGeneral = String(parsed.resumen_general ?? '');
+    let estadoActual = String(parsed.estado_actual ?? '');
+    let partes = arr(parsed.partes);
+    let puntosClave = arr(parsed.puntos_clave);
+    let riesgosAlertas = arr(parsed.riesgos_alertas);
+    let proximasAcciones = arr(parsed.proximas_acciones);
+
+    if (input.industria === 'escribania') {
+      resumenGeneral = sanitizarTerminologiaEscribania(resumenGeneral);
+      estadoActual = sanitizarTerminologiaEscribania(estadoActual);
+      partes = partes.map(sanitizarTerminologiaEscribania);
+      puntosClave = puntosClave.map(sanitizarTerminologiaEscribania);
+      riesgosAlertas = riesgosAlertas.map(sanitizarTerminologiaEscribania);
+      proximasAcciones = proximasAcciones.map(sanitizarTerminologiaEscribania);
+    } else if (input.industria === 'inmobiliaria') {
+      resumenGeneral = sanitizarTerminologiaInmobiliaria(resumenGeneral);
+      estadoActual = sanitizarTerminologiaInmobiliaria(estadoActual);
+      partes = partes.map(sanitizarTerminologiaInmobiliaria);
+      puntosClave = puntosClave.map(sanitizarTerminologiaInmobiliaria);
+      riesgosAlertas = riesgosAlertas.map(sanitizarTerminologiaInmobiliaria);
+      proximasAcciones = proximasAcciones.map(sanitizarTerminologiaInmobiliaria);
+    }
+
+    if (input.industria === 'escribania') {
+      // Verificación determinística de plazo contractual de boleto vs fecha tentativa de escritura
+      let analisis: any = input.plazoCanonico;
+      if (!analisis) {
+        const datosBoleto = detectarDatosBoleto(input.documentos, input.eventos);
+        if (datosBoleto.fechaBoleto && datosBoleto.plazoDias && datosBoleto.fechaTentativa) {
+          analisis = analizarPlazoBoletoEscritura(
+            datosBoleto.fechaBoleto,
+            datosBoleto.plazoDias,
+            datosBoleto.fechaTentativa
+          );
+        }
+      }
+
+      if (analisis && (analisis.excedePlazo || analisis.excesoDias > 0 || analisis.diasExceso > 0)) {
+        const fTentativa = analisis.fechaTentativa || analisis.fechaTentativaAr;
+        const fLimite = analisis.fechaLimite || analisis.fechaLimiteAr;
+        const dias = analisis.excesoDias ?? analisis.diasExceso ?? 2;
+        const plazoTxt = analisis.plazoDias
+          ? `el plazo contractual de ${analisis.plazoDias} días corridos (límite: ${fLimite})`
+          : `el límite contractual (${fLimite})`;
+
+        const adv =
+          analisis.advertencia ||
+          `La fecha tentativa de escrituración (${fTentativa}) excede ${plazoTxt} por ${dias} día${dias === 1 ? '' : 's'} corridos.`;
+        const yaTieneAlerta = riesgosAlertas.some(
+          (r) => r.toLowerCase().includes('excede') || r.toLowerCase().includes('supera')
+        );
+        if (!yaTieneAlerta) {
+          riesgosAlertas.unshift(adv);
+        }
+        if (
+          !resumenGeneral.toLowerCase().includes('excede') &&
+          !resumenGeneral.toLowerCase().includes('supera')
+        ) {
+          resumenGeneral += ` Se advierte que la fecha tentativa de escrituración (${fTentativa}) excede ${plazoTxt} por ${dias} día${dias === 1 ? '' : 's'} corridos.`;
+        }
+      }
+    }
+
     return {
       ok: true, model: `copiloto-${modelo}`,
       resumen: {
-        resumen_general: String(parsed.resumen_general ?? ''),
-        estado_actual: String(parsed.estado_actual ?? ''),
-        partes: arr(parsed.partes),
-        puntos_clave: arr(parsed.puntos_clave),
-        riesgos_alertas: arr(parsed.riesgos_alertas),
-        proximas_acciones: arr(parsed.proximas_acciones),
+        resumen_general: resumenGeneral,
+        estado_actual: estadoActual,
+        partes,
+        puntos_clave: puntosClave,
+        riesgos_alertas: riesgosAlertas,
+        proximas_acciones: proximasAcciones,
       },
     };
   } catch (e) { console.error('Copiloto parse error:', e); return { ok: false, motivo: 'error' }; }
@@ -109,13 +289,14 @@ export async function cotejarDocumentosConIA(input: {
   tipo: string;
   industria?: string;
   documentos: DocInput[];
+  plazoCanonico?: PlazoCanonicoLegajo | null;
 }): Promise<
   | { ok: false; motivo: 'sin_api_key' | 'sin_datos' | 'error' }
   | { ok: true; cotejo: CotejoNotarial; model: string }
 > {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) return { ok: false, motivo: 'sin_api_key' };
-  if (input.documentos.length < 2) return { ok: false, motivo: 'sin_datos' };
+  if (input.documentos.length < 1) return { ok: false, motivo: 'sin_datos' };
 
   const modelo = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
 
@@ -218,15 +399,89 @@ export async function cotejarDocumentosConIA(input: {
     if (!raw.trim()) return { ok: false, motivo: 'error' };
     const parsed = JSON.parse(raw);
     const arr = (v: unknown): string[] => (Array.isArray(v) ? v.map((x) => String(x)) : []);
+    const veredicto = String(parsed.veredicto ?? '');
+    const coincidencias = arr(parsed.coincidencias);
+    let discrepancias = arr(parsed.discrepancias);
+    const faltantes = arr(parsed.faltantes);
+    let alertas_vigencia = arr(parsed.alertas_vigencia);
+
+    if (input.industria === 'escribania') {
+      let plazo: any = input.plazoCanonico;
+      if (!plazo) {
+        const datosBoleto = detectarDatosBoleto(input.documentos, []);
+        if (datosBoleto.fechaBoleto && datosBoleto.plazoDias && datosBoleto.fechaTentativa) {
+          plazo = analizarPlazoBoletoEscritura(
+            datosBoleto.fechaBoleto,
+            datosBoleto.plazoDias,
+            datosBoleto.fechaTentativa
+          );
+        }
+      }
+
+      if (plazo && (plazo.excedePlazo || plazo.excesoDias > 0 || plazo.diasExceso > 0)) {
+        const rawTentativa = plazo.fechaTentativa || plazo.fechaTentativaAr || '';
+        const rawLimite = plazo.fechaLimite || plazo.fechaLimiteAr || '';
+        const fTentativa = formatIsoToAr(rawTentativa);
+        const fLimite = formatIsoToAr(rawLimite);
+        const dias = plazo.excesoDias ?? plazo.diasExceso ?? 2;
+
+        const discExacta = `Plazo contractual: la fecha tentativa de escritura (${fTentativa}) supera el límite contractual (${fLimite}) por ${dias} días corridos.`;
+        const vigExacta = plazo.plazoDias
+          ? `La fecha tentativa de escritura (${fTentativa}) excede el plazo máximo de ${plazo.plazoDias} días corridos, cuyo límite es el ${fLimite}.`
+          : `La fecha tentativa de escritura (${fTentativa}) supera el límite contractual (${fLimite}).`;
+
+        const parsedTentativa = parsearFechaCualquiera(plazo.fechaTentativaIso || plazo.fechaTentativa || rawTentativa);
+        const parsedLimite = parsearFechaCualquiera(plazo.fechaLimiteIso || plazo.fechaLimite || rawLimite);
+        const isoTentativa = parsedTentativa ? parsedTentativa.iso : '';
+        const arTentativa = parsedTentativa ? parsedTentativa.ar : fTentativa;
+        const isoLimite = parsedLimite ? parsedLimite.iso : '';
+        const arLimite = parsedLimite ? parsedLimite.ar : fLimite;
+
+        // Considerar duplicado solamente si contiene simultáneamente:
+        // 1) semántica de tentativa
+        // 2) semántica de límite/exceso
+        // 3) la fecha tentativa canónica (en formato AR o ISO)
+        // 4) la fecha límite canónica (en formato AR o ISO)
+        // Si no aparecen ambas fechas canónicas exactas, preservar el mensaje.
+        const esMismoConflictoCanonico = (txt: string) => {
+          const t = txt.toLowerCase();
+          const mencionaTentativa = t.includes('tentativa') || t.includes('estimada') || t.includes('otorgamiento');
+          const mencionaLimite =
+            t.includes('límite') ||
+            t.includes('limite') ||
+            t.includes('plazo máximo') ||
+            t.includes('plazo maximo') ||
+            t.includes('supera') ||
+            t.includes('excede');
+
+          const tieneFechaTentativa =
+            (arTentativa && t.includes(arTentativa)) ||
+            (isoTentativa && t.includes(isoTentativa));
+
+          const tieneFechaLimite =
+            (arLimite && t.includes(arLimite)) ||
+            (isoLimite && t.includes(isoLimite));
+
+          return mencionaTentativa && mencionaLimite && tieneFechaTentativa && tieneFechaLimite;
+        };
+
+        discrepancias = discrepancias.filter((d: string) => !esMismoConflictoCanonico(d));
+        discrepancias.unshift(discExacta);
+
+        alertas_vigencia = alertas_vigencia.filter((a: string) => !esMismoConflictoCanonico(a));
+        alertas_vigencia.unshift(vigExacta);
+      }
+    }
+
     return {
       ok: true,
       model: `cotejo-${modelo}`,
       cotejo: {
-        veredicto: String(parsed.veredicto ?? ''),
-        coincidencias: arr(parsed.coincidencias),
-        discrepancias: arr(parsed.discrepancias),
-        faltantes: arr(parsed.faltantes),
-        alertas_vigencia: arr(parsed.alertas_vigencia),
+        veredicto,
+        coincidencias,
+        discrepancias,
+        faltantes,
+        alertas_vigencia,
       },
     };
   } catch (e) {

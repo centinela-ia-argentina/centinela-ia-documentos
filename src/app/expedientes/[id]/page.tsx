@@ -8,19 +8,25 @@ import {
   getCaseStatuses,
   getCaseStatusLabel,
   getCaseTypeLabel,
+  isEscrituraCompatibleCase,
+  isRentalCompatibleCaseType,
+  isDerivacionEscribaniaCompatible,
 } from '@/lib/industries/caseConfig';
 import {
   getDocumentTypeLabel,
   normalizeIndustryType,
   getDocumentTypes,
 } from '@/lib/industries/documentTypes';
+import { sugerirModeloNotarialPorTipo } from '@/lib/legal/modelos';
 import { AiDisclaimer } from '@/lib/industries/disclaimers';
 import { getIndustryTerms } from '@/lib/industries/uiLabels';
+import { sanitizeTextoInmobiliario } from '@/lib/format/sanitizerInmobiliaria';
 import { summarizeChecklistStatuses } from '@/lib/checklist/progress';
 import { getDocumentExpiryStatus, expiryStatusLabel, getExpiryBadgeStyles, getDaysUntilExpiry } from '@/lib/documents/expiry';
 import { sensitivityLabel } from '@/lib/documents/sensitivity';
 import { formatPlazoDate } from '@/lib/format/date';
 import { esPlazoAccionable } from '@/lib/plazos/plazos';
+import { extraerFechaBoletoUif, extraerFechasOperativasLegajo } from '@/lib/plazos/fechasCanonicas';
 import {
   linkChecklistItemDocument,
   toggleChecklistItem,
@@ -78,6 +84,7 @@ type ChecklistItemRecord = {
   title: string;
   status: string;
   document_id: string | null;
+  match_source?: 'manual' | 'automatic' | null;
   notes: string | null;
   created_at: string;
   documents: {
@@ -116,12 +123,30 @@ type CaseEventRecord = {
   created_by: string | null;
 };
 
+const INMOBILIARIA_EVENT_TYPES: Record<string, string> = {
+  visita: 'Visita al inmueble',
+  reserva_oferta: 'Reserva / Oferta',
+  documentacion: 'Documentación / Solicitud',
+  negociacion: 'Negociación de condiciones',
+  firma: 'Firma de instrumento',
+  ajuste: 'Ajuste de canon / precio',
+  vencimiento: 'Vencimiento contractual',
+  otro: 'Otro movimiento',
+};
+
 const CASE_EVENT_TYPE_LABELS: Record<string,string> = {
   escrito: 'Escrito / Presentación',
   audiencia: 'Audiencia',
   notificacion: 'Notificación / Cédula',
   resolucion: 'Resolución / Sentencia',
   prueba: 'Prueba / Pericia',
+  visita: 'Visita al inmueble',
+  reserva_oferta: 'Reserva / Oferta',
+  documentacion: 'Documentación / Solicitud',
+  negociacion: 'Negociación de condiciones',
+  firma: 'Firma de instrumento',
+  ajuste: 'Ajuste de canon / precio',
+  vencimiento: 'Vencimiento contractual',
   otro: 'Otro movimiento',
 };
 
@@ -132,6 +157,13 @@ function getEventTypeBadgeColor(type: string): "warning" | "success" | "accent" 
     notificacion: 'accent',
     resolucion: 'success',
     prueba: 'accent',
+    visita: 'accent',
+    reserva_oferta: 'warning',
+    documentacion: 'neutral',
+    negociacion: 'accent',
+    firma: 'success',
+    ajuste: 'warning',
+    vencimiento: 'warning',
     otro: 'neutral',
   };
   return tones[type] || 'neutral';
@@ -140,13 +172,7 @@ function getEventTypeBadgeColor(type: string): "warning" | "success" | "accent" 
 const darkOptionStyle = { backgroundColor: '#0C2340', color: '#FFFFFF' };
 
 function modeloSugeridoPorTipoLegajo(caseType?: string | null): string | null {
-  const t = (caseType ?? '').toLowerCase();
-  if (t.includes('compraventa') || t.includes('escritura') || t.includes('real_estate') || t.includes('purchase')) return 'notarial-compraventa-inmueble';
-  if (t.includes('poder')) return 'notarial-poder-general-amplio';
-  if (t.includes('certificaci')) return 'notarial-certificacion-firmas';
-  if (t.includes('acta')) return 'notarial-acta-constatacion';
-  if (t.includes('autorizaci') || t.includes('viaje')) return 'notarial-autorizacion-viaje-menor';
-  return null;
+  return sugerirModeloNotarialPorTipo(caseType)?.id ?? null;
 }
 
 // Escrito judicial sugerido para un legajo del rubro legal.
@@ -240,9 +266,12 @@ export default async function CaseDetailPage({ params, searchParams }: CaseDetai
         { value: caseRecord.status, label: getCaseStatusLabel(caseRecord.status, industry) },
         ...caseStatuses,
       ];
-  const visibleMetadataFields = caseFields.filter((field) =>
-    getMetadataValue(caseRecord.metadata, field.key)
-  );
+  const visibleMetadataFields = caseFields.filter((field) => {
+    if (industry === 'inmobiliaria' && field.key === 'moneda_operacion') {
+      return true;
+    }
+    return Boolean(getMetadataValue(caseRecord.metadata, field.key));
+  });
 
   const { data: caseChecklist } = await supabase
     .from('checklists')
@@ -253,13 +282,25 @@ export default async function CaseDetailPage({ params, searchParams }: CaseDetai
 
   let checklistItemsData: any[] = [];
   if (caseChecklist) {
-    const { data, error } = await supabase
+    let { data, error } = await supabase
       .from('checklist_items')
-      .select('id, checklist_id, title, status, document_id, notes, created_at, documents(id, file_name)')
+      .select('id, checklist_id, title, status, document_id, match_source, notes, created_at, documents(id, file_name)')
       .eq('checklist_id', caseChecklist.id)
       .eq('organization_id', profile.organization_id)
       .order('created_at', { ascending: true })
       .order('id', { ascending: true });
+
+    if (error && (error.code === '42703' || error.message?.includes('match_source') || error.details?.includes('match_source'))) {
+      const fallbackRes = await supabase
+        .from('checklist_items')
+        .select('id, checklist_id, title, status, document_id, notes, created_at, documents(id, file_name)')
+        .eq('checklist_id', caseChecklist.id)
+        .eq('organization_id', profile.organization_id)
+        .order('created_at', { ascending: true })
+        .order('id', { ascending: true });
+      data = (fallbackRes.data ?? []).map((item: any) => ({ ...item, match_source: null }));
+      error = fallbackRes.error;
+    }
 
     if (error) {
       console.error('Error fetching checklist items:', error);
@@ -337,7 +378,7 @@ export default async function CaseDetailPage({ params, searchParams }: CaseDetai
     (item) => item.status === 'pending' || item.status === 'rejected'
   );
 
-  const { data: resumenData } = await supabase
+  const { data: rawResumenData } = await supabase
     .from('ai_outputs')
     .select('result_json, created_at')
     .eq('case_id', caseRecord.id)
@@ -346,6 +387,24 @@ export default async function CaseDetailPage({ params, searchParams }: CaseDetai
     .order('created_at', { ascending: false })
     .limit(1)
     .maybeSingle();
+
+  const resumenData = rawResumenData ? {
+    ...rawResumenData,
+    result_json: industry === 'inmobiliaria' && rawResumenData.result_json ? {
+      ...rawResumenData.result_json,
+      resumen_general: sanitizeTextoInmobiliario(rawResumenData.result_json.resumen_general || ''),
+      estado_actual: sanitizeTextoInmobiliario(rawResumenData.result_json.estado_actual || ''),
+      puntos_clave: Array.isArray(rawResumenData.result_json.puntos_clave)
+        ? rawResumenData.result_json.puntos_clave.map((p: string) => sanitizeTextoInmobiliario(p))
+        : [],
+      riesgos_alertas: Array.isArray(rawResumenData.result_json.riesgos_alertas)
+        ? rawResumenData.result_json.riesgos_alertas.map((r: string) => sanitizeTextoInmobiliario(r))
+        : [],
+      proximas_acciones: Array.isArray(rawResumenData.result_json.proximas_acciones)
+        ? rawResumenData.result_json.proximas_acciones.map((a: string) => sanitizeTextoInmobiliario(a))
+        : [],
+    } : rawResumenData.result_json,
+  } : null;
 
   const { data: cotejoData } = await supabase
     .from('ai_outputs')
@@ -561,6 +620,25 @@ export default async function CaseDetailPage({ params, searchParams }: CaseDetai
         origen: 'detectada',
         etiquetaOrigen: `Detectada · ${nombrePorDoc.get(docId) || 'documento'}`,
         esFuturo: esFuturo(f),
+      });
+    }
+  }
+
+  // 2.5) Fechas operativas registradas en metadata del legajo/expediente y análisis de IA
+  const aiOutputsParaFechas = [
+    ...(analisisData ?? []),
+    ...(resumenData ? [{ output_type: 'case_summary', result_json: resumenData.result_json, case_id: caseRecord.id, created_at: resumenData.created_at }] : []),
+  ];
+  const fechasMeta = extraerFechasOperativasLegajo(caseRecord, aiOutputsParaFechas, [...eventos, ...(agendaData ?? [])]);
+  for (const fm of fechasMeta) {
+    if (!cronologia.some((it) => it.fecha === fm.fecha && it.titulo.toLowerCase().trim() === fm.tipo.toLowerCase().trim())) {
+      cronologia.push({
+        fecha: fm.fecha,
+        titulo: fm.tipo,
+        detalle: fm.title,
+        origen: 'agenda',
+        etiquetaOrigen: 'Metadata del legajo',
+        esFuturo: esFuturo(fm.fecha),
       });
     }
   }
@@ -790,12 +868,12 @@ export default async function CaseDetailPage({ params, searchParams }: CaseDetai
                   />
                 )}
 
-                {industry === 'escribania' && (
+                {industry === 'escribania' && isEscrituraCompatibleCase(caseRecord.case_type) && (
                   <section className="rounded-xl border border-white/10 bg-white/[0.02] p-5">
                     <div className="flex items-center justify-between gap-3">
                       <h3 className="text-sm font-semibold text-white">✍️ Borrador de escritura (IA)</h3>
                       {documentosAnalizados > 0 ? (
-                        (puedeUsarIA ? <RedactarEscrituraButton caseId={caseRecord.id} yaGenerada={!!borradorEscritura} /> : null)
+                        puedeUsarIA ? <RedactarEscrituraButton caseId={caseRecord.id} yaGenerada={!!borradorEscritura} /> : null
                       ) : (
                         <span className="text-xs text-white/40">Analizá al menos 1 documento para habilitarlo</span>
                       )}
@@ -840,41 +918,8 @@ export default async function CaseDetailPage({ params, searchParams }: CaseDetai
                           const dump = JSON.stringify((analisisData ?? []).map(a => a.result_json)) + JSON.stringify(resumenData?.result_json);
                           const m1 = dump.match(/(?:precio|monto|valor|venta)[^\d]*(USD|ARS|\$)\s*([\d\.,]+)/i);
                           const montoExtraido = m1 ? `${m1[1].replace('$', 'USD')} ${m1[2]}`.trim() : undefined;
+                          const fechaBoletoExtraida = extraerFechaBoletoUif(analisisData ?? [], resumenData, caseRecord);
                           
-                          let fechaBoletoExtraida = undefined;
-                          
-                          const fechasPlazos = (analisisData ?? []).flatMap(a => (a.result_json as any)?.fechas_plazos || []);
-                          const plazoJunio = fechasPlazos.find((fp: any) => {
-                            if (!fp?.fecha || typeof fp.fecha !== 'string') return false;
-                            const d = (fp.descripcion || '').toLowerCase();
-                            if (d.includes('tentativa') || d.includes('plazo máximo') || d.includes('septiembre')) return false;
-                            const f = fp.fecha;
-                            if (f.includes('2026-09-10') || f.includes('-09-')) return false;
-                            return (f === '2026-06-10' || f.includes('-06-')) && (d.includes('boleto') || d.includes('otorgamiento') || d.includes('firma'));
-                          });
-                          
-                          if (plazoJunio) {
-                            fechaBoletoExtraida = '10/06/2026';
-                          } else if (dump.match(/10\s+de\s+junio\s+de\s+2026|10\/06\/2026/i)) {
-                            fechaBoletoExtraida = '10/06/2026';
-                          } else if (dump.includes('2026-06-10')) {
-                            fechaBoletoExtraida = '10/06/2026';
-                          } else {
-                            const allFechasCtx = [...dump.matchAll(/(?:fecha\s*(?:de\s*)?(?:boleto|compraventa)|boleto|compraventa).{0,120}?(\d{1,2}\s+de\s+[a-z]+\s+del?\s+\d{4}|\d{2}\/\d{2}\/\d{4}|\d{4}-\d{2}-\d{2})/gi)];
-                            const fechaValida = allFechasCtx.find(m => {
-                              const f = m[1].toLowerCase();
-                              return !f.includes('septiembre') && !f.includes('/09/') && !f.includes('-09-') && !f.includes('2015');
-                            });
-                            if (fechaValida) {
-                              const v = fechaValida[1];
-                              if (v.match(/^\d{4}-\d{2}-\d{2}$/)) {
-                                const [y, m, d] = v.split('-');
-                                fechaBoletoExtraida = `${d}/${m}/${y}`;
-                              } else {
-                                fechaBoletoExtraida = v;
-                              }
-                            }
-                          }
                           return (
                             <RosDraftButton
                               analisis={analisisUif}
@@ -890,7 +935,7 @@ export default async function CaseDetailPage({ params, searchParams }: CaseDetai
                             />
                           );
                         })()}
-                        (puedeUsarIA ? <AnalizarUifButton caseId={caseRecord.id} yaGenerada={!!analisisUif} /> : null)
+                        {puedeUsarIA ? <AnalizarUifButton caseId={caseRecord.id} yaGenerada={!!analisisUif} /> : null}
                       </div>
                     </div>
                     {analisisUif ? (
@@ -938,7 +983,7 @@ export default async function CaseDetailPage({ params, searchParams }: CaseDetai
                     )}
                   </div>
                 )}
-                {industry === 'inmobiliaria' && (
+                {industry === 'inmobiliaria' && isRentalCompatibleCaseType(caseRecord.case_type) && (
                   <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-5">
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                       <h3 className="flex items-center gap-2 text-sm font-semibold text-white">✨ Pre-Score de Inquilino y Garantía</h3>
@@ -957,7 +1002,7 @@ export default async function CaseDetailPage({ params, searchParams }: CaseDetai
                             {prescore.nivel_calificacion === 'apto' ? 'Apto'
                             : prescore.nivel_calificacion === 'condicional' ? 'Condicional'
                             : prescore.nivel_calificacion === 'no_apto' ? 'No apto'
-                            : prescore.nivel_calificacion === 'indeterminado' ? 'Revisión Manual (Disparidad de Moneda)'
+                            : prescore.nivel_calificacion === 'indeterminado' ? 'Revisión manual'
                             : 'Información insuficiente'}
                           </span>
                           {prescore.veces_alquiler != null && (
@@ -970,7 +1015,7 @@ export default async function CaseDetailPage({ params, searchParams }: CaseDetai
                           <p>
                             <span className="font-medium text-white">Ingreso estimado:</span> {
                               prescore.ingreso_neto_mensual_estimado 
-                                ? new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(prescore.ingreso_neto_mensual_estimado)
+                                ? new Intl.NumberFormat('es-AR', { style: 'currency', currency: prescore.moneda_ingreso || 'ARS' }).format(prescore.ingreso_neto_mensual_estimado)
                                 : 'No se pudo estimar'
                             }
                           </p>
@@ -1022,6 +1067,7 @@ export default async function CaseDetailPage({ params, searchParams }: CaseDetai
                   caseId={caseRecord.id}
                   titulo={terms.radarTitulo}
                   subtitulo={terms.radarSubtitulo}
+                  industry={industry}
                 />
                 {industry === 'escribania' && (
                   <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-5">
@@ -1035,10 +1081,31 @@ export default async function CaseDetailPage({ params, searchParams }: CaseDetai
                         </p>
                       </div>
                       <Link
-                        href={modeloSugerido ? `/modelos?modelo=${modeloSugerido}` : '/modelos'}
+                        href={modeloSugerido ? `/modelos?modelo=${modeloSugerido}&expediente=${caseRecord.id}` : `/modelos?expediente=${caseRecord.id}`}
                         className="shrink-0 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-500 px-4 py-2 text-sm font-semibold text-white transition hover:opacity-90"
                       >
                         {modeloSugerido ? 'Redactar con el modelo sugerido' : 'Ir a Modelos'}
+                      </Link>
+                    </div>
+                  </div>
+                )}
+
+                {industry === 'inmobiliaria' && isRentalCompatibleCaseType(caseRecord.case_type) && (
+                  <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-5">
+                    <div className="flex flex-wrap items-center justify-between gap-4">
+                      <div>
+                        <h3 className="flex items-center gap-2 text-sm font-semibold text-white">
+                          📄 Contrato de locación
+                        </h3>
+                        <p className="mt-1 text-sm text-slate-400">
+                          Prepará el contrato de locación prellenando las partes, el inmueble y las condiciones de la operación.
+                        </p>
+                      </div>
+                      <Link
+                        href={`/modelos?modelo=contrato-locacion&operacion=${caseRecord.id}&expediente=${caseRecord.id}`}
+                        className="shrink-0 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-500 px-4 py-2 text-sm font-semibold text-white transition hover:opacity-90"
+                      >
+                        Preparar contrato de locación
                       </Link>
                     </div>
                   </div>
@@ -1185,7 +1252,9 @@ export default async function CaseDetailPage({ params, searchParams }: CaseDetai
                   </div>
                 )}
 
-                {industry === 'inmobiliaria' && <DerivarEscribania caseId={caseRecord.id} />}
+                {industry === 'inmobiliaria' && isDerivacionEscribaniaCompatible(caseRecord.case_type) && (
+                  <DerivarEscribania caseId={caseRecord.id} />
+                )}
 
                 <MotionCard index={industry === 'inmobiliaria' ? 1 : 0}>
           <h3 className="font-display text-lg font-semibold text-white">
@@ -1237,13 +1306,14 @@ export default async function CaseDetailPage({ params, searchParams }: CaseDetai
                   </div>
                 );
               }
+              const displayValue = field.key === 'moneda_operacion' && !value ? 'Sin definir' : value;
               return (
                 <div key={field.key} className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
                   <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
                     {field.label}
                   </p>
                   <p className="mt-2 font-bold text-white">
-                    {value}
+                    {displayValue}
                   </p>
                 </div>
               );
@@ -1340,7 +1410,7 @@ export default async function CaseDetailPage({ params, searchParams }: CaseDetai
             content: (
               <MotionCard index={0}>
                 <div className="mb-6">
-                  <PreguntarDocumentos caseId={caseRecord.id} puedeUsarIA={puedeUsarIA} />
+                  <PreguntarDocumentos caseId={caseRecord.id} puedeUsarIA={puedeUsarIA} industry={industry} />
                 </div>
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div>
@@ -1429,10 +1499,14 @@ export default async function CaseDetailPage({ params, searchParams }: CaseDetai
             label: '🕑 Cronología',
             content: (
               <div className="space-y-6">
-                <CronologiaExpediente items={cronologia} titulo={`🕒 Cronología del ${terms.expedienteSingular.toLowerCase()}`} />
+                <CronologiaExpediente
+                  items={cronologia}
+                  titulo={`🕒 Cronología ${terms.delExpediente}`}
+                  industry={industry}
+                />
                 <MotionCard index={0}>
-            <h3 className="font-display text-lg font-semibold text-white">Línea de tiempo del expediente</h3>
-            <p className="mt-1 text-sm text-slate-400">Registro cronológico de actuaciones, audiencias y movimientos.</p>
+            <h3 className="font-display text-lg font-semibold text-white">Línea de tiempo {terms.delExpediente}</h3>
+            <p className="mt-1 text-sm text-slate-400">{terms.cronologiaSubtitulo}</p>
             
             <form action={async (formData: FormData) => {
               'use server';
@@ -1452,7 +1526,7 @@ export default async function CaseDetailPage({ params, searchParams }: CaseDetai
                 <div>
                   <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">Tipo</label>
                   <select name="eventType" defaultValue="otro" className="mt-1 w-full rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-white placeholder:text-slate-500 outline-none focus:ring-2 focus:ring-sky-400">
-                    {Object.entries(CASE_EVENT_TYPE_LABELS).map(([val, label]) => (
+                    {Object.entries(industry === 'inmobiliaria' ? INMOBILIARIA_EVENT_TYPES : CASE_EVENT_TYPE_LABELS).map(([val, label]) => (
                       <option key={val} value={val} style={darkOptionStyle} className="bg-[#0C2340] text-white">{label}</option>
                     ))}
                   </select>
@@ -1460,20 +1534,30 @@ export default async function CaseDetailPage({ params, searchParams }: CaseDetai
               </div>
               <div>
                 <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">Título</label>
-                <input type="text" name="title" required placeholder="Ej: Se presentó la demanda" className="mt-1 w-full rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-white placeholder:text-slate-500 outline-none focus:ring-2 focus:ring-sky-400" />
+                <input
+                  type="text"
+                  name="title"
+                  required
+                  placeholder={industry === 'inmobiliaria' ? 'Ej: Visita al inmueble / Reserva firmada' : 'Ej: Se presentó la demanda'}
+                  className="mt-1 w-full rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-white placeholder:text-slate-500 outline-none focus:ring-2 focus:ring-sky-400"
+                />
               </div>
               <div>
                 <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">Descripción (opcional)</label>
                 <textarea name="description" rows={2} className="mt-1 w-full rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-white placeholder:text-slate-500 outline-none focus:ring-2 focus:ring-sky-400" />
               </div>
               <button type="submit" className="justify-self-start rounded-xl bg-slate-900 px-4 py-2 text-sm font-bold text-white hover:bg-slate-800 transition-all">
-                Agregar actuación
+                {industry === 'inmobiliaria' ? 'Agregar movimiento' : 'Agregar actuación'}
               </button>
             </form>
 
             <div className="mt-6 space-y-4 border-l-2 border-white/10 pl-4">
               {eventos.length === 0 ? (
-                <div className="text-sm text-slate-400">Todavía no hay actuaciones registradas en este expediente.</div>
+                <div className="text-sm text-slate-400">
+                  {industry === 'inmobiliaria'
+                    ? 'Todavía no hay movimientos registrados en esta operación.'
+                    : `Todavía no hay actuaciones registradas en este ${terms.expedienteSingular.toLowerCase()}.`}
+                </div>
               ) : (
                 eventos.map((item) => (
                   <div key={item.id} className="relative mb-6 last:mb-0">
@@ -1557,6 +1641,7 @@ export default async function CaseDetailPage({ params, searchParams }: CaseDetai
                           <input type="hidden" name="case_id" value={caseRecord.id} />
                           <button
                             type="submit"
+                            data-testid="btn-auto-match"
                             className="rounded-lg bg-gradient-to-r from-cyan-500 to-violet-500 px-3 py-1.5 text-sm font-medium text-white transition hover:opacity-90"
                           >
                             ✨ Detectar documentos ya cargados
@@ -1591,14 +1676,14 @@ export default async function CaseDetailPage({ params, searchParams }: CaseDetai
                   )}
                 </div>
 
-                <div className="mt-5 space-y-3">
+                <div className="mt-5 space-y-3" data-testid="checklist-items">
                   {checklistItems.map((item, idx) => {
                     const isDone = item.status === 'received' || item.status === 'reviewed';
                     const isMissing = item.status === 'pending' || item.status === 'rejected';
                     const isNotRequired = item.status === 'not_required';
 
                     return (
-                      <div key={item.id} className={`space-y-3 ${isNotRequired ? 'opacity-60' : ''}`}>
+                      <div key={item.id} data-testid={`checklist-item-${idx}`} className={`space-y-3 ${isNotRequired ? 'opacity-60' : ''}`}>
                       <div className={`flex items-center gap-3 rounded-2xl border p-3 transition-colors ${
                           isMissing
                             ? 'border-[#F59E0B] bg-white/[0.04]'
@@ -1640,7 +1725,7 @@ export default async function CaseDetailPage({ params, searchParams }: CaseDetai
                             {item.title}
                           </p>
                           <div className="mt-1 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                            <Badge tone={isDone ? 'success' : isNotRequired ? 'neutral' : 'warning'}>{checklistStatusLabel(item.status)}</Badge>
+                            <Badge tone={isDone ? 'success' : isNotRequired ? 'neutral' : 'warning'} data-testid={`checklist-status-badge-${idx}`}>{checklistStatusLabel(item.status)}</Badge>
                             <span>•</span>
                             <form action={toggleChecklistItemNotRequired} className="inline-block">
                               <input type="hidden" name="case_id" value={caseRecord.id} />
@@ -1663,9 +1748,18 @@ export default async function CaseDetailPage({ params, searchParams }: CaseDetai
                       </div>
 
                     {item.documents && !isNotRequired ? (
-                      <p className="rounded-xl bg-sky-50 px-3 py-2 text-xs font-semibold text-sky-700">
-                        Vinculado: {item.documents.file_name}
-                      </p>
+                      <div className="flex items-center gap-2" data-testid={`checklist-linked-info-${idx}`}>
+                        <p className="rounded-xl bg-sky-50 px-3 py-2 text-xs font-semibold text-sky-700">
+                          Vinculado: {item.documents.file_name}
+                        </p>
+                        {item.match_source === 'manual' ? (
+                          <Badge tone="accent" data-testid={`checklist-badge-manual-${idx}`}>Manual</Badge>
+                        ) : item.match_source === 'automatic' ? (
+                          <Badge tone="neutral" data-testid={`checklist-badge-auto-${idx}`}>Auto (IA)</Badge>
+                        ) : (
+                          <Badge tone="neutral" data-testid={`checklist-badge-unspecified-${idx}`}>Sin origen registrado</Badge>
+                        )}
+                      </div>
                     ) : null}
 
                     {!isNotRequired && (
@@ -1688,6 +1782,7 @@ export default async function CaseDetailPage({ params, searchParams }: CaseDetai
                             <select
                               name="document_id"
                               defaultValue={item.document_id ?? ''}
+                              data-testid={`select-doc-${idx}`}
                               className="w-full rounded-xl border border-slate-200 bg-[#0C2340] px-3 py-2 text-sm text-white outline-none focus:ring-2 focus:ring-sky-400"
                             >
                               <option
@@ -1709,7 +1804,11 @@ export default async function CaseDetailPage({ params, searchParams }: CaseDetai
                               ))}
                             </select>
 
-                            <button className="rounded-xl border border-white/10 px-3 py-2 text-sm font-bold text-slate-300 hover:border-sky-400 hover:text-sky-400">
+                            <button
+                              type="submit"
+                              data-testid={`btn-guardar-doc-${idx}`}
+                              className="rounded-xl border border-white/10 px-3 py-2 text-sm font-bold text-slate-300 hover:border-sky-400 hover:text-sky-400"
+                            >
                               Guardar
                             </button>
                           </div>
@@ -1753,7 +1852,7 @@ export default async function CaseDetailPage({ params, searchParams }: CaseDetai
                 <form action={archiveCase}>
                   <input type="hidden" name="case_id" value={caseRecord.id} />
                   <button type="submit" className="rounded-2xl border border-white/10 bg-white/[0.05] px-4 py-2 text-sm font-bold text-white transition-all hover:bg-white/10">
-                    Archivar operación
+                    {terms.archivarCta}
                   </button>
                 </form>
               ) : (

@@ -13,21 +13,82 @@ export type RedactarResult =
   | { ok: false; motivo: 'sin_key' | 'sin_permiso' | 'error' };
 
 export async function redactarEscritoIA(input: {
-  titulo: string;
-  cuerpo: string;
+  modeloId: string;
   valores: Record<string, string>;
-  instruccion: string;
+  instruccion?: string;
+  titulo?: string;
+  cuerpo?: string;
   industria?: string;
 }): Promise<RedactarResult> {
   const { user, profile } = await getUserProfile();
   if (!user || !profile || !profile.organization_id) return { ok: false, motivo: 'sin_permiso' };
   if (!isUserRole(profile.role) || !canUseAi(profile.role)) return { ok: false, motivo: 'sin_permiso' };
 
-  let industriaModelo: string;
+  let industriaModelo: IndustryType;
   try {
     industriaModelo = await getStrictIndustryForOrganization(profile.organization_id);
   } catch (e) {
     return { ok: false, motivo: 'sin_permiso' };
+  }
+
+  // 1. modeloId obligatorio: fail-closed ante ID ausente o no string
+  if (!input.modeloId || typeof input.modeloId !== 'string' || !input.modeloId.trim()) {
+    return { ok: false, motivo: 'error' };
+  }
+
+  // 2. Buscar el modelo en MODELOS ÚNICAMENTE por modeloId en el servidor
+  const modeloEncontrado = MODELOS.find((m) => m.id === input.modeloId);
+  if (!modeloEncontrado) {
+    await createAuditLog({
+      organizationId: profile.organization_id,
+      userId: user.id,
+      action: 'ai_model_not_found',
+      resourceType: 'organization',
+      resourceId: profile.organization_id,
+      metadata: {
+        entity_id: input.modeloId,
+        motivo: 'Modelo no encontrado en el catálogo oficial',
+      },
+    });
+    return { ok: false, motivo: 'error' };
+  }
+
+  // 3. Validar si el modelo pertenece a la industria de la organización
+  const modelIndustries = modeloEncontrado.industries ?? ['legal'];
+  if (!modelIndustries.includes(industriaModelo)) {
+    await createAuditLog({
+      organizationId: profile.organization_id,
+      userId: user.id,
+      action: 'ai_model_industry_mismatch',
+      resourceType: 'organization',
+      resourceId: profile.organization_id,
+      metadata: {
+        entity_id: modeloEncontrado.id,
+        titulo: modeloEncontrado.titulo,
+        industria_org: industriaModelo,
+        industrias_modelo: modelIndustries,
+        motivo: 'Modelo no disponible para el rubro de la organización',
+      },
+    });
+    return { ok: false, motivo: 'error' };
+  }
+
+  // 4. Bloqueo fail-closed de modelos desactualizados o retirados
+  if (modeloEncontrado.reviewStatus === 'outdated' || modeloEncontrado.reviewStatus === 'retired') {
+    await createAuditLog({
+      organizationId: profile.organization_id,
+      userId: user.id,
+      action: 'ai_model_blocked',
+      resourceType: 'organization',
+      resourceId: profile.organization_id,
+      metadata: {
+        entity_id: modeloEncontrado.id,
+        titulo: modeloEncontrado.titulo,
+        motivo: 'Modelo desactualizado o retirado (Ley 27.742 derogó multas de Ley 24.013). Requiere revisión profesional.',
+        review_status: modeloEncontrado.reviewStatus,
+      },
+    });
+    return { ok: false, motivo: 'error' };
   }
 
   const apiKey = process.env.GEMINI_API_KEY;
@@ -35,8 +96,17 @@ export async function redactarEscritoIA(input: {
 
   const modelo = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
 
-  const datos = Object.entries(input.valores)
-    .filter(([, v]) => v && v.trim())
+  // 5. Filtrar valores: sólo admitir las variables que realmente existen en modeloEncontrado.cuerpo
+  const allowedVars = new Set(extractModelVars(modeloEncontrado.cuerpo));
+  const rawValores = input.valores || {};
+  const datosFiltrados: Record<string, string> = {};
+  for (const [k, v] of Object.entries(rawValores)) {
+    if (allowedVars.has(k) && typeof v === 'string' && v.trim()) {
+      datosFiltrados[k] = v.trim();
+    }
+  }
+
+  const datos = Object.entries(datosFiltrados)
     .map(([k, v]) => `- ${k}: ${v}`)
     .join('\n');
 
@@ -48,14 +118,15 @@ export async function redactarEscritoIA(input: {
       : 'Sos un asistente jurídico argentino experto. Redactá un escrito formal, claro y bien estructurado, en español rioplatense con estilo forense.';
   const tipoDoc = industriaModelo === 'legal' ? 'escrito' : 'documento';
 
+  // 6. Ignorar por completo cuerpo y titulo enviados por el cliente. Prompt construido exclusivamente con modeloEncontrado
   const prompt = [
     persona,
     'Tomá como base la siguiente plantilla: respetá su estructura y reemplazá las variables entre llaves dobles con los datos provistos.',
     '',
-    `TÍTULO DEL MODELO: ${input.titulo}`,
+    `TÍTULO DEL MODELO: ${modeloEncontrado.titulo}`,
     '',
     'PLANTILLA:',
-    input.cuerpo,
+    modeloEncontrado.cuerpo,
     '',
     'DATOS DISPONIBLES DEL EXPEDIENTE:',
     datos || '(sin datos precargados)',
@@ -102,7 +173,7 @@ export async function redactarEscritoIA(input: {
       action: 'ai_model_generated',
       resourceType: 'organization',
       resourceId: profile.organization_id,
-      metadata: { entity_id: input.titulo, details: { industria: industriaModelo } }
+      metadata: { entity_id: modeloEncontrado.id, titulo: modeloEncontrado.titulo, details: { industria: industriaModelo } }
     });
 
     return { ok: true, texto: texto.trim() };
@@ -263,6 +334,24 @@ export async function extraerDatosParaModelo(caseId: string, modeloId?: string |
   }
   const modelIndustries = modelo.industries ?? ['legal'];
   if (!modelIndustries.includes(industry)) {
+    return {};
+  }
+
+  // 3.1 Bloqueo fail-closed de modelos desactualizados o retirados
+  if (modelo.reviewStatus === 'outdated' || modelo.reviewStatus === 'retired') {
+    await createAuditLog({
+      organizationId: profile.organization_id,
+      userId: user.id,
+      action: 'ai_model_blocked',
+      resourceType: 'organization',
+      resourceId: profile.organization_id,
+      metadata: {
+        entity_id: modelo.id,
+        titulo: modelo.titulo,
+        motivo: 'Modelo desactualizado o retirado (Ley 27.742 derogó multas de Ley 24.013). Requiere revisión profesional.',
+        review_status: modelo.reviewStatus,
+      },
+    });
     return {};
   }
 

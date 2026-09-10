@@ -374,19 +374,23 @@ function getAuditDetail(log: AuditLogRecordForReport) {
   return details.slice(0, 3).join(' · ');
 }
 
-function isDocumentAudit(log: AuditLogRecordForReport) {
-  return log.resource_type === 'document' || log.action.startsWith('document_');
-}
-
 function isAiAudit(log: AuditLogRecordForReport) {
   return (
     log.action.includes('analyzed') ||
+    log.action.startsWith('ai_') ||
+    log.action.includes('uif') ||
+    log.action.includes('ros') ||
+    log.action.includes('prescore') ||
     metadataText(log.metadata, 'output_type') === 'document_analysis'
   );
 }
 
+function isDocumentAudit(log: AuditLogRecordForReport) {
+  return (log.resource_type === 'document' || log.action.startsWith('document_')) && !isAiAudit(log);
+}
+
 function isCaseAudit(log: AuditLogRecordForReport) {
-  return log.resource_type === 'case' || log.action.startsWith('case_');
+  return (log.resource_type === 'case' || log.action.startsWith('case_')) && !isAiAudit(log);
 }
 
 function isInvitationAudit(log: AuditLogRecordForReport) {

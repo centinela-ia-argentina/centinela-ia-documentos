@@ -38,7 +38,8 @@ function tokens(texto: string): string[] {
 // mismo grupo, se consideran del mismo "concepto documental".
 const GRUPOS_SINONIMOS: string[][] = [
   ['boleto', 'compraventa', 'compra', 'venta'],
-  ['titulo', 'dominio', 'propiedad'],
+  ['titulo', 'propiedad'],
+  ['informe', 'dominio'],
   ['escritura', 'traslativa', 'escrituracion'],
   ['dni', 'identidad', 'pasaporte'],
   ['cuit', 'cuil', 'cdi'],
@@ -85,8 +86,34 @@ export function puntuarCoincidencia(
   if (tituloNorm.includes('catastral') && (textoDocRaw.includes('coti') || textoDocRaw.includes('cuit') || textoDocRaw.includes('cuil'))) {
     return 0; // Catastral no puede ser un CUIT o COTI
   }
+  // Exclusiones fiscales por jurisdicción (ARBA vs AGIP / CABA)
+  if (tituloNorm.includes('arba') && (textoDocRaw.includes('agip') || (textoDocRaw.includes('caba') && !textoDocRaw.includes('arba')))) {
+    return 0;
+  }
+  if ((tituloNorm.includes('agip') || tituloNorm.includes('caba')) && (textoDocRaw.includes('arba') || (textoDocRaw.includes('pba') && !textoDocRaw.includes('caba')))) {
+    return 0;
+  }
+  // Exclusiones por rol de parte interviniente (vendedor vs comprador)
+  if (tituloNorm.includes('vendedor') && textoDocRaw.includes('comprador') && !textoDocRaw.includes('vendedor')) {
+    return 0;
+  }
+  if (tituloNorm.includes('comprador') && textoDocRaw.includes('vendedor') && !textoDocRaw.includes('comprador')) {
+    return 0;
+  }
+  // Exclusión: un informe o certificado de dominio NO es un título de propiedad ni una escritura traslativa
+  const esItemTituloOEscritura = tituloNorm.includes('titulo') || tituloNorm.includes('título') || tituloNorm.includes('escritura');
+  const esDocInformeDominio = (textoDocRaw.includes('informe') || textoDocRaw.includes('certificado')) && textoDocRaw.includes('dominio');
+  if (esItemTituloOEscritura && esDocInformeDominio && !textoDocRaw.includes('escritura') && !textoDocRaw.includes('titulo') && !textoDocRaw.includes('título')) {
+    return 0;
+  }
 
   let bonus = 0;
+  if (tituloNorm.includes('vendedor') && textoDocRaw.includes('vendedor')) {
+    bonus += 15;
+  }
+  if (tituloNorm.includes('comprador') && textoDocRaw.includes('comprador')) {
+    bonus += 15;
+  }
   // DNI explícito
   if (tituloNorm.includes('dni') && (textoDocRaw.includes('dni') || textoDocRaw.includes('documento nacional'))) {
     bonus += 20;

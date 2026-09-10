@@ -6,7 +6,14 @@ import { createClient } from '@/lib/supabase/server';
 import { getUserProfile } from '@/lib/auth/getUserProfile';
 import { createAuditLog } from '@/lib/audit/createAuditLog';
 import { generarResumenConIA, cotejarDocumentosConIA } from '@/lib/ai/copiloto';
-import { redactarEscrituraConIA } from '@/lib/ai/escrituras';
+import {
+  redactarEscrituraConIA,
+  evaluarEvidenciaOrigenFondosFailClosed,
+  validarOrdinalesNotariales,
+  recalcularOrdinalesNotariales,
+} from '@/lib/ai/escrituras';
+import { extraerPlazoCanonicoLegajo } from '@/lib/plazos/fechasCanonicas';
+import { cargarHechosTemporalesLegajo } from '@/lib/plazos/cargarHechosTemporalesLegajo';
 import { redactarBorradorInmobiliariaConIA } from '@/lib/ai/borradorInmobiliaria';
 import { calificarInquilinoConIA } from '@/lib/ai/preScore';
 import { sugerirCoincidencias } from '@/lib/industries/checklistMatch';
@@ -16,6 +23,10 @@ import { canUseAi } from '@/lib/permissions/roles';
 import {
   getCaseStatuses,
   getWritableCaseStatuses,
+  getCaseStatusLabel,
+  isRentalCompatibleCaseType,
+  isDerivacionEscribaniaCompatible,
+  getCaseBasePath,
 } from '@/lib/industries/caseConfig';
 import { getCaseTemplate } from '@/lib/industries/caseTemplates';
 import { normalizeIndustryType, type IndustryType } from '@/lib/industries/documentTypes';
@@ -257,6 +268,7 @@ export async function createCase(formData: FormData) {
 
   revalidatePath('/dashboard');
   revalidatePath('/expedientes');
+  revalidatePath('/operaciones');
   redirect(`/expedientes/${data.id}`);
 }
 
@@ -392,7 +404,10 @@ export async function toggleChecklistItem(formData: FormData) {
 
   const { error } = await supabase
     .from('checklist_items')
-    .update({ status: nextStatus })
+    .update({
+      status: nextStatus,
+      ...(checklistItem.document_id ? { match_source: 'manual' } : {}),
+    })
     .eq('id', itemId)
     .eq('organization_id', profile.organization_id)
     .eq('checklist_id', checklistItem.checklist_id);
@@ -467,6 +482,8 @@ export async function linkChecklistItemDocument(formData: FormData) {
     .from('checklist_items')
     .update({
       document_id: linkedDocumentId,
+      match_source: linkedDocumentId ? 'manual' : null,
+      status: linkedDocumentId ? 'received' : 'pending',
     })
     .eq('id', itemId)
     .eq('organization_id', profile.organization_id)
@@ -492,12 +509,31 @@ export async function linkChecklistItemDocument(formData: FormData) {
     });
   }
 
+  // Obtener industria de la organización para determinar la ruta base canónica
+  let orgIndustry: IndustryType = 'general';
+  try {
+    const orgQuery = supabase.from?.('organizations');
+    if (orgQuery && typeof orgQuery.select === 'function') {
+      const { data: orgData } = await orgQuery
+        .select('industry_type')
+        .eq('id', profile.organization_id)
+        .maybeSingle();
+      orgIndustry = normalizeIndustryType(orgData?.industry_type);
+    }
+  } catch {
+    orgIndustry = 'general';
+  }
+  const basePath = getCaseBasePath(orgIndustry);
+
   revalidatePath(`/expedientes/${caseId}`);
+  revalidatePath(`/operaciones/${caseId}`);
+  revalidatePath('/expedientes');
+  revalidatePath('/operaciones');
 
   if (linkedDocumentId) {
-    redirect(`/expedientes/${caseId}?tab=checklist&checklist_document=linked`);
+    redirect(`${basePath}/${caseId}?tab=checklist&checklist_document=linked`);
   } else {
-    redirect(`/expedientes/${caseId}?tab=checklist&checklist_document=unlinked`);
+    redirect(`${basePath}/${caseId}?tab=checklist&checklist_document=unlinked`);
   }
 }
 
@@ -729,7 +765,7 @@ export async function generarResumenExpediente(caseId: string) {
 
   const { data: caseRecord } = await supabase
     .from('cases')
-    .select('id, title, client_name, case_type, status')
+    .select('id, title, client_name, case_type, status, metadata')
     .eq('id', caseId)
     .eq('organization_id', profile.organization_id)
     .maybeSingle();
@@ -737,7 +773,7 @@ export async function generarResumenExpediente(caseId: string) {
 
   const { data: docsData } = await supabase
     .from('documents')
-    .select('id, file_name, document_type')
+    .select('id, file_name, document_type, expires_at')
     .eq('case_id', caseId)
     .eq('organization_id', profile.organization_id);
   const docs = docsData ?? [];
@@ -757,13 +793,21 @@ export async function generarResumenExpediente(caseId: string) {
 
   const documentos = docs.map((d) => {
     const r = latestByDoc.get(d.id) || {};
+    const fechas = Array.isArray(r.fechas_plazos)
+      ? r.fechas_plazos.map((f: any) => `${f.descripcion}: ${f.fecha}`)
+      : [];
+    if (d.expires_at) fechas.push(`Vencimiento registrado en sistema: ${d.expires_at}`);
+
     return {
       nombre: d.file_name,
       tipo: String(r.tipo_documental_detectado || d.document_type || 'Documento'),
       resumen: String(r.resumen || 'Sin análisis de IA todavía.'),
       alertas: Array.isArray(r.alertas) ? r.alertas.map(String) : [],
-      datos: Array.isArray(r.datos_clave) ? r.datos_clave.map(String)
-        : (Array.isArray(r.datos_relevantes) ? r.datos_relevantes.map(String) : []),
+      datos: [
+        ...(Array.isArray(r.datos_clave) ? r.datos_clave.map(String)
+          : (Array.isArray(r.datos_relevantes) ? r.datos_relevantes.map(String) : [])),
+        ...fechas,
+      ],
     };
   });
 
@@ -773,20 +817,40 @@ export async function generarResumenExpediente(caseId: string) {
     .eq('case_id', caseId)
     .eq('organization_id', profile.organization_id)
     .order('event_date', { ascending: true });
-  const eventos = (eventosData ?? []).map((e) => ({
-    fecha: String(e.event_date), tipo: String(e.event_type || 'otro'),
-    titulo: String(e.title || ''), descripcion: String(e.description || ''),
-  }));
+
+  const { data: agendaData } = await supabase
+    .from('agenda_plazos')
+    .select('id, titulo, fecha, detalle, categoria')
+    .eq('organization_id', profile.organization_id)
+    .eq('case_id', caseId);
+
+  const eventos = [
+    ...(eventosData ?? []).map((e) => ({
+      fecha: String(e.event_date),
+      tipo: String(e.event_type || 'otro'),
+      titulo: String(e.title || ''),
+      descripcion: String(e.description || ''),
+    })),
+    ...(agendaData ?? []).map((a) => ({
+      fecha: String(a.fecha),
+      tipo: String(a.categoria || 'agenda'),
+      titulo: String(a.titulo || ''),
+      descripcion: String(a.detalle || ''),
+    })),
+  ];
 
   const industria = await getOrganizationIndustry(supabase, profile.organization_id);
+  const plazoCanonico = extraerPlazoCanonicoLegajo(caseRecord, outputsData, eventos);
 
   const result = await generarResumenConIA({
     titulo: caseRecord.title || 'Expediente',
     cliente: caseRecord.client_name || '',
     tipo: caseRecord.case_type || '',
-    estado: caseRecord.status || '',
+    estado: getCaseStatusLabel(caseRecord.status, industria),
     industria,
-    documentos, eventos,
+    documentos,
+    eventos,
+    plazoCanonico,
   });
 
   if (!result.ok) { revalidatePath(`/expedientes/${caseId}`); return; }
@@ -827,7 +891,7 @@ export async function cotejarExpediente(caseId: string) {
 
   const { data: caseRecord } = await supabase
     .from('cases')
-    .select('id, title, case_type')
+    .select('id, title, case_type, metadata')
     .eq('id', caseId)
     .eq('organization_id', profile.organization_id)
     .maybeSingle();
@@ -882,11 +946,60 @@ export async function cotejarExpediente(caseId: string) {
     };
   });
 
+  const { data: caseEventsData } = await supabase
+    .from('case_events')
+    .select('event_date, event_type, title, description')
+    .eq('case_id', caseId)
+    .eq('organization_id', profile.organization_id)
+    .order('event_date', { ascending: true });
+
+  const { data: agendaData } = await supabase
+    .from('agenda_plazos')
+    .select('id, titulo, fecha, detalle, categoria')
+    .eq('organization_id', profile.organization_id)
+    .eq('case_id', caseId);
+
+  const eventosCombinados = [
+    ...(caseEventsData ?? []).map((e) => ({
+      fecha: String(e.event_date),
+      tipo: String(e.event_type || 'otro'),
+      titulo: String(e.title || ''),
+      descripcion: String(e.description || ''),
+    })),
+    ...(agendaData ?? []).map((a) => ({
+      fecha: String(a.fecha),
+      tipo: String(a.categoria || 'agenda'),
+      titulo: String(a.titulo || ''),
+      descripcion: String(a.detalle || ''),
+    })),
+  ];
+
+  const hechos = await cargarHechosTemporalesLegajo(supabase, profile.organization_id, caseId);
+  const plazoCanonico =
+    (hechos.fechaLimite && hechos.fechaTentativa) || (hechos.fechaBoleto && hechos.plazoDias)
+      ? {
+          fechaBoleto: hechos.fechaBoleto || '',
+          fechaBoletoIso: hechos.fechaBoletoIso || '',
+          plazoDias: hechos.plazoDias,
+          fechaLimite: hechos.fechaLimite || '',
+          fechaLimiteIso: hechos.fechaLimiteIso || '',
+          fechaTentativa: hechos.fechaTentativa || '',
+          fechaTentativaIso: hechos.fechaTentativaIso || '',
+          excesoDias: hechos.excesoDias || 0,
+          excedePlazo: hechos.excedePlazo,
+          advertencia: hechos.advertencia,
+          fuenteFechaBoleto: hechos.fuentes.find((f) => f.campo === 'fechaBoleto')?.origen,
+          fuentePlazo: hechos.fuentes.find((f) => f.campo === 'plazoDias')?.origen,
+          fuenteFechaTentativa: hechos.fuentes.find((f) => f.campo === 'fechaTentativa')?.origen,
+        }
+      : extraerPlazoCanonicoLegajo(caseRecord, outputsData, eventosCombinados);
+
   const result = await cotejarDocumentosConIA({
     titulo: caseRecord.title || 'Legajo',
     tipo: caseRecord.case_type || '',
     industria,
     documentos,
+    plazoCanonico,
   });
 
   if (!result.ok) {
@@ -938,7 +1051,7 @@ export async function redactarEscrituraExpediente(caseId: string) {
 
   const { data: docsData } = await supabase
     .from('documents')
-    .select('id, file_name, document_type')
+    .select('id, file_name, document_type, expires_at')
     .eq('case_id', caseId)
     .eq('organization_id', profile.organization_id);
   const docs = docsData ?? [];
@@ -958,14 +1071,36 @@ export async function redactarEscrituraExpediente(caseId: string) {
 
   const documentos = docs.map((d) => {
     const r = latestByDoc.get(d.id) || {};
+    const fechas = Array.isArray(r.fechas_plazos)
+      ? r.fechas_plazos.map((f: any) => `${f.descripcion}: ${f.fecha}`)
+      : [];
+    if (d.expires_at) fechas.push(`Vencimiento registrado en sistema: ${d.expires_at}`);
+
     return {
       nombre: d.file_name,
       tipo: String(r.tipo_documental_detectado || d.document_type || 'Documento'),
       resumen: String(r.resumen || 'Sin análisis de IA todavía.'),
       alertas: Array.isArray(r.alertas) ? r.alertas.map(String) : [],
-      datos: Array.isArray(r.datos_clave) ? r.datos_clave.map(String)
-        : (Array.isArray(r.datos_relevantes) ? r.datos_relevantes.map(String) : []),
+      datos: [
+        ...(Array.isArray(r.datos_clave) ? r.datos_clave.map(String)
+          : (Array.isArray(r.datos_relevantes) ? r.datos_relevantes.map(String) : [])),
+        ...fechas,
+      ],
     };
+  });
+
+  const tieneEvidenciaOrigenFondos = docs.some((d) => {
+    const r = latestByDoc.get(d.id) || {};
+    return evaluarEvidenciaOrigenFondosFailClosed({
+      document_type: d.document_type,
+      file_name: d.file_name,
+      tipo_documental_detectado: r.tipo_documental_detectado,
+      resumen: r.resumen,
+      datos_clave: r.datos_clave,
+      datos_relevantes: r.datos_relevantes,
+      origen_fondos_acreditado: r.origen_fondos_acreditado,
+      documento_fuente_uif: r.documento_fuente_uif || (r.origen_fondos_acreditado ? d.file_name : null),
+    });
   });
 
   const { data: resumenData } = await supabase
@@ -981,17 +1116,59 @@ export async function redactarEscrituraExpediente(caseId: string) {
   const resumenGeneral = String((resumenData?.result_json as any)?.resumen_general || '');
   const metadata = (caseRecord.metadata || {}) as Record<string, string>;
 
+  const { data: caseEventsData } = await supabase
+    .from('case_events')
+    .select('event_date, event_type, title, description')
+    .eq('case_id', caseId)
+    .eq('organization_id', profile.organization_id)
+    .order('event_date', { ascending: true });
+
+  const { data: agendaData } = await supabase
+    .from('agenda_plazos')
+    .select('id, titulo, fecha, detalle, categoria')
+    .eq('organization_id', profile.organization_id)
+    .eq('case_id', caseId);
+
+  const eventosCombinados = [
+    ...(caseEventsData ?? []).map((e) => ({
+      fecha: String(e.event_date),
+      tipo: String(e.event_type || 'otro'),
+      titulo: String(e.title || ''),
+      descripcion: String(e.description || ''),
+    })),
+    ...(agendaData ?? []).map((a) => ({
+      fecha: String(a.fecha),
+      tipo: String(a.categoria || 'agenda'),
+      titulo: String(a.titulo || ''),
+      descripcion: String(a.detalle || ''),
+    })),
+  ];
+
+  const hechos = await cargarHechosTemporalesLegajo(supabase, profile.organization_id, caseId);
+  const fechaOtorgamiento =
+    metadata.fecha_otorgamiento ||
+    hechos.fechaTentativaIso ||
+    hechos.fechaTentativa ||
+    '';
+
   const result = await redactarEscrituraConIA({
-    titulo: caseRecord.title || 'Expediente',
+    titulo: caseRecord.title || 'Legajo',
     tipoActo: metadata.tipo_acto || caseRecord.case_type || '',
     comparecientes: metadata.comparecientes || caseRecord.client_name || '',
     registroProtocolo: metadata.registro_protocolo || '',
-    fechaOtorgamiento: metadata.fecha_otorgamiento || '',
+    fechaOtorgamiento,
     resumenGeneral,
     documentos,
+    tieneEvidenciaOrigenFondos,
   });
 
   if (!result.ok) { revalidatePath(`/expedientes/${caseId}`); return; }
+
+  // Validar determinísticamente ordinales notariales antes de guardar
+  const checkOrdinales = validarOrdinalesNotariales(result.borrador.cuerpo);
+  if (!checkOrdinales.ok) {
+    result.borrador.cuerpo = recalcularOrdinalesNotariales(result.borrador.cuerpo);
+  }
 
   await supabase.from('ai_outputs').insert({
     organization_id: profile.organization_id,
@@ -1296,14 +1473,19 @@ export async function derivarAEscribania(formData: FormData) {
 
   const supabase = await createClient();
 
+  const industry = await getOrganizationIndustry(supabase, profile.organization_id);
+  if (industry !== 'inmobiliaria') {
+    redirect('/expedientes');
+  }
+
   const { data: caseRecord } = await supabase
     .from('cases')
-    .select('id, title')
+    .select('id, title, case_type')
     .eq('id', caseId)
     .eq('organization_id', profile.organization_id)
     .maybeSingle();
 
-  if (!caseRecord) {
+  if (!caseRecord || !isDerivacionEscribaniaCompatible(caseRecord.case_type)) {
     redirect('/expedientes');
   }
 
@@ -1344,6 +1526,12 @@ export async function redactarAvisoExpediente(caseId: string) {
 
   const supabase = await createClient();
 
+  const industry = await getOrganizationIndustry(supabase, profile.organization_id);
+  if (industry !== 'inmobiliaria') {
+    revalidatePath(`/expedientes/${caseId}`);
+    return;
+  }
+
   const { data: caseRecord } = await supabase
     .from('cases')
     .select('id, title, client_name, case_type, status, metadata, property_id')
@@ -1352,24 +1540,32 @@ export async function redactarAvisoExpediente(caseId: string) {
     .maybeSingle();
   if (!caseRecord) { revalidatePath(`/expedientes/${caseId}`); return; }
 
-  // Propiedad vinculada (si la hay)
-  let propiedad: { nombre: string; direccion: string; tipo: string; estado: string } | null = null;
-  if (caseRecord.property_id) {
-    const { data: prop } = await supabase
-      .from('properties')
-      .select('name, address, property_type, status')
-      .eq('id', caseRecord.property_id)
-      .eq('organization_id', profile.organization_id)
-      .maybeSingle();
-    if (prop) {
-      propiedad = {
-        nombre: String(prop.name || ''),
-        direccion: String(prop.address || ''),
-        tipo: String(prop.property_type || ''),
-        estado: String(prop.status || ''),
-      };
-    }
+  // Solo operaciones compatibles con publicación comercial
+  const caseTypeNorm = (caseRecord.case_type || '').toLowerCase();
+  const esCompatibleAviso = caseTypeNorm.includes('compra') || caseTypeNorm.includes('venta') || caseTypeNorm.includes('alquiler') || caseTypeNorm.includes('reserva');
+  if (!esCompatibleAviso || !caseRecord.property_id) {
+    revalidatePath(`/expedientes/${caseId}`);
+    return;
   }
+
+  // Propiedad vinculada (obligatoria)
+  let propiedad: { nombre: string; direccion: string; tipo: string; estado: string } | null = null;
+  const { data: prop } = await supabase
+    .from('properties')
+    .select('name, address, property_type, status')
+    .eq('id', caseRecord.property_id)
+    .eq('organization_id', profile.organization_id)
+    .maybeSingle();
+  if (!prop) {
+    revalidatePath(`/expedientes/${caseId}`);
+    return;
+  }
+  propiedad = {
+    nombre: String(prop.name || ''),
+    direccion: String(prop.address || ''),
+    tipo: String(prop.property_type || ''),
+    estado: String(prop.status || ''),
+  };
 
   const { data: docsData } = await supabase
     .from('documents')
@@ -1462,6 +1658,12 @@ export async function redactarBorradorInmobiliaria(caseId: string) {
 
   const supabase = await createClient();
 
+  const industry = await getOrganizationIndustry(supabase, profile.organization_id);
+  if (industry !== 'inmobiliaria') {
+    revalidatePath(`/expedientes/${caseId}`);
+    return;
+  }
+
   const { data: caseRecord } = await supabase
     .from('cases')
     .select('id, title, client_name, case_type, status, metadata')
@@ -1514,10 +1716,24 @@ export async function redactarBorradorInmobiliaria(caseId: string) {
 
   const resumenGeneral = String((resumenData?.result_json as any)?.resumen_general || '');
   const metadata = (caseRecord.metadata || {}) as Record<string, string>;
+  let tipoDocumento = metadata.tipo_documento;
+  if (!tipoDocumento) {
+    const cTypeLower = (caseRecord.case_type || '').toLowerCase();
+    if (cTypeLower.includes('compra') || cTypeLower.includes('venta')) {
+      tipoDocumento = 'Boleto de compraventa';
+    } else if (cTypeLower.includes('alquiler') || cTypeLower.includes('locaci')) {
+      tipoDocumento = 'Contrato de locación';
+    } else if (cTypeLower.includes('reserva')) {
+      tipoDocumento = 'Reserva / Oferta de compra';
+    } else {
+      revalidatePath(`/expedientes/${caseId}`);
+      return;
+    }
+  }
 
   const result = await redactarBorradorInmobiliariaConIA({
     titulo: caseRecord.title || 'Operación',
-    tipoDocumento: metadata.tipo_documento || caseRecord.case_type || 'Boleto de compraventa',
+    tipoDocumento,
     tipoOperacion: caseRecord.case_type || '',
     partes: metadata.contraparte || caseRecord.client_name || '',
     valorOperacion: metadata.valor_operacion || '',
@@ -1572,12 +1788,39 @@ export async function autoMarcarChecklist(formData: FormData) {
   }
   const { data: items } = await supabase
     .from('checklist_items')
-    .select('id, title, status, document_id')
-    .eq('checklist_id', checklist.id);
-  const itemsCandidatos = (items ?? []).filter(
-    (it) => (it.status === 'pending' && !it.document_id) || (it.status === 'received' && it.document_id)
-  );
+    .select('id, title, status, document_id, match_source')
+    .eq('checklist_id', checklist.id)
+    .eq('organization_id', profile.organization_id);
+
+  let manualOverridesSkipped = 0;
+  const itemsCandidatos: Array<{ id: string; title: string; status: string; document_id: string | null; match_source?: string | null }> = [];
+
+  for (const it of (items ?? [])) {
+    // Los ítems revisados o no requeridos no se tocan jamás
+    if (it.status === 'reviewed' || it.status === 'not_required') {
+      continue;
+    }
+    // Si fue vinculado manualmente o tiene documento previo sin match_source, prevalece el usuario
+    if (it.match_source === 'manual' || (it.document_id && it.match_source !== 'automatic')) {
+      manualOverridesSkipped += 1;
+      continue;
+    }
+    if ((it.status === 'pending' && !it.document_id) || (it.status === 'received' && it.document_id && it.match_source === 'automatic')) {
+      itemsCandidatos.push(it);
+    }
+  }
+
   if (itemsCandidatos.length === 0) {
+    if (manualOverridesSkipped > 0) {
+      await createAuditLog({
+        organizationId: profile.organization_id,
+        userId: user.id,
+        action: 'checklist_auto_match_override_skipped',
+        resourceType: 'case',
+        resourceId: caseId,
+        metadata: { skipped_count: manualOverridesSkipped },
+      });
+    }
     revalidatePath(`/expedientes/${caseId}`);
     return;
   }
@@ -1599,38 +1842,72 @@ export async function autoMarcarChecklist(formData: FormData) {
   for (const item of itemsCandidatos) {
     const sugerencia = sugerencias.get(item.title);
     
-    if (item.status === 'received' && item.document_id) {
+    if (item.status === 'received' && item.document_id && item.match_source === 'automatic') {
       if (!sugerencia) {
         const { error } = await supabase
           .from('checklist_items')
-          .update({ document_id: null, status: 'pending' })
-          .eq('id', item.id);
+          .update({ document_id: null, match_source: null, status: 'pending' })
+          .eq('id', item.id)
+          .eq('organization_id', profile.organization_id);
         if (!error) desvinculados += 1;
       } else if (sugerencia.documentId !== item.document_id) {
         const { error } = await supabase
           .from('checklist_items')
-          .update({ document_id: sugerencia.documentId, status: 'received' })
-          .eq('id', item.id);
+          .update({ document_id: sugerencia.documentId, match_source: 'automatic', status: 'received' })
+          .eq('id', item.id)
+          .eq('organization_id', profile.organization_id);
         if (!error) marcados += 1;
       }
     } else if (item.status === 'pending' && !item.document_id) {
       if (sugerencia) {
         const { error } = await supabase
           .from('checklist_items')
-          .update({ document_id: sugerencia.documentId, status: 'received' })
-          .eq('id', item.id);
+          .update({ document_id: sugerencia.documentId, match_source: 'automatic', status: 'received' })
+          .eq('id', item.id)
+          .eq('organization_id', profile.organization_id);
         if (!error) marcados += 1;
       }
     }
   }
-  await createAuditLog({
-    organizationId: profile.organization_id,
-    userId: user.id,
-    action: 'checklist_auto_matched',
-    resourceType: 'case',
-    resourceId: caseId,
-    metadata: { auto_marcados: marcados, desvinculados, evaluados: itemsCandidatos.length },
-  });
+
+  if (manualOverridesSkipped > 0) {
+    await createAuditLog({
+      organizationId: profile.organization_id,
+      userId: user.id,
+      action: 'checklist_auto_match_override_skipped',
+      resourceType: 'case',
+      resourceId: caseId,
+      metadata: { skipped_count: manualOverridesSkipped },
+    });
+  }
+
+  if (marcados > 0 || desvinculados > 0) {
+    await createAuditLog({
+      organizationId: profile.organization_id,
+      userId: user.id,
+      action: 'checklist_auto_matched',
+      resourceType: 'case',
+      resourceId: caseId,
+      metadata: {
+        auto_marcados: marcados,
+        desvinculados,
+        evaluados: itemsCandidatos.length,
+        manual_overrides_preserved: manualOverridesSkipped,
+      },
+    });
+  } else {
+    await createAuditLog({
+      organizationId: profile.organization_id,
+      userId: user.id,
+      action: 'checklist_auto_match_zero_results',
+      resourceType: 'case',
+      resourceId: caseId,
+      metadata: {
+        evaluados: itemsCandidatos.length,
+        manual_overrides_preserved: manualOverridesSkipped,
+      },
+    });
+  }
   revalidatePath(`/expedientes/${caseId}`);
 }
 
@@ -1662,11 +1939,26 @@ export async function calificarInquilinoExpediente(formData: FormData) {
 
   const alquilerStr = formData.get('alquiler');
   const alquilerParsed = parseNumber(alquilerStr);
-  const alquilerMensual = alquilerParsed ?? null;
+  if (alquilerParsed === null || !Number.isFinite(alquilerParsed) || alquilerParsed <= 0) {
+    revalidatePath(`/expedientes/${caseId}`);
+    return;
+  }
+  const alquilerMensual = alquilerParsed;
 
-  const moneda = formData.get('moneda') as string || 'ARS';
+  const rawMoneda = (formData.get('moneda') as string || 'ARS').trim().toUpperCase();
+  if (rawMoneda !== 'ARS' && rawMoneda !== 'USD') {
+    revalidatePath(`/expedientes/${caseId}`);
+    return;
+  }
+  const moneda = rawMoneda;
 
   const supabase = await createClient();
+
+  const industry = await getOrganizationIndustry(supabase, profile.organization_id);
+  if (industry !== 'inmobiliaria') {
+    revalidatePath(`/expedientes/${caseId}`);
+    return;
+  }
 
   const { data: caseRecord } = await supabase
     .from('cases')
@@ -1674,7 +1966,10 @@ export async function calificarInquilinoExpediente(formData: FormData) {
     .eq('id', caseId)
     .eq('organization_id', profile.organization_id)
     .maybeSingle();
-  if (!caseRecord) { revalidatePath(`/expedientes/${caseId}`); return; }
+  if (!caseRecord || !isRentalCompatibleCaseType(caseRecord.case_type)) {
+    revalidatePath(`/expedientes/${caseId}`);
+    return;
+  }
 
   const { data: docsData } = await supabase
     .from('documents')
@@ -1690,6 +1985,11 @@ export async function calificarInquilinoExpediente(formData: FormData) {
     .eq('organization_id', profile.organization_id)
     .eq('output_type', 'document_analysis')
     .order('created_at', { ascending: false });
+
+  if (!outputsData || outputsData.length === 0) {
+    revalidatePath(`/expedientes/${caseId}`);
+    return;
+  }
 
   const latestByDoc = new Map<string, any>();
   for (const o of outputsData ?? []) {
@@ -1710,7 +2010,7 @@ export async function calificarInquilinoExpediente(formData: FormData) {
 
   const result = await calificarInquilinoConIA({
     titulo: caseRecord.title || 'Expediente',
-    alquilerMensual: alquilerMensual ?? 0,
+    alquilerMensual,
     moneda,
     documentos,
   });

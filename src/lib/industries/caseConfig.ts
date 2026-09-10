@@ -77,6 +77,12 @@ export const caseFieldsByIndustry: Record<IndustryType, CaseFieldDef[]> = {
     { key: 'direccion_inmueble', label: 'Dirección del inmueble', type: 'text' },
     { key: 'contraparte', label: 'Cliente / contraparte', type: 'text' },
     { key: 'valor_operacion', label: 'Valor de la operación', type: 'text' },
+    {
+      key: 'moneda_operacion',
+      label: 'Moneda de la operación',
+      type: 'select',
+      options: ['USD', 'ARS'],
+    },
     { key: 'fecha_relevante', label: 'Fecha relevante', type: 'date' },
     {
       key: 'sensibilidad',
@@ -133,6 +139,97 @@ export const caseTypesByIndustry: Record<IndustryType, string[]> = {
   compliance: [],
   seguridad_documental: [],
 };
+
+/**
+ * Determina de forma estricta y conservadora si un case_type pertenece a los tipos canónicos
+ * configurados para la industria indicada (caseTypesByIndustry).
+ * Registros preexistentes o atípicos que no coincidan son descartados para evitar contaminación vertical.
+ */
+export function isCaseTypeCompatibleWithIndustry(
+  caseType: string | null | undefined,
+  industry: IndustryType
+): boolean {
+  if (!caseType || typeof caseType !== 'string') return false;
+  const canonicalTypes = caseTypesByIndustry[industry];
+  if (!canonicalTypes || canonicalTypes.length === 0) return false;
+  const normalized = caseType.trim().toLowerCase();
+  return canonicalTypes.some((t) => t.trim().toLowerCase() === normalized);
+}
+
+/**
+ * Determina si un tipo de operación es compatible con la calificación de inquilinos (Pre-Score)
+ * y modelos de locación en el rubro inmobiliario.
+ * Acepta exclusivamente: 'Alquiler', 'RENTAL', 'Contrato de locación' (y variantes normalizadas).
+ * Excluye explícitamente compraventa, reserva, operaciones notariales, judiciales o generales.
+ */
+export function isRentalCompatibleCaseType(caseType?: string | null): boolean {
+  if (!caseType || typeof caseType !== 'string') return false;
+  const t = caseType.trim().toLowerCase();
+  if (
+    t.includes('compra') ||
+    t.includes('venta') ||
+    t.includes('reserva') ||
+    t.includes('escritura') ||
+    t.includes('demanda') ||
+    t.includes('judicial')
+  ) {
+    return false;
+  }
+  return t === 'alquiler' || t === 'rental' || t.includes('locaci') || t.includes('alquiler');
+}
+
+/**
+ * Determina si un tipo de operación inmobiliaria es compatible con la derivación a Escribanía
+ * (ej: compraventas que requieran escritura traslativa o reserva ad referéndum).
+ * Excluye explícitamente escrituras (tipo notarial de destino, no de origen inmobiliario), alquileres y operaciones ajenas.
+ */
+const DERIVACION_ESCRIBANIA_ALLOWED_TYPES = new Set([
+  'compraventa de inmueble',
+  'compraventa',
+  'reserva',
+  'real_estate_purchase',
+  'reservation',
+]);
+
+export function isDerivacionEscribaniaCompatible(caseType?: string | null): boolean {
+  if (!caseType || typeof caseType !== 'string') return false;
+  const t = caseType.trim().toLowerCase();
+  if (t === 'escritura' || t.includes('escritura') || t.includes('alquiler') || t.includes('rental') || t.includes('locaci')) {
+    return false;
+  }
+  return DERIVACION_ESCRIBANIA_ALLOWED_TYPES.has(t);
+}
+
+
+/**
+ * Determina si un tipo de legajo notarial es compatible con la redacción de un borrador de escritura
+ * (ej: compraventa, hipoteca, donación, tracto abreviado).
+ * Excluye explícitamente poderes, actas, certificaciones de firmas y autorizaciones.
+ */
+export function isEscrituraCompatibleCase(caseType?: string | null): boolean {
+  if (!caseType || typeof caseType !== 'string') return false;
+  const t = caseType.trim().toLowerCase();
+  // Legajos incompatibles con borrador de escritura
+  if (
+    t.includes('poder') ||
+    t.includes('certificaci') ||
+    t.includes('acta') ||
+    t.includes('autorizaci') ||
+    t.includes('viaje')
+  ) {
+    return false;
+  }
+  // Compatible: Escritura, Compraventa, Hipoteca, Donación, Permuta, Tracto abreviado
+  return (
+    t.includes('escritura') ||
+    t.includes('compraventa') ||
+    t.includes('inmueble') ||
+    t.includes('hipoteca') ||
+    t.includes('donaci') ||
+    t.includes('permuta') ||
+    t.includes('tracto')
+  );
+}
 
 export type DashboardCardKey =
   | 'expedientes_activos'
@@ -329,4 +426,9 @@ export function getCaseTypeLabel(type?: string | null): string {
 export function isCaseActive(status?: string | null): boolean {
   if (!status) return false;
   return OPEN_CASE_STATUSES.includes(status);
+}
+
+export function getCaseBasePath(industry?: IndustryType | null): string {
+  if (industry === 'inmobiliaria') return '/operaciones';
+  return '/expedientes';
 }

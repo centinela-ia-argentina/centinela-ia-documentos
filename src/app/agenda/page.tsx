@@ -2,54 +2,28 @@ import { redirect } from 'next/navigation';
 import { AppShell } from '@/components/layout/AppShell';
 import { createClient } from '@/lib/supabase/server';
 import { getUserProfile } from '@/lib/auth/getUserProfile';
-import { normalizeIndustryType } from '@/lib/industries/documentTypes';
+import { getStrictIndustryForOrganization } from '@/lib/auth/getStrictIndustry';
+import { isCaseTypeCompatibleWithIndustry } from '@/lib/industries/caseConfig';
 import { getAgendaLabels } from '@/lib/industries/uiLabels';
 import { AgendaClient, type AgendaEvento } from './AgendaClient';
 
-export default async function AgendaPage() {
-  const { user, profile } = await getUserProfile();
-  if (!user) redirect('/login');
-  if (!profile) redirect('/onboarding');
+export interface AgendaDocumentRecord {
+  id: string;
+  file_name?: string | null;
+  expires_at: string | Date | null;
+  case_id?: string | null;
+}
 
-  const supabase = await createClient();
-
-  const [documentsResult, casesResult, plazosResult, orgResult] = await Promise.all([
-    supabase
-      .from('documents')
-      .select('id, file_name, expires_at')
-      .eq('organization_id', profile.organization_id)
-      .not('expires_at', 'is', null),
-    supabase
-      .from('cases')
-      .select('id, title, metadata')
-      .eq('organization_id', profile.organization_id)
-      .neq('status', 'archived')
-      .neq('status', 'Archivado'),
-    supabase
-      .from('agenda_plazos')
-      .select('id, titulo, fecha, hora, detalle, categoria, case_id')
-      .eq('organization_id', profile.organization_id),
-    supabase
-      .from('organizations')
-      .select('industry_type')
-      .eq('id', profile.organization_id)
-      .single(),
-  ]);
-
-  const industry = normalizeIndustryType(orgResult.data?.industry_type);
-  const agendaLabels = getAgendaLabels(industry);
-
-  const documents = documentsResult.data ?? [];
-  const cases = casesResult.data ?? [];
-  const plazos = plazosResult.data ?? [];
-
+export function filterAgendaDocuments(
+  documents: AgendaDocumentRecord[],
+  compatibleCaseIds: Set<string>
+): AgendaEvento[] {
   const eventos: AgendaEvento[] = [];
-
-  const caseTitleById = new Map<string, string>();
-  for (const c of cases) caseTitleById.set(c.id, c.title || 'Expediente sin título');
-
   for (const doc of documents) {
     if (!doc.expires_at) continue;
+    // Si el documento está asociado a un caso, solo incluir si el caso es compatible con la vertical activa
+    if (doc.case_id && !compatibleCaseIds.has(doc.case_id)) continue;
+    // Documentos sin case_id (a nivel organización) se incluyen si pertenecen a profile.organization_id (garantizado por el query)
     eventos.push({
       id: `doc-${doc.id}`,
       fecha: String(doc.expires_at).slice(0, 10),
@@ -58,9 +32,65 @@ export default async function AgendaPage() {
       href: `/documentos/${doc.id}`,
     });
   }
+  return eventos;
+}
+
+export default async function AgendaPage() {
+  const { user, profile } = await getUserProfile();
+  if (!user) redirect('/login');
+  if (!profile) redirect('/onboarding');
+
+  const supabase = await createClient();
+
+  const [industry, documentsResult, casesResult, plazosResult] = await Promise.all([
+    getStrictIndustryForOrganization(profile.organization_id),
+    supabase
+      .from('documents')
+      .select('id, file_name, expires_at, case_id')
+      .eq('organization_id', profile.organization_id),
+    supabase
+      .from('cases')
+      .select('id, title, metadata, case_type')
+      .eq('organization_id', profile.organization_id)
+      .neq('status', 'archived')
+      .neq('status', 'Archivado'),
+    supabase
+      .from('agenda_plazos')
+      .select('id, titulo, fecha, hora, detalle, categoria, case_id')
+      .eq('organization_id', profile.organization_id),
+  ]);
+
+  const agendaLabels = getAgendaLabels(industry);
+
+  const documents = documentsResult.data ?? [];
+  const allCases = casesResult.data ?? [];
+  const plazos = plazosResult.data ?? [];
+
+  // Mapeo auxiliar de documento -> legajo para resolver eventos que mencionan un archivo en detalle
+  const docCaseByFileName = new Map<string, string>();
+  for (const d of documents) {
+    if (d.file_name && d.case_id) {
+      docCaseByFileName.set(d.file_name.toLowerCase().trim(), d.case_id);
+    }
+  }
+
+  // Filtrado estricto por industria para evitar contaminación entre verticales
+  const cases = allCases.filter((c) => isCaseTypeCompatibleWithIndustry(c.case_type, industry));
+  const compatibleCaseIds = new Set(cases.map((c) => c.id));
+
+  const caseTitleById = new Map<string, string>();
+  for (const c of cases) caseTitleById.set(c.id, c.title || 'Expediente sin título');
+
+  const eventos: AgendaEvento[] = [
+    ...filterAgendaDocuments(documents, compatibleCaseIds),
+  ];
 
   for (const c of cases) {
-    const fecha = ((c.metadata as Record<string, unknown> | null)?.fecha_relevante as string | undefined)?.trim();
+    const meta = c.metadata as Record<string, unknown> | null;
+    const fecha = (meta?.fecha_relevante as string | undefined)?.trim()
+      || (meta?.fecha_otorgamiento as string | undefined)?.trim()
+      || (meta?.fecha_audiencia as string | undefined)?.trim()
+      || (meta?.fecha_fin_reserva as string | undefined)?.trim();
     if (!fecha) continue;
     eventos.push({
       id: `case-${c.id}`,
@@ -76,7 +106,14 @@ export default async function AgendaPage() {
   for (const p of plazos) {
     if (!p.fecha) continue;
     const categoria = (p as { categoria?: string }).categoria ?? '__sin_categoria__';
-    const cid = (p as { case_id?: string | null }).case_id ?? null;
+    let cid = (p as { case_id?: string | null }).case_id ?? null;
+    if (!cid && p.detalle) {
+      const match = p.detalle.match(/(?:documento:\s*|en\s+el\s+documento\s+)([^\r\n,]+)/i);
+      if (match) {
+        const fn = match[1].toLowerCase().trim();
+        cid = docCaseByFileName.get(fn) || null;
+      }
+    }
     const hora = (p as { hora?: string | null }).hora ?? null;
     const tipo =
       categoria === 'manual' ? 'evento'
@@ -94,12 +131,15 @@ export default async function AgendaPage() {
 
     eventos.push({
       id: `${tipo}-${p.id}`,
+      rawId: p.id,
       fecha: fechaNorm,
       hora: hora ?? undefined,
       titulo: tituloString,
+      detalle: (p as any).detalle ?? null,
       tipo,
       href: cid ? `/expedientes/${cid}` : '/agenda',
       expedienteNombre: cid ? caseTitleById.get(cid) : undefined,
+      caseId: cid ?? undefined,
     });
   }
 
