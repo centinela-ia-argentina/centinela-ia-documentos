@@ -594,7 +594,12 @@ test.describe.serial('Centinela IA - Inmobiliaria E2E', () => {
 
       // 2. En detalle de operación
       await page.goto(`/operaciones/${CASE_INM_ID}`);
-      await expect(page.getByText('Datos de la operación')).toBeVisible();
+      await expect(
+        page.getByRole('heading', {
+          name: 'Datos de la operación',
+          exact: true,
+        })
+      ).toBeVisible();
       await expect(page.locator('button, a', { hasText: 'Volver a la lista de operaciones' }).first()).toBeVisible();
 
       // Comprobación de que no aparecen términos jurídicos inapropiados en encabezados
