@@ -267,7 +267,7 @@ describe('Checklist mutations (T-AUD-P1-006)', () => {
     expect(mockUpdate).toHaveBeenCalledTimes(1);
     expect(mockUpdate).toHaveBeenCalledWith({
       document_id: null,
-      match_source: null,
+      match_source: 'manual',
       status: 'pending',
     });
     expect(createAuditLog).toHaveBeenCalledTimes(1);
