@@ -482,7 +482,8 @@ export async function linkChecklistItemDocument(formData: FormData) {
     .from('checklist_items')
     .update({
       document_id: linkedDocumentId,
-      match_source: linkedDocumentId ? 'manual' : null,
+      // Una desvinculación manual también es una decisión humana y debe prevalecer sobre el auto-match.
+      match_source: 'manual',
       status: linkedDocumentId ? 'received' : 'pending',
     })
     .eq('id', itemId)

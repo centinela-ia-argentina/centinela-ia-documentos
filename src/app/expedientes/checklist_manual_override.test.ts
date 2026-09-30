@@ -161,7 +161,7 @@ describe('C-M3-J-001: Checklist manual match persistence over auto-match', () =>
     );
   });
 
-  it('linkChecklistItemDocument sets match_source="manual" when linking and null when unlinking', async () => {
+  it('linkChecklistItemDocument preserves match_source="manual" when linking and unlinking', async () => {
     const itemData = { id: 'item-1', checklist_id: 'check-1', status: 'pending' };
     const docData = { id: 'doc-1', file_name: 'DNI.pdf', case_id: 'case-1' };
 
@@ -226,7 +226,7 @@ describe('C-M3-J-001: Checklist manual match persistence over auto-match', () =>
 
     expect(mockUpdate).toHaveBeenCalledWith({
       document_id: null,
-      match_source: null,
+      match_source: 'manual',
       status: 'pending',
     });
   });

@@ -542,14 +542,14 @@ test.describe.serial('Centinela IA - Inmobiliaria E2E', () => {
       await expect(page.locator('[data-testid="checklist-document-feedback"]')).toContainText('Documento desvinculado correctamente');
       await expect(page.locator('[data-testid="checklist-badge-manual-0"]')).toBeHidden();
 
-      // 11. Verificar persistencia de desvinculación en DB: document_id=null, match_source=null, status=pending
+      // 11. Verificar persistencia de desvinculación manual en DB y protección frente al auto-match
       const { data: itemAfterUnlink } = await serviceClient
         .from('checklist_items')
         .select('document_id, match_source, status')
         .eq('id', fixtItemId)
         .single();
       expect(itemAfterUnlink?.document_id).toBeNull();
-      expect(itemAfterUnlink?.match_source).toBeNull();
+      expect(itemAfterUnlink?.match_source).toBe('manual');
       expect(itemAfterUnlink?.status).toBe('pending');
 
       // 12. Persistencia de desvinculación en UI tras recarga
