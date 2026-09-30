@@ -600,7 +600,12 @@ test.describe.serial('Centinela IA - Inmobiliaria E2E', () => {
           exact: true,
         })
       ).toBeVisible();
-      await expect(page.locator('button, a', { hasText: 'Volver a la lista de operaciones' }).first()).toBeVisible();
+      await expect(
+        page.getByRole('button', {
+          name: 'Volver atrás',
+          exact: true,
+        })
+      ).toBeVisible();
 
       // Comprobación de que no aparecen términos jurídicos inapropiados en encabezados
       const h1Text = await page.locator('h1, h2, h3').allInnerTexts();
