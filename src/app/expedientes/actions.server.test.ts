@@ -268,8 +268,10 @@ describe('Checklist mutations (T-AUD-P1-006)', () => {
     expect(mockUpdate).toHaveBeenCalledWith({
       document_id: null,
       match_source: 'manual',
-      status: 'pending',
     });
+    expect(mockUpdate).not.toHaveBeenCalledWith(
+      expect.objectContaining({ status: 'pending' })
+    );
     expect(createAuditLog).toHaveBeenCalledTimes(1);
     expect(vi.mocked(createAuditLog).mock.calls[0][0].action).toBe('checklist_item_unlinked');
     expect(redirect).toHaveBeenCalledWith('/operaciones/case-A?tab=checklist&checklist_document=unlinked');
