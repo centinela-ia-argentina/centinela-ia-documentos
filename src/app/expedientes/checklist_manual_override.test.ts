@@ -227,7 +227,9 @@ describe('C-M3-J-001: Checklist manual match persistence over auto-match', () =>
     expect(mockUpdate).toHaveBeenCalledWith({
       document_id: null,
       match_source: 'manual',
-      status: 'pending',
     });
+    expect(mockUpdate).not.toHaveBeenCalledWith(
+      expect.objectContaining({ status: 'pending' })
+    );
   });
 });

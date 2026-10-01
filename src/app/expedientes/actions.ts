@@ -484,7 +484,8 @@ export async function linkChecklistItemDocument(formData: FormData) {
       document_id: linkedDocumentId,
       // Una desvinculación manual también es una decisión humana y debe prevalecer sobre el auto-match.
       match_source: 'manual',
-      status: linkedDocumentId ? 'received' : 'pending',
+      // Vincular confirma recepción; desvincular solo quita la evidencia y conserva el estado del requisito.
+      ...(linkedDocumentId ? { status: 'received' } : {}),
     })
     .eq('id', itemId)
     .eq('organization_id', profile.organization_id)
