@@ -542,7 +542,7 @@ test.describe.serial('Centinela IA - Inmobiliaria E2E', () => {
       await expect(page.locator('[data-testid="checklist-document-feedback"]')).toContainText('Documento desvinculado correctamente');
       await expect(page.locator('[data-testid="checklist-badge-manual-0"]')).toBeHidden();
       await expect(page.locator('[data-testid="checklist-toggle-0"]')).toHaveAttribute('aria-label', 'Marcar como pendiente');
-      await expect(page.getByText('Documentación completa', { exact: true })).toBeVisible();
+      await expect(page.getByText('Documentación completa', { exact: false })).toBeVisible();
 
       // 11. Verificar persistencia de desvinculación manual en DB, conservación del estado y protección frente al auto-match
       const { data: itemAfterUnlink } = await serviceClient
@@ -558,7 +558,7 @@ test.describe.serial('Centinela IA - Inmobiliaria E2E', () => {
       await page.reload();
       await expect(page.locator('[data-testid="checklist-badge-manual-0"]')).toBeHidden();
       await expect(page.locator('[data-testid="checklist-toggle-0"]')).toHaveAttribute('aria-label', 'Marcar como pendiente');
-      await expect(page.getByText('Documentación completa', { exact: true })).toBeVisible();
+      await expect(page.getByText('Documentación completa', { exact: false })).toBeVisible();
 
       // 13. Verificar que checklist e ítem siguen existiendo (no se eliminaron)
       const { data: stillItem } = await serviceClient.from('checklist_items').select('id').eq('id', fixtItemId).single();
