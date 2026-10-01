@@ -501,8 +501,8 @@ test.describe.serial('Centinela IA - Flujo Jurídico E2E Obligatorio', () => {
     await selectLink.selectOption('');
     await page.locator('[data-testid="btn-guardar-doc-0"]').click();
 
-    // status vuelve a PENDIENTE y select vuelve a vacío
-    await expect(page.locator('[data-testid="checklist-status-badge-0"]')).toHaveText(/Pendiente/i);
+    // Desvincular quita solo la evidencia: el requisito conserva su estado RECIBIDO.
+    await expect(page.locator('[data-testid="checklist-status-badge-0"]')).toHaveText(/Recibido/i);
     if (!await selectLink.isVisible()) {
       await page.locator('[data-testid="checklist-link-toggle-0"]').click();
     }
