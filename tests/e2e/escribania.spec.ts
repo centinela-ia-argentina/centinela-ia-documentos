@@ -427,9 +427,13 @@ test.describe.serial('Centinela IA - Escribania E2E', () => {
       const linkExp = page.locator(`a[href="/expedientes/${CASE_PALERMO_ID}"]`);
       await expect(linkExp.first()).toBeVisible();
 
-      // 10. Inspeccionar Agenda: evento vinculado con categoría plazo
+      // 10. Inspeccionar Agenda: evento vinculado con categoría plazo.
+      // Fijamos el reloj del navegador en el mes del fixture para que la prueba no dependa
+      // del mes calendario en que se ejecute la CI.
+      await page.clock.setFixedTime(new Date('2026-09-15T12:00:00-03:00'));
       await page.goto('/agenda');
       await expect(page.locator('body')).toBeVisible();
+      await expect(page.getByRole('heading', { name: 'Septiembre 2026', exact: true })).toBeVisible();
 
       // Formulario de nuevo evento: opción plazo disponible y no oculta en escribanía
       await page.locator('button:has-text("Nuevo evento")').click();

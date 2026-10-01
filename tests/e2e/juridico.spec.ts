@@ -29,14 +29,16 @@ test.describe.serial('Centinela IA - Flujo Jurídico E2E Obligatorio', () => {
         await page.goto(url, { waitUntil: 'domcontentloaded' });
         return;
       } catch (error) {
-        const isFirefoxNavigationAbort =
+        const isRetryableNavigationAbort =
           error instanceof Error &&
-          error.message.includes('NS_BINDING_ABORTED');
+          (error.message.includes('NS_BINDING_ABORTED') ||
+            error.message.includes('is interrupted by another navigation'));
 
-        if (!isFirefoxNavigationAbort || attempt === maxAttempts) {
+        if (!isRetryableNavigationAbort || attempt === maxAttempts) {
           throw error;
         }
 
+        await page.waitForLoadState('domcontentloaded').catch(() => {});
         await page.waitForTimeout(250);
       }
     }
