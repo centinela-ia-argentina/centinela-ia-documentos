@@ -50,9 +50,13 @@ export function getChecklistItemsToInsert(templateTitles: string[], currentTitle
 
 export function getNextChecklistStatus(currentStatus: string): string {
   switch (currentStatus) {
-    case 'pending': return 'received';
-    case 'received': return 'reviewed';
-    case 'reviewed': return 'pending';
-    default: return 'pending';
+    case 'pending':
+    case 'rejected':
+      return 'received';
+    case 'received':
+    case 'reviewed':
+      return 'pending';
+    default:
+      return 'pending';
   }
 }

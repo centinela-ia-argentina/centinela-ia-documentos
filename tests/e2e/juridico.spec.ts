@@ -281,16 +281,19 @@ test.describe.serial('Centinela IA - Flujo Jurídico E2E Obligatorio', () => {
     await expect(page.locator('table')).toContainText('bulk_');
   });
 
-  test('10. checklist pending -> received -> reviewed y not_required', async () => {
+  test('10. checklist binario pending -> received -> pending', async () => {
     await gotoStable(`${caseUrl}?tab=checklist`);
-    // Click toggle to received
     const toggleBtn = page.locator('[data-testid="checklist-toggle-0"]').first();
-    await toggleBtn.click();
-    await expect(page.locator('body')).toContainText('Recibido');
 
-    // Click to reviewed
+    // Un clic confirma recepción.
     await toggleBtn.click();
-    await expect(page.locator('body')).toContainText('Revisado');
+    await expect(page.locator('[data-testid="checklist-status-badge-0"]')).toHaveText(/Recibido/i);
+    await expect(toggleBtn).toHaveAttribute('aria-label', 'Marcar como pendiente');
+
+    // El siguiente clic vuelve directamente a Pendiente, sin un estado Revisado oculto.
+    await toggleBtn.click();
+    await expect(page.locator('[data-testid="checklist-status-badge-0"]')).toHaveText(/Pendiente/i);
+    await expect(toggleBtn).toHaveAttribute('aria-label', 'Marcar como recibido');
   });
 
   test('10.5. checklist document link', async () => {
