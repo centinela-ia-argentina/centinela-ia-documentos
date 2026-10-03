@@ -92,7 +92,7 @@ export interface MontoMonetarioParsed {
  * - Enteros sin separadores: "1234567" -> 1234567, 0 centavos
  * - Decimal con punto o coma (1 o 2 decimales): "1234567.89", "1234567,89", "1.5", "0.01"
  * - Separadores de miles estándar con coma o punto: "1.234.567,89", "1,234,567.89"
- * 
+ *
  * Rechaza:
  * - Valores negativos
  * - Letras o caracteres extraños
