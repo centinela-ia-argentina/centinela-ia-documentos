@@ -485,7 +485,7 @@ if (
     const [casesResult, documentsResult, aiOutputsResult] = await Promise.all([
       supabase
         .from('cases')
-        .select('id, status')
+        .select('id, status, case_type')
         .eq('organization_id', profile.organization_id)
         .order('created_at', { ascending: false }),
       supabase
@@ -507,7 +507,7 @@ if (
   } else if (activeView === 'gestion') {
     const casesResult = await supabase
       .from('cases')
-      .select('id, status')
+      .select('id, status, case_type')
       .eq('organization_id', profile.organization_id)
       .order('created_at', { ascending: false });
 
