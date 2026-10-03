@@ -57,10 +57,14 @@ export async function Sidebar() {
               </p>
               {items.map((item) => {
                 const Icon = item.icon;
+                const href =
+                  industry === 'inmobiliaria' && item.href === '/expedientes'
+                    ? '/operaciones'
+                    : item.href;
                 return (
                   <Link
-                    key={item.href}
-                    href={item.href}
+                    key={href}
+                    href={href}
                     className="flex items-center gap-2.5 rounded-2xl px-3 py-1 text-sm font-semibold text-[#C2CCD9] transition-all hover:bg-[#1E9BF0]/12 hover:text-[#29C5FF]"
                   >
                     <Icon className="h-[18px] w-[18px] text-current" />

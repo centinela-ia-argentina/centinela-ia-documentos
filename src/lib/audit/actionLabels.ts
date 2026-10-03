@@ -33,6 +33,8 @@ const auditActionLabels: Record<string, string> = {
   case_cotejo_generated: 'Cotejo documental generado',
   document_poder_generated: 'Análisis de poder/estatuto generado',
   case_summary_generated: 'Resumen de expediente generado',
+  ai_rag_query: 'Consulta documental con IA',
+  ai_rag_error: 'Error de consulta documental con IA',
   organization_name_updated: 'Nombre de organización actualizado',
   organization_logo_updated: 'Logo de organización actualizado',
   invitation_accepted_account_created: 'Invitación aceptada y cuenta creada',
@@ -41,7 +43,7 @@ const auditActionLabels: Record<string, string> = {
 export function formatAuditActionLabel(action?: string | null, terms?: IndustryTerms): string {
   if (!action) return 'Evento sin acción';
 
-  let label = auditActionLabels[action];
+  let label = auditActionLabels[action] ?? auditActionLabels[action.toLowerCase()];
   
   if (label) {
     if (terms && terms.expedienteSingular.toLowerCase() !== 'expediente') {

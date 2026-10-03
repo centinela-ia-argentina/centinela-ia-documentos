@@ -10,6 +10,7 @@ import { MotionButton } from '@/components/ui/MotionButton';
 import { Badge } from '@/components/ui/Badge';
 import { redactarEscritoIA, extraerDatosParaModelo } from './actions';
 import { AiDisclaimer } from '@/lib/industries/disclaimers';
+import type { IndustryType } from '@/lib/industries/documentTypes';
 
 export type ExpedienteLite = {
   id: string;
@@ -90,12 +91,17 @@ export function ModelosClient({
   expedientes: ExpedienteLite[];
   modeloInicialId?: string | null;
   expedienteInicialId?: string | null;
-  industria?: string;
+  industria?: IndustryType;
   puedeIA?: boolean;
 }) {
   const expInicial = expedientes.find((e) => e.id === expedienteInicialId) ?? null;
   const idInicial =
-    modeloInicialId && MODELOS.some((m) => m.id === modeloInicialId)
+    modeloInicialId &&
+    MODELOS.some(
+      (m) =>
+        m.id === modeloInicialId &&
+        (m.industries ?? ['legal']).includes(industria)
+    )
       ? modeloInicialId
       : null;
   const [seleccionadoId, setSeleccionadoId] = useState<string | null>(idInicial);
@@ -263,7 +269,9 @@ export function ModelosClient({
       if (solicitudActual !== solicitudPrellenadoRef.current) return;
 
       setErrorPrellenado(
-        'No pudimos completar los datos del legajo. Podés reintentar o continuar manualmente.'
+        `No pudimos completar los datos ${
+          esInmobiliaria ? 'de la operación' : esEscribania ? 'del legajo' : 'del expediente'
+        }. Podés reintentar o continuar manualmente.`
       );
     } finally {
       if (solicitudActual === solicitudPrellenadoRef.current) {

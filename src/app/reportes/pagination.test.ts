@@ -12,12 +12,27 @@ vi.mock('@/lib/supabase/server', () => ({
   createClient: vi.fn(),
 }));
 
-import ReportsPage, { parseStrictPositiveInteger } from './page';
+import ReportsPage, { isAiAudit, parseStrictPositiveInteger } from './page';
 import { createClient } from '@/lib/supabase/server';
 import { getUserProfile } from '@/lib/auth/getUserProfile';
 import { redirect } from 'next/navigation';
 
 describe('T-AUD-P2-002: Validación estricta de paginación server-side en auditoría', () => {
+  it('clasifica eventos RAG en mayúsculas como IA y no como gestión', () => {
+    expect(
+      isAiAudit({
+        id: 'log-rag',
+        organization_id: 'org-test',
+        user_id: 'admin-1',
+        action: 'AI_RAG_QUERY',
+        resource_type: 'case',
+        resource_id: 'case-1',
+        metadata: {},
+        created_at: '2026-10-03T00:00:00.000Z',
+      })
+    ).toBe(true);
+  });
+
   describe('A. Función parseStrictPositiveInteger', () => {
     it('acepta enteros positivos decimales seguros', () => {
       expect(parseStrictPositiveInteger('1')).toBe(1);

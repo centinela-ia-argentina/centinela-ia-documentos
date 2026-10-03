@@ -46,4 +46,19 @@ describe('T-AUD-P3-019: Dependencia completa de useMemo en ModelosClient', () =>
     expect(screen.getByText('Escritura de compraventa de inmueble')).toBeDefined();
     expect(screen.queryByText('Escrito de presentación (genérico)')).toBeNull();
   });
+
+  it('ignora un modelo inicial de otra vertical aunque llegue por URL', () => {
+    render(
+      React.createElement(ModelosClient, {
+        expedientes: [],
+        puedeIA: true,
+        industria: 'inmobiliaria',
+        modeloInicialId: 'presentacion-generica',
+      })
+    );
+
+    expect(screen.getByText('Modelos inmobiliarios')).toBeDefined();
+    expect(screen.queryByText('Escrito de presentación (genérico)')).toBeNull();
+    expect(screen.getByText('Boleto de compraventa')).toBeDefined();
+  });
 });
