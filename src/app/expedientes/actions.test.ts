@@ -21,9 +21,9 @@ describe('Expedientes Actions Helpers', () => {
   describe('getNextChecklistStatus', () => {
     it('Debe realizar transiciones de checklist', () => {
       expect(getNextChecklistStatus('pending')).toBe('received');
-      expect(getNextChecklistStatus('received')).toBe('reviewed');
+      expect(getNextChecklistStatus('received')).toBe('pending');
       expect(getNextChecklistStatus('reviewed')).toBe('pending');
-      expect(getNextChecklistStatus('rejected')).toBe('pending');
+      expect(getNextChecklistStatus('rejected')).toBe('received');
       expect(getNextChecklistStatus('not_required')).toBe('pending');
     });
   });

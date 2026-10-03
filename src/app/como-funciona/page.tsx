@@ -6,23 +6,23 @@ import { SiteHeader } from '@/components/SiteHeader';
 export const metadata: Metadata = {
   title: 'Cómo funciona | Centinela IA',
   description:
-    'Conocé el recorrido de Centinela IA: ingreso, expedientes, documentos, análisis y auditoría.',
+    'Conocé el recorrido transversal de Centinela IA para organizaciones jurídicas, notariales e inmobiliarias: expedientes, documentos, radar de plazos, análisis con IA y auditoría.',
 };
 
 const whatsappUrl =
   'https://wa.me/543794733321?text=Hola,%20quiero%20coordinar%20una%20presentaci%C3%B3n%20de%20Centinela%20IA';
 
 const demoSteps = [
-  'Login seguro',
-  'Dashboard operativo',
-  'Expedientes',
-  'Carga documental',
-  'Visor PDF',
-  'Análisis documental',
-  'Reportes',
-  'Usuarios y permisos',
-  'Auditoría',
-  'Propuesta beta',
+  'Login seguro y multi-organización con control de roles',
+  'Dashboard operativo adaptado por rubro (Legal, Notarial, Inmobiliario)',
+  'Gestión documental integral: expedientes, legajos y operaciones',
+  'Radar de plazos, audiencias judiciales y vigencias de certificados',
+  'Herramientas inmobiliarias: inventario de propiedades y cartera de clientes',
+  'Módulos específicos: Pre-Score crediticio y matching comercial',
+  'Herramientas notariales: cálculo de sellos, tasas y derivación de escrituras',
+  'Biblioteca de modelos documentales y borradores asistidos con IA',
+  'Visor de documentos sensibles con enlaces seguros de lectura',
+  'Auditoría inmutable de accesos y trazabilidad de eventos',
 ];
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
@@ -57,9 +57,9 @@ export default function ComoFuncionaPage() {
                 Conocé el flujo completo en una presentación guiada.
               </h1>
               <p className="mt-5 text-base leading-8 text-[#C2CCD9]">
-                La presentación muestra cómo una organización puede ingresar al sistema,
-                revisar métricas, crear expedientes, cargar documentos, visualizar PDFs,
-                consultar reportes, administrar usuarios y revisar actividad auditada.
+                Descubrí cómo Centinela IA adapta sus herramientas según la especialidad de tu organización:
+                estudios jurídicos, escribanías e inmobiliarias cuentan con flujos documentales dedicados,
+                radar de plazos y vencimientos, análisis con IA server-side y trazabilidad completa de cada acción.
               </p>
 
               <a

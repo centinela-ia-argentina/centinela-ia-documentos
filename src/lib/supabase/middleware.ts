@@ -16,6 +16,10 @@ function isPrivatePath(pathname: string) {
   return (
     pathname.startsWith('/dashboard') ||
     pathname.startsWith('/expedientes') ||
+    pathname.startsWith('/operaciones') ||
+    pathname.startsWith('/propiedades') ||
+    pathname.startsWith('/clientes') ||
+    pathname.startsWith('/alquileres') ||
     pathname.startsWith('/documentos') ||
     pathname.startsWith('/usuarios') ||
     pathname.startsWith('/reportes') ||
@@ -42,6 +46,7 @@ function isAdminOnlyPath(pathname: string) {
 function isOperatorActionPath(pathname: string) {
   return (
     pathname.startsWith('/expedientes/nuevo') ||
+    pathname.startsWith('/operaciones/nueva') ||
     pathname.startsWith('/documentos/subir')
   );
 }

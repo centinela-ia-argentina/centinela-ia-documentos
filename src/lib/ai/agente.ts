@@ -61,10 +61,28 @@ function getAgentPersona(industry: IndustryType, terms: IndustryTerms): string {
   throw new Error(`Invalid or unsupported industry: ${industry}`);
 }
 
-function getReglas(terms: IndustryTerms): string {
+function getReglas(industry: IndustryType, terms: IndustryTerms): string {
+  if (industry === 'inmobiliaria') {
+    return `REGLAS INQUEBRANTABLES:
+- Basáte ÚNICAMENTE en el ${terms.contextoDelLegajo} y en la conversación. NO inventes datos, montos, fechas, nombres ni cláusulas.
+- Antes de decir que un dato no está, buscalo también por SINÓNIMOS, RÓTULOS y ABREVIATURAS en los fragmentos (ej: "matrícula" puede venir como "F.R.I."/"Folio Real"; "hipoteca"/"embargo" como "gravamen"; "superficie" como "sup."). Solo si realmente no aparece de ninguna forma, decilo con claridad ("No tengo ese dato cargado en ${terms.elExpediente}").
+- Si el CONTEXTO incluye una sección "FRAGMENTOS TEXTUALES RELEVANTES", tratá esos fragmentos como la fuente MÁS confiable para responder detalles concretos (partes, montos, precios, monedas, matrículas, superficies, gravámenes, cláusulas): son extractos del texto real del documento. Cuando uses un dato que sale de un fragmento, aclará entre paréntesis el nombre del documento (ej: "según Reserva.pdf").
+- Sos orientativo: la IA propone, el humano dispone. Nunca presentes una estimación como certeza contractual o registral definitiva. Siempre que corresponda, proponé la acción comercial oportuna.
+- Respondé en español rioplatense, con tono profesional, claro y CONCISO. Apuntá a 6-12 líneas salvo que te pidan más detalle.
+- FORMATO del campo "respuesta": párrafos breves. Para enumerar, usá viñetas simples con "- " (una sola línea cada una, SIN anidar sublistas). Resaltá términos clave con **negrita** con moderación. No uses tablas ni encabezados markdown.
+- Sé PROACTIVO: cuando detectes un plazo, una discrepancia, un faltante o una oportunidad comercial, proponé el próximo paso.`;
+  }
+
+  const reglaUmaJus = industry === 'legal'
+    ? '\n- Si te consultan conceptualmente sobre "UMA", "UHOM" o "JUS", explicá qué son (unidades arancelarias) y de qué dependen (jurisdicción, fuero, fecha, organismo), pero TENÉS ESTRICTAMENTE PROHIBIDO informar su valor monetario actual, su cifra, su equivalencia o su vigencia exacta. (Ej: aclaralo así: "UMA rige en el ámbito nacional/federal, JUS puede variar por provincia, UHOM según el régimen aplicable. Verificá su valor en la fuente oficial").'
+    : '';
+
+  const reglaLiquidacion = industry === 'legal'
+    ? ' (Calcular una liquidación con las fórmulas legales, a partir de datos reales ' + terms.delExpediente + ' o que te dio el usuario, NO es "inventar un monto": es una estimación válida que SÍ podés proponer.)'
+    : '';
+
   return `REGLAS INQUEBRANTABLES:
-- Basáte ÚNICAMENTE en el ${terms.contextoDelLegajo} y en la conversación. NO inventes datos, montos, fechas, nombres ni artículos. (Calcular una liquidación con las fórmulas legales, a partir de datos reales ${terms.delExpediente} o que te dio el usuario, NO es "inventar un monto": es una estimación válida que SÍ podés proponer.)
-- Si te consultan conceptualmente sobre "UMA", "UHOM" o "JUS", explicá qué son (unidades arancelarias) y de qué dependen (jurisdicción, fuero, fecha, organismo), pero TENÉS ESTRICTAMENTE PROHIBIDO informar su valor monetario actual, su cifra, su equivalencia o su vigencia exacta. (Ej: aclaralo así: "UMA rige en el ámbito nacional/federal, JUS puede variar por provincia, UHOM según el régimen aplicable. Verificá su valor en la fuente oficial").
+- Basáte ÚNICAMENTE en el ${terms.contextoDelLegajo} y en la conversación. NO inventes datos, montos, fechas, nombres ni artículos.${reglaLiquidacion}${reglaUmaJus}
 - Antes de decir que un dato no está, buscalo también por SINÓNIMOS, RÓTULOS y ABREVIATURAS en los fragmentos (ej: "matrícula" puede venir como "F.R.I."/"Folio Real"; "hipoteca"/"embargo" como "gravamen"; "superficie" como "sup."). Solo si realmente no aparece de ninguna forma, decilo con claridad ("No tengo ese dato cargado en ${terms.elExpediente}").
 - Si el CONTEXTO incluye una sección "FRAGMENTOS TEXTUALES RELEVANTES", tratá esos fragmentos como la fuente MÁS confiable para responder detalles concretos (nombres, montos, matrículas, superficies, gravámenes, cláusulas): son extractos del texto real del documento. Cuando uses un dato que sale de un fragmento, aclará entre paréntesis el nombre del documento (ej: "según el Certificado de Dominio.pdf").
 - Sos orientativo: la IA propone, el humano dispone. Nunca presentes algo como certeza legal definitiva. ACLARACIÓN: proponer una ACCIÓN (como "calcular_liquidacion") NO viola esta regla: es ofrecerle al humano una ESTIMACIÓN para que la apruebe, no afirmar una certeza. Siempre que corresponda, proponé la acción igual.
@@ -73,7 +91,30 @@ function getReglas(terms: IndustryTerms): string {
 - Sé PROACTIVO: cuando detectes un plazo, una discrepancia o una oportunidad, proponé el próximo paso.`;
 }
 
-function reglasAcciones(hoy: string, estadosValidos: string, terms: IndustryTerms): string {
+function reglasAcciones(hoy: string, estadosValidos: string, terms: IndustryTerms, industry?: IndustryType): string {
+  if (industry === 'inmobiliaria') {
+    return `ACCIONES QUE PODÉS PROPONER (campo "acciones"):
+- FECHA DE HOY: ${hoy}. Usala para evaluar vencimientos.
+- Proponé una acción cuando surja con claridad del ${terms.contextoDelLegajo} O de la conversación con el usuario. Si no corresponde ninguna, devolvé "acciones" como lista vacía.
+- Cada acción lleva: "tipo", "titulo" (breve y claro), "motivo" (una línea de dónde surge) y, cuando corresponda, "fecha" en formato YYYY-MM-DD.
+- Podés proponer MÁS DE UNA acción a la vez.
+- Tipos disponibles para Inmobiliaria:
+  1) "agendar_plazo": agendar un vencimiento de reserva, contrato o plazo en la agenda. REQUIERE "fecha". Ej: "Vencimiento de reserva".
+  2) "crear_actuacion": registrar un hito en la CRONOLOGÍA ${terms.delExpediente.toUpperCase()} (visita, reserva, firma, ajuste, vencimiento). REQUIERE "fecha". Ej: "Visita al inmueble acordada".
+  3) "agregar_checklist": sumar un documento pendiente al checklist cuando detectes que FALTA o hay que solicitar. SIN "fecha". Ej: "Solicitar constancia de ingresos del garante".
+  4) "generar_resumen": regenerar el resumen integral ${terms.delExpediente} con IA cuando convenga actualizarlo. SIN "fecha". Ej: "Actualizar el resumen ${terms.delExpediente}".
+  5) "generar_cotejo": cruzar (cotejar) los documentos ${terms.delExpediente} con IA para verificar coherencia entre reserva, boleto y título. SIN "fecha".
+  6) "redactar_borrador": generar con IA un borrador de RESERVA u OFERTA DE COMPRA o BOLETO DE COMPRAVENTA. SIN "fecha". Proponéla solo cuando ${terms.elExpediente} tenga datos suficientes. Ej: "Redactar borrador de reserva / oferta".
+  7) "cambiar_estado": mover ${terms.elExpediente} a otra etapa del flujo cuando el avance lo justifique. SIN "fecha", REQUIERE "estado" con uno de estos valores válidos: ${estadosValidos}. Ej: "Pasar a En reserva".
+  8) "vincular_documento": vincular un documento cargado con un ítem pendiente del checklist. SIN "fecha". REQUIERE "itemChecklist" y "documento" exactos del contexto.
+  9) "agendar_turno": agendar una cita o visita en la agenda. REQUIERE "fecha". Si surge la hora, sumá "hora" en formato HH:MM. Ej: "Visita programada con interesado".
+  10) "agendar_firma": agendar la firma del boleto, reserva o contrato. REQUIERE "fecha". Si surge la hora, sumá "hora" en formato HH:MM. Ej: "Firma de contrato de locación".
+  11) "redactar_aviso": generar con IA el aviso comercial de la propiedad para publicar. SIN "fecha". Ej: "Redactar aviso comercial de la propiedad".
+  12) "calificar_inquilino": evaluar la solvencia y garantías del postulante a inquilino. SIN "fecha". Proponéla cuando sea una operación de alquiler y haya recibos o comprobantes de ingresos del postulante. Opcional: "alquilerMensual" y "moneda". NO la propongas en compraventas.
+- OBLIGATORIO: si en tu respuesta afirmás que un documento cumple un ítem del checklist, incluí además la acción "vincular_documento" en "acciones".
+- NO inventes fechas, nombres, estados ni datos. La ejecución real la confirma el usuario con un botón.`;
+  }
+
   return `ACCIONES QUE PODÉS PROPONER (campo "acciones"):
 - FECHA DE HOY: ${hoy}. Usala para evaluar vencimientos.
 - Proponé una acción cuando surja con claridad del ${terms.contextoDelLegajo} O de la conversación con el usuario (por ejemplo, un dato que el usuario te acaba de dar en el chat). Si no corresponde ninguna, devolvé "acciones" como lista vacía.
@@ -93,8 +134,8 @@ function reglasAcciones(hoy: string, estadosValidos: string, terms: IndustryTerm
   11) "agendar_firma": agendar la FIRMA de la escritura, el acto notarial o el instrumento principal. REQUIERE "fecha". Si surge la hora, sumá "hora" en formato HH:MM (24hs). Proponéla cuando ${terms.elExpediente} esté en condiciones o se acuerde una fecha de firma. Ej: "Firma de escritura traslativa de dominio".
   12) "sugerir_modelo": sugerir abrir el MODELO/instrumento correcto de la biblioteca para redactar el documento ${terms.delExpediente}. En escribanía son instrumentos notariales (escritura, poder, certificación de firmas, acta, etc.); en el rubro legal son escritos judiciales (contestación de demanda, ofrecimiento de prueba, recurso de apelación, cédula de notificación, etc.). SIN "fecha". Proponéla cuando ${terms.elExpediente} corresponda claramente a un documento para el que conviene usar un modelo y ya tenga datos suficientes. Usá "titulo" para nombrar el documento (ej: "Abrir el modelo de contestación de demanda"). El sistema ya sabe qué modelo corresponde según ${terms.elExpediente}; NO inventes nombres de archivos ni enlaces.
   13) "redactar_ros": preparar el borrador de ROS (Reporte de Operación Sospechosa ante la UIF) ${terms.delExpediente}. SIN "fecha". Proponéla SOLO en rubro escribanía y SOLO cuando el análisis UIF marque riesgo ALTO o "requiere ROS", o cuando surjan señales de alerta serias (montos altos, efectivo, PEP, beneficiario final poco claro, inconsistencias graves). Usá "titulo" como "Preparar borrador de ROS (UIF)". No la propongas si no hay señales serias.
- 17) "redactar_aviso": generar con IA el AVISO / FICHA COMERCIAL de la propiedad para publicar en portales o redes, a partir de los datos del inmueble y ${terms.delExpediente}. SIN "fecha". SOLO en rubro inmobiliaria. Proponéla cuando la operación tenga un inmueble con datos suficientes para describirlo (dirección, tipo, características) o cuando el usuario pida un aviso, publicación o ficha para vender/alquilar. Usá "titulo" como "Redactar aviso comercial de la propiedad". El sistema arma el aviso con los datos reales de la operación; NO inventes superficies, precios ni ambientes.
- 18) "calificar_inquilino": evaluar la solvencia y garantías del postulante a inquilino. SIN "fecha". SOLO en rubro inmobiliaria. Proponéla cuando ${terms.elExpediente} parezca una postulación de alquiler y haya documentos del postulante (recibo de sueldo, constancia de monotributo/ingresos, o datos de garantía/garante). Usá "titulo" como "Calificar inquilino y garantía (IA)". REQUIERE los campos opcionales "alquilerMensual" (número, el valor del alquiler; si no lo sabés dejalos en null) y "moneda" ('ARS' o 'USD'). Es una evaluación orientativa, no un dictamen. NO la propongas en compraventas.
+  17) "redactar_aviso": generar con IA el AVISO / FICHA COMERCIAL de la propiedad para publicar en portales o redes, a partir de los datos del inmueble y ${terms.delExpediente}. SIN "fecha". SOLO en rubro inmobiliaria. Proponéla cuando la operación tenga un inmueble con datos suficientes para describirlo (dirección, tipo, características) o cuando el usuario pida un aviso, publicación o ficha para vender/alquilar. Usá "titulo" como "Redactar aviso comercial de la propiedad". El sistema arma el aviso con los datos reales de la operación; NO inventes superficies, precios ni ambientes.
+  18) "calificar_inquilino": evaluar la solvencia y garantías del postulante a inquilino. SIN "fecha". SOLO en rubro inmobiliaria. Proponéla cuando ${terms.elExpediente} parezca una postulación de alquiler y haya documentos del postulante (recibo de sueldo, constancia de monotributo/ingresos, o datos de garantía/garante). Usá "titulo" como "Calificar inquilino y garantía (IA)". REQUIERE los campos opcionales "alquilerMensual" (número, el valor del alquiler; si no lo sabés dejalos en null) y "moneda" ('ARS' o 'USD'). Es una evaluación orientativa, no un dictamen. NO la propongas en compraventas.
 - OBLIGATORIO: si en tu "respuesta" decís o das a entender que un documento ${terms.delExpediente} cumple, corresponde o sirve para un ítem del checklist, TENÉS que incluir además la acción "vincular_documento" en el campo "acciones" (con "itemChecklist" y "documento" exactos, copiados del contexto). Está PROHIBIDO mencionar un vínculo posible solo en el texto sin proponer la acción.
 - NO inventes fechas, nombres, estados ni datos. La ejecución real la confirma el usuario con un botón.`;
 }
@@ -515,9 +556,9 @@ export function buildAgentSystemInstruction(params: {
   return [
     getAgentPersona(params.industry, terms),
     '',
-    getReglas(terms),
+    getReglas(params.industry, terms),
     '',
-    reglasAcciones(hoy, estadosTexto, terms),
+    reglasAcciones(hoy, estadosTexto, terms, params.industry),
     '',
     intencionRiesgo
       ? 'REGLAS PARA ANÁLISIS DE RIESGO:\n- Esta es una consulta exclusivamente informativa y de lectura. Analizá la evidencia documental disponible. No generes acciones ni tarjetas. No propongas mutaciones. Devuelve siempre acciones como un arreglo vacío.\n- Diferenciá hechos, posibles riesgos y datos faltantes.\n- Identificá el documento o fragmento que sustenta cada observación.\n- No declares ausencia total de riesgos como certeza profesional.\n- Si detectás una inconsistencia o riesgo, iniciá tu respuesta con una frase como: "Detecté las siguientes inconsistencias o puntos que requieren revisión..."\n- Si no detectás inconsistencias, respondé: "No detecté inconsistencias con la evidencia documental disponible. Esta revisión es orientativa y no reemplaza el control profesional integral."\n- Si faltan datos, respondé: "No hay evidencia suficiente para concluir sobre los siguientes puntos..."'

@@ -2,59 +2,9 @@
 
 import { useState } from 'react';
 import { Coins, Hash, GitCompare, CalendarSearch, Copy, Check } from 'lucide-react';
+import { montoALetras } from '@/lib/format/numeroALetras';
 
 type Tab = 'montos' | 'contador' | 'comparar' | 'fechas';
-
-// ---------------- Montos a letras ----------------
-const UNIDADES = ['', 'uno', 'dos', 'tres', 'cuatro', 'cinco', 'seis', 'siete', 'ocho', 'nueve'];
-const DIEZ = ['diez', 'once', 'doce', 'trece', 'catorce', 'quince', 'dieciséis', 'diecisiete', 'dieciocho', 'diecinueve'];
-const DECENAS = ['', '', 'veinte', 'treinta', 'cuarenta', 'cincuenta', 'sesenta', 'setenta', 'ochenta', 'noventa'];
-const CENTENAS = ['', 'ciento', 'doscientos', 'trescientos', 'cuatrocientos', 'quinientos', 'seiscientos', 'setecientos', 'ochocientos', 'novecientos'];
-
-function apocope(s: string) {
-	return s.replace(/uno$/, 'ún');
-}
-function menorAMil(n: number): string {
-	if (n === 0) return '';
-	if (n === 100) return 'cien';
-	let s = '';
-	const c = Math.floor(n / 100);
-	const d = n % 100;
-	if (c) s += CENTENAS[c] + ' ';
-	if (d >= 10 && d <= 19) s += DIEZ[d - 10];
-	else if (d >= 20 && d <= 29) s += d === 20 ? 'veinte' : 'veinti' + UNIDADES[d - 20];
-	else {
-		const dz = Math.floor(d / 10);
-		const un = d % 10;
-		if (dz) s += DECENAS[dz] + (un ? ' y ' : '');
-		if (un) s += UNIDADES[un];
-	}
-	return s.trim();
-}
-function menorAMillon(n: number): string {
-	const miles = Math.floor(n / 1000);
-	const resto = n % 1000;
-	let s = '';
-	if (miles === 1) s = 'mil';
-	else if (miles > 1) s = apocope(menorAMil(miles)) + ' mil';
-	if (resto > 0) s += (s ? ' ' : '') + menorAMil(resto);
-	return s;
-}
-function numeroALetras(n: number): string {
-	if (n === 0) return 'cero';
-	const millones = Math.floor(n / 1_000_000);
-	const resto = n % 1_000_000;
-	let s = '';
-	if (millones === 1) s = 'un millón';
-	else if (millones > 0) s = apocope(menorAMillon(millones)) + ' millones';
-	if (resto > 0) s += (s ? ' ' : '') + menorAMillon(resto);
-	return s.trim();
-}
-function parseAR(s: string): number | null {
-	const clean = s.replace(/\s/g, '').replace(/\./g, '').replace(',', '.');
-	const n = parseFloat(clean);
-	return isNaN(n) ? null : n;
-}
 
 function CopiarBtn({ texto }: { texto: string }) {
 	const [ok, setOk] = useState(false);
@@ -76,22 +26,41 @@ function CopiarBtn({ texto }: { texto: string }) {
 function MontosALetras() {
 	const [monto, setMonto] = useState('');
 	const [moneda, setMoneda] = useState('PESOS');
-	const n = parseAR(monto);
+	const [error, setError] = useState<string | null>(null);
+
 	let salida = '';
-	if (n !== null) {
-		const entero = Math.floor(n);
-		const centavos = Math.round((n - entero) * 100);
-		salida = `${moneda} ${numeroALetras(entero).toUpperCase()} CON ${String(centavos).padStart(2, '0')}/100`;
+	if (monto.trim()) {
+		try {
+			salida = montoALetras(monto, { moneda, mayusculas: true });
+			if (error) setError(null);
+		} catch (e: any) {
+			salida = '';
+		}
 	}
+
+	const handleMontoChange = (val: string) => {
+		setMonto(val);
+		if (!val.trim()) {
+			setError(null);
+			return;
+		}
+		try {
+			montoALetras(val, { moneda, mayusculas: true });
+			setError(null);
+		} catch (err: any) {
+			setError(err?.message || 'Formato de monto inválido');
+		}
+	};
+
 	return (
 		<div className="space-y-3">
 			<div className="flex flex-wrap gap-3">
 				<input
 					className="flex-1 min-w-[180px] rounded-lg border border-slate-200 px-3 py-2 text-sm"
 					inputMode="decimal"
-					placeholder="Ej: 1.250.000,50"
+					placeholder="Ej: 1.250.000,50 o 1234567.89"
 					value={monto}
-					onChange={(e) => setMonto(e.target.value)}
+					onChange={(e) => handleMontoChange(e.target.value)}
 				/>
 				<select
 					className="rounded-lg border border-slate-200 px-3 py-2 text-sm"
@@ -103,9 +72,12 @@ function MontosALetras() {
 					<option value="EUROS">Euros</option>
 				</select>
 			</div>
+			{error && monto.trim() && (
+				<p className="text-xs text-rose-500 font-medium">{error}</p>
+			)}
 			{salida && (
 				<div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-					<p className="text-sm text-slate-800">{salida}</p>
+					<p className="text-sm font-medium text-slate-800">{salida}</p>
 					<div className="mt-2"><CopiarBtn texto={salida} /></div>
 				</div>
 			)}

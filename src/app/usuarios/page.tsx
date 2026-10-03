@@ -358,7 +358,7 @@ export default async function UsuariosPage({ searchParams }: UsuariosPageProps) 
                             </p>
 
                             <p className="mt-2 text-xs text-slate-500">
-                              Último acceso: {formatDate(item.last_login_at)}
+                              Último acceso: {formatDate(item.last_login_at || (isCurrentUser ? user.last_sign_in_at : null))}
                             </p>
                           </div>
                         </div>
@@ -385,7 +385,7 @@ export default async function UsuariosPage({ searchParams }: UsuariosPageProps) 
 
                       <td className="px-4 py-4">
                         <p className="font-bold text-white">
-                          {eventCount} eventos
+                          {eventCount} eventos <span className="text-[11px] font-normal text-slate-400">(recientes)</span>
                         </p>
 
                         <p className="mt-1 text-xs text-slate-400">

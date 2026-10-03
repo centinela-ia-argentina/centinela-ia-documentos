@@ -7,10 +7,13 @@ import { generarEmbedding } from '@/lib/ai/embeddings';
 import { indexarDocumento } from '@/lib/ai/indexarDocumento';
 import { normalizeIndustryType } from '@/lib/industries/documentTypes';
 import { getRagSystemPrompt } from '@/lib/industries/aiConfig';
+import { parseAndAlignRagResponse } from '@/lib/ai/ragAlignment';
 
 export type FuenteBusqueda = {
   documentId: string;
   fileName: string;
+  caseId?: string;
+  caseTitle?: string;
   fragmento: string;
   similitud: number;
 };
@@ -76,20 +79,89 @@ export async function preguntarADocumentos(pregunta: string): Promise<RespuestaB
     };
   }
 
-  // 3) Nombres de archivo para citar
-  const docIds = [...new Set(matches.map((m) => m.document_id))];
+  // 2.1) Priorizar expediente si la consulta lo individualiza para evitar contaminación cruzada
+  const { data: orgCases } = await supabase
+    .from('cases')
+    .select('id, title, client_name')
+    .eq('organization_id', profile.organization_id);
+
+  let targetCaseDocIds: Set<string> | null = null;
+  const textoLower = texto.toLowerCase();
+  for (const c of (orgCases ?? [])) {
+    const titleMatch = c.title && c.title.trim().length >= 4 && textoLower.includes(c.title.toLowerCase().trim());
+    const clientMatch = c.client_name && c.client_name.trim().length >= 4 && textoLower.includes(c.client_name.toLowerCase().trim());
+    if (titleMatch || clientMatch) {
+      const { data: cDocs } = await supabase
+        .from('documents')
+        .select('id')
+        .eq('case_id', c.id)
+        .eq('organization_id', profile.organization_id);
+      if (cDocs && cDocs.length > 0) {
+        targetCaseDocIds = new Set(cDocs.map((d: any) => d.id));
+      }
+      break;
+    }
+  }
+
+  let filteredMatches = matches;
+  if (targetCaseDocIds && targetCaseDocIds.size > 0) {
+    const caseMatches = filteredMatches.filter((m) => targetCaseDocIds!.has(m.document_id));
+    if (caseMatches.length > 0) {
+      filteredMatches = caseMatches;
+    } else {
+      return {
+        ok: true,
+        respuesta: 'No encontré información relacionada en los documentos del expediente consultado.',
+        fuentes: [],
+      };
+    }
+  }
+
+  // Descartar fragmentos con similitud insuficiente
+  filteredMatches = filteredMatches.filter((m) => (m.similarity ?? 0) >= 0.40);
+  if (filteredMatches.length === 0) {
+    return {
+      ok: true,
+      respuesta:
+        'No encontré información relacionada en tus documentos indexados. Probá reanalizar algún documento o reformular la pregunta.',
+      fuentes: [],
+    };
+  }
+
+  // 3) Nombres de archivo y datos de la operación/expediente para citar
+  const docIds = [...new Set(filteredMatches.map((m) => m.document_id))];
   const { data: docs } = await supabase
     .from('documents')
-    .select('id, file_name')
-    .in('id', docIds);
-  const nombrePorId = new Map((docs ?? []).map((d: any) => [d.id, d.file_name]));
+    .select('id, file_name, case_id')
+    .in('id', docIds)
+    .eq('organization_id', profile.organization_id);
 
-  const fuentes: FuenteBusqueda[] = matches.map((m) => ({
-    documentId: m.document_id,
-    fileName: nombrePorId.get(m.document_id) ?? 'Documento',
-    fragmento: m.content,
-    similitud: m.similarity,
-  }));
+  const nombrePorId = new Map((docs ?? []).map((d: any) => [d.id, d.file_name]));
+  const caseIdPorDoc = new Map((docs ?? []).map((d: any) => [d.id, d.case_id]));
+
+  const caseIds = [...new Set((docs ?? []).map((d: any) => d.case_id).filter(Boolean))];
+  let caseTitlePorId = new Map<string, string>();
+  if (caseIds.length > 0) {
+    const { data: foundCases } = await supabase
+      .from('cases')
+      .select('id, title')
+      .in('id', caseIds)
+      .eq('organization_id', profile.organization_id);
+    caseTitlePorId = new Map((foundCases ?? []).map((c: any) => [c.id, c.title]));
+  }
+
+  const fuentes: FuenteBusqueda[] = filteredMatches.map((m) => {
+    const cId = caseIdPorDoc.get(m.document_id) ?? undefined;
+    const cTitle = cId ? caseTitlePorId.get(cId) ?? undefined : undefined;
+    return {
+      documentId: m.document_id,
+      fileName: nombrePorId.get(m.document_id) ?? 'Documento',
+      caseId: cId,
+      caseTitle: cTitle,
+      fragmento: m.content,
+      similitud: m.similarity,
+    };
+  });
 
   // 4) Prompt RAG
   const contexto = fuentes
@@ -135,7 +207,8 @@ RESPUESTA:`;
       data?.candidates?.[0]?.content?.parts?.map((p: any) => p.text).join('') ??
       'No se pudo generar una respuesta.';
 
-    return { ok: true, respuesta, fuentes };
+    const aligned = parseAndAlignRagResponse(respuesta, fuentes);
+    return { ok: true, respuesta: aligned.respuesta, fuentes: aligned.fuentes };
   } catch (e) {
     return { ok: false, error: 'Error de red: ' + String(e).slice(0, 160) };
   }
@@ -226,4 +299,110 @@ export async function indexarDocumentosExistentes(): Promise<BackfillResult> {
   }
 
   return { ok: true, indexados, yaIndexados, sinTexto, errores, total };
+}
+
+export interface EntidadesOperativasResultado {
+  ok: boolean;
+  legajos: Array<{
+    id: string;
+    title: string;
+    client_name: string | null;
+    case_type: string | null;
+    status: string;
+  }>;
+  documentos: Array<{
+    id: string;
+    file_name: string;
+    document_type: string | null;
+    case_id: string | null;
+  }>;
+  error?: string;
+}
+
+import { escaparFiltroPostgrest } from './helpers';
+
+export async function buscarEntidadesOperativas(termino: string): Promise<EntidadesOperativasResultado> {
+  const q = termino.trim();
+  if (q.length < 2) return { ok: true, legajos: [], documentos: [] };
+
+  const { user, profile } = await getUserProfile();
+  if (!user || !profile) return { ok: false, legajos: [], documentos: [], error: 'Sesión no válida' };
+
+  const supabase = await createClient();
+  const safeQ = escaparFiltroPostgrest(q);
+
+  const [casesRes, docsRes] = await Promise.all([
+    supabase
+      .from('cases')
+      .select('id, title, client_name, case_type, status')
+      .eq('organization_id', profile.organization_id)
+      .or(`title.ilike."%${safeQ}%",client_name.ilike."%${safeQ}%",case_type.ilike."%${safeQ}%"`)
+      .limit(10),
+    supabase
+      .from('documents')
+      .select('id, file_name, document_type, case_id')
+      .eq('organization_id', profile.organization_id)
+      .or(`file_name.ilike."%${safeQ}%",document_type.ilike."%${safeQ}%"`)
+      .limit(10),
+  ]);
+
+  if (casesRes.error) {
+    return {
+      ok: false,
+      legajos: [],
+      documentos: [],
+      error: `Error al buscar legajos: ${casesRes.error.message}`,
+    };
+  }
+
+  if (docsRes.error) {
+    return {
+      ok: false,
+      legajos: [],
+      documentos: [],
+      error: `Error al buscar documentos: ${docsRes.error.message}`,
+    };
+  }
+
+  return {
+    ok: true,
+    legajos: casesRes.data ?? [],
+    documentos: (docsRes.data ?? []) as any,
+  };
+}
+
+export async function obtenerMetricasIndexacion(): Promise<{
+  totalAnalizados: number;
+  totalIndexados: number;
+  pendientes: number;
+}> {
+  const { user, profile } = await getUserProfile();
+  if (!user || !profile) return { totalAnalizados: 0, totalIndexados: 0, pendientes: 0 };
+  const supabase = await createClient();
+
+  const [{ data: yaChunks }, { data: outputs }] = await Promise.all([
+    supabase
+      .from('document_chunks')
+      .select('document_id')
+      .eq('organization_id', profile.organization_id),
+    supabase
+      .from('ai_outputs')
+      .select('document_id')
+      .eq('organization_id', profile.organization_id)
+      .eq('output_type', 'document_analysis'),
+  ]);
+
+  const indexadosSet = new Set((yaChunks ?? []).map((c: any) => c.document_id));
+  const analizadosSet = new Set((outputs ?? []).map((o: any) => o.document_id).filter(Boolean));
+
+  let pendientes = 0;
+  for (const docId of analizadosSet) {
+    if (!indexadosSet.has(docId)) pendientes++;
+  }
+
+  return {
+    totalAnalizados: analizadosSet.size,
+    totalIndexados: indexadosSet.size,
+    pendientes,
+  };
 }

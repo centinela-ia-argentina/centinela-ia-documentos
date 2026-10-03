@@ -217,8 +217,7 @@ describe("AI Industry Guards (Phase 6)", () => {
     it("11. Org Legal + payload inmobiliaria -> usa persona Legal, audita Legal", async () => {
       setupMock("legal");
       await redactarEscritoIA({
-        titulo: "T",
-        cuerpo: "C",
+        modeloId: "presentacion-generica",
         valores: {},
         instruccion: "",
         industria: "inmobiliaria",
@@ -229,15 +228,14 @@ describe("AI Industry Guards (Phase 6)", () => {
 
       expect(mockCreateAuditLog).toHaveBeenCalledWith(
         expect.objectContaining({
-          metadata: { entity_id: "T", details: { industria: "legal" } },
+          metadata: { entity_id: "presentacion-generica", titulo: expect.any(String), details: { industria: "legal" } },
         }),
       );
     });
     it("12. Org Inmobiliaria + payload legal -> usa persona Inmobiliaria, audita Inmobiliaria", async () => {
       setupMock("inmobiliaria");
       await redactarEscritoIA({
-        titulo: "T",
-        cuerpo: "C",
+        modeloId: "reserva-oferta-compra",
         valores: {},
         instruccion: "",
         industria: "legal",
@@ -247,7 +245,7 @@ describe("AI Industry Guards (Phase 6)", () => {
 
       expect(mockCreateAuditLog).toHaveBeenCalledWith(
         expect.objectContaining({
-          metadata: { entity_id: "T", details: { industria: "inmobiliaria" } },
+          metadata: { entity_id: "reserva-oferta-compra", titulo: expect.any(String), details: { industria: "inmobiliaria" } },
         }),
       );
     });
@@ -255,8 +253,7 @@ describe("AI Industry Guards (Phase 6)", () => {
       setupMock("unknown");
       delete process.env.GEMINI_API_KEY;
       const res = await redactarEscritoIA({
-        titulo: "T",
-        cuerpo: "C",
+        modeloId: "presentacion-generica",
         valores: {},
         instruccion: "",
       });

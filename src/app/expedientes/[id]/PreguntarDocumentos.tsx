@@ -4,14 +4,17 @@ import { useState, type FormEvent } from 'react';
 import { FileSearch, Loader2, Send, Sparkles } from 'lucide-react';
 import { preguntarADocumentosLegajo, type FuenteLegajo } from './ragLegajoActions';
 
+import { getIndustryTerms } from '@/lib/industries/uiLabels';
+import { normalizeIndustryType, type IndustryType } from '@/lib/industries/documentTypes';
+
 function RespuestaConCitas({ texto }: { texto: string }) {
   const parrafos = texto.split('\n').filter((l) => l.trim().length > 0);
   return (
     <div className="space-y-2">
       {parrafos.map((p, pi) => (
         <p key={pi} className="leading-relaxed">
-          {p.split(/(\[\d+\])/g).map((parte, i) =>
-            /^\[\d+\]$/.test(parte) ? (
+          {p.split(/(\[[0-9,\s]+\])/g).map((parte, i) =>
+            /^\[[0-9,\s]+\]$/.test(parte) ? (
               <sup
                 key={i}
                 className="mx-0.5 inline-flex items-center rounded bg-cyan-500/20 px-1 text-[10px] font-semibold text-cyan-300 ring-1 ring-cyan-500/30"
@@ -31,10 +34,13 @@ function RespuestaConCitas({ texto }: { texto: string }) {
 export function PreguntarDocumentos({
   caseId,
   puedeUsarIA,
+  industry,
 }: {
   caseId: string;
   puedeUsarIA: boolean;
+  industry?: string;
 }) {
+  const terms = getIndustryTerms(normalizeIndustryType(industry));
   const [pregunta, setPregunta] = useState('');
   const [preguntaMostrada, setPreguntaMostrada] = useState<string | null>(null);
   const [cargando, setCargando] = useState(false);
@@ -91,7 +97,7 @@ export function PreguntarDocumentos({
         <div>
           <h3 className="text-sm font-semibold text-slate-100">Preguntá a los documentos</h3>
           <p className="text-xs text-slate-400">
-            Respuestas basadas en el contenido real de este legajo, con la fuente citada.
+            Respuestas basadas en el contenido real de {terms.eseExpediente || (industry === 'inmobiliaria' ? 'esa operación' : industry === 'escribania' ? 'ese legajo' : 'ese expediente')}, con la fuente citada.
           </p>
         </div>
       </div>

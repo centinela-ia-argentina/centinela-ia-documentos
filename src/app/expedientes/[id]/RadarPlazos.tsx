@@ -3,77 +3,49 @@
 import { useState } from 'react';
 import { CalendarPlus, Check, Loader2 } from 'lucide-react';
 import { guardarPlazoDetectado } from '@/app/agenda/actions';
-import { esPlazoRadar } from '@/lib/plazos/plazos';
+import { formatIsoToAr } from '@/lib/plazos/fechasCanonicas';
+import {
+  deduplicarPlazosRadar,
+  NIVELES_RADAR,
+  type PlazoRadar,
+} from '@/lib/plazos/radarDeduplicacion';
 import type { ItemCronologia } from './CronologiaExpediente';
-
-function diasDesdeHoy(iso: string): number {
-  const [y, m, d] = iso.split('-').map(Number);
-  if (!y || !m || !d) return NaN;
-  const hoy = new Date();
-  hoy.setHours(0, 0, 0, 0);
-  const fecha = new Date(y, m - 1, d);
-  fecha.setHours(0, 0, 0, 0);
-  return Math.round((fecha.getTime() - hoy.getTime()) / 86_400_000);
-}
+import type { IndustryType } from '@/lib/industries/documentTypes';
 
 function textoDias(n: number): string {
   if (n < 0) return `hace ${Math.abs(n)} día${Math.abs(n) === 1 ? '' : 's'}`;
   if (n === 0) return 'vence hoy';
   if (n === 1) return 'vence mañana';
-  return `en ${n} días`;
+  return `a ${n} días`;
 }
 
-type Nivel = {
-  id: string;
-  label: string;
-  test: (n: number) => boolean;
-  dot: string;
-  chip: string;
-  icon: string;
-  border: string;
-};
+function getDetalleAgenda(p: PlazoRadar, industry?: IndustryType): string {
+  const etiquetaPrefijo =
+    industry === 'inmobiliaria'
+      ? 'Vencimiento de la operación'
+      : industry === 'escribania'
+        ? 'Vigencia del legajo'
+        : 'Plazo del expediente';
 
-// No mostrar vencimientos de hace más de estos días (evita fechas viejísimas de antecedentes, etc.).
-const PISO_VENCIDO_DIAS = 90;
-
-const NIVELES: Nivel[] = [
-  { id: 'vencido', label: 'Vencido', test: (n) => n < 0 && n >= -PISO_VENCIDO_DIAS, dot: 'bg-rose-500', chip: 'bg-rose-500/20 text-rose-300', icon: '🔴', border: 'border-l-rose-500' },
-  { id: 'urgente', label: '≤ 7 días', test: (n) => n >= 0 && n <= 7, dot: 'bg-orange-500', chip: 'bg-orange-500/20 text-orange-300', icon: '🟠', border: 'border-l-orange-500' },
-  { id: 'proximo', label: '≤ 15 días', test: (n) => n > 7 && n <= 15, dot: 'bg-amber-400', chip: 'bg-amber-500/20 text-amber-300', icon: '🟡', border: 'border-l-amber-400' },
-  { id: 'agenda', label: '≤ 30 días', test: (n) => n > 15 && n <= 30, dot: 'bg-emerald-500', chip: 'bg-emerald-500/20 text-emerald-300', icon: '🟢', border: 'border-l-emerald-500' },
-];
-
-function nivelDe(n: number): Nivel | null {
-  return NIVELES.find((x) => x.test(n)) ?? null;
+  return `${etiquetaPrefijo} · ${p.item.etiquetaOrigen}`;
 }
-
-type PlazoRadar = { item: ItemCronologia; dias: number; nivel: Nivel };
 
 export function RadarPlazos({
   items,
   caseId,
   titulo = 'Radar de plazos',
   subtitulo = 'Plazos vencidos y próximos (hasta 30 días), ordenados por urgencia.',
+  industry,
 }: {
   items: ItemCronologia[];
   caseId: string;
   titulo?: string;
   subtitulo?: string;
+  industry?: IndustryType;
 }) {
   const [estados, setEstados] = useState<Record<string, 'idle' | 'loading' | 'ok' | 'existing' | 'error'>>({});
 
-  const plazos: PlazoRadar[] = items
-    .filter((it) => {
-      if (it.origen === 'documento') return false;
-      
-      const texto = `${it.titulo} ${it.detalle || ''}`.toLowerCase();
-      if (texto.includes('emisión') || texto.includes('emision')) return false;
-
-      return esPlazoRadar(it.titulo) || (it.detalle && esPlazoRadar(it.detalle));
-    })
-    .map((it) => ({ item: it, dias: diasDesdeHoy(it.fecha), nivel: nivelDe(diasDesdeHoy(it.fecha)) }))
-    .filter((p): p is PlazoRadar => !Number.isNaN(p.dias) && p.nivel !== null)
-    .sort((a, b) => a.dias - b.dias);
+  const plazos = deduplicarPlazosRadar(items);
 
   async function cargar(key: string, p: PlazoRadar) {
     setEstados((prev) => ({ ...prev, [key]: 'loading' }));
@@ -81,7 +53,7 @@ export function RadarPlazos({
       const res = await guardarPlazoDetectado({
         titulo: p.item.titulo,
         fecha: p.item.fecha,
-        detalle: `Plazo del expediente · ${p.item.etiquetaOrigen}`,
+        detalle: getDetalleAgenda(p, industry),
         caseId,
       });
       setEstados((prev) => ({ ...prev, [key]: res?.ok ? (res.existing ? 'existing' : 'ok') : 'error' }));
@@ -92,7 +64,7 @@ export function RadarPlazos({
 
   if (plazos.length === 0) {
     return (
-      <section className="rounded-2xl border border-white/10 bg-white/[0.03] p-5 shadow-sm">
+      <section data-testid="radar-plazos" className="rounded-2xl border border-white/10 bg-white/[0.03] p-5 shadow-sm">
         <h2 className="text-base font-semibold text-white">🚦 {titulo}</h2>
         <p className="mt-2 text-sm text-slate-300">
           No hay plazos vencidos ni próximos (30 días). Aparecerán aquí los plazos que detecte la IA o que cargues manualmente.
@@ -101,12 +73,12 @@ export function RadarPlazos({
     );
   }
 
-  const conteo = NIVELES
+  const conteo = NIVELES_RADAR
     .map((nv) => ({ nivel: nv, n: plazos.filter((p) => p.nivel.id === nv.id).length }))
     .filter((c) => c.n > 0);
 
   return (
-    <section className="rounded-2xl border border-white/10 bg-white/[0.03] p-5 shadow-sm">
+    <section data-testid="radar-plazos" className="rounded-2xl border border-white/10 bg-white/[0.03] p-5 shadow-sm">
       <div className="flex flex-wrap items-center gap-2">
         <h2 className="text-base font-semibold text-white">🚦 {titulo}</h2>
         {conteo.map((c) => (
@@ -133,7 +105,11 @@ export function RadarPlazos({
                   </span>
                   <span className="text-xs text-slate-400">{p.item.etiquetaOrigen}</span>
                 </div>
-                <p className="mt-1 truncate text-sm font-medium text-white">{p.item.titulo}</p>
+                <p className="mt-1 truncate text-sm font-medium text-white">
+                  {p.item.titulo.includes(formatIsoToAr(p.item.fecha))
+                    ? p.item.titulo
+                    : `${p.item.titulo} — ${formatIsoToAr(p.item.fecha)}`}
+                </p>
               </div>
               {estado === 'ok' ? (
                 <span className="flex shrink-0 items-center gap-1 text-xs font-medium text-emerald-600">

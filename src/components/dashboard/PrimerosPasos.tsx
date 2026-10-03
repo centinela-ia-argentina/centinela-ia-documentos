@@ -2,12 +2,16 @@ import Link from 'next/link';
 import type { LucideIcon } from 'lucide-react';
 import { CheckCircle2, FolderPlus, FileUp, UserPlus, ArrowRight } from 'lucide-react';
 
+import { IndustryType } from '@/lib/industries/documentTypes';
+import { getIndustryTerms } from '@/lib/industries/uiLabels';
+
 type PrimerosPasosProps = {
   hasCase: boolean;
   hasDocument: boolean;
   hasTeam: boolean;
   isAdmin: boolean;
   userName?: string | null;
+  industry?: IndustryType;
 };
 
 type Step = {
@@ -25,20 +29,31 @@ export function PrimerosPasos({
   hasTeam,
   isAdmin,
   userName,
+  industry = 'general',
 }: PrimerosPasosProps) {
+  const terms = getIndustryTerms(industry);
+  const orgDescriptor =
+    industry === 'inmobiliaria'
+      ? 'tu inmobiliaria'
+      : industry === 'escribania'
+      ? 'tu escribanía'
+      : 'tu estudio';
+
+  const casePath = industry === 'inmobiliaria' ? '/operaciones/nueva' : '/expedientes/nuevo';
+
   const steps: Step[] = [
     {
       done: hasCase,
-      title: 'Creá tu primer expediente',
-      description: 'Organizá tu trabajo por caso: datos, documentos y plazos en un solo lugar.',
-      href: '/expedientes/nuevo',
-      cta: 'Nuevo expediente',
+      title: `Creá ${terms.unExpediente}`,
+      description: `Organizá tu trabajo por ${terms.expedienteSingular.toLowerCase()}: datos, documentos y plazos en un solo lugar.`,
+      href: casePath,
+      cta: terms.nuevoCta,
       icon: FolderPlus,
     },
     {
       done: hasDocument,
       title: 'Subí tu primer documento',
-      description: 'Cargá un archivo a la bóveda y asignalo a un expediente.',
+      description: `Cargá un archivo a la bóveda y asignalo a ${terms.unExpediente}.`,
       href: '/documentos',
       cta: 'Ir a Documentos',
       icon: FileUp,
@@ -72,7 +87,7 @@ export function PrimerosPasos({
             {firstName ? `Bienvenido, ${firstName}` : 'Empecemos'} 👋
           </h2>
           <p className="mt-1 text-sm text-slate-400">
-            Dejá tu estudio listo en unos pocos pasos. Podés hacerlo a tu ritmo.
+            Dejá {orgDescriptor} listo en unos pocos pasos. Podés hacerlo a tu ritmo.
           </p>
         </div>
         <span className="shrink-0 rounded-full bg-white/10 px-3 py-1 text-xs font-medium text-slate-300">

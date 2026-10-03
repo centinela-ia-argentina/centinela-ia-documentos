@@ -91,7 +91,14 @@ export default async function RecibidoDetallePage({ params }: Props) {
               De: {derivacion.from_organization_name || 'Organización'} · Cliente: {legajo?.client_name || 'Sin cliente'}
             </p>
           </div>
-          <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1 text-xs font-medium text-amber-300">Solo lectura</span>
+          <div className="text-right">
+            <span className="rounded-full border border-sky-500/30 bg-sky-500/10 px-3 py-1 text-xs font-medium text-sky-300">
+              Acceso colaborativo limitado
+            </span>
+            <p className="mt-1 text-[11px] text-slate-400">
+              Visualización de antecedentes y carga de documentación
+            </p>
+          </div>
         </div>
 
         {!legajo ? (

@@ -10,6 +10,7 @@ import { getIndustryTerms } from '@/lib/industries/uiLabels';
 import { isSensitiveDocument } from '@/lib/documents/sensitivity';
 import { formatPlazoDate } from '@/lib/format/date';
 import { MotionCard } from '@/components/ui/MotionCard';
+import { extraerFechasAccionablesLegajo } from '@/lib/plazos/fechasCanonicas';
 
 
 export default async function ObservacionesPage() {
@@ -28,6 +29,7 @@ export default async function ObservacionesPage() {
     organizationResult,
     clientsResult,
     propertiesResult,
+    agendaPlazosResult,
   ] = await Promise.all([
     supabase
       .from('documents')
@@ -37,9 +39,10 @@ export default async function ObservacionesPage() {
 
     supabase
       .from('ai_outputs')
-      .select('document_id')
+      .select('id, document_id, output_type, result_json, case_id, created_at')
       .eq('organization_id', profile.organization_id)
-      .eq('output_type', 'document_analysis'),
+      .in('output_type', ['document_analysis', 'case_summary'])
+      .order('created_at', { ascending: false }),
 
     supabase
       .from('cases')
@@ -74,6 +77,11 @@ export default async function ObservacionesPage() {
       .neq('status', 'vendida')
       .neq('status', 'alquilada')
       .order('updated_at', { ascending: true }),
+
+    supabase
+      .from('agenda_plazos')
+      .select('id, titulo, fecha, detalle, categoria, case_id')
+      .eq('organization_id', profile.organization_id),
   ]);
 
   const documents = documentsResult.data ?? [];
@@ -82,6 +90,7 @@ export default async function ObservacionesPage() {
   const checklistItems = checklistItemsResult.data ?? [];
   const clients = clientsResult?.data ?? [];
   const properties = propertiesResult?.data ?? [];
+  const agendaPlazos = agendaPlazosResult?.data ?? [];
 
   const industry = normalizeIndustryType(organizationResult?.data?.industry_type);
   const terms = getIndustryTerms(industry);
@@ -121,7 +130,11 @@ export default async function ObservacionesPage() {
   const incompletos = incompletosAll.slice(0, 8);
 
   // 4. Análisis IA pendientes
-  const analyzedDocIds = new Set(aiOutputs.map(o => String(o.document_id)));
+  const analyzedDocIds = new Set(
+    aiOutputs
+      .filter((o) => o.output_type === 'document_analysis' && o.document_id)
+      .map((o) => String(o.document_id))
+  );
   const iaPendientesAll = documents.filter((doc) => !analyzedDocIds.has(String(doc.id)));
   const iaPendientes = iaPendientesAll.slice(0, 8);
 
@@ -130,19 +143,77 @@ export default async function ObservacionesPage() {
   const sinClasificar = sinClasificarAll.slice(0, 8);
 
   // 6. Plazos procesales / fechas clave
-  const plazosAll = cases
-    .map((c) => {
-      const metadata = c.metadata as Record<string, unknown> | null;
-      const fecha = (metadata?.fecha_relevante as string | undefined)?.trim();
-      const tipo = (metadata?.tipo_fecha as string | undefined)?.trim() || 'Fecha de operación';
-      return fecha ? { id: c.id, title: c.title, fecha, tipo } : null;
-    })
-    .filter((c): c is { id: string; title: string; fecha: string; tipo: string } => {
-      if (!c) return false;
-      const status = getDocumentExpiryStatus(c.fecha);
-      return status === 'por_vencer' || status === 'vencido';
-    })
-    .sort((a, b) => (getDaysUntilExpiry(a.fecha) ?? 0) - (getDaysUntilExpiry(b.fecha) ?? 0));
+  const docCaseMap = new Map<string, string>();
+  for (const d of documents) {
+    if (d.case_id) docCaseMap.set(d.id, d.case_id);
+  }
+
+  // Deduplicación determinística en memoria: último análisis real por document_id
+  const sortedAiOutputs = [...aiOutputs].sort(
+    (a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
+  );
+
+  const aiOutputsByCase = new Map<string, any[]>();
+  const seenDocByCase = new Map<string, Set<string>>();
+
+  for (let idx = 0; idx < sortedAiOutputs.length; idx++) {
+    const o = sortedAiOutputs[idx];
+    const cId = o.case_id || (o.document_id ? docCaseMap.get(o.document_id) : null);
+    if (cId) {
+      if (!aiOutputsByCase.has(cId)) {
+        aiOutputsByCase.set(cId, []);
+        seenDocByCase.set(cId, new Set());
+      }
+      const docKey = o.document_id ? String(o.document_id) : `out-${o.id || idx}`;
+      const seen = seenDocByCase.get(cId)!;
+      if (!seen.has(docKey)) {
+        seen.add(docKey);
+        aiOutputsByCase.get(cId)!.push(o);
+      }
+    }
+  }
+
+  // Agrupar eventos de agenda_plazos exclusivamente por case_id
+  const agendaEventsByCase = new Map<string, any[]>();
+  for (const a of agendaPlazos) {
+    if (a.case_id) {
+      if (!agendaEventsByCase.has(a.case_id)) agendaEventsByCase.set(a.case_id, []);
+      agendaEventsByCase.get(a.case_id)!.push({
+        id: a.id,
+        titulo: a.titulo,
+        fecha: a.fecha,
+        detalle: a.detalle,
+        categoria: a.categoria,
+      });
+    }
+  }
+
+  const plazosAll: Array<{ id: string; caseId: string; title: string; fecha: string; tipo: string }> = [];
+  const plazosVistos = new Set<string>();
+
+  for (const c of cases) {
+    const outputs = aiOutputsByCase.get(c.id) || [];
+    const agendaParaCaso = agendaEventsByCase.get(c.id) || [];
+    const fechas = extraerFechasAccionablesLegajo(c, outputs, agendaParaCaso);
+    for (const f of fechas) {
+      const status = getDocumentExpiryStatus(f.fecha);
+      if (status === 'por_vencer' || status === 'vencido') {
+        const dedupKey = `${c.id}-${f.fecha}-${f.tipo}`;
+        if (!plazosVistos.has(dedupKey)) {
+          plazosVistos.add(dedupKey);
+          plazosAll.push({
+            id: f.id || `${c.id}-${f.fecha}`,
+            caseId: c.id,
+            title: c.title || terms.itemSinTitulo,
+            fecha: f.fecha,
+            tipo: f.tipo,
+          });
+        }
+      }
+    }
+  }
+
+  plazosAll.sort((a, b) => (getDaysUntilExpiry(a.fecha) ?? 0) - (getDaysUntilExpiry(b.fecha) ?? 0));
   const plazos = plazosAll.slice(0, 8);
 
   const now = new Date();
@@ -389,7 +460,7 @@ export default async function ObservacionesPage() {
                 const badgeStyles = getExpiryBadgeStyles(status);
                 const label = expiryStatusLabel(status);
                 return (
-                  <Link key={item.id} href={`/expedientes/${item.id}`} className="flex items-center justify-between rounded-xl border border-white/10 bg-white/[0.02] p-3 cursor-pointer transition hover:bg-white/[0.04]">
+                  <Link key={item.id} href={`/expedientes/${item.caseId}`} className="flex items-center justify-between rounded-xl border border-white/10 bg-white/[0.02] p-3 cursor-pointer transition hover:bg-white/[0.04]">
                     <div className="overflow-hidden">
                       <p className="truncate font-bold text-slate-200">{item.title || terms.itemSinTitulo}</p>
                       <p className="truncate text-xs text-slate-400">{item.tipo} · {formatPlazoDate(item.fecha)}</p>

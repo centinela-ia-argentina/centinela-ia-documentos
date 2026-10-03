@@ -79,6 +79,41 @@ global.fetch = async (input, init) => {
         return geminiResponse(answers[markers[0]]);
       }
 
+      if (prompt.includes('BORRADOR de escritura') || prompt.includes('escribano público')) {
+        return geminiResponse(JSON.stringify({
+          titulo: 'Borrador de escritura de compraventa',
+          cuerpo: 'PRIMERA: En la Ciudad Autónoma de Buenos Aires. COMPARECEN las partes.\nSEGUNDA: Venta de departamento en Palermo, calle Cuba.\nTERCERA: Precio y forma de pago abonado en efectivo de fondos lícitos declarados.\nQUINTA: Posesión y libre deuda.\nSEXTA: CERTIFICADOS.\nSÉPTIMA: GASTOS E IMPUESTOS. Las partes declaran que la presente operación se encuentra alcanzada por el Impuesto a la Transferencia de Inmuebles (I.T.I.) o, en su caso, por el Impuesto a las Ganancias (IG), según corresponda conforme Ley 23.282 / 25.093, y se comprometen a cumplir con las obligaciones fiscales pertinentes, y certificado C.O.T.I. N° 98765432. [COMPLETAR: Declaración jurada ITI/Impuesto a las Ganancias].\nOCTAVA: DECLARACIONES JURADAS.',
+          datos_faltantes: [],
+          advertencias: []
+        }));
+      }
+
+      if (prompt.includes('COTEJAR') || prompt.includes('estudio de títulos')) {
+        return geminiResponse(JSON.stringify({
+          veredicto: 'Cotejo preliminar con observaciones sobre plazos contractuales.',
+          coincidencias: ['Identidad de partes conforme documentación aportada'],
+          discrepancias: [],
+          faltantes: ['Documentación respaldatoria sobre origen de fondos'],
+          alertas_vigencia: []
+        }));
+      }
+
+      if (prompt.includes('resumen ejecutivo') || prompt.includes('expediente judicial') || prompt.includes('gestión documental')) {
+        return geminiResponse(JSON.stringify({
+          resumen_general: 'El presente legajo instrumenta la compraventa de un inmueble en Palermo.',
+          estado_actual: 'En etapa notarial preparatoria.',
+          partes: ['Comprador Palermo', 'Vendedor Palermo'],
+          puntos_clave: [
+            'Fecha de emisión del Boleto de Compraventa: 10 de junio de 2026.',
+            'Plazo máximo contractual para escriturar: 8 de septiembre de 2026.',
+            'Fecha tentativa de escritura: 10 de septiembre de 2026.',
+            'Plazo contractual: 90 días corridos.'
+          ],
+          riesgos_alertas: ['La fecha tentativa supera el plazo contractual por 2 días corridos.'],
+          proximas_acciones: ['Revisar documentación y coordinar otorgamiento.']
+        }));
+      }
+
       // Generar un JSON "comodín" que cumpla con los esquemas de copiloto, análisis documental, tasador, etc.
       const mockContent = JSON.stringify({
         resumen_general: "Resumen generado por AI Mock.",

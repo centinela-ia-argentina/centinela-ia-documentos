@@ -118,7 +118,7 @@ test.describe('Centinela IA - RAG determinista, fuentes y aislamiento', () => {
       const response = page.locator('[data-testid="rag-response"]');
       await expect(response).toBeVisible({ timeout: 15000 });
       await expect(response).toHaveText(
-        'No encontré información relacionada en los documentos de este legajo. Puede que todavía no estén analizados con IA (indexados): analizalos desde la pestaña Documentos y volvé a preguntar.'
+        'No encontré información relacionada en los documentos de este expediente. Puede que todavía no estén analizados con IA (indexados): analizalos desde la pestaña Documentos y volvé a preguntar.'
       );
       await expect(page.locator('[data-testid="rag-sources"]')).toHaveCount(0);
     } finally {

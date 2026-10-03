@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/server';
 import { getUserProfile } from '@/lib/auth/getUserProfile';
 import { formatAuditActionLabel, formatResourceTypeLabel } from '@/lib/audit/actionLabels';
 import { normalizeIndustryType, industryLabels } from '@/lib/industries/documentTypes';
-import { getCaseStatusLabel, isCaseActive, caseStatusesByIndustry, TERMINAL_CASE_STATUSES } from '@/lib/industries/caseConfig';
+import { getCaseStatusLabel, isCaseActive, isCaseTypeCompatibleWithIndustry, caseStatusesByIndustry, TERMINAL_CASE_STATUSES } from '@/lib/industries/caseConfig';
 import { getIndustryTerms, type IndustryTerms } from '@/lib/industries/uiLabels';
 import { esPlazoRadar } from '@/lib/plazos/plazos';
 import { getDocumentExpiryStatus } from '@/lib/documents/expiry';
@@ -14,6 +14,20 @@ import { MotionCard } from '@/components/ui/MotionCard';
 type ReportView = 'general' | 'gestion' | 'documentos' | 'auditoria';
 
 type AuditFilter = 'todos' | 'documentos' | 'ia' | 'expedientes' | 'invitaciones';
+
+const AI_AUDIT_FILTER =
+  'action.ilike.%analyzed%,action.ilike.ai_%,action.ilike.%uif%,action.ilike.%ros%,action.ilike.%prescore%,metadata->>output_type.eq.document_analysis';
+
+function withoutAiActions<T extends {
+  not: (column: string, operator: string, value: string) => T;
+}>(query: T): T {
+  return query
+    .not('action', 'ilike', '%analyzed%')
+    .not('action', 'ilike', 'ai_%')
+    .not('action', 'ilike', '%uif%')
+    .not('action', 'ilike', '%ros%')
+    .not('action', 'ilike', '%prescore%');
+}
 
 interface ReportsPageProps {
   searchParams: Promise<{ vista?: string; tipo?: string; pagina?: string; page?: string }>;
@@ -374,19 +388,30 @@ function getAuditDetail(log: AuditLogRecordForReport) {
   return details.slice(0, 3).join(' · ');
 }
 
-function isDocumentAudit(log: AuditLogRecordForReport) {
-  return log.resource_type === 'document' || log.action.startsWith('document_');
-}
-
-function isAiAudit(log: AuditLogRecordForReport) {
+export function isAiAudit(log: AuditLogRecordForReport) {
+  const action = log.action.toLowerCase();
   return (
-    log.action.includes('analyzed') ||
+    action.includes('analyzed') ||
+    action.startsWith('ai_') ||
+    action.includes('uif') ||
+    action.includes('ros') ||
+    action.includes('prescore') ||
     metadataText(log.metadata, 'output_type') === 'document_analysis'
   );
 }
 
+function isDocumentAudit(log: AuditLogRecordForReport) {
+  return (
+    log.resource_type === 'document' ||
+    log.action.toLowerCase().startsWith('document_')
+  ) && !isAiAudit(log);
+}
+
 function isCaseAudit(log: AuditLogRecordForReport) {
-  return log.resource_type === 'case' || log.action.startsWith('case_');
+  return (
+    log.resource_type === 'case' ||
+    log.action.toLowerCase().startsWith('case_')
+  ) && !isAiAudit(log);
 }
 
 function isInvitationAudit(log: AuditLogRecordForReport) {
@@ -460,7 +485,7 @@ if (
     const [casesResult, documentsResult, aiOutputsResult] = await Promise.all([
       supabase
         .from('cases')
-        .select('id, status')
+        .select('id, status, case_type')
         .eq('organization_id', profile.organization_id)
         .order('created_at', { ascending: false }),
       supabase
@@ -482,7 +507,7 @@ if (
   } else if (activeView === 'gestion') {
     const casesResult = await supabase
       .from('cases')
-      .select('id, status')
+      .select('id, status, case_type')
       .eq('organization_id', profile.organization_id)
       .order('created_at', { ascending: false });
 
@@ -513,10 +538,10 @@ if (
       caseCountRes,
     ] = await Promise.all([
       supabase.from('audit_logs').select('*', { count: 'exact', head: true }).eq('organization_id', profile.organization_id),
-      supabase.from('audit_logs').select('*', { count: 'exact', head: true }).eq('organization_id', profile.organization_id).or('resource_type.eq.document,action.ilike.document_%'),
-      supabase.from('audit_logs').select('*', { count: 'exact', head: true }).eq('organization_id', profile.organization_id).or('action.ilike.%analyzed%,metadata->>output_type.eq.document_analysis'),
+      withoutAiActions(supabase.from('audit_logs').select('*', { count: 'exact', head: true }).eq('organization_id', profile.organization_id).or('resource_type.eq.document,action.ilike.document_%')),
+      supabase.from('audit_logs').select('*', { count: 'exact', head: true }).eq('organization_id', profile.organization_id).or(AI_AUDIT_FILTER),
       supabase.from('audit_logs').select('*', { count: 'exact', head: true }).eq('organization_id', profile.organization_id).or('resource_type.in.(user_invitation,invitation),action.ilike.%invitation%,action.ilike.%invitacion%'),
-      supabase.from('audit_logs').select('*', { count: 'exact', head: true }).eq('organization_id', profile.organization_id).or('resource_type.eq.case,action.ilike.case_%'),
+      withoutAiActions(supabase.from('audit_logs').select('*', { count: 'exact', head: true }).eq('organization_id', profile.organization_id).or('resource_type.eq.case,action.ilike.case_%')),
     ]);
 
     totalAuditLogsCount = allCountRes.count ?? 0;
@@ -566,11 +591,15 @@ if (
       .eq('organization_id', profile.organization_id);
 
     if (activeAuditFilter === 'documentos') {
-      auditQuery = auditQuery.or('resource_type.eq.document,action.ilike.document_%');
+      auditQuery = withoutAiActions(
+        auditQuery.or('resource_type.eq.document,action.ilike.document_%')
+      );
     } else if (activeAuditFilter === 'ia') {
-      auditQuery = auditQuery.or('action.ilike.%analyzed%,metadata->>output_type.eq.document_analysis');
+      auditQuery = auditQuery.or(AI_AUDIT_FILTER);
     } else if (activeAuditFilter === 'expedientes') {
-      auditQuery = auditQuery.or('resource_type.eq.case,action.ilike.case_%');
+      auditQuery = withoutAiActions(
+        auditQuery.or('resource_type.eq.case,action.ilike.case_%')
+      );
     } else if (activeAuditFilter === 'invitaciones') {
       auditQuery = auditQuery.or('resource_type.in.(user_invitation,invitation),action.ilike.%invitation%,action.ilike.%invitacion%');
     }
@@ -596,6 +625,10 @@ if (
       profiles = (pRes.data ?? []) as ProfileRecordForReport[];
     }
   }
+
+  cases = cases.filter((item) =>
+    isCaseTypeCompatibleWithIndustry(item.case_type, industry)
+  );
 
   const documentsById = new Map(documents.map((document) => [document.id, document]));
   const casesById = new Map(cases.map((caseItem) => [caseItem.id, caseItem]));

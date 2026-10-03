@@ -21,6 +21,20 @@ export type EscrituraProtocolo = {
 
 const MESES = ['Todos','Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 
+const ACTOS_NOTARIALES_FRECUENTES = [
+  'Compraventa inmobiliaria',
+  'Poder especial',
+  'Poder general de administración y disposición',
+  'Acta de constatación',
+  'Certificación de firmas',
+  'Cesión de derechos hereditarios',
+  'Donación',
+  'Hipoteca / Cancelación de gravamen',
+  'Constitución de sociedad',
+  'Autorización de viaje',
+  'Reglamento de copropiedad',
+];
+
 const escapeHtml = (s: string) =>
   s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
@@ -134,10 +148,10 @@ export function ProtocoloClient({ escrituras, cases }: { escrituras: EscrituraPr
         <div>
           <p className="text-xs uppercase tracking-wide text-white/40">Herramientas notariales</p>
           <h1 className="flex items-center gap-2 text-2xl font-semibold text-white"><BookText className="h-6 w-6 text-amber-400" /> Índice / Repertorio</h1>
-          <p className="mt-1 text-sm text-white/50">Registro correlativo de escrituras y actos, con índice por mes.</p>
+          <p className="mt-1 text-sm text-white/50">Registro correlativo de escrituras y actas, con índice por mes.</p>
         </div>
         <button onClick={() => setShowForm(!showForm)} className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 px-4 py-2 text-sm font-semibold text-white shadow-sm">
-          {showForm ? <X className="h-4 w-4" /> : <Plus className="h-4 w-4" />} Registrar escritura
+          {showForm ? <X className="h-4 w-4" /> : <Plus className="h-4 w-4" />} Registrar escritura o acta
         </button>
       </div>
 
@@ -151,7 +165,18 @@ export function ProtocoloClient({ escrituras, cases }: { escrituras: EscrituraPr
             </div>
             <div>
               <label className="mb-1 block text-xs text-slate-400">Tipo de acto</label>
-              <input value={tipoActo} onChange={(e) => setTipoActo(e.target.value)} placeholder="Ej: Compraventa, Poder general" className="w-full rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2 text-sm text-white outline-none placeholder-slate-500 focus:border-amber-400" />
+              <input
+                list="tipos-actos-list"
+                value={tipoActo}
+                onChange={(e) => setTipoActo(e.target.value)}
+                placeholder="Seleccioná o escribí (ej: Compraventa, Poder especial)"
+                className="w-full rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2 text-sm text-white outline-none placeholder-slate-500 focus:border-amber-400"
+              />
+              <datalist id="tipos-actos-list">
+                {ACTOS_NOTARIALES_FRECUENTES.map((acto) => (
+                  <option key={acto} value={acto} />
+                ))}
+              </datalist>
             </div>
             <div className="sm:col-span-2">
               <label className="mb-1 block text-xs text-slate-400">Comparecientes</label>
@@ -182,7 +207,7 @@ export function ProtocoloClient({ escrituras, cases }: { escrituras: EscrituraPr
             </div>
           </div>
           <button onClick={guardar} disabled={guardando} className="mt-4 rounded-xl bg-amber-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">
-            {guardando ? 'Registrando…' : 'Registrar en el protocolo'}
+            {guardando ? 'Registrando…' : 'Registrar escritura o acta'}
           </button>
           {aviso && <p className="mt-2 text-sm text-amber-300">{aviso}</p>}
         </div>
@@ -195,7 +220,7 @@ export function ProtocoloClient({ escrituras, cases }: { escrituras: EscrituraPr
         <select value={mes} onChange={(e) => setMes(Number(e.target.value))} className="rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2 text-sm text-white">
           {MESES.map((m, i) => <option key={i} value={i}>{m}</option>)}
         </select>
-        <span className="text-sm text-white/50">{filtradas.length} escritura(s)</span>
+        <span className="text-sm text-white/50">{filtradas.length} escritura(s) y acta(s)</span>
         <button onClick={exportarIndicePDF} className="ml-auto inline-flex items-center gap-1.5 rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2 text-sm text-white hover:bg-white/[0.06]">
           <FileDown className="h-4 w-4" /> Exportar PDF
         </button>
@@ -215,7 +240,7 @@ export function ProtocoloClient({ escrituras, cases }: { escrituras: EscrituraPr
           </thead>
           <tbody>
             {filtradas.length === 0 && (
-              <tr><td colSpan={6} className="px-3 py-6 text-center text-white/40">Sin escrituras registradas para este período.</td></tr>
+              <tr><td colSpan={6} className="px-3 py-6 text-center text-white/40">Sin escrituras ni actas registradas para este período.</td></tr>
             )}
             {filtradas.map((e) => (
               <tr key={e.id} className="border-t border-white/5">

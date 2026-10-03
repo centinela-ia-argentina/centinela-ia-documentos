@@ -118,6 +118,9 @@ export type IndustryTerms = {
   // --- Placeholders ---
   placeholderTitle: string;
   placeholderClient: string;
+  // --- Acciones de cierre y cronología ---
+  archivarCta: string;
+  cronologiaSubtitulo: string;
 };
 
 const defaultTerms: IndustryTerms = {
@@ -188,6 +191,8 @@ const defaultTerms: IndustryTerms = {
   reportesSubtitulo: 'Análisis y visión de conjunto: métricas, actividad y auditoría para leer el panorama general de la organización.',
   placeholderTitle: 'Ej. Demanda — Cliente Pérez',
   placeholderClient: 'Nombre del cliente o empresa',
+  archivarCta: 'Archivar expediente',
+  cronologiaSubtitulo: 'Registro cronológico de actuaciones, audiencias y movimientos.',
 };
 
 const termsByIndustry: Partial<Record<IndustryType, Partial<IndustryTerms>>> = {
@@ -207,6 +212,16 @@ const termsByIndustry: Partial<Record<IndustryType, Partial<IndustryTerms>>> = {
     adjetivoEspecifico: 'específico',
     adjetivoEncontrado: 'encontrado',
     agenteSaludoGlobal: 'Soy tu Agente notarial. Vigilo certificados, vigencias y actos las 24 horas.',
+    agentePreguntasGlobales: [
+      '¿Qué vigencias y actos notariales tengo esta semana?',
+      '¿Qué legajos necesitan atención urgente?',
+      '¿Qué me recomendás priorizar hoy?'
+    ],
+    agenteSugerenciasLocales: [
+      '¿Cuáles son las vigencias o plazos críticos?',
+      '¿Detectás alguna inconsistencia o impedimento registral/notarial en los documentos?',
+      '¿Qué próximas actuaciones o hitos notariales me recomendás?'
+    ],
     expedienteSinTitulo: 'Legajo sin título',
     todosLosLegajosActivos: 'todos los legajos activos',
     legajosIncluidosContexto: 'LEGAJOS INCLUIDOS EN EL CONTEXTO',
@@ -254,6 +269,8 @@ const termsByIndustry: Partial<Record<IndustryType, Partial<IndustryTerms>>> = {
     reportesSubtitulo: 'Análisis y visión de conjunto: métricas, actividad y auditoría del registro notarial.',
     placeholderTitle: 'Ej. Escritura de Compraventa - Pérez y Gómez',
     placeholderClient: 'Ej. Juan Pérez y Ana Gómez',
+    archivarCta: 'Archivar legajo',
+    cronologiaSubtitulo: 'Registro cronológico de actuaciones, hitos notariales y movimientos.',
   },
   inmobiliaria: {
     elExpediente: 'la operación',
@@ -271,6 +288,17 @@ const termsByIndustry: Partial<Record<IndustryType, Partial<IndustryTerms>>> = {
     adjetivoEspecifico: 'específica',
     adjetivoEncontrado: 'encontrada',
     agenteSaludoGlobal: 'Soy tu Agente inmobiliario. Vigilo operaciones, contratos y vencimientos las 24 horas.',
+    agenteEjemploPlazos: '¿Cuáles son los vencimientos o plazos críticos de la operación?',
+    agentePreguntasGlobales: [
+      '¿Qué vencimientos y firmas tengo esta semana?',
+      '¿Qué operaciones necesitan atención urgente?',
+      '¿Qué me recomendás priorizar hoy?'
+    ],
+    agenteSugerenciasLocales: [
+      '¿Cuáles son los vencimientos o plazos contractuales críticos?',
+      '¿Detectás alguna inconsistencia o falta de documentación en la operación?',
+      '¿Qué próximos pasos comerciales me recomendás?'
+    ],
     expedienteSinTitulo: 'Operación sin título',
     todosLosLegajosActivos: 'todas las operaciones activas',
     legajosIncluidosContexto: 'OPERACIONES INCLUIDAS EN EL CONTEXTO',
@@ -301,7 +329,7 @@ const termsByIndustry: Partial<Record<IndustryType, Partial<IndustryTerms>>> = {
     docsSubtitulo: 'Documentos cargados en la bóveda y asociados a esta operación.',
     docsVacio: 'Aún no hay documentos en esta operación.',
     copilotoTitulo: 'Resumen ejecutivo con IA',
-    copilotoSubtitulo: 'Síntesis de la operación. Panorama ejecutivo de la operación generado por IA a partir de los documentos analizados y las actuaciones.',
+    copilotoSubtitulo: 'Síntesis de la operación. Panorama ejecutivo de la operación generado por IA a partir de los documentos analizados y los hitos comerciales.',
     resumenVacio: 'Todavía no hay documentos analizados en esta operación. Analizá al menos un documento con IA para poder generar el resumen.',
     dashboardSubtitulo: 'Tu panel operativo de operaciones, documentos e IA.',
     radarTitulo: 'Radar de vencimientos',
@@ -316,6 +344,10 @@ const termsByIndustry: Partial<Record<IndustryType, Partial<IndustryTerms>>> = {
     dashboardActivesHelper: 'Operaciones actualmente en captación o curso',
     dashboardPlazosHelper: 'Fechas clave y vencimientos',
     reportesSubtitulo: 'Análisis y visión de conjunto: métricas, cartera y auditoría para leer el panorama general de la inmobiliaria.',
+    placeholderTitle: 'Ej. Compraventa — Depto Belgrano',
+    placeholderClient: 'Ej. Juan Pérez (Comprador) / María López (Vendedora)',
+    archivarCta: 'Archivar operación',
+    cronologiaSubtitulo: 'Registro cronológico de hitos comerciales, visitas y movimientos.',
   },
   empresa: {
     elExpediente: 'el legajo',

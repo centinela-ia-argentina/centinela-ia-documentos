@@ -3,8 +3,8 @@ import { redirect } from 'next/navigation';
 import { AppShell } from '@/components/layout/AppShell';
 import { createClient } from '@/lib/supabase/server';
 import { getUserProfile } from '@/lib/auth/getUserProfile';
-import { getCaseStatusLabel, getCaseTypeLabel } from '@/lib/industries/caseConfig';
-import { normalizeIndustryType } from '@/lib/industries/documentTypes';
+import { getCaseBasePath, getCaseStatusLabel, getCaseTypeLabel, caseTypesByIndustry } from '@/lib/industries/caseConfig';
+import { getStrictIndustryForOrganization } from '@/lib/auth/getStrictIndustry';
 import { getIndustryTerms } from '@/lib/industries/uiLabels';
 import { summarizeChecklistStatuses } from '@/lib/checklist/progress';
 import { getDocumentExpiryStatus, expiryStatusLabel } from '@/lib/documents/expiry';
@@ -69,10 +69,18 @@ export default async function CasesPage({
     }
   }
 
+  const organizationIndustry = await getStrictIndustryForOrganization(profile.organization_id);
+  const canonicalTypes = caseTypesByIndustry[organizationIndustry] ?? [];
+  const basePath = getCaseBasePath(organizationIndustry);
+
   let queryBuilder = supabase
     .from('cases')
     .select('id, title, client_name, case_type, status, metadata, created_at, updated_at', { count: 'exact' })
     .eq('organization_id', profile.organization_id);
+
+  if (canonicalTypes.length > 0) {
+    queryBuilder = queryBuilder.in('case_type', canonicalTypes);
+  }
 
   let cases: CaseRecord[] | null = null;
   let count: number | null = null;
@@ -108,6 +116,10 @@ export default async function CasesPage({
       // Out of range error (HTTP 416). Fetch exact count to find the last page.
       let countQb = supabase.from('cases').select('id', { count: 'exact', head: true })
         .eq('organization_id', profile.organization_id);
+
+      if (canonicalTypes.length > 0) {
+        countQb = countQb.in('case_type', canonicalTypes);
+      }
       
       if (estado === 'archivadas') countQb = countQb.in('status', ['archived', 'Archivado']);
       else countQb = countQb.not('status', 'in', '("archived","Archivado")');
@@ -124,7 +136,7 @@ export default async function CasesPage({
       url.set('page', correctTotalPages.toString());
       
       // La llamada a redirect aborta la ejecución normal (arroja NEXT_REDIRECT)
-      redirect(`/expedientes?${url.toString()}`);
+      redirect(`${basePath}?${url.toString()}`);
     }
 
     cases = result.data as unknown as CaseRecord[];
@@ -141,7 +153,7 @@ export default async function CasesPage({
     if (rawQ) url.set('q', rawQ);
     if (estado) url.set('estado', estado);
     url.set('page', totalPages.toString());
-    redirect(`/expedientes?${url.toString()}`);
+    redirect(`${basePath}?${url.toString()}`);
   }
 
   if (pageError && rawPage) {
@@ -152,13 +164,6 @@ export default async function CasesPage({
     redirect(`/expedientes?${url.toString()}`);
   }
 
-  const { data: organization } = await supabase
-    .from('organizations')
-    .select('industry_type')
-    .eq('id', profile.organization_id)
-    .maybeSingle();
-
-  const organizationIndustry = normalizeIndustryType(organization?.industry_type);
   const terms = getIndustryTerms(organizationIndustry);
   let records = (cases ?? []) as CaseRecord[];
 
@@ -201,7 +206,7 @@ export default async function CasesPage({
 
         <div className="flex flex-wrap items-center gap-3">
           <Link
-            href={estado === 'archivadas' ? '/expedientes' : '/expedientes?estado=archivadas'}
+            href={estado === 'archivadas' ? basePath : `${basePath}?estado=archivadas`}
             className={`rounded-2xl border px-4 py-2 text-sm font-bold transition-all ${
               estado === 'archivadas' 
                 ? 'border-sky-400 bg-sky-400/10 text-sky-400' 
@@ -210,7 +215,7 @@ export default async function CasesPage({
           >
             {estado === 'archivadas' ? 'Ver activas' : 'Ver archivadas'}
           </Link>
-          <Link href="/expedientes/nuevo">
+          <Link href={`${basePath}/nueva`}>
             <MotionButton className="bg-gradient-to-r from-accent to-brandviolet text-white">
               ＋ {terms.nuevoCta}
             </MotionButton>
@@ -218,7 +223,7 @@ export default async function CasesPage({
         </div>
       </div>
 
-      <form method="get" action="/expedientes" className="mb-6 flex gap-2">
+      <form method="get" action={basePath} className="mb-6 flex gap-2">
         {estado && <input type="hidden" name="estado" value={estado} />}
         <input
           type="search"
@@ -241,7 +246,7 @@ export default async function CasesPage({
 
           return (
             <div key={item.id} className="relative h-full">
-              <Link href={`/expedientes/${item.id}`} className="block h-full">
+              <Link href={`${basePath}/${item.id}`} className="block h-full">
                 <MotionCard index={i} className="group relative flex h-full flex-col justify-between cursor-pointer">
                   <div>
                     <div className="mr-8 flex flex-wrap items-start justify-between gap-2">
@@ -310,11 +315,11 @@ export default async function CasesPage({
         <MotionCard index={0} className="mt-4 text-center py-12">
           {error ? (
             <p className="font-bold text-rose-400 text-lg">
-              Ocurrió un error al cargar los expedientes.
+              Ocurrió un error al cargar {terms.losExpedientes}.
             </p>
           ) : isCountError ? (
             <p className="font-bold text-rose-400 text-lg">
-              No se pudo obtener el total de expedientes. Volvé a intentarlo.
+              No se pudo obtener el total de {terms.expedientePlural.toLowerCase()}. Volvé a intentarlo.
             </p>
           ) : searchError ? (
             <p className="font-bold text-amber-400 text-lg">
@@ -341,11 +346,11 @@ export default async function CasesPage({
       {!isCountError && !searchError && totalCount > 0 && (
         <div className="mt-8 flex flex-col items-center justify-between gap-4 border-t border-white/10 pt-6 sm:flex-row">
           <p className="text-sm text-slate-400">
-            Mostrando {start + 1}–{Math.min(end + 1, totalCount)} de {totalCount} expedientes
+            Mostrando {start + 1}–{Math.min(end + 1, totalCount)} de {totalCount} {terms.expedientePlural.toLowerCase()}
           </p>
           <div className="flex items-center gap-2">
             <Link
-              href={`/expedientes?${new URLSearchParams({
+              href={`${basePath}?${new URLSearchParams({
                 ...(rawQ ? { q: rawQ } : {}),
                 ...(estado ? { estado } : {}),
                 page: Math.max(1, page - 1).toString(),
@@ -362,7 +367,7 @@ export default async function CasesPage({
               Página {page} de {totalPages}
             </span>
             <Link
-              href={`/expedientes?${new URLSearchParams({
+              href={`${basePath}?${new URLSearchParams({
                 ...(rawQ ? { q: rawQ } : {}),
                 ...(estado ? { estado } : {}),
                 page: Math.min(totalPages, page + 1).toString(),

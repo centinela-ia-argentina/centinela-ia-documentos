@@ -910,7 +910,7 @@ export async function ejecutarAccionAgenteInner(input: {
       const nombreDoc = typeof accion.documento === 'string' ? accion.documento.trim().toLowerCase() : '';
       if (!tituloItem || !nombreDoc) return { ok: false, mensaje: 'Faltan datos para vincular (ítem o documento).' };
 
-      // 1) Documento del ${terms.expedienteSingular.toLowerCase()} por nombre exacto (o que lo contenga).
+      // 1) Documento ${terms.delExpediente} por nombre exacto (o que lo contenga).
       const { data: docsVinc } = await supabase
         .from('documents')
         .select('id, file_name')

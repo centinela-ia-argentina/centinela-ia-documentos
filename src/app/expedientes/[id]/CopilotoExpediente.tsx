@@ -1,6 +1,7 @@
 'use client';
 
 import { useFormStatus } from 'react-dom';
+import { pluralDocumentoAnalizado } from '@/lib/format/pluralize';
 import { generarResumenExpediente } from '../actions';
 
 type ResumenExpediente = {
@@ -62,7 +63,7 @@ export function CopilotoExpediente({
 
       {!resumen && documentosAnalizados > 0 && (
         <p className="mt-4 text-sm text-slate-300">
-          Hay {documentosAnalizados} documento(s) analizado(s). Tocá “Generar resumen con IA” para armar el panorama de este caso.
+          Hay {pluralDocumentoAnalizado(documentosAnalizados)}. Tocá “Generar resumen con IA” para armar el panorama {terms.delExpediente}.
         </p>
       )}
 
