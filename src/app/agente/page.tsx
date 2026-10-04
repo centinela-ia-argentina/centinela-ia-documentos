@@ -40,10 +40,10 @@ function formatFecha(iso: string): string {
 }
 
 const NIVELES = {
-  vencido: { chip: 'bg-rose-500/20 text-rose-300', dot: '🔴', borde: 'border-l-rose-500' },
-  urgente: { chip: 'bg-amber-500/20 text-amber-300', dot: '🟠', borde: 'border-l-amber-500' },
-  proximo: { chip: 'bg-yellow-500/20 text-yellow-300', dot: '🟡', borde: 'border-l-yellow-500' },
-  agenda: { chip: 'bg-emerald-500/20 text-emerald-300', dot: '🟢', borde: 'border-l-emerald-500' },
+  vencido: { chip: 'bg-rose-500/10 text-rose-300 border-rose-400/20', dot: 'bg-rose-400', borde: 'border-l-rose-500' },
+  urgente: { chip: 'bg-amber-500/10 text-amber-300 border-amber-400/20', dot: 'bg-amber-400', borde: 'border-l-amber-500' },
+  proximo: { chip: 'bg-yellow-500/10 text-yellow-200 border-yellow-300/20', dot: 'bg-yellow-300', borde: 'border-l-yellow-400' },
+  agenda: { chip: 'bg-emerald-500/10 text-emerald-300 border-emerald-400/20', dot: 'bg-emerald-400', borde: 'border-l-emerald-500' },
 } as const;
 
 function nivelDe(n: number): keyof typeof NIVELES {
@@ -146,43 +146,44 @@ export default async function AgentePage() {
 
   return (
     <AppShell>
-      <div className="mx-auto max-w-4xl space-y-6 px-4 py-6">
+      <div className="mx-auto max-w-6xl space-y-6 py-6">
         <AgenteGlobalChat industry={industry} puedeUsarIA={puedeUsarIA} />
 
-        <div className="rounded-2xl border border-slate-800 bg-slate-900/40 p-5">
+        <section className="rounded-[26px] border border-white/10 bg-[#081A22] p-5 shadow-[0_22px_70px_rgba(0,0,0,0.2)] sm:p-7">
           <div className="flex items-center gap-2">
-            <h3 className="text-base font-bold text-white">🚦 Alertas tempranas</h3>
-            <span className="rounded-full bg-slate-700/60 px-2 py-0.5 text-xs font-medium text-slate-300">
+            <h2 className="font-display text-xl font-medium tracking-[-0.035em] text-[#F3F8F5]">Alertas tempranas</h2>
+            <span className="rounded-md border border-white/10 bg-white/[0.04] px-2 py-0.5 font-ui text-xs font-semibold text-[#B8C6C1]">
               {alertas.length}
             </span>
           </div>
-          <p className="mt-1 text-sm text-slate-400">
+          <p className="mt-2 max-w-3xl font-ui text-sm leading-6 text-[#8FA19B]">
             Vencimientos y plazos de toda la organización (vencidos recientes y próximos 30 días).
-            Preguntale al agente <span className="text-cyan-300">&quot;¿qué hago con estas alertas?&quot;</span> y te ayuda a entenderlas y priorizarlas.
+            Preguntale al agente <span className="font-semibold text-[#85E4D4]">&quot;¿qué hago con estas alertas?&quot;</span> y te ayuda a entenderlas y priorizarlas.
           </p>
 
           {alertas.length === 0 ? (
-            <div className="mt-4 rounded-xl border border-emerald-500/30 bg-emerald-500/5 px-4 py-6 text-center text-sm text-emerald-300">
-              ✅ Todo tranquilo: no hay vencimientos ni plazos próximos.
+            <div className="mt-5 rounded-2xl border border-emerald-400/20 bg-emerald-400/[0.05] px-4 py-6 text-center font-ui text-sm text-emerald-300">
+              Todo tranquilo: no hay vencimientos ni plazos próximos.
             </div>
           ) : (
-            <ul className="mt-4 space-y-2">
+            <ul className="mt-5 divide-y divide-white/10 border-y border-white/10">
               {alertas.map((a, i) => {
                 const nivel = NIVELES[nivelDe(a.dias)];
                 return (
                   <li key={i}>
                     <Link
                       href={a.href}
-                      className={`flex items-center gap-3 rounded-lg border border-slate-800 border-l-4 ${nivel.borde} bg-slate-950/40 px-3 py-2.5 transition hover:bg-slate-800/40`}
+                      className={`flex items-center gap-3 border-l-2 ${nivel.borde} px-3 py-3 transition-colors hover:bg-white/[0.035]`}
                     >
-                      <span className={`rounded-md px-2 py-0.5 text-xs font-semibold ${nivel.chip}`}>
-                        {nivel.dot} {textoDias(a.dias)}
+                      <span className={`inline-flex min-w-24 items-center gap-2 rounded-md border px-2 py-1 font-ui text-xs font-semibold ${nivel.chip}`}>
+                        <span className={`h-1.5 w-1.5 rotate-45 ${nivel.dot}`} />
+                        {textoDias(a.dias)}
                       </span>
-                      <span className="text-xs text-slate-500">{formatFecha(a.fecha)}</span>
-                      <span className="min-w-0 flex-1 truncate text-sm text-slate-200">
+                      <span className="font-ui text-xs text-[#71857F]">{formatFecha(a.fecha)}</span>
+                      <span className="min-w-0 flex-1 truncate font-ui text-sm text-[#DCE7E3]">
                         {a.titulo}
                       </span>
-                      <span className="hidden shrink-0 text-xs text-slate-500 sm:block">
+                      <span className="hidden shrink-0 font-ui text-xs text-[#71857F] sm:block">
                         {a.tipo}
                       </span>
                     </Link>
@@ -191,7 +192,7 @@ export default async function AgentePage() {
               })}
             </ul>
           )}
-        </div>
+        </section>
       </div>
     </AppShell>
   );
