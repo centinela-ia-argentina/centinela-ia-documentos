@@ -283,7 +283,7 @@ export default async function DashboardPage() {
                     <Link
                       key={item.id}
                       href={`${operationBasePath}/${item.id}`}
-                      className="group grid gap-3 py-5 transition-colors duration-150 hover:text-white sm:grid-cols-[minmax(0,1fr)_132px_104px] sm:items-center sm:gap-3"
+                      className="group grid gap-3 py-5 transition-colors duration-150 hover:text-white sm:grid-cols-[minmax(0,1fr)_142px_104px] sm:items-center sm:gap-3"
                     >
                       <span className="min-w-0">
                         <span className="line-clamp-2 font-ui text-sm font-bold leading-5 text-[#EDF4F1] group-hover:text-white">
@@ -293,9 +293,9 @@ export default async function DashboardPage() {
                           {item.case_type || 'General'}{item.client_name ? ` · ${item.client_name}` : ''}
                         </span>
                       </span>
-                      <span className="inline-flex min-h-8 w-[132px] items-center justify-center gap-2 rounded-lg border border-[#85E4D4]/25 bg-[linear-gradient(135deg,rgba(133,228,212,0.11),rgba(133,228,212,0.035))] px-3 font-ui text-[10px] font-bold tracking-[-0.01em] text-[#9AF0E2] shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
-                        <span className="h-1.5 w-1.5 rotate-45 bg-[#85E4D4]" aria-hidden="true" />
-                        {getCaseStatusLabel(item.status, industry)}
+                      <span className="inline-flex min-h-8 w-[142px] items-center justify-start gap-2 rounded-lg border border-[#85E4D4]/25 bg-[linear-gradient(135deg,rgba(133,228,212,0.11),rgba(133,228,212,0.035))] px-3 font-ui text-[9px] font-bold tracking-[-0.01em] text-[#9AF0E2] shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+                        <span className="h-1.5 w-1.5 shrink-0 rotate-45 bg-[#85E4D4]" aria-hidden="true" />
+                        <span className="whitespace-nowrap">{getCaseStatusLabel(item.status, industry)}</span>
                       </span>
                       <span className="font-display text-left text-sm font-semibold tabular-nums tracking-[-0.025em] text-[#F3F8F5] sm:text-right">
                         {operationValue(item) || (date ? formatRelevantDate(date) : 'Ver detalle')}
