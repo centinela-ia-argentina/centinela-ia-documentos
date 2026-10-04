@@ -21,6 +21,7 @@ type Props = {
   state?: AgentVisualState;
   compact?: boolean;
   onActivate?: () => void;
+  showHint?: boolean;
   className?: string;
 };
 
@@ -62,6 +63,7 @@ export function AnulusAgentAvatar({
   state = 'idle',
   compact = false,
   onActivate,
+  showHint = true,
   className = '',
 }: Props) {
   const theme = visualByIndustry[industry] ?? visualByIndustry.general;
@@ -245,9 +247,11 @@ export function AnulusAgentAvatar({
         <circle cx="120" cy="216" r="3" fill={theme.accent} />
       </motion.svg>
 
-      <span className="pointer-events-none absolute bottom-2 rounded-full border border-white/10 bg-[#071110]/70 px-3 py-1 font-ui text-[10px] font-semibold text-[#C9D5D1] opacity-0 backdrop-blur-md transition-opacity duration-150 group-hover:opacity-100 group-focus-visible:opacity-100">
-        Tocame para conversar
-      </span>
+      {showHint ? (
+        <span className="pointer-events-none absolute bottom-0 translate-y-[115%] rounded-md border border-white/10 bg-[#071110]/88 px-2.5 py-1 font-ui text-[10px] font-semibold text-[#C9D5D1] opacity-0 shadow-[0_8px_24px_rgba(0,0,0,0.25)] backdrop-blur-md transition-[opacity,transform] duration-150 group-hover:translate-y-[108%] group-hover:opacity-100 group-focus-visible:translate-y-[108%] group-focus-visible:opacity-100">
+          Tocame para conversar
+        </span>
+      ) : null}
     </motion.button>
   );
 }

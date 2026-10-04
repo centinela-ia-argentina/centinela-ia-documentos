@@ -1,7 +1,16 @@
 'use client';
 
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { ArrowUp, Buildings, LockKey, Sparkle, Waves } from '@phosphor-icons/react';
+import {
+  ArrowRight,
+  ArrowUp,
+  Broadcast,
+  Buildings,
+  LockKey,
+  LockSimple,
+  Sparkle,
+  Waves,
+} from '@phosphor-icons/react';
 import { preguntarAgenteGlobal } from './actions';
 import { getIndustryTerms } from '@/lib/industries/uiLabels';
 import type { IndustryType } from '@/lib/industries/documentTypes';
@@ -161,15 +170,16 @@ export function AgenteGlobalChat({ industry, puedeUsarIA }: Props) {
   return (
     <section className="overflow-hidden rounded-[30px] border border-white/10 bg-[#081A22] shadow-[0_28px_90px_rgba(0,0,0,0.28)]">
       <div className={`grid items-center gap-6 px-5 py-6 sm:px-8 lg:px-10 ${iniciado ? 'lg:grid-cols-[170px_minmax(0,1fr)]' : 'lg:grid-cols-[280px_minmax(0,1fr)] lg:gap-10 lg:py-9'}`}>
-        <div className="relative flex min-h-[170px] items-center justify-center overflow-visible rounded-[26px] border border-white/[0.07] bg-[radial-gradient(circle_at_50%_35%,rgba(133,228,212,0.11),transparent_62%)]">
+        <div className="relative flex min-h-[190px] items-center justify-center overflow-visible rounded-[26px] border border-white/[0.07] bg-[radial-gradient(circle_at_50%_35%,rgba(133,228,212,0.11),transparent_62%)] pb-7">
           <AnulusAgentAvatar
             industry={normalizedIndustry}
             state={visualState}
             compact={iniciado}
             onActivate={activateAgent}
+            showHint={!avatarGreeting}
           />
           {avatarGreeting ? (
-            <div role="status" className="absolute -bottom-2 left-1/2 z-20 w-max max-w-[92%] -translate-x-1/2 rounded-xl border border-[#85E4D4]/20 bg-[#102822] px-3 py-2 font-ui text-xs font-semibold text-[#DFF7F0] shadow-[0_14px_38px_rgba(0,0,0,0.35)]">
+            <div role="status" className="absolute bottom-2 left-1/2 z-20 w-max max-w-[88%] -translate-x-1/2 rounded-md border border-[#85E4D4]/20 bg-[#102822]/95 px-2.5 py-1.5 font-ui text-[11px] font-semibold text-[#DFF7F0] shadow-[0_10px_30px_rgba(0,0,0,0.32)] backdrop-blur-md">
               {activationGreeting(normalizedIndustry)}
             </div>
           ) : null}
@@ -178,8 +188,12 @@ export function AgenteGlobalChat({ industry, puedeUsarIA }: Props) {
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2.5">
             <span className="font-ui text-xs font-semibold text-[#85E4D4]">Inteligencia operativa</span>
-            <span className="inline-flex items-center gap-1.5 rounded-md border border-[#85E4D4]/15 bg-[#85E4D4]/[0.06] px-2.5 py-1 font-ui text-[10px] font-semibold text-[#A8BBB5]">
-              <span className="h-1.5 w-1.5 rotate-45 bg-[#C8FF62]" /> En línea
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-[#85E4D4]/20 bg-[#85E4D4]/[0.07] px-2.5 py-1 font-ui text-[10px] font-semibold text-[#B9CAC5] shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+              <span className="relative grid h-4 w-4 place-items-center">
+                <span className="absolute h-2.5 w-2.5 animate-ping rounded-full bg-[#85E4D4]/20 motion-reduce:animate-none" />
+                <Broadcast size={12} weight="bold" className="relative text-[#C8FF62]" />
+              </span>
+              En línea
             </span>
           </div>
           <h1 className="mt-2 font-display text-3xl font-medium tracking-[-0.05em] text-[#F3F8F5] sm:text-4xl">
@@ -192,19 +206,27 @@ export function AgenteGlobalChat({ industry, puedeUsarIA }: Props) {
             {saludo}
           </p>
 
-          <div className="mt-5 flex flex-wrap gap-2">
-            <span className="inline-flex min-h-9 items-center gap-2 rounded-lg border border-white/10 bg-white/[0.035] px-3 font-ui text-xs font-semibold text-[#DCE7E3]">
-              <Buildings size={16} weight="regular" className="text-[#85E4D4]" /> {contextLabel(normalizedIndustry)}
+          <div className="mt-5 flex flex-wrap gap-2.5">
+            <span className="inline-flex min-h-10 items-center gap-2.5 rounded-md border border-white/15 bg-white/[0.025] pl-2 pr-3 font-ui text-xs font-semibold text-[#E4ECE9] shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+              <span className="grid h-7 w-7 place-items-center rounded-[5px] bg-[#85E4D4]/10 text-[#85E4D4]">
+                <Buildings size={15} weight="regular" />
+              </span>
+              {contextLabel(normalizedIndustry)}
             </span>
-            <span className="inline-flex min-h-9 items-center gap-2 rounded-lg border border-white/10 bg-white/[0.035] px-3 font-ui text-xs font-semibold text-[#DCE7E3]">
-              <LockKey size={16} weight="regular" className="text-[#85E4D4]" /> Conversación temporal
+            <span className="inline-flex min-h-10 items-center gap-2.5 rounded-md border border-white/15 bg-white/[0.025] pl-2 pr-3 font-ui text-xs font-semibold text-[#E4ECE9] shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+              <span className="grid h-7 w-7 place-items-center rounded-[5px] bg-[#85E4D4]/10 text-[#85E4D4]">
+                <LockKey size={15} weight="regular" />
+              </span>
+              Conversación temporal
             </span>
           </div>
 
           {!iniciado ? (
             <>
-              <div className="mt-6 flex items-start gap-3 rounded-2xl border border-[#85E4D4]/15 bg-[#071615]/70 px-4 py-3.5">
-                <Sparkle size={18} weight="regular" className="mt-0.5 shrink-0 text-[#C8FF62]" />
+              <div className="mt-6 flex items-start gap-3 border-y border-white/10 py-4">
+                <span className="grid h-8 w-8 shrink-0 place-items-center rounded-md border border-[#C8FF62]/25 bg-[#C8FF62]/[0.07] text-[#C8FF62]">
+                  <Sparkle size={16} weight="fill" />
+                </span>
                 <div>
                   <p className="font-ui text-sm font-semibold text-[#F0F6F3]">¿Qué necesitás revisar hoy?</p>
                   <p className="mt-1 font-ui text-xs leading-5 text-[#869A94]">
@@ -219,9 +241,10 @@ export function AgenteGlobalChat({ industry, puedeUsarIA }: Props) {
                     key={question}
                     type="button"
                     onClick={() => enviar(question)}
-                    className="min-h-12 rounded-xl border border-white/10 bg-white/[0.025] px-3 py-2.5 text-left font-ui text-xs font-semibold leading-4 text-[#C8D4D0] transition-[border-color,background-color,color,transform] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] hover:-translate-y-0.5 hover:border-[#85E4D4]/30 hover:bg-[#85E4D4]/[0.06] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C8FF62]"
+                    className="group/question flex min-h-14 items-center justify-between gap-3 rounded-md border border-white/15 bg-transparent px-3.5 py-2.5 text-left font-ui text-xs font-semibold leading-4 text-[#D3DEDA] transition-[border-color,background-color,color,box-shadow,transform] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] hover:-translate-y-0.5 hover:border-[#85E4D4]/35 hover:bg-white/[0.045] hover:text-white hover:shadow-[0_10px_24px_rgba(0,0,0,0.18)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C8FF62]"
                   >
-                    {question}
+                    <span>{question}</span>
+                    <ArrowRight size={15} weight="bold" className="shrink-0 text-[#85E4D4] transition-transform duration-150 group-hover/question:translate-x-0.5" />
                   </button>
                 ))}
               </div>
@@ -263,37 +286,44 @@ export function AgenteGlobalChat({ industry, puedeUsarIA }: Props) {
         }}
         className="border-t border-white/10 bg-[#061311]/70 px-4 py-4 sm:px-6"
       >
-        <div className="flex items-end gap-2 rounded-2xl border border-white/10 bg-[#050D0C] p-2 transition-colors focus-within:border-[#85E4D4]/35">
-          <textarea
-            ref={inputRef}
-            value={input}
-            onChange={(event) => setInput(event.target.value)}
-            onFocus={() => setInputFocused(true)}
-            onBlur={() => setInputFocused(false)}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter' && !event.shiftKey) {
-                event.preventDefault();
-                enviar(input);
-              }
-            }}
-            rows={1}
-            aria-label="Escribir una consulta para el Agente Anulus"
-            placeholder="Escribí tu consulta…"
-            className="min-h-11 flex-1 resize-none bg-transparent px-3 py-2.5 font-ui text-sm leading-6 text-[#F1F6F4] outline-none placeholder:text-[#63756F]"
-          />
+        <div className="flex items-end gap-2 rounded-xl border border-white/10 bg-[#050D0C] p-2 transition-colors focus-within:border-[#85E4D4]/35">
+          <div className="min-w-0 flex-1">
+            <textarea
+              ref={inputRef}
+              value={input}
+              onChange={(event) => setInput(event.target.value)}
+              onFocus={() => setInputFocused(true)}
+              onBlur={() => setInputFocused(false)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' && !event.shiftKey) {
+                  event.preventDefault();
+                  enviar(input);
+                }
+              }}
+              rows={1}
+              aria-label="Escribir una consulta para el Agente Anulus"
+              placeholder="Escribí tu consulta…"
+              className="min-h-9 w-full resize-none bg-transparent px-3 pt-2 font-ui text-sm leading-6 text-[#F1F6F4] outline-none placeholder:text-[#63756F]"
+            />
+            <p className="flex items-center gap-1.5 px-3 pb-1 font-ui text-[10px] text-[#60736D]">
+              <LockSimple size={12} weight="regular" />
+              Sesión temporal: el historial se borra al salir.
+            </p>
+          </div>
           <button
             type="submit"
             aria-label="Enviar consulta"
             disabled={cargando || !input.trim()}
-            className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-[#C8FF62] text-[#071110] transition-[transform,box-shadow,opacity] duration-150 hover:-translate-y-0.5 hover:shadow-[0_0_22px_rgba(200,255,98,0.25)] active:translate-y-0 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-35 disabled:hover:translate-y-0 disabled:hover:shadow-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+            className="grid h-11 w-11 shrink-0 place-items-center rounded-md bg-[#C8FF62] text-[#071110] transition-[transform,box-shadow,opacity] duration-150 hover:-translate-y-0.5 hover:shadow-[0_0_22px_rgba(200,255,98,0.25)] active:translate-y-0 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-35 disabled:hover:translate-y-0 disabled:hover:shadow-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
           >
             <ArrowUp size={19} weight="bold" />
           </button>
         </div>
-        <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <p className="font-ui text-[11px] text-[#6F817B]">La conversación se reinicia al salir o recargar.</p>
-          <AiDisclaimer industry={industry} className="m-0" />
-        </div>
+        <AiDisclaimer
+          industry={industry}
+          context="agent"
+          className="mt-3 rounded-lg border-white/10 bg-white/[0.025] px-3 py-2 font-ui text-[11px] leading-4 text-[#78908A]"
+        />
       </form>
     </section>
   );
