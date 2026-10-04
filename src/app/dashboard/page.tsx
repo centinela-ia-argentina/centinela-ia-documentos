@@ -231,10 +231,10 @@ export default async function DashboardPage() {
         ))}
       </section>
 
-      <section className="mt-8 overflow-hidden rounded-[30px] border border-white/10 bg-[#081A22] shadow-[0_26px_80px_rgba(0,0,0,0.25)]">
-        <div className="flex flex-col gap-6 px-6 py-7 sm:px-8 lg:flex-row lg:items-end lg:justify-between lg:px-10 lg:py-9">
+      <section className="mt-8">
+        <div className="flex flex-col gap-6 rounded-[30px] border border-white/10 bg-[#081A22] px-6 py-7 shadow-[0_26px_80px_rgba(0,0,0,0.22)] sm:px-8 lg:flex-row lg:items-end lg:justify-between lg:px-10 lg:py-9">
           <div className="max-w-2xl">
-            <p className="font-ui text-xs font-semibold text-[#85E4D4]">Actividad de la cartera</p>
+            <p className="font-ui text-xs font-semibold text-[#85E4D4]">Seguimiento operativo</p>
             <h2 className="mt-2 font-display text-3xl font-medium tracking-[-0.05em] text-[#F3F8F5] sm:text-4xl">
               {isRealEstate ? 'Operaciones en curso' : `${terms.expedientePlural} en curso`}
             </h2>
@@ -259,8 +259,11 @@ export default async function DashboardPage() {
           </Link>
         </div>
 
-        <div className="grid border-t border-white/10 lg:grid-cols-[minmax(0,1.18fr)_minmax(320px,0.82fr)]">
-          <div className="px-5 py-3 sm:px-8 lg:px-10 lg:py-5">
+        <div className="mt-4 grid items-stretch gap-4 lg:grid-cols-[minmax(0,1.55fr)_minmax(320px,0.75fr)]">
+          <article
+            aria-label="Listado de operaciones en curso"
+            className="rounded-[26px] border border-white/10 bg-[#081A22] px-5 py-3 shadow-[0_18px_55px_rgba(0,0,0,0.18)] sm:px-8 lg:px-10 lg:py-5"
+          >
             {activeCases.length ? (
               <div className="divide-y divide-white/10">
                 {activeCases.slice(0, 5).map((item) => {
@@ -300,48 +303,46 @@ export default async function DashboardPage() {
                 </Link>
               </div>
             )}
-          </div>
+          </article>
 
-          <aside className="border-t border-white/10 bg-white/[0.035] p-5 sm:p-7 lg:border-l lg:border-t-0 lg:p-8">
-            <div className="rounded-[22px] border border-white/10 bg-[#102822] p-5 sm:p-6">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="font-ui text-xs font-semibold text-[#85E4D4]">Prioridad del día</p>
-                  <h3 className="mt-1 font-display text-2xl font-medium tracking-[-0.04em] text-[#F3F8F5]">
-                    Para resolver ahora
-                  </h3>
-                  <p className="mt-2 font-ui text-xs leading-5 text-[#91A39F]">
-                    Tareas ordenadas por urgencia e impacto.
-                  </p>
-                </div>
-                <CalendarDots size={20} weight="light" className="mt-1 shrink-0 text-[#85E4D4]" />
+          <aside className="rounded-[26px] border border-white/10 bg-[#102822] p-5 shadow-[0_18px_55px_rgba(0,0,0,0.18)] sm:p-7 lg:p-8">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="font-ui text-xs font-semibold text-[#85E4D4]">Prioridad del día</p>
+                <h3 className="mt-1 font-display text-2xl font-medium tracking-[-0.04em] text-[#F3F8F5]">
+                  Para resolver ahora
+                </h3>
+                <p className="mt-2 font-ui text-xs leading-5 text-[#91A39F]">
+                  Tareas ordenadas por urgencia e impacto.
+                </p>
               </div>
+              <CalendarDots size={20} weight="light" className="mt-1 shrink-0 text-[#85E4D4]" />
+            </div>
 
-              <div className="mt-5 divide-y divide-white/10 border-t border-white/10">
-                {nextActions.length ? nextActions.map((action, index) => (
-                  <Link
-                    key={`${action.href}-${index}`}
-                    href={action.href}
-                    className="group grid grid-cols-[24px_1fr] gap-3 py-4"
-                  >
-                    <span className="pt-0.5 font-ui text-[10px] font-bold text-[#85E4D4]">
-                      {String(index + 1).padStart(2, '0')}
+            <div className="mt-5 divide-y divide-white/10 border-t border-white/10">
+              {nextActions.length ? nextActions.map((action, index) => (
+                <Link
+                  key={`${action.href}-${index}`}
+                  href={action.href}
+                  className="group grid grid-cols-[24px_1fr] gap-3 py-4"
+                >
+                  <span className="pt-0.5 font-ui text-[10px] font-bold text-[#85E4D4]">
+                    {String(index + 1).padStart(2, '0')}
+                  </span>
+                  <span>
+                    <span className="block font-ui text-xs font-bold text-[#E5EEEA] group-hover:text-white">
+                      {action.title}
                     </span>
-                    <span>
-                      <span className="block font-ui text-xs font-bold text-[#E5EEEA] group-hover:text-white">
-                        {action.title}
-                      </span>
-                      <span className="mt-1 block font-ui text-[10px] text-[#7F938D]">
-                        {action.detail}
-                      </span>
+                    <span className="mt-1 block font-ui text-[10px] text-[#7F938D]">
+                      {action.detail}
                     </span>
-                  </Link>
-                )) : (
-                  <p className="py-6 font-ui text-xs text-[#91A39F]">
-                    No hay acciones urgentes. El panorama está al día.
-                  </p>
-                )}
-              </div>
+                  </span>
+                </Link>
+              )) : (
+                <p className="py-6 font-ui text-xs text-[#91A39F]">
+                  No hay acciones urgentes. El panorama está al día.
+                </p>
+              )}
             </div>
           </aside>
         </div>
