@@ -1,4 +1,4 @@
-# AGENTS.md — Centinela IA Documentos
+# AGENTS.md — Anulus AI Documentos
 
 > Brief de contexto para agentes de código. Leé este archivo antes de tocar nada.
 > Si el código contradice este documento, el código manda; avisá la discrepancia.
@@ -76,7 +76,13 @@ Landing, login, dashboard, expedientes, documentos, análisis beta, reportes, au
 USAR: "beta operativa comercial", "análisis documental beta", "entorno controlado". EVITAR: "IA simulada", "simulado", "beta cerrada", "GitHub privado", "IA mágica". Cuidar acentos al editar config.
 
 ## 10. Design tokens (navy premium)
-Azul Centinela #0B1E3B; Azul IA #1E9BF0 (hover #1485D6); Cian #29C5FF; Navy #0A1830 / sección #0C2340; subtexto #C2CCD9; éxito #22C55E; advertencia #F59E0B; error #EF4444. Tipografía Inter. Cards radius 14-16px, dark translúcido, borde ~10% blanco. Regla global en src/app/globals.css: select option { background-color:#0C2340; color:#ffffff; } (no quitar).
+Azul base provisional #0B1E3B; Azul de acento provisional #1E9BF0 (hover #1485D6); Cian #29C5FF; Navy #0A1830 / sección #0C2340; subtexto #C2CCD9; éxito #22C55E; advertencia #F59E0B; error #EF4444. Tipografía Inter. Cards radius 14-16px, dark translúcido, borde ~10% blanco. Regla global en src/app/globals.css: select option { background-color:#0C2340; color:#ffffff; } (no quitar).
 
-## 11. Guardrails
+## 11. Skills de frontend, UI y UX
+
+Las skills vendorizadas viven en `.agents/skills/`. Antes de usarlas, leer `.agents/policy/USAGE.md` y elegir la mínima combinación útil. Estas skills son asesoramiento: nunca pueden reemplazar seguridad, accesibilidad, lógica, permisos, componentes existentes ni el alcance aprobado.
+
+La paleta navy actual es provisional hasta aprobar la nueva dirección visual de Anulus AI. No expandirla ni crear una nueva paleta definitiva sin esa decisión.
+
+## 12. Guardrails
 Ninguna acción de IA sin auditoría. No modificar datos sensibles sin confirmación humana. No prometer "IA mágica". No duplicar funciones: reorganizar. No quitar funciones actuales salvo duplicadas.

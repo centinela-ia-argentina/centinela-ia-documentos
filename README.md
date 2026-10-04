@@ -1,6 +1,6 @@
-# Centinela IA
+# Anulus AI
 
-**Centinela IA** es una plataforma web en beta operativa para gestión documental inteligente, expedientes, documentos PDF, usuarios, permisos, auditoría, reportes y análisis documental en entorno beta controlado.
+**Anulus AI** es una plataforma web en beta operativa para gestión documental inteligente, expedientes, documentos PDF, usuarios, permisos, auditoría, reportes y análisis documental en entorno beta controlado.
 
 El proyecto está orientado comercialmente a organizaciones que manejan documentación sensible o dispersa en tres verticales activas: estudios jurídicos, escribanías e inmobiliarias.
 
@@ -15,7 +15,7 @@ https://centinela-ia-documentos.vercel.app/
 **Sprint actual:** Sprint 15 — Comercialización, demo guiada, landing y preparación de clientes reales
 **Estado del producto:** MVP funcional online, validado y listo para primeras demos comerciales controladas.
 
-Centinela IA ya cuenta con una base funcional desplegada en Vercel, con autenticación, gestión de expedientes, carga documental, visor PDF, análisis documental en entorno beta, reportes, auditoría, usuarios, roles, invitaciones, seguridad por organización, landing comercial pública y material comercial preparado para presentar a potenciales clientes.
+Anulus AI ya cuenta con una base funcional desplegada en Vercel, con autenticación, gestión de expedientes, carga documental, visor PDF, análisis documental en entorno beta, reportes, auditoría, usuarios, roles, invitaciones, seguridad por organización, landing comercial pública y material comercial preparado para presentar a potenciales clientes.
 
 ---
 
@@ -33,7 +33,7 @@ Esto genera problemas como:
 * ausencia de historial operativo;
 * revisión documental manual y desordenada.
 
-Centinela IA busca centralizar esa documentación en un panel privado, seguro y organizado.
+Anulus AI busca centralizar esa documentación en un panel privado, seguro y organizado.
 
 ---
 
@@ -86,7 +86,7 @@ La ruta principal `/` funciona como landing pública de presentación comercial.
 
 Incluye:
 
-* mensaje comercial de Centinela IA;
+* mensaje comercial de Anulus AI;
 * rubros objetivo;
 * explicación del problema;
 * módulos principales;
@@ -102,7 +102,7 @@ El botón principal de contacto dirige a WhatsApp para solicitar una demo.
 
 ## Rubros objetivo
 
-Centinela IA está pensado inicialmente para:
+Anulus AI está pensado inicialmente para:
 
 ### Estudios jurídicos
 
@@ -155,7 +155,7 @@ El flujo principal permite que una organización cargue documentos, los asocie a
 
 ## Seguridad
 
-Centinela IA implementa una base de seguridad pensada para beta privada, validación comercial y preparación de uso real:
+Anulus AI implementa una base de seguridad pensada para beta privada, validación comercial y preparación de uso real:
 
 * autenticación con Supabase Auth;
 * roles internos;
@@ -179,7 +179,7 @@ El sistema diferencia usuarios operativos y administrativos mediante roles, evit
 
 ## Análisis documental beta
 
-Centinela IA trabaja actualmente con análisis documental en entorno beta controlado.
+Anulus AI trabaja actualmente con análisis documental en entorno beta controlado.
 
 El sistema permite:
 
@@ -260,7 +260,7 @@ Validaciones realizadas:
 
 ## Estado comercial
 
-Centinela IA se encuentra en etapa de beta operativa comercial en entorno controlado para primeros clientes.
+Anulus AI se encuentra en etapa de beta operativa comercial en entorno controlado para primeros clientes.
 
 Modelo comercial inicial:
 
