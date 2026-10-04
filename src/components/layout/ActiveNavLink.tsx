@@ -26,16 +26,10 @@ export function ActiveNavLink({
       aria-current={isActive ? 'page' : undefined}
       className={`group relative flex h-8 items-center gap-2.5 rounded-lg px-2.5 text-[12px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#85E4D4] ${
         isActive
-          ? 'bg-[#C8FF62]/10 text-white'
+          ? 'bg-white/[0.07] text-white'
           : 'text-[#9BB0A9] hover:bg-white/[0.05] hover:text-white'
       }`}
     >
-      {isActive ? (
-        <span
-          className="absolute -left-0.5 h-4 w-[3px] rounded-full bg-[#C8FF62]"
-          aria-hidden="true"
-        />
-      ) : null}
       <span
         className={isActive ? 'text-[#C8FF62]' : 'text-[#9BB0A9]'}
         aria-hidden="true"

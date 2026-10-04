@@ -36,7 +36,7 @@ export async function Topbar() {
           <Link
             href="/buscar"
             aria-label={`Buscar ${terms.expedienteSingular.toLowerCase()}, documento o cliente`}
-            className="inline-flex h-10 min-w-10 items-center gap-3 rounded-md border border-[#85E4D4]/15 bg-white/[0.025] px-3 text-[#9BB0A9] transition-colors hover:bg-white/[0.055] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#85E4D4] sm:min-w-[270px] lg:min-w-[420px]"
+            className="inline-flex h-11 min-w-11 items-center gap-3 rounded-lg border border-white/15 bg-white/[0.035] px-3.5 text-[#AEBDB8] transition-[background-color,border-color,color,transform] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] hover:border-white/25 hover:bg-white/[0.065] hover:text-white active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C8FF62]/70 sm:min-w-[290px] lg:min-w-[430px]"
           >
             <MagnifyingGlass size={17} weight="regular" className="shrink-0" />
             <span className="hidden truncate text-sm sm:block">
@@ -50,7 +50,7 @@ export async function Topbar() {
           {isRealEstate ? (
             <Link
               href="/operaciones/nueva"
-              className="inline-flex min-h-10 items-center gap-2 rounded-md bg-[#C8FF62] px-4 text-sm font-extrabold text-[#071110] hover:bg-[#D5FF87] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#85E4D4] focus-visible:ring-offset-2 focus-visible:ring-offset-[#050B0C]"
+              className="inline-flex min-h-11 items-center gap-2.5 rounded-lg bg-[#F3F8F5] px-5 text-sm font-bold text-[#071110] transition-[transform,background-color] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] hover:bg-white active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C8FF62] focus-visible:ring-offset-2 focus-visible:ring-offset-[#050B0C]"
             >
               <Plus size={17} weight="bold" />
               <span className="hidden sm:inline">Nueva operación</span>
@@ -58,7 +58,7 @@ export async function Topbar() {
           ) : canUpload ? (
             <Link
               href="/documentos/subir"
-              className="inline-flex min-h-10 items-center gap-2 rounded-md bg-[#C8FF62] px-4 text-sm font-extrabold text-[#071110] hover:bg-[#D5FF87] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#85E4D4]"
+              className="inline-flex min-h-11 items-center gap-2.5 rounded-lg bg-[#F3F8F5] px-5 text-sm font-bold text-[#071110] transition-transform duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C8FF62]"
             >
               <UploadSimple size={17} weight="bold" />
               <span className="hidden sm:inline">Subir documento</span>
@@ -68,7 +68,7 @@ export async function Topbar() {
           <details className="group relative">
             <summary
               aria-label="Abrir menú de cuenta"
-              className="flex h-10 cursor-pointer list-none items-center gap-2 rounded-md border border-[#85E4D4]/15 bg-white/[0.025] px-2 text-[#D7E2DE] hover:bg-white/[0.055] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#85E4D4] [&::-webkit-details-marker]:hidden"
+              className="flex h-11 cursor-pointer list-none items-center gap-2.5 rounded-lg border border-white/15 bg-white/[0.035] px-2.5 text-[#D7E2DE] transition-[background-color,border-color,transform] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] hover:border-white/25 hover:bg-white/[0.065] active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C8FF62]/70 [&::-webkit-details-marker]:hidden"
             >
               <span className="grid h-7 w-7 place-items-center rounded-md border border-[#85E4D4]/20 bg-[#85E4D4]/[0.06] text-[9px] font-black text-[#C8FF62]">
                 {initials || 'AN'}
@@ -77,7 +77,7 @@ export async function Topbar() {
               <CaretDown size={13} weight="bold" className="hidden transition-transform group-open:rotate-180 sm:block" />
             </summary>
 
-            <div className="absolute right-0 top-12 w-64 overflow-hidden rounded-xl border border-[#85E4D4]/15 bg-[#0B1918] p-1.5 shadow-[0_22px_60px_rgba(0,0,0,0.42)]">
+            <div className="account-menu absolute right-0 top-[3.1rem] w-64 overflow-hidden rounded-2xl border border-white/15 bg-[#0B1918] p-1.5 shadow-[0_24px_70px_rgba(0,0,0,0.46)]">
               <div className="flex items-center gap-3 px-3 py-3">
                 <UserCircle size={30} weight="light" className="text-[#85E4D4]" />
                 <div className="min-w-0">

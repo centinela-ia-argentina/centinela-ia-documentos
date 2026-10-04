@@ -170,23 +170,30 @@ export default async function DashboardPage() {
 
   return (
     <AppShell>
-      <section className="relative overflow-hidden border-b border-[#85E4D4]/15 pb-8 pt-2 sm:pb-10 sm:pt-5">
-        <span className="pointer-events-none absolute -right-4 -top-16 select-none font-display text-[clamp(7rem,18vw,17rem)] font-black leading-none tracking-[-0.075em] text-white/[0.025] [-webkit-text-stroke:1px_rgba(243,248,245,0.035)]" aria-hidden="true">
+      <section className="relative overflow-hidden border-b border-[#85E4D4]/15 pb-10 pt-3 sm:pb-12 sm:pt-6">
+        <span
+          className="pointer-events-none absolute -right-4 -top-16 select-none font-display text-[clamp(7rem,18vw,17rem)] font-black leading-none tracking-[-0.075em] text-white/[0.025] [-webkit-text-stroke:1px_rgba(243,248,245,0.04)]"
+          aria-hidden="true"
+        >
           ANULUS
         </span>
         <div className="relative max-w-4xl">
-          <p className="text-sm font-medium tracking-[-0.015em] text-[#85E4D4]">
+          <p className="font-ui text-sm font-semibold tracking-[-0.02em] text-[#85E4D4]">
             <LocalDateLabel />
           </p>
-          <h1 data-testid="dashboard-title" className="mt-2 font-display text-[clamp(2.25rem,5vw,4.5rem)] font-semibold leading-[0.98] tracking-[-0.055em] text-[#F3F8F5]">
+          <h1
+            data-testid="dashboard-title"
+            className="mt-3 font-display text-[clamp(2.45rem,5vw,4.75rem)] font-medium leading-[0.98] tracking-[-0.06em] text-[#F3F8F5]"
+          >
             <TimeAwareGreeting name={greetingName} />
           </h1>
-          <p className="mt-4 max-w-2xl text-sm leading-6 text-[#B7C5C0] sm:text-base">
-            Operaciones, documentos y próximos pasos en un solo lugar.
+          <p
+            className="mt-5 max-w-2xl font-ui text-base font-medium leading-7 sm:text-lg"
+            style={{ color: '#B8C6C1' }}
+          >
+            Controlá operaciones, documentos y próximos pasos desde un mismo lugar.
           </p>
         </div>
-
-
       </section>
 
       {showGettingStarted ? (
@@ -202,81 +209,143 @@ export default async function DashboardPage() {
         </div>
       ) : null}
 
-      <section aria-label="Indicadores operativos" className="grid border-b border-[#85E4D4]/15 sm:grid-cols-2 xl:grid-cols-4">
+      <section
+        aria-label="Indicadores operativos"
+        className="grid border-b border-[#85E4D4]/15 sm:grid-cols-2 xl:grid-cols-4"
+      >
         {metrics.map((metric, index) => (
-          <article key={metric.label} className={`px-4 py-5 sm:px-5 ${index > 0 ? 'border-t border-[#85E4D4]/15 sm:border-l sm:border-t-0' : ''} ${index === 2 ? 'sm:border-t xl:border-t-0' : ''}`}>
-            <p className="text-xs font-medium tracking-[-0.015em] text-[#9FB0AB]">{metric.label}</p>
-            <p className="mt-1 font-display text-2xl font-bold tracking-[-0.04em] text-[#F3F8F5]">{metric.value}</p>
-            <p className="mt-1 text-[10px] text-[#6F827D]">{metric.helper}</p>
+          <article
+            key={metric.label}
+            className={`px-5 py-6 sm:px-6 ${index > 0 ? 'border-t border-[#85E4D4]/15 sm:border-l sm:border-t-0' : ''} ${index === 2 ? 'sm:border-t xl:border-t-0' : ''}`}
+          >
+            <p className="font-ui text-[13px] font-semibold tracking-[-0.025em] text-[#B8C6C1]">
+              {metric.label}
+            </p>
+            <p className="mt-1.5 font-display text-[2rem] font-semibold leading-none tracking-[-0.055em] text-[#F3F8F5]">
+              {metric.value}
+            </p>
+            <p className="mt-2 font-ui text-[11px] font-medium text-[#71857F]">
+              {metric.helper}
+            </p>
           </article>
         ))}
       </section>
 
-      <div className="mt-8 grid items-start gap-6 xl:grid-cols-[minmax(0,1.45fr)_minmax(320px,0.55fr)]">
-        <section className="min-w-0 overflow-hidden rounded-[22px] border border-[#85E4D4]/15 bg-white/[0.018] p-1.5">
-          <div className="overflow-hidden rounded-[17px] bg-[#0B1918]">
-          <div className="flex items-start justify-between gap-4 border-b border-[#85E4D4]/15 px-6 py-5">
-            <div>
-              <h2 className="font-display text-lg font-semibold text-[#F3F8F5]">{isRealEstate ? 'Operaciones en curso' : `${terms.expedientePlural} en curso`}</h2>
-              <p className="mt-1 text-xs text-[#91A39F]">Estado, actividad reciente y próximo hito.</p>
+      <section className="mt-8 overflow-hidden rounded-[30px] border border-white/10 bg-[#081A22] shadow-[0_26px_80px_rgba(0,0,0,0.25)]">
+        <div className="flex flex-col gap-6 px-6 py-7 sm:px-8 lg:flex-row lg:items-end lg:justify-between lg:px-10 lg:py-9">
+          <div className="max-w-2xl">
+            <p className="font-ui text-xs font-semibold text-[#85E4D4]">Actividad de la cartera</p>
+            <h2 className="mt-2 font-display text-3xl font-medium tracking-[-0.05em] text-[#F3F8F5] sm:text-4xl">
+              {isRealEstate ? 'Operaciones en curso' : `${terms.expedientePlural} en curso`}
+            </h2>
+            <p className="mt-3 font-ui text-sm leading-6 text-[#9FB0AB]">
+              Estado, actividad reciente y próximo hito de cada registro activo.
+            </p>
+            <div className="mt-5 flex flex-wrap gap-2">
+              <span className="rounded-full border border-white/15 px-3 py-1.5 text-xs font-semibold text-[#D7E2DE]">
+                {activeCases.length} activas
+              </span>
+              <span className="rounded-full border border-white/15 px-3 py-1.5 text-xs font-semibold text-[#D7E2DE]">
+                {pendingDocuments.length + expiringDocuments} pendientes
+              </span>
             </div>
-            <Link href={operationBasePath} className="inline-flex shrink-0 items-center gap-1 text-xs font-bold text-[#85E4D4] hover:text-[#C8FF62]">
-              Ver todas <ArrowRight size={14} weight="bold" />
-            </Link>
           </div>
-
-          {activeCases.length ? (
-            <div className="divide-y divide-[#85E4D4]/15">
-              {activeCases.slice(0, 5).map((item) => {
-                const date = String(item.metadata?.fecha_relevante ?? '').trim();
-                return (
-                  <Link key={item.id} href={`${operationBasePath}/${item.id}`} className="grid gap-3 px-5 py-4 hover:bg-white/[0.025] sm:grid-cols-[minmax(0,1fr)_auto_auto] sm:items-center sm:gap-5">
-                    <span className="min-w-0">
-                      <span className="block truncate text-sm font-bold text-[#EDF4F1]">{item.title || terms.itemSinTitulo}</span>
-                      <span className="mt-1 block truncate text-[11px] text-[#7F938D]">{item.case_type || 'General'}{item.client_name ? ` · ${item.client_name}` : ''}</span>
-                    </span>
-                    <span className="w-fit rounded-full bg-[#85E4D4]/10 px-2.5 py-1 text-[10px] font-bold text-[#85E4D4]">●&nbsp; {getCaseStatusLabel(item.status, industry)}</span>
-                    <span className="text-left text-xs font-semibold text-[#D7E2DE] sm:min-w-24 sm:text-right">{operationValue(item) || (date ? formatRelevantDate(date) : 'Ver detalle')}</span>
-                  </Link>
-                );
-              })}
-            </div>
-          ) : (
-            <div className="px-5 py-12 text-center">
-              <p className="text-sm font-semibold text-[#D7E2DE]">{terms.vacioSinDatos}</p>
-              <Link href={`${operationBasePath}/nuevo`} className="mt-3 inline-flex items-center gap-1 text-sm font-bold text-[#C8FF62]">{terms.nuevoCta} <ArrowRight size={16} weight="bold" /></Link>
-            </div>
-          )}
-          </div>
-        </section>
-
-        <div>
-          <section className="rounded-[22px] border border-[#85E4D4]/15 bg-white/[0.018] p-1.5">
-            <div className="rounded-[17px] bg-[#0B1918] p-5 sm:p-6">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <h2 className="font-display text-lg font-semibold text-[#F3F8F5]">Para resolver ahora</h2>
-                <p className="mt-1 text-xs text-[#91A39F]">Tareas ordenadas por urgencia e impacto.</p>
-              </div>
-              <CalendarDots size={18} weight="regular" className="text-[#85E4D4]" />
-            </div>
-            <div className="mt-4 divide-y divide-[#85E4D4]/15 border-t border-[#85E4D4]/15">
-              {nextActions.length ? nextActions.map((action, index) => (
-                <Link key={`${action.href}-${index}`} href={action.href} className="grid grid-cols-[22px_1fr] gap-3 py-3.5 hover:text-[#C8FF62]">
-                  <span className="pt-0.5 text-[10px] font-bold text-[#85E4D4]">{String(index + 1).padStart(2, '0')}</span>
-                  <span>
-                    <span className="block text-xs font-bold text-[#E5EEEA]">{action.title}</span>
-                    <span className="mt-1 block text-[10px] text-[#7F938D]">{action.detail}</span>
-                  </span>
-                </Link>
-              )) : (
-                <p className="py-6 text-xs text-[#91A39F]">No hay acciones urgentes. El panorama está al día.</p>
-              )}
-            </div>
-            </div>
-          </section>
+          <Link
+            href={operationBasePath}
+            className="group inline-flex min-h-12 w-fit items-center gap-3 rounded-full bg-[#F3F8F5] px-5 font-ui text-sm font-bold text-[#071110] transition-[transform,background-color] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] hover:bg-white active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C8FF62]"
+          >
+            Ver todas las operaciones
+            <ArrowRight size={17} weight="bold" className="transition-transform duration-150 group-hover:translate-x-0.5" />
+          </Link>
         </div>
-      </div>
+
+        <div className="grid border-t border-white/10 lg:grid-cols-[minmax(0,1.18fr)_minmax(320px,0.82fr)]">
+          <div className="px-5 py-3 sm:px-8 lg:px-10 lg:py-5">
+            {activeCases.length ? (
+              <div className="divide-y divide-white/10">
+                {activeCases.slice(0, 5).map((item) => {
+                  const date = String(item.metadata?.fecha_relevante ?? '').trim();
+                  return (
+                    <Link
+                      key={item.id}
+                      href={`${operationBasePath}/${item.id}`}
+                      className="group grid gap-3 py-5 transition-colors duration-150 hover:text-white sm:grid-cols-[minmax(0,1fr)_auto_auto] sm:items-center sm:gap-5"
+                    >
+                      <span className="min-w-0">
+                        <span className="block truncate font-ui text-sm font-bold text-[#EDF4F1] group-hover:text-white">
+                          {item.title || terms.itemSinTitulo}
+                        </span>
+                        <span className="mt-1 block truncate font-ui text-[11px] text-[#80948D]">
+                          {item.case_type || 'General'}{item.client_name ? ` · ${item.client_name}` : ''}
+                        </span>
+                      </span>
+                      <span className="w-fit rounded-full bg-[#85E4D4]/10 px-2.5 py-1 font-ui text-[10px] font-bold text-[#85E4D4]">
+                        ●&nbsp; {getCaseStatusLabel(item.status, industry)}
+                      </span>
+                      <span className="font-ui text-left text-xs font-semibold text-[#D7E2DE] sm:min-w-24 sm:text-right">
+                        {operationValue(item) || (date ? formatRelevantDate(date) : 'Ver detalle')}
+                      </span>
+                    </Link>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="py-14 text-center">
+                <p className="font-ui text-sm font-semibold text-[#D7E2DE]">{terms.vacioSinDatos}</p>
+                <Link
+                  href={`${operationBasePath}/nuevo`}
+                  className="mt-3 inline-flex items-center gap-1 font-ui text-sm font-bold text-[#C8FF62]"
+                >
+                  {terms.nuevoCta} <ArrowRight size={16} weight="bold" />
+                </Link>
+              </div>
+            )}
+          </div>
+
+          <aside className="border-t border-white/10 bg-white/[0.035] p-5 sm:p-7 lg:border-l lg:border-t-0 lg:p-8">
+            <div className="rounded-[22px] border border-white/10 bg-[#102822] p-5 sm:p-6">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="font-ui text-xs font-semibold text-[#85E4D4]">Prioridad del día</p>
+                  <h3 className="mt-1 font-display text-2xl font-medium tracking-[-0.04em] text-[#F3F8F5]">
+                    Para resolver ahora
+                  </h3>
+                  <p className="mt-2 font-ui text-xs leading-5 text-[#91A39F]">
+                    Tareas ordenadas por urgencia e impacto.
+                  </p>
+                </div>
+                <CalendarDots size={20} weight="light" className="mt-1 shrink-0 text-[#85E4D4]" />
+              </div>
+
+              <div className="mt-5 divide-y divide-white/10 border-t border-white/10">
+                {nextActions.length ? nextActions.map((action, index) => (
+                  <Link
+                    key={`${action.href}-${index}`}
+                    href={action.href}
+                    className="group grid grid-cols-[24px_1fr] gap-3 py-4"
+                  >
+                    <span className="pt-0.5 font-ui text-[10px] font-bold text-[#85E4D4]">
+                      {String(index + 1).padStart(2, '0')}
+                    </span>
+                    <span>
+                      <span className="block font-ui text-xs font-bold text-[#E5EEEA] group-hover:text-white">
+                        {action.title}
+                      </span>
+                      <span className="mt-1 block font-ui text-[10px] text-[#7F938D]">
+                        {action.detail}
+                      </span>
+                    </span>
+                  </Link>
+                )) : (
+                  <p className="py-6 font-ui text-xs text-[#91A39F]">
+                    No hay acciones urgentes. El panorama está al día.
+                  </p>
+                )}
+              </div>
+            </div>
+          </aside>
+        </div>
+      </section>
     </AppShell>
   );
 }
