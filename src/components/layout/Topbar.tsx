@@ -50,7 +50,7 @@ export async function Topbar() {
           {isRealEstate ? (
             <Link
               href="/operaciones/nueva"
-              className="inline-flex min-h-11 items-center gap-2.5 rounded-lg bg-[#F3F8F5] px-5 text-sm font-bold text-[#071110] transition-[transform,background-color] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] hover:bg-white active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C8FF62] focus-visible:ring-offset-2 focus-visible:ring-offset-[#050B0C]"
+              className="inline-flex min-h-11 items-center gap-2.5 rounded-lg bg-[#F3F8F5] px-5 text-sm font-bold text-[#071110] transition-[transform,box-shadow] duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] hover:-translate-y-0.5 hover:shadow-[0_0_0_1px_rgba(200,255,98,0.3),0_0_24px_rgba(200,255,98,0.24)] active:translate-y-0 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C8FF62] focus-visible:ring-offset-2 focus-visible:ring-offset-[#050B0C]"
             >
               <Plus size={17} weight="bold" />
               <span className="hidden sm:inline">Nueva operación</span>

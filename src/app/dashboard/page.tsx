@@ -231,8 +231,8 @@ export default async function DashboardPage() {
         ))}
       </section>
 
-      <section className="mt-8">
-        <div className="flex flex-col gap-6 rounded-[30px] border border-white/10 bg-[#081A22] px-6 py-7 shadow-[0_26px_80px_rgba(0,0,0,0.22)] sm:px-8 lg:flex-row lg:items-end lg:justify-between lg:px-10 lg:py-9">
+      <section className="mt-8 overflow-hidden rounded-[30px] border border-white/10 bg-[#081A22] shadow-[0_26px_80px_rgba(0,0,0,0.22)]">
+        <div className="flex flex-col gap-6 px-6 py-7 sm:px-8 lg:flex-row lg:items-end lg:justify-between lg:px-10 lg:py-9">
           <div className="max-w-2xl">
             <p className="font-ui text-xs font-semibold text-[#85E4D4]">Seguimiento operativo</p>
             <h2 className="mt-2 font-display text-3xl font-medium tracking-[-0.05em] text-[#F3F8F5] sm:text-4xl">
@@ -252,17 +252,17 @@ export default async function DashboardPage() {
           </div>
           <Link
             href={operationBasePath}
-            className="group inline-flex min-h-12 w-fit items-center gap-3 rounded-full bg-[#F3F8F5] px-5 font-ui text-sm font-bold text-[#071110] transition-[transform,background-color] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] hover:bg-white active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C8FF62]"
+            className="group inline-flex min-h-12 w-fit items-center gap-3 rounded-full bg-[#F3F8F5] px-5 font-ui text-sm font-bold text-[#071110] transition-[transform,box-shadow] duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] hover:-translate-y-0.5 hover:shadow-[0_0_0_1px_rgba(200,255,98,0.3),0_0_26px_rgba(200,255,98,0.24)] active:translate-y-0 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C8FF62]"
           >
             Ver todas las operaciones
             <ArrowRight size={17} weight="bold" className="transition-transform duration-150 group-hover:translate-x-0.5" />
           </Link>
         </div>
 
-        <div className="mt-4 grid items-stretch gap-4 lg:grid-cols-[minmax(0,1.55fr)_minmax(320px,0.75fr)]">
+        <div className="grid border-t border-white/10 lg:grid-cols-[minmax(0,1.45fr)_minmax(340px,0.75fr)]">
           <article
             aria-label="Listado de operaciones en curso"
-            className="rounded-[26px] border border-white/10 bg-[#081A22] px-5 py-3 shadow-[0_18px_55px_rgba(0,0,0,0.18)] sm:px-8 lg:px-10 lg:py-5"
+            className="px-5 py-3 sm:px-8 lg:px-10 lg:py-5"
           >
             {activeCases.length ? (
               <div className="divide-y divide-white/10">
@@ -272,7 +272,7 @@ export default async function DashboardPage() {
                     <Link
                       key={item.id}
                       href={`${operationBasePath}/${item.id}`}
-                      className="group grid gap-3 py-5 transition-colors duration-150 hover:text-white sm:grid-cols-[minmax(0,1fr)_auto_auto] sm:items-center sm:gap-5"
+                      className="group grid gap-3 py-5 transition-colors duration-150 hover:text-white sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center sm:gap-6"
                     >
                       <span className="min-w-0">
                         <span className="block truncate font-ui text-sm font-bold text-[#EDF4F1] group-hover:text-white">
@@ -282,11 +282,13 @@ export default async function DashboardPage() {
                           {item.case_type || 'General'}{item.client_name ? ` · ${item.client_name}` : ''}
                         </span>
                       </span>
-                      <span className="w-fit rounded-full bg-[#85E4D4]/10 px-2.5 py-1 font-ui text-[10px] font-bold text-[#85E4D4]">
-                        ●&nbsp; {getCaseStatusLabel(item.status, industry)}
-                      </span>
-                      <span className="font-ui text-left text-xs font-semibold text-[#D7E2DE] sm:min-w-24 sm:text-right">
-                        {operationValue(item) || (date ? formatRelevantDate(date) : 'Ver detalle')}
+                      <span className="flex flex-wrap items-center gap-3 sm:justify-end sm:gap-4">
+                        <span className="w-fit rounded-full bg-[#85E4D4]/10 px-2.5 py-1 font-ui text-[10px] font-bold text-[#85E4D4]">
+                          ●&nbsp; {getCaseStatusLabel(item.status, industry)}
+                        </span>
+                        <span className="min-w-20 font-ui text-left text-xs font-semibold text-[#D7E2DE] sm:text-right">
+                          {operationValue(item) || (date ? formatRelevantDate(date) : 'Ver detalle')}
+                        </span>
                       </span>
                     </Link>
                   );
@@ -305,7 +307,7 @@ export default async function DashboardPage() {
             )}
           </article>
 
-          <aside className="rounded-[26px] border border-white/10 bg-[#102822] p-5 shadow-[0_18px_55px_rgba(0,0,0,0.18)] sm:p-7 lg:p-8">
+          <aside className="border-t border-white/10 p-5 sm:p-7 lg:border-l lg:border-t-0 lg:p-8">
             <div className="flex items-start justify-between gap-3">
               <div>
                 <p className="font-ui text-xs font-semibold text-[#85E4D4]">Prioridad del día</p>
