@@ -46,7 +46,8 @@ function formatRelevantDate(value?: string) {
 
 function operationValue(item: DashboardCase) {
   const amount = String(item.metadata?.valor_operacion ?? '').trim();
-  const currency = String(item.metadata?.moneda_operacion ?? '').trim();
+  const rawCurrency = String(item.metadata?.moneda_operacion ?? '').trim();
+  const currency = (rawCurrency || 'USD').toUpperCase();
   if (!amount) return null;
 
   const numericAmount = Number(amount);
@@ -54,9 +55,10 @@ function operationValue(item: DashboardCase) {
     ? new Intl.NumberFormat('es-AR', { maximumFractionDigits: 2 }).format(numericAmount)
     : amount;
 
-  return currency
-    ? `${currency.toUpperCase()} ${formattedAmount}`
-    : `Moneda pendiente · ${formattedAmount}`;
+  const currencyLabel =
+    currency === 'USD' ? 'US$' : currency === 'ARS' ? 'AR$' : currency;
+
+  return `${currencyLabel} ${formattedAmount}`;
 }
 
 export default async function DashboardPage() {
@@ -271,7 +273,7 @@ export default async function DashboardPage() {
         <div className="grid border-t border-white/10 lg:grid-cols-2">
           <article
             aria-label="Listado de operaciones en curso"
-            className="px-5 py-3 sm:px-8 lg:px-10 lg:py-5"
+            className="px-5 py-3 sm:px-8 lg:py-5"
           >
             {activeCases.length ? (
               <div className="divide-y divide-white/10">
@@ -281,23 +283,22 @@ export default async function DashboardPage() {
                     <Link
                       key={item.id}
                       href={`${operationBasePath}/${item.id}`}
-                      className="group grid gap-3 py-5 transition-colors duration-150 hover:text-white sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center sm:gap-6"
+                      className="group grid gap-3 py-5 transition-colors duration-150 hover:text-white sm:grid-cols-[minmax(0,1fr)_132px_104px] sm:items-center sm:gap-3"
                     >
                       <span className="min-w-0">
-                        <span className="block truncate font-ui text-sm font-bold text-[#EDF4F1] group-hover:text-white">
+                        <span className="line-clamp-2 font-ui text-sm font-bold leading-5 text-[#EDF4F1] group-hover:text-white">
                           {item.title || terms.itemSinTitulo}
                         </span>
                         <span className="mt-1 block truncate font-ui text-[11px] text-[#80948D]">
                           {item.case_type || 'General'}{item.client_name ? ` · ${item.client_name}` : ''}
                         </span>
                       </span>
-                      <span className="flex flex-wrap items-center gap-2.5 sm:justify-end">
-                        <span className="w-fit rounded-md border border-[#85E4D4]/20 bg-[#85E4D4]/[0.06] px-2.5 py-1 font-ui text-[10px] font-bold tracking-[-0.01em] text-[#85E4D4]">
-                          {getCaseStatusLabel(item.status, industry)}
-                        </span>
-                        <span className="font-ui text-left text-xs font-semibold tabular-nums text-[#D7E2DE] sm:text-right">
-                          {operationValue(item) || (date ? formatRelevantDate(date) : 'Ver detalle')}
-                        </span>
+                      <span className="inline-flex min-h-8 w-[132px] items-center justify-center gap-2 rounded-lg border border-[#85E4D4]/25 bg-[linear-gradient(135deg,rgba(133,228,212,0.11),rgba(133,228,212,0.035))] px-3 font-ui text-[10px] font-bold tracking-[-0.01em] text-[#9AF0E2] shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+                        <span className="h-1.5 w-1.5 rotate-45 bg-[#85E4D4]" aria-hidden="true" />
+                        {getCaseStatusLabel(item.status, industry)}
+                      </span>
+                      <span className="font-display text-left text-sm font-semibold tabular-nums tracking-[-0.025em] text-[#F3F8F5] sm:text-right">
+                        {operationValue(item) || (date ? formatRelevantDate(date) : 'Ver detalle')}
                       </span>
                     </Link>
                   );
