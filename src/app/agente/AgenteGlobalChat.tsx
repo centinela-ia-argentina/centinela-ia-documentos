@@ -3,11 +3,10 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import {
   ArrowRight,
-  ArrowUp,
-  Broadcast,
   Buildings,
   LockKey,
   LockSimple,
+  PaperPlaneTilt,
   Sparkle,
   Waves,
 } from '@phosphor-icons/react';
@@ -188,10 +187,10 @@ export function AgenteGlobalChat({ industry, puedeUsarIA }: Props) {
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2.5">
             <span className="font-ui text-xs font-semibold text-[#85E4D4]">Inteligencia operativa</span>
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-[#85E4D4]/20 bg-[#85E4D4]/[0.07] px-2.5 py-1 font-ui text-[10px] font-semibold text-[#B9CAC5] shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
-              <span className="relative grid h-4 w-4 place-items-center">
-                <span className="absolute h-2.5 w-2.5 animate-ping rounded-full bg-[#85E4D4]/20 motion-reduce:animate-none" />
-                <Broadcast size={12} weight="bold" className="relative text-[#C8FF62]" />
+            <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.065),rgba(255,255,255,0.025))] px-2.5 py-1 font-ui text-[10px] font-semibold text-[#C5D2CE] shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_6px_18px_rgba(0,0,0,0.12)]">
+              <span className="relative flex h-2.5 w-2.5 items-center justify-center">
+                <span className="absolute h-full w-full animate-ping rounded-full bg-[#C8FF62]/25 motion-reduce:animate-none" />
+                <span className="relative h-1.5 w-1.5 rounded-full bg-[#C8FF62] shadow-[0_0_8px_rgba(200,255,98,0.8)]" />
               </span>
               En línea
             </span>
@@ -286,8 +285,8 @@ export function AgenteGlobalChat({ industry, puedeUsarIA }: Props) {
         }}
         className="border-t border-white/10 bg-[#061311]/70 px-4 py-4 sm:px-6"
       >
-        <div className="flex items-center gap-3 rounded-xl border border-white/10 bg-[#050D0C] p-2 transition-colors focus-within:border-[#85E4D4]/35">
-          <div className="min-w-0 flex-1">
+        <div className="rounded-xl border border-white/10 bg-[#050D0C] p-2 transition-colors focus-within:border-[#85E4D4]/35">
+          <div className="flex items-center gap-2">
             <textarea
               ref={inputRef}
               value={input}
@@ -303,22 +302,22 @@ export function AgenteGlobalChat({ industry, puedeUsarIA }: Props) {
               rows={1}
               aria-label="Escribir una consulta para el Agente Anulus"
               placeholder="Escribí tu consulta…"
-              className="min-h-9 w-full resize-none bg-transparent px-3 pt-2 font-ui text-sm leading-6 text-[#F1F6F4] outline-none placeholder:text-[#63756F]"
+              className="min-h-11 min-w-0 flex-1 resize-none bg-transparent px-3 py-2.5 font-ui text-sm leading-6 text-[#F1F6F4] outline-none placeholder:text-[#63756F]"
             />
-            <p className="flex items-center gap-1.5 px-3 pb-1 font-ui text-[10px] text-[#60736D]">
-              <LockSimple size={12} weight="regular" />
-              Sesión temporal: el historial se borra al salir.
-            </p>
+            <button
+              type="submit"
+              aria-label="Enviar consulta"
+              disabled={cargando || !input.trim()}
+              className="group/send inline-flex h-11 shrink-0 items-center justify-center gap-2 self-center rounded-[5px] border border-white/60 bg-[#F3F8F5] px-4 font-ui text-xs font-bold text-[#071110] shadow-[0_8px_22px_rgba(0,0,0,0.18)] transition-[transform,box-shadow,background-color,color,opacity] duration-150 hover:-translate-y-0.5 hover:bg-white hover:shadow-[0_0_0_1px_rgba(200,255,98,0.24),0_0_24px_rgba(200,255,98,0.2)] active:translate-y-0 active:scale-[0.98] disabled:cursor-not-allowed disabled:border-white/25 disabled:bg-[#D9E2DE] disabled:text-[#53625D] disabled:opacity-75 disabled:shadow-none disabled:hover:translate-y-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C8FF62]"
+            >
+              <span className="hidden sm:inline">Enviar</span>
+              <PaperPlaneTilt size={16} weight="fill" className="transition-transform duration-150 group-hover/send:translate-x-0.5 group-hover/send:-translate-y-0.5" />
+            </button>
           </div>
-          <button
-            type="submit"
-            aria-label="Enviar consulta"
-            disabled={cargando || !input.trim()}
-            className="group/send inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-[5px] border border-white/60 bg-[#F3F8F5] px-4 font-ui text-xs font-bold text-[#071110] shadow-[0_8px_22px_rgba(0,0,0,0.18)] transition-[transform,box-shadow,background-color,opacity] duration-150 hover:-translate-y-0.5 hover:bg-white hover:shadow-[0_0_0_1px_rgba(200,255,98,0.24),0_0_24px_rgba(200,255,98,0.2)] active:translate-y-0 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-35 disabled:hover:translate-y-0 disabled:hover:shadow-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C8FF62]"
-          >
-            <span className="hidden sm:inline">Enviar</span>
-            <ArrowUp size={16} weight="bold" className="transition-transform duration-150 group-hover/send:-translate-y-0.5" />
-          </button>
+          <p className="flex items-center gap-1.5 px-3 pb-1 font-ui text-[10px] text-[#60736D]">
+            <LockSimple size={12} weight="regular" />
+            Sesión temporal: el historial se borra al salir.
+          </p>
         </div>
         <AiDisclaimer
           industry={industry}
