@@ -1,4 +1,4 @@
--- Centinela IA - Fase 1 B.1: estados value/label de expedientes.
+-- Anulus AI - Fase 1 B.1: estados value/label de expedientes.
 -- Ejecutar una vez en Supabase SQL Editor.
 
 -- Paso 0: diagnostico antes de normalizar.

@@ -1,4 +1,4 @@
--- Centinela IA Documentos V1 — SQL base MVP
+-- Anulus AI Documentos V1 — SQL base MVP
 create extension if not exists pgcrypto;
 
 create table if not exists public.organizations (

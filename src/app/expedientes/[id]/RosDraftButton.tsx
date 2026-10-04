@@ -35,7 +35,7 @@ export function RosDraftButton({
       </style></head>
       <body>
         <h2>Borrador — Reporte de Operación Sospechosa (ROS)</h2>
-        <p class="muted">Documento de trabajo generado por Centinela IA. Debe ser revisado, completado y presentado por el escribano ante la UIF a través del sistema oficial. No constituye una presentación válida por sí mismo.</p>
+        <p class="muted">Documento de trabajo generado por Anulus AI. Debe ser revisado, completado y presentado por el escribano ante la UIF a través del sistema oficial. No constituye una presentación válida por sí mismo.</p>
         <div class="aviso">Este borrador se basa en el análisis de riesgo del legajo. Verificá y completá todos los campos marcados como [COMPLETAR] antes de cualquier presentación.</div>
 
         <h2>1. Sujeto obligado</h2>
@@ -66,7 +66,7 @@ export function RosDraftButton({
         <h2>7. Documentación de respaldo</h2>
         <p class="muted">[COMPLETAR: detalle de la documentación adjunta al reporte]</p>
 
-        <p class="foot">Generado el ${new Date().toLocaleString('es-AR', { timeZone: 'America/Buenos_Aires', hour12: false })} · Centinela IA · Borrador sujeto a revisión profesional.</p>
+        <p class="foot">Generado el ${new Date().toLocaleString('es-AR', { timeZone: 'America/Buenos_Aires', hour12: false })} · Anulus AI · Borrador sujeto a revisión profesional.</p>
       </body></html>`;
 
     const iframe = document.createElement('iframe');

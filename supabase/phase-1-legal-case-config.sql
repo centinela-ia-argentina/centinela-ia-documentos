@@ -1,4 +1,4 @@
--- Centinela IA - Fase 1: campos y estados del expediente por rubro.
+-- Anulus AI - Fase 1: campos y estados del expediente por rubro.
 -- Ejecutar una vez en Supabase SQL Editor.
 
 begin;

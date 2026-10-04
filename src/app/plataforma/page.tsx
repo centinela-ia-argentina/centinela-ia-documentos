@@ -20,7 +20,7 @@ interface OrganizationRecord {
 const errorMessages: Record<string, string> = {
   missing_fields: 'Completa el nombre de la organizacion y el email del administrador.',
   invalid_fields: 'Revisa el nombre de la organizacion y el formato del email.',
-  email_already_registered: 'Ese email ya pertenece a un usuario de Centinela IA.',
+  email_already_registered: 'Ese email ya pertenece a un usuario de Anulus AI.',
   invitation_already_exists: 'Ese email ya tiene una invitacion pendiente o aceptada.',
   create_failed: 'No se pudo crear la organizacion. Revisa la configuracion de Supabase.',
 };
@@ -70,7 +70,7 @@ export default async function PlatformPage({ searchParams }: PlatformPageProps) 
         <header className="flex flex-col gap-4 rounded-3xl bg-slate-950 px-6 py-6 text-white sm:flex-row sm:items-center sm:justify-between">
           <div>
             <p className="text-xs font-bold uppercase tracking-[0.24em] text-sky-400">
-              Centinela IA
+              Anulus AI
             </p>
             <h1 className="mt-2 text-3xl font-black">Panel del dueno de plataforma</h1>
             <p className="mt-2 text-sm text-slate-300">Sesion autorizada: {owner.email}</p>

@@ -1,4 +1,4 @@
--- Centinela IA - Solo platform_owner puede crear nuevos Administradores.
+-- Anulus AI - Solo platform_owner puede crear nuevos Administradores.
 -- Ejecutar una vez en Supabase SQL Editor despues de desplegar el codigo.
 
 begin;

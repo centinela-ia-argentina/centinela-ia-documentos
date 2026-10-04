@@ -836,7 +836,7 @@ function InteresesJudicialesCalc() {
           Elegí el tipo de tasa según el fuero y cargá el valor anual (%) a aplicar. Referencia orientativa Banco Nación (cartera general): 27.60% TNA vencida (al 26/08/2026). No se impone automáticamente como obligatoria.
         </p>
         <div className="mt-2 rounded-lg border border-amber-500/20 bg-amber-500/10 p-2.5 text-[11px] text-amber-300">
-          ℹ️ Centinela IA no computa cálculos automáticos sobre series históricas no cargadas ni aplica tasas fijas predeterminadas. La tasa y período deben ser definidos o verificados manualmente por el profesional según el criterio judicial del fuero o la liquidación del expediente.
+          ℹ️ Anulus AI no computa cálculos automáticos sobre series históricas no cargadas ni aplica tasas fijas predeterminadas. La tasa y período deben ser definidos o verificados manualmente por el profesional según el criterio judicial del fuero o la liquidación del expediente.
         </div>
       </div>
 

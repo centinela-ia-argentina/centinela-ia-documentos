@@ -70,7 +70,7 @@ export function DescargarFichaPdfButton({
       </style></head>
       <body>
         <div class="header">
-          <h1>CENTINELA IA — Ficha de Propiedad</h1>
+          <h1>ANULUS AI — Ficha de Propiedad</h1>
         </div>
         
         <div class="title">
@@ -99,7 +99,7 @@ export function DescargarFichaPdfButton({
           <p class="price">${price != null ? `${currency === 'USD' ? 'u$s' : '$'} ${price.toLocaleString('es-AR')}` : 'Consultar'}</p>
         </div>
 
-        <p class="foot">Generado por Centinela IA · ${new Date().toLocaleString('es-AR')} · Beta operativa comercial</p>
+        <p class="foot">Generado por Anulus AI · ${new Date().toLocaleString('es-AR')} · Beta operativa comercial</p>
       </body></html>`;
 
     const win = window.open('', '_blank');

@@ -4,9 +4,9 @@ import { RevealSection } from '@/components/landing-reveal-section';
 import { SiteHeader } from '@/components/SiteHeader';
 
 export const metadata: Metadata = {
-  title: 'Análisis documental | Centinela IA',
+  title: 'Análisis documental | Anulus AI',
   description:
-    'Conocé las funciones de clasificación, sensibilidad y revisión documental asistida de Centinela IA.',
+    'Conocé las funciones de clasificación, sensibilidad y revisión documental asistida de Anulus AI.',
 };
 
 const aiItems = [

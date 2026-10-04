@@ -63,7 +63,7 @@ const isUpdated = estado === 'updated';
       <section className="mx-auto grid min-h-[calc(100vh-5rem)] w-full max-w-6xl items-center gap-8 lg:grid-cols-[1.1fr_0.9fr]">
         <div className="rounded-[2rem] border border-white/10 bg-white/[0.03] p-8 shadow-2xl lg:p-12">
           <p className="text-xs font-black uppercase tracking-[0.45em] text-sky-300">
-            Centinela IA
+            Anulus AI
           </p>
 
           <h1 className="mt-8 max-w-2xl text-4xl font-black tracking-tight text-white md:text-5xl">

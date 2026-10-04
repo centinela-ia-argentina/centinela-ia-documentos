@@ -140,7 +140,7 @@ describe("AI Industry Guards (Phase 6)", () => {
         pregunta: "x",
       });
       const callArgs = (global.fetch as any).mock.calls[0][1].body;
-      expect(callArgs).toContain('Sos \\"Centinela\\", el agente jur');
+      expect(callArgs).toContain('Sos \\"Anulus\\", el agente jur');
     });
     it("2. Inmobiliaria produce persona Inmobiliaria", async () => {
       setupMock("inmobiliaria");

@@ -3,9 +3,10 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
+import { BrandWordmark } from '@/components/BrandWordmark';
 
 const whatsappUrl =
-  'https://wa.me/543794733321?text=Hola,%20quiero%20coordinar%20una%20presentaci%C3%B3n%20de%20Centinela%20IA';
+  'https://wa.me/543794733321?text=Hola,%20quiero%20coordinar%20una%20presentaci%C3%B3n%20de%20Anulus%20AI';
 
 const navigationItems = [
   { href: '/funciones', label: 'Beneficios' },
@@ -74,20 +75,10 @@ export function SiteHeader() {
       <div className="mx-auto grid max-w-[1440px] grid-cols-[1fr_auto] items-center gap-4 xl:grid-cols-[auto_minmax(0,1fr)_auto] xl:gap-8">
         <Link
           href="/"
-          className="group flex min-w-0 items-center gap-3 justify-self-start"
-          aria-label="Centinela IA - Ir al inicio"
+          className="group flex min-w-0 items-center justify-self-start"
+          aria-label="Anulus AI - Ir al inicio"
         >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src="/isotipo.png"
-            alt=""
-            aria-hidden="true"
-            className="h-10 w-10 shrink-0 object-contain drop-shadow-[0_0_12px_rgba(30,155,240,0.2)] transition-transform duration-300 group-hover:scale-105"
-          />
-          <span className="whitespace-nowrap text-lg font-black tracking-[-0.03em] sm:text-xl">
-            <span className="text-white">Centinela</span>{' '}
-            <span className="text-[#1E9BF0]">IA</span>
-          </span>
+          <BrandWordmark className="text-lg sm:text-xl" />
         </Link>
 
         <nav

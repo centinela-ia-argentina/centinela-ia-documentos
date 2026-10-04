@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
+import { brand } from '@/config/brand';
 
 const trustItems = [
   'Beta operativa comercial',
@@ -47,7 +48,7 @@ function ProductMockup() {
           <div className="mb-4 flex items-center justify-between border-b border-white/10 pb-4">
             <div>
               <p className="text-[0.65rem] font-bold uppercase tracking-[0.24em] text-sky-300">
-                Centinela IA
+                {brand.name}
               </p>
               <p className="mt-1 text-lg font-black text-white">Panel operativo</p>
             </div>
@@ -126,7 +127,7 @@ export function PremiumHero() {
           </h1>
 
           <p className="hero-enter hero-enter-3 mt-6 max-w-[520px] text-base leading-8 text-[#C2CCD9] sm:text-lg">
-            Centinela IA reúne tus expedientes y PDFs en un solo lugar, controla los accesos por usuario y organización y registra la actividad relevante, para que trabajes con menos dispersión, mayor trazabilidad y una imagen más profesional ante tus clientes.
+            Anulus AI reúne tus expedientes y PDFs en un solo lugar, controla los accesos por usuario y organización y registra la actividad relevante, para que trabajes con menos dispersión, mayor trazabilidad y una imagen más profesional ante tus clientes.
           </p>
 
           <div className="hero-enter hero-enter-4 mt-8 flex flex-col gap-3 sm:flex-row">

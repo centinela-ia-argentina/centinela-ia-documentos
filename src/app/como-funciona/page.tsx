@@ -4,13 +4,13 @@ import { RevealSection } from '@/components/landing-reveal-section';
 import { SiteHeader } from '@/components/SiteHeader';
 
 export const metadata: Metadata = {
-  title: 'Cómo funciona | Centinela IA',
+  title: 'Cómo funciona | Anulus AI',
   description:
-    'Conocé el recorrido transversal de Centinela IA para organizaciones jurídicas, notariales e inmobiliarias: expedientes, documentos, radar de plazos, análisis con IA y auditoría.',
+    'Conocé el recorrido transversal de Anulus AI para organizaciones jurídicas, notariales e inmobiliarias: expedientes, documentos, radar de plazos, análisis con IA y auditoría.',
 };
 
 const whatsappUrl =
-  'https://wa.me/543794733321?text=Hola,%20quiero%20coordinar%20una%20presentaci%C3%B3n%20de%20Centinela%20IA';
+  'https://wa.me/543794733321?text=Hola,%20quiero%20coordinar%20una%20presentaci%C3%B3n%20de%20Anulus%20AI';
 
 const demoSteps = [
   'Login seguro y multi-organización con control de roles',
@@ -57,7 +57,7 @@ export default function ComoFuncionaPage() {
                 Conocé el flujo completo en una presentación guiada.
               </h1>
               <p className="mt-5 text-base leading-8 text-[#C2CCD9]">
-                Descubrí cómo Centinela IA adapta sus herramientas según la especialidad de tu organización:
+                Descubrí cómo Anulus AI adapta sus herramientas según la especialidad de tu organización:
                 estudios jurídicos, escribanías e inmobiliarias cuentan con flujos documentales dedicados,
                 radar de plazos y vencimientos, análisis con IA server-side y trazabilidad completa de cada acción.
               </p>

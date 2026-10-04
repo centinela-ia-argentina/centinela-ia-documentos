@@ -5,9 +5,9 @@ import { RevealSection } from '@/components/landing-reveal-section';
 import { SiteHeader } from '@/components/SiteHeader';
 
 export const metadata: Metadata = {
-  title: 'Planes y acceso beta | Centinela IA',
+  title: 'Planes y acceso beta | Anulus AI',
   description:
-    'Conocé las condiciones iniciales, el acompañamiento y las opciones de acceso beta de Centinela IA.',
+    'Conocé las condiciones iniciales, el acompañamiento y las opciones de acceso beta de Anulus AI.',
 };
 
 const plans = [
@@ -73,7 +73,7 @@ export default function PlanesPage() {
                 Acceso inicial para primeros clientes.
               </h1>
               <p className="mt-5 max-w-3xl text-base leading-8 text-[#C2CCD9]">
-                Centinela IA se ofrece inicialmente bajo modalidad de acceso beta, con cupos
+                Anulus AI se ofrece inicialmente bajo modalidad de acceso beta, con cupos
                 limitados para organizaciones que quieran validar el sistema en un entorno
                 controlado.
               </p>

@@ -4,9 +4,9 @@ import { RevealSection } from '@/components/landing-reveal-section';
 import { SiteHeader } from '@/components/SiteHeader';
 
 export const metadata: Metadata = {
-  title: 'Seguridad | Centinela IA',
+  title: 'Seguridad | Anulus AI',
   description:
-    'Conocé los controles de confidencialidad, acceso, almacenamiento y auditoría de Centinela IA.',
+    'Conocé los controles de confidencialidad, acceso, almacenamiento y auditoría de Anulus AI.',
 };
 
 const securityItems = [
@@ -55,7 +55,7 @@ export default function SeguridadPage() {
                 Controles activos para proteger información sensible.
               </h1>
               <p className="mt-5 text-base leading-8 text-slate-300">
-                Centinela IA combina autenticación, aislamiento por organización,
+                Anulus AI combina autenticación, aislamiento por organización,
                 almacenamiento privado, permisos por rol y auditoría para reducir accesos
                 indebidos y mejorar el control interno. Incorpora criterios de confidencialidad
                 y control de acceso orientados a buenas prácticas de protección de datos
