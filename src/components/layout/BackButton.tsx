@@ -18,7 +18,7 @@ export function BackButton() {
       type="button"
       onClick={() => router.back()}
       aria-label="Volver atrás"
-      className="flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-100"
+      className="flex min-h-10 items-center gap-1.5 rounded-lg border border-[#85E4D4]/15 bg-white/[0.025] px-3 py-2 text-sm font-semibold text-[#9BB0A9] transition-colors hover:bg-white/[0.06] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#85E4D4]"
     >
       <ArrowLeft className="h-4 w-4" />
       Volver

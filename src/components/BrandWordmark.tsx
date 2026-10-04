@@ -17,15 +17,15 @@ export function BrandWordmark({
     >
       {showMark ? (
         <span
-          className="relative inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[#29C5FF]/70"
+          className="relative inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[#85E4D4]/70 text-[#C8FF62] shadow-[0_0_0_7px_rgba(133,228,212,0.055)]"
           aria-hidden="true"
         >
-          <span className="h-4 w-4 rounded-full border border-white/80" />
+          <span className="h-4 w-4 rounded-full border border-current" />
         </span>
       ) : null}
       <span className="whitespace-nowrap font-black tracking-[-0.035em]">
         <span className="text-white">{brand.shortName}</span>{' '}
-        <span className="text-[#1E9BF0]">{brand.aiSuffix}</span>
+        <span className="text-[#C8FF62]">{brand.aiSuffix}</span>
       </span>
     </span>
   );

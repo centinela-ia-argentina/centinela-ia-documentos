@@ -1,29 +1,16 @@
+import type { ReactNode } from 'react';
 import Link from 'next/link';
-import type { LucideIcon } from 'lucide-react';
-import { BarChart3, FileText, FolderKanban, Users, AlertCircle, Calculator, FileSignature, CalendarDays, ScanLine, Search, Settings } from 'lucide-react';
-import { getUserProfile } from '@/lib/auth/getUserProfile';
-import { isUserRole } from '@/lib/permissions/roles';
-import { createClient } from '@/lib/supabase/server';
-import { normalizeIndustryType, type IndustryType } from '@/lib/industries/documentTypes';
-
+import { Menu, X } from 'lucide-react';
 import { navigation } from '@/config/navigation';
 import { BrandWordmark } from '@/components/BrandWordmark';
+import { ActiveNavLink } from './ActiveNavLink';
 import { getNavGroupLabel, getNavItemLabel } from '@/lib/industries/uiLabels';
+import { getShellContext } from '@/lib/shell/getShellContext';
+
+const groupOrder = ['Operación', 'Herramientas jurídicas', 'Utilidades', 'Gestión'];
 
 export async function Sidebar() {
-  const { profile } = await getUserProfile();
-  const role = isUserRole(profile?.role) ? profile.role : null;
-
-  let industry: IndustryType = 'general';
-  if (profile?.organization_id) {
-    const supabase = await createClient();
-    const { data: org } = await supabase
-      .from('organizations')
-      .select('industry_type')
-      .eq('id', profile.organization_id)
-      .maybeSingle();
-    industry = normalizeIndustryType(org?.industry_type);
-  }
+  const { profile, role, industry } = await getShellContext();
 
   const visibleNavigation = role
     ? navigation.filter(
@@ -33,47 +20,103 @@ export async function Sidebar() {
       )
     : [];
 
-  const groupOrder = ['Operación', 'Herramientas jurídicas', 'Utilidades', 'Gestión'];
+  const renderNavigation = (keyPrefix: string): ReactNode => (
+    <nav aria-label="Navegación principal" className="space-y-5">
+      {groupOrder.map((group) => {
+        const items = visibleNavigation
+          .filter((item) => item.group === group)
+          .sort((a, b) =>
+            getNavItemLabel(a, industry).localeCompare(
+              getNavItemLabel(b, industry),
+              'es'
+            )
+          );
 
-  return (
-    <aside className="fixed inset-y-0 left-0 hidden h-screen w-72 flex-col border-r border-white/10 bg-[#071326] px-5 py-4 shadow-[18px_0_55px_rgba(0,0,0,0.24)] lg:flex">
-      <Link href="/dashboard" className="mb-6 block">
-        <BrandWordmark className="text-sm" />
-        <h1 className="mt-2 text-xl font-bold text-white">
-          Panel operativo
-        </h1>
-      </Link>
+        if (items.length === 0) return null;
 
-      <nav className="space-y-0.5 flex-1 overflow-y-auto pb-6">
-        {groupOrder.map((group) => {
-          const items = visibleNavigation.filter((i) => i.group === group);
-          if (items.length === 0) return null;
-          return (
-            <div key={group} className="mb-0">
-              <p className="px-3 pt-1 pb-0 text-[10px] leading-none font-semibold uppercase tracking-wider text-slate-500">
-                {getNavGroupLabel(group, industry)}
-              </p>
+        return (
+          <section key={`${keyPrefix}-${group}`} aria-labelledby={`${keyPrefix}-${group.replaceAll(' ', '-')}`}>
+            <h2
+              id={`${keyPrefix}-${group.replaceAll(' ', '-')}`}
+              className="mb-1.5 px-3 text-[10px] font-bold uppercase tracking-[0.18em] text-[#5E756E]"
+            >
+              {getNavGroupLabel(group, industry)}
+            </h2>
+            <div className="space-y-0.5">
               {items.map((item) => {
                 const Icon = item.icon;
                 const href =
                   industry === 'inmobiliaria' && item.href === '/expedientes'
                     ? '/operaciones'
                     : item.href;
+
                 return (
-                  <Link
-                    key={href}
+                  <ActiveNavLink
+                    key={`${keyPrefix}-${href}`}
                     href={href}
-                    className="flex items-center gap-2.5 rounded-2xl px-3 py-1 text-sm font-semibold text-[#C2CCD9] transition-all hover:bg-[#1E9BF0]/12 hover:text-[#29C5FF]"
+                    label={getNavItemLabel(item, industry)}
                   >
-                    <Icon className="h-[18px] w-[18px] text-current" />
-                    {getNavItemLabel(item, industry)}
-                  </Link>
+                    <Icon className="h-[17px] w-[17px]" strokeWidth={1.8} />
+                  </ActiveNavLink>
                 );
               })}
             </div>
-          );
-        })}
-      </nav>
-    </aside>
+          </section>
+        );
+      })}
+    </nav>
+  );
+
+  const accountName = profile?.full_name?.trim() || 'Cuenta Anulus';
+  const accountRole = role === 'admin' ? 'Administrador' : role === 'auditor' ? 'Auditor' : 'Colaborador';
+  const initials = accountName
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((part: string) => part[0])
+    .join('')
+    .toUpperCase();
+
+  return (
+    <>
+      <aside className="fixed inset-y-0 left-0 z-30 hidden h-screen w-64 flex-col border-r border-[#85E4D4]/15 bg-[#071110] lg:flex">
+        <Link href="/dashboard" className="px-6 pb-7 pt-5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#85E4D4]">
+          <BrandWordmark className="text-lg" />
+          <p className="mt-3 text-xs text-[#7F938D]">Centro operativo seguro</p>
+        </Link>
+
+        <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-5">
+          {renderNavigation('desktop')}
+        </div>
+
+        <div className="border-t border-[#85E4D4]/15 px-5 py-4">
+          <div className="flex items-center gap-3">
+            <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-[#C8FF62] text-[10px] font-black text-[#071110]">
+              {initials || 'AI'}
+            </span>
+            <span className="min-w-0">
+              <span className="block truncate text-xs font-bold text-white">{accountName}</span>
+              <span className="block text-[10px] text-[#7F938D]">{accountRole}</span>
+            </span>
+          </div>
+        </div>
+      </aside>
+
+      <details className="group sticky top-0 z-40 border-b border-[#85E4D4]/15 bg-[#071110]/95 backdrop-blur-xl lg:hidden">
+        <summary className="flex h-[62px] cursor-pointer list-none items-center justify-between px-4 [&::-webkit-details-marker]:hidden">
+          <BrandWordmark className="text-base" />
+          <span className="grid h-10 w-10 place-items-center rounded-lg border border-[#85E4D4]/15 text-[#9BB0A9] group-open:bg-white/[0.05] group-open:text-white">
+            <Menu className="h-5 w-5 group-open:hidden" aria-hidden="true" />
+            <X className="hidden h-5 w-5 group-open:block" aria-hidden="true" />
+            <span className="sr-only">Abrir o cerrar menú</span>
+          </span>
+        </summary>
+        <div className="max-h-[calc(100vh-62px)] overflow-y-auto border-t border-[#85E4D4]/15 px-4 py-5">
+          {renderNavigation('mobile')}
+          <div className="mt-6 border-t border-[#85E4D4]/15 pt-4 text-xs text-[#7F938D]">
+            {accountName} · {accountRole}
+          </div>
+        </div>
+      </details>
+    </>
   );
 }
