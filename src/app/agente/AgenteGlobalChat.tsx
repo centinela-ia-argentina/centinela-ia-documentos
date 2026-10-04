@@ -314,7 +314,7 @@ export function AgenteGlobalChat({ industry, puedeUsarIA }: Props) {
               <PaperPlaneTilt size={16} weight="fill" className="transition-transform duration-150 group-hover/send:translate-x-0.5 group-hover/send:-translate-y-0.5" />
             </button>
           </div>
-          <p className="flex items-center gap-1.5 px-3 pb-1 font-ui text-[10px] text-[#60736D]">
+          <p className="mt-1 flex items-center gap-1.5 px-3 pb-1 font-ui text-[10px] text-[#60736D]">
             <LockSimple size={12} weight="regular" />
             Sesión temporal: el historial se borra al salir.
           </p>

@@ -24,7 +24,7 @@ export default async function AgentePage() {
 
   return (
     <AppShell>
-      <div className="mx-auto max-w-6xl py-2 sm:py-3">
+      <div className="mx-auto max-w-6xl py-1 sm:py-2">
         <AgenteGlobalChat industry={industry} puedeUsarIA={puedeUsarIA} />
       </div>
     </AppShell>
