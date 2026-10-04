@@ -248,7 +248,7 @@ export function AnulusAgentAvatar({
       </motion.svg>
 
       {showHint ? (
-        <span className="pointer-events-none absolute bottom-0 translate-y-[115%] rounded-md border border-white/10 bg-[#071110]/88 px-2.5 py-1 font-ui text-[10px] font-semibold text-[#C9D5D1] opacity-0 shadow-[0_8px_24px_rgba(0,0,0,0.25)] backdrop-blur-md transition-[opacity,transform] duration-150 group-hover:translate-y-[108%] group-hover:opacity-100 group-focus-visible:translate-y-[108%] group-focus-visible:opacity-100">
+        <span className="pointer-events-none absolute bottom-1 translate-y-[90%] rounded-md border border-white/10 bg-[#071110]/88 px-2.5 py-1 font-ui text-[10px] font-semibold text-[#C9D5D1] opacity-0 shadow-[0_8px_24px_rgba(0,0,0,0.25)] backdrop-blur-md transition-[opacity,transform] duration-150 group-hover:translate-y-[82%] group-hover:opacity-100 group-focus-visible:translate-y-[82%] group-focus-visible:opacity-100">
           Tocame para conversar
         </span>
       ) : null}

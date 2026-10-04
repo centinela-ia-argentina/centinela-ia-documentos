@@ -179,7 +179,7 @@ export function AgenteGlobalChat({ industry, puedeUsarIA }: Props) {
             showHint={!avatarGreeting}
           />
           {avatarGreeting ? (
-            <div role="status" className="absolute bottom-2 left-1/2 z-20 w-max max-w-[88%] -translate-x-1/2 rounded-md border border-[#85E4D4]/20 bg-[#102822]/95 px-2.5 py-1.5 font-ui text-[11px] font-semibold text-[#DFF7F0] shadow-[0_10px_30px_rgba(0,0,0,0.32)] backdrop-blur-md">
+            <div role="status" className="absolute bottom-2 left-1/2 z-20 w-max max-w-[88%] -translate-x-1/2 rounded-[5px] border border-white/40 bg-[#F3F8F5] px-3 py-1.5 font-ui text-[11px] font-bold text-[#071110] shadow-[0_10px_30px_rgba(0,0,0,0.3)]">
               {activationGreeting(normalizedIndustry)}
             </div>
           ) : null}
@@ -286,7 +286,7 @@ export function AgenteGlobalChat({ industry, puedeUsarIA }: Props) {
         }}
         className="border-t border-white/10 bg-[#061311]/70 px-4 py-4 sm:px-6"
       >
-        <div className="flex items-end gap-2 rounded-xl border border-white/10 bg-[#050D0C] p-2 transition-colors focus-within:border-[#85E4D4]/35">
+        <div className="flex items-center gap-3 rounded-xl border border-white/10 bg-[#050D0C] p-2 transition-colors focus-within:border-[#85E4D4]/35">
           <div className="min-w-0 flex-1">
             <textarea
               ref={inputRef}
@@ -314,15 +314,15 @@ export function AgenteGlobalChat({ industry, puedeUsarIA }: Props) {
             type="submit"
             aria-label="Enviar consulta"
             disabled={cargando || !input.trim()}
-            className="grid h-11 w-11 shrink-0 place-items-center rounded-md bg-[#C8FF62] text-[#071110] transition-[transform,box-shadow,opacity] duration-150 hover:-translate-y-0.5 hover:shadow-[0_0_22px_rgba(200,255,98,0.25)] active:translate-y-0 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-35 disabled:hover:translate-y-0 disabled:hover:shadow-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+            className="group/send inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-[5px] border border-white/60 bg-[#F3F8F5] px-4 font-ui text-xs font-bold text-[#071110] shadow-[0_8px_22px_rgba(0,0,0,0.18)] transition-[transform,box-shadow,background-color,opacity] duration-150 hover:-translate-y-0.5 hover:bg-white hover:shadow-[0_0_0_1px_rgba(200,255,98,0.24),0_0_24px_rgba(200,255,98,0.2)] active:translate-y-0 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-35 disabled:hover:translate-y-0 disabled:hover:shadow-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C8FF62]"
           >
-            <ArrowUp size={19} weight="bold" />
+            <span className="hidden sm:inline">Enviar</span>
+            <ArrowUp size={16} weight="bold" className="transition-transform duration-150 group-hover/send:-translate-y-0.5" />
           </button>
         </div>
         <AiDisclaimer
           industry={industry}
           context="agent"
-          className="mt-3 rounded-lg border-white/10 bg-white/[0.025] px-3 py-2 font-ui text-[11px] leading-4 text-[#78908A]"
         />
       </form>
     </section>

@@ -44,9 +44,18 @@ export function AiDisclaimer({
   const disclaimerText = context === 'agent'
     ? getAgentDisclaimer((industry as IndustryType) || 'general')
     : getAiDisclaimer((industry as IndustryType) || 'general');
+  const baseClass = context === 'agent'
+    ? 'mt-3 rounded-md border border-white/10 bg-white/[0.025] px-4 py-3 font-ui text-[13px] font-medium leading-5 tracking-[-0.015em] text-[#AAB9B4]'
+    : 'mt-4 rounded-xl border border-cyan-500/20 bg-cyan-500/10 p-3 text-xs text-cyan-400';
+
   return (
-    <div className={`mt-4 rounded-xl border border-cyan-500/20 bg-cyan-500/10 p-3 text-xs text-cyan-400 ${className}`}>
-      <span className="font-bold mr-1">{context === 'agent' ? 'Uso responsable:' : 'Aviso importante:'}</span>
+    <div
+      className={`${baseClass} ${className}`}
+      style={context === 'agent' ? { color: '#AAB9B4' } : undefined}
+    >
+      <span className={context === 'agent' ? 'mr-1 font-semibold text-[#F1F6F4]' : 'mr-1 font-bold'}>
+        {context === 'agent' ? 'Uso responsable:' : 'Aviso importante:'}
+      </span>
       {disclaimerText}
     </div>
   );
