@@ -23,9 +23,8 @@ export function BrandWordmark({
           an
         </span>
       ) : null}
-      <span className="whitespace-nowrap font-display font-semibold tracking-[-0.045em]">
-        <span className="text-white">{brand.shortName.toLowerCase()}</span>{' '}
-        <span className="text-[#85E4D4]">{brand.aiSuffix.toLowerCase()}</span>
+      <span className="whitespace-nowrap font-display font-semibold tracking-[-0.045em] text-white">
+        {brand.shortName.toLowerCase()} {brand.aiSuffix.toLowerCase()}
       </span>
     </span>
   );

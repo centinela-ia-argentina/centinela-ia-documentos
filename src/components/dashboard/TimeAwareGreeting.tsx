@@ -7,6 +7,7 @@ interface TimeAwareGreetingProps {
 }
 
 function greetingForHour(hour: number) {
+  if (hour < 6) return 'Buenas noches';
   if (hour < 12) return 'Buenos días';
   if (hour < 20) return 'Buenas tardes';
   return 'Buenas noches';
@@ -22,7 +23,20 @@ function getGreetingSnapshot() {
 }
 
 function getServerGreetingSnapshot() {
-  return 'Buenos días';
+  return 'Hola';
+}
+
+function getDateSnapshot() {
+  const value = new Intl.DateTimeFormat('es-AR', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+  }).format(new Date());
+  return value.charAt(0).toUpperCase() + value.slice(1);
+}
+
+function getServerDateSnapshot() {
+  return 'Resumen actualizado';
 }
 
 export function TimeAwareGreeting({ name }: TimeAwareGreetingProps) {
@@ -32,9 +46,15 @@ export function TimeAwareGreeting({ name }: TimeAwareGreetingProps) {
     getServerGreetingSnapshot
   );
 
-  return (
-    <>
-      {greeting}, {name}.
-    </>
+  return <>{greeting}, {name}.</>;
+}
+
+export function LocalDateLabel() {
+  const label = useSyncExternalStore(
+    subscribeToClock,
+    getDateSnapshot,
+    getServerDateSnapshot
   );
+
+  return <>{label}</>;
 }

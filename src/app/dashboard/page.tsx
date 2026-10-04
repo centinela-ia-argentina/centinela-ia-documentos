@@ -1,12 +1,6 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import {
-  ArrowRight,
-  CalendarDays,
-  Plus,
-  Search,
-  Upload,
-} from 'lucide-react';
+import { ArrowRight, CalendarDots } from '@phosphor-icons/react/ssr';
 import { getUserProfile } from '@/lib/auth/getUserProfile';
 import { createClient } from '@/lib/supabase/server';
 import { AppShell } from '@/components/layout/AppShell';
@@ -19,7 +13,10 @@ import { getIndustryTerms } from '@/lib/industries/uiLabels';
 import { isUserRole } from '@/lib/permissions/roles';
 import { getDocumentExpiryStatus } from '@/lib/documents/expiry';
 import { PrimerosPasos } from '@/components/dashboard/PrimerosPasos';
-import { TimeAwareGreeting } from '@/components/dashboard/TimeAwareGreeting';
+import {
+  LocalDateLabel,
+  TimeAwareGreeting,
+} from '@/components/dashboard/TimeAwareGreeting';
 
 interface DashboardDocument {
   id: string;
@@ -137,22 +134,22 @@ export default async function DashboardPage() {
     {
       label: `${terms.expedientePlural} ${terms.adjetivoActivos}`,
       value: String(activeCases.length).padStart(2, '0'),
-      helper: activeCases.length === 1 ? '1 registro en movimiento' : `${activeCases.length} registros en movimiento`,
+      helper: activeCases.length === 1 ? '1 abierta en este momento' : `${activeCases.length} abiertas en este momento`,
     },
     {
-      label: 'Cobertura documental IA',
+      label: 'Documentos analizados',
       value: `${coverage}%`,
-      helper: documents.length ? `${analyzedDocumentIds.size} de ${documents.length} procesados` : 'Sin documentos cargados',
+      helper: documents.length ? `${analyzedDocumentIds.size} de ${documents.length} con análisis disponible` : 'Todavía no hay documentos',
     },
     {
-      label: 'Próximos hitos',
+      label: 'Próximas fechas',
       value: String(relevantCases.length).padStart(2, '0'),
-      helper: relevantCases.length ? 'Fechas operativas registradas' : 'Sin fechas próximas',
+      helper: relevantCases.length ? `${relevantCases.length} hito${relevantCases.length === 1 ? '' : 's'} con fecha registrada` : 'Sin fechas próximas',
     },
     {
-      label: 'Requieren atención',
+      label: 'Pendientes',
       value: String(pendingDocuments.length + expiringDocuments).padStart(2, '0'),
-      helper: `${pendingDocuments.length} análisis · ${expiringDocuments} vencimientos`,
+      helper: `${pendingDocuments.length} análisis y ${expiringDocuments} vencimiento${expiringDocuments === 1 ? '' : 's'}`,
     },
   ];
 
@@ -174,35 +171,22 @@ export default async function DashboardPage() {
   return (
     <AppShell>
       <section className="relative overflow-hidden border-b border-[#85E4D4]/15 pb-8 pt-2 sm:pb-10 sm:pt-5">
-        <span className="pointer-events-none absolute -right-4 -top-16 select-none font-display text-[clamp(7rem,18vw,17rem)] font-black leading-none tracking-[-0.08em] text-white/[0.018]" aria-hidden="true">
+        <span className="pointer-events-none absolute -right-4 -top-16 select-none font-display text-[clamp(7rem,18vw,17rem)] font-black leading-none tracking-[-0.075em] text-white/[0.025] [-webkit-text-stroke:1px_rgba(243,248,245,0.035)]" aria-hidden="true">
           ANULUS
         </span>
         <div className="relative max-w-4xl">
-          <p className="font-display text-sm font-medium tracking-[-0.02em] text-[#85E4D4]">
-            Hoy en Anulus
+          <p className="text-sm font-medium tracking-[-0.015em] text-[#85E4D4]">
+            <LocalDateLabel />
           </p>
           <h1 data-testid="dashboard-title" className="mt-2 font-display text-[clamp(2.25rem,5vw,4.5rem)] font-semibold leading-[0.98] tracking-[-0.055em] text-[#F3F8F5]">
             <TimeAwareGreeting name={greetingName} />
           </h1>
-          <p className="mt-4 max-w-2xl text-sm leading-6 text-[#91A39F] sm:text-base">
-            {terms.dashboardSubtitulo} Priorizá lo que necesita una decisión y avanzá sin perder contexto.
+          <p className="mt-4 max-w-2xl text-sm leading-6 text-[#B7C5C0] sm:text-base">
+            Operaciones, documentos y próximos pasos en un solo lugar.
           </p>
         </div>
 
-        <div className="relative mt-7 flex flex-wrap items-center gap-x-6 gap-y-3">
-          <Link href={`${operationBasePath}/nuevo`} className="group inline-flex min-h-12 items-center gap-3 rounded-full bg-[#C8FF62] py-1.5 pl-2 pr-5 text-sm font-extrabold text-[#071110] shadow-[0_14px_40px_rgba(200,255,98,0.12)] hover:bg-[#D5FF87] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#85E4D4]">
-            <span className="grid h-9 w-9 place-items-center rounded-full border border-[#071110]/15 bg-[#071110]/[0.06] transition-transform group-hover:rotate-90"><Plus className="h-4 w-4" /></span>
-            {terms.nuevoCta}
-          </Link>
-          <Link href="/documentos/subir" className="group inline-flex min-h-11 items-center gap-2 text-sm font-bold text-[#D7E2DE] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#85E4D4]">
-            <span className="grid h-8 w-8 place-items-center rounded-full border border-[#85E4D4]/25 text-[#85E4D4] group-hover:border-[#C8FF62]/50 group-hover:text-[#C8FF62]"><Upload className="h-3.5 w-3.5" /></span>
-            <span className="border-b border-[#85E4D4]/20 pb-0.5">Subir documento</span>
-          </Link>
-          <Link href="/buscar" className="group inline-flex min-h-11 items-center gap-2 text-sm font-bold text-[#D7E2DE] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#85E4D4]">
-            <span className="grid h-8 w-8 place-items-center rounded-full border border-[#85E4D4]/25 text-[#85E4D4] group-hover:border-[#C8FF62]/50 group-hover:text-[#C8FF62]"><Search className="h-3.5 w-3.5" /></span>
-            <span className="border-b border-[#85E4D4]/20 pb-0.5">Buscar</span>
-          </Link>
-        </div>
+
       </section>
 
       {showGettingStarted ? (
@@ -228,15 +212,16 @@ export default async function DashboardPage() {
         ))}
       </section>
 
-      <div className="mt-6 grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
-        <section className="min-w-0 overflow-hidden rounded-2xl border border-[#85E4D4]/15 bg-[#0B1918]/80 shadow-[0_24px_70px_rgba(0,0,0,0.22)]">
-          <div className="flex items-start justify-between gap-4 border-b border-[#85E4D4]/15 px-5 py-4">
+      <div className="mt-8 grid items-start gap-6 xl:grid-cols-[minmax(0,1.45fr)_minmax(320px,0.55fr)]">
+        <section className="min-w-0 overflow-hidden rounded-[22px] border border-[#85E4D4]/15 bg-white/[0.018] p-1.5">
+          <div className="overflow-hidden rounded-[17px] bg-[#0B1918]">
+          <div className="flex items-start justify-between gap-4 border-b border-[#85E4D4]/15 px-6 py-5">
             <div>
-              <h2 className="font-display text-lg font-semibold text-[#F3F8F5]">{isRealEstate ? 'Operaciones en movimiento' : `${terms.expedientePlural} en movimiento`}</h2>
-              <p className="mt-1 text-xs text-[#91A39F]">Ordenados por actividad reciente y próximos pasos.</p>
+              <h2 className="font-display text-lg font-semibold text-[#F3F8F5]">{isRealEstate ? 'Operaciones en curso' : `${terms.expedientePlural} en curso`}</h2>
+              <p className="mt-1 text-xs text-[#91A39F]">Estado, actividad reciente y próximo hito.</p>
             </div>
             <Link href={operationBasePath} className="inline-flex shrink-0 items-center gap-1 text-xs font-bold text-[#85E4D4] hover:text-[#C8FF62]">
-              Ver todas <ArrowRight className="h-3.5 w-3.5" />
+              Ver todas <ArrowRight size={14} weight="bold" />
             </Link>
           </div>
 
@@ -259,19 +244,21 @@ export default async function DashboardPage() {
           ) : (
             <div className="px-5 py-12 text-center">
               <p className="text-sm font-semibold text-[#D7E2DE]">{terms.vacioSinDatos}</p>
-              <Link href={`${operationBasePath}/nuevo`} className="mt-3 inline-flex items-center gap-1 text-sm font-bold text-[#C8FF62]">{terms.nuevoCta} <ArrowRight className="h-4 w-4" /></Link>
+              <Link href={`${operationBasePath}/nuevo`} className="mt-3 inline-flex items-center gap-1 text-sm font-bold text-[#C8FF62]">{terms.nuevoCta} <ArrowRight size={16} weight="bold" /></Link>
             </div>
           )}
+          </div>
         </section>
 
-        <div className="space-y-5">
-          <section className="rounded-2xl border border-[#85E4D4]/15 bg-[#0B1918]/80 p-5">
+        <div>
+          <section className="rounded-[22px] border border-[#85E4D4]/15 bg-white/[0.018] p-1.5">
+            <div className="rounded-[17px] bg-[#0B1918] p-5 sm:p-6">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <h2 className="font-display text-lg font-semibold text-[#F3F8F5]">Próximas acciones</h2>
-                <p className="mt-1 text-xs text-[#91A39F]">Prioridad calculada por plazo e impacto.</p>
+                <h2 className="font-display text-lg font-semibold text-[#F3F8F5]">Para resolver ahora</h2>
+                <p className="mt-1 text-xs text-[#91A39F]">Tareas ordenadas por urgencia e impacto.</p>
               </div>
-              <CalendarDays className="h-4 w-4 text-[#85E4D4]" />
+              <CalendarDots size={18} weight="regular" className="text-[#85E4D4]" />
             </div>
             <div className="mt-4 divide-y divide-[#85E4D4]/15 border-t border-[#85E4D4]/15">
               {nextActions.length ? nextActions.map((action, index) => (
@@ -285,6 +272,7 @@ export default async function DashboardPage() {
               )) : (
                 <p className="py-6 text-xs text-[#91A39F]">No hay acciones urgentes. El panorama está al día.</p>
               )}
+            </div>
             </div>
           </section>
         </div>
