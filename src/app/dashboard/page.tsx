@@ -47,7 +47,16 @@ function formatRelevantDate(value?: string) {
 function operationValue(item: DashboardCase) {
   const amount = String(item.metadata?.valor_operacion ?? '').trim();
   const currency = String(item.metadata?.moneda_operacion ?? '').trim();
-  return amount ? `${currency || ''} ${amount}`.trim() : null;
+  if (!amount) return null;
+
+  const numericAmount = Number(amount);
+  const formattedAmount = Number.isFinite(numericAmount)
+    ? new Intl.NumberFormat('es-AR', { maximumFractionDigits: 2 }).format(numericAmount)
+    : amount;
+
+  return currency
+    ? `${currency.toUpperCase()} ${formattedAmount}`
+    : `Moneda pendiente · ${formattedAmount}`;
 }
 
 export default async function DashboardPage() {
@@ -259,7 +268,7 @@ export default async function DashboardPage() {
           </Link>
         </div>
 
-        <div className="grid border-t border-white/10 lg:grid-cols-[minmax(0,1.45fr)_minmax(340px,0.75fr)]">
+        <div className="grid border-t border-white/10 lg:grid-cols-2">
           <article
             aria-label="Listado de operaciones en curso"
             className="px-5 py-3 sm:px-8 lg:px-10 lg:py-5"
@@ -282,11 +291,11 @@ export default async function DashboardPage() {
                           {item.case_type || 'General'}{item.client_name ? ` · ${item.client_name}` : ''}
                         </span>
                       </span>
-                      <span className="flex flex-wrap items-center gap-3 sm:justify-end sm:gap-4">
-                        <span className="w-fit rounded-full bg-[#85E4D4]/10 px-2.5 py-1 font-ui text-[10px] font-bold text-[#85E4D4]">
-                          ●&nbsp; {getCaseStatusLabel(item.status, industry)}
+                      <span className="flex flex-wrap items-center gap-2.5 sm:justify-end">
+                        <span className="w-fit rounded-md border border-[#85E4D4]/20 bg-[#85E4D4]/[0.06] px-2.5 py-1 font-ui text-[10px] font-bold tracking-[-0.01em] text-[#85E4D4]">
+                          {getCaseStatusLabel(item.status, industry)}
                         </span>
-                        <span className="min-w-20 font-ui text-left text-xs font-semibold text-[#D7E2DE] sm:text-right">
+                        <span className="font-ui text-left text-xs font-semibold tabular-nums text-[#D7E2DE] sm:text-right">
                           {operationValue(item) || (date ? formatRelevantDate(date) : 'Ver detalle')}
                         </span>
                       </span>
