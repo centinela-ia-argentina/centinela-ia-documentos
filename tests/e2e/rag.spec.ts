@@ -59,7 +59,7 @@ async function assertDeterministicRag({
   }
 }
 
-test.describe('Centinela IA - RAG determinista, fuentes y aislamiento', () => {
+test.describe('Anulus AI - RAG determinista, fuentes y aislamiento', () => {
   test('A. Jurídico responde con fuente propia y sin contaminación', async ({ browser }) => {
     await assertDeterministicRag({
       browser,

@@ -8,7 +8,7 @@ const serviceClient = createClient(supabaseUrl, supabaseServiceKey, {
   auth: { autoRefreshToken: false, persistSession: false },
 });
 
-test.describe.serial('Centinela IA - Flujo Jurídico E2E Obligatorio', () => {
+test.describe.serial('Anulus AI - Flujo Jurídico E2E Obligatorio', () => {
   let caseUrl = '';
   let caseId = '';
 
