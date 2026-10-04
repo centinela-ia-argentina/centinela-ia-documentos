@@ -22,10 +22,10 @@ import { PremiumHero } from '@/components/premium-hero';
 import { SiteHeader } from '@/components/SiteHeader';
 
 const whatsappUrl =
-  'https://wa.me/543794733321?text=Hola,%20quiero%20coordinar%20una%20presentaci%C3%B3n%20de%20Centinela%20IA';
+  'https://wa.me/543794733321?text=Hola,%20quiero%20coordinar%20una%20presentaci%C3%B3n%20de%20Anulus%20AI';
 
 const emailUrl =
-  'mailto:tobiasexequielperez11@gmail.com?subject=Consulta%20comercial%20Centinela%20IA';
+  'mailto:tobiasexequielperez11@gmail.com?subject=Consulta%20comercial%20Anulus%20AI';
 
 const problemCards = [
   {
@@ -53,7 +53,7 @@ const problemCards = [
 const structuredData = {
   '@context': 'https://schema.org',
   '@type': 'SoftwareApplication',
-  name: 'Centinela IA',
+  name: 'Anulus AI',
   applicationCategory: 'BusinessApplication',
   operatingSystem: 'Web',
   url: 'https://centinela-ia-documentos.vercel.app/',
@@ -179,7 +179,7 @@ export default function HomePage() {
           <SectionTitle
             label="Problema"
             title="Tus documentos importantes no deberían estar dispersos."
-            description="Muchos equipos trabajan con contratos, expedientes, legajos y PDFs repartidos entre WhatsApp, correo, carpetas locales o Drive. Eso dificulta encontrar archivos, controlar accesos y saber qué pasó con cada documento. Centinela IA reúne todo eso en un solo lugar seguro."
+            description="Muchos equipos trabajan con contratos, expedientes, legajos y PDFs repartidos entre WhatsApp, correo, carpetas locales o Drive. Eso dificulta encontrar archivos, controlar accesos y saber qué pasó con cada documento. Anulus AI reúne todo eso en un solo lugar seguro."
           />
 
           <div className="mt-12 grid items-stretch gap-5 md:grid-cols-2 lg:grid-cols-4">
@@ -351,7 +351,7 @@ export default function HomePage() {
 
       <footer className="border-t border-white/10 bg-[#071326] px-6 pb-24 pt-8 md:py-8">
         <div className="mx-auto flex max-w-7xl flex-col justify-between gap-4 text-sm text-slate-400 md:flex-row md:items-center">
-          <p className="font-semibold text-slate-200">© 2026 Centinela IA</p>
+          <p className="font-semibold text-slate-200">© 2026 Anulus AI</p>
 
           <div className="flex flex-col gap-3 md:flex-row md:items-center md:gap-6">
             <Link href="/privacidad" className="font-semibold text-slate-400 hover:text-sky-300">

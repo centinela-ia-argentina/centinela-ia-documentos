@@ -1,4 +1,4 @@
--- Centinela IA - Fase 1 C: refuerzo RLS para checklist_items.
+-- Anulus AI - Fase 1 C: refuerzo RLS para checklist_items.
 -- Ejecutar una vez en Supabase SQL Editor si las politicas actuales no verifican
 -- organization_id al seleccionar, insertar o actualizar items de checklist.
 

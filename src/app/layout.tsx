@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { Space_Grotesk } from 'next/font/google';
+import { brand } from '@/config/brand';
 import './globals.css';
 
 const display = Space_Grotesk({
@@ -9,14 +10,14 @@ const display = Space_Grotesk({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL('https://centinela-ia-documentos.vercel.app'),
+  metadataBase: new URL(brand.productionUrl),
   title: {
-    default: 'Centinela IA | Gestión documental segura',
-    template: '%s | Centinela IA',
+    default: `${brand.name} | ${brand.tagline}`,
+    template: `%s | ${brand.name}`,
   },
   description:
     'Plataforma web para centralizar expedientes, documentos PDF, usuarios, permisos y actividad auditada en un entorno privado.',
-  applicationName: 'Centinela IA',
+  applicationName: brand.name,
   keywords: [
     'gestión documental',
     'expedientes digitales',
@@ -33,32 +34,23 @@ export const metadata: Metadata = {
     follow: true,
   },
   icons: {
-    icon: '/brand/centinela-logo-mark.png',
-    apple: '/brand/centinela-logo-mark.png',
+    icon: '/brand/anulus-mark.svg',
+    apple: '/brand/anulus-mark.svg',
   },
   openGraph: {
     type: 'website',
     locale: 'es_AR',
     url: '/',
-    siteName: 'Centinela IA',
-    title: 'Centinela IA | Gestión documental segura',
+    siteName: brand.name,
+    title: `${brand.name} | ${brand.tagline}`,
     description:
       'Centralizá expedientes, documentos y accesos desde un panel privado con roles y actividad auditada.',
-    images: [
-      {
-        url: '/brand/centinela-logo-mockup.png',
-        width: 1600,
-        height: 900,
-        alt: 'Centinela IA - Inteligencia operativa para procesos críticos',
-      },
-    ],
   },
   twitter: {
-    card: 'summary_large_image',
-    title: 'Centinela IA | Gestión documental segura',
+    card: 'summary',
+    title: `${brand.name} | ${brand.tagline}`,
     description:
       'Centralizá expedientes, documentos y accesos desde un panel privado con roles y actividad auditada.',
-    images: ['/brand/centinela-logo-mockup.png'],
   },
 };
 

@@ -4,9 +4,9 @@ import { RevealSection } from '@/components/landing-reveal-section';
 import { SiteHeader } from '@/components/SiteHeader';
 
 export const metadata: Metadata = {
-  title: 'Funciones | Centinela IA',
+  title: 'Funciones | Anulus AI',
   description:
-    'Conocé las funciones y los resultados operativos de la plataforma documental Centinela IA.',
+    'Conocé las funciones y los resultados operativos de la plataforma documental Anulus AI.',
 };
 
 const features = [
@@ -100,7 +100,7 @@ export default function FuncionesPage() {
           <SectionTitle
             label="Módulos"
             title="Todo lo que tu equipo necesita para gestionar documentación sensible."
-            description="Centinela IA reúne las herramientas principales para organizar expedientes, cargar documentos, visualizar PDFs, controlar usuarios y revisar actividad desde un entorno privado."
+            description="Anulus AI reúne las herramientas principales para organizar expedientes, cargar documentos, visualizar PDFs, controlar usuarios y revisar actividad desde un entorno privado."
           />
 
           <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">

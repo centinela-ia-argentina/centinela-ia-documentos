@@ -16,7 +16,7 @@ const CASE_LEGAL_ID = 'cccc1111-1111-1111-1111-111111111111';
 const CASE_INM_ID = 'dddd2222-2222-2222-2222-222222222222';
 const CASE_ESC_ID = 'eeee3333-3333-3333-3333-333333333333';
 
-test.describe.serial('Centinela IA - Aislamiento Transversal', () => {
+test.describe.serial('Anulus AI - Aislamiento Transversal', () => {
   let uniqueTitleForManipulation = '';
 
   test.afterAll(async () => {

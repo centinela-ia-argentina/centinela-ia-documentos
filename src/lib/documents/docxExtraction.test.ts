@@ -11,7 +11,7 @@ describe('DOCX Extraction and Validation (@xmldom/xmldom compatibility)', () => 
           children: [
             new Paragraph({
               children: [
-                new TextRun('Documento de prueba notarial y procesal para Centinela IA.'),
+                new TextRun('Documento de prueba notarial y procesal para Anulus AI.'),
               ],
             }),
             new Paragraph({
@@ -35,7 +35,7 @@ describe('DOCX Extraction and Validation (@xmldom/xmldom compatibility)', () => 
 
     // 2. Confirmar extracción de texto con mammoth
     const extractionResult = await mammoth.extractRawText({ buffer });
-    expect(extractionResult.value).toContain('Documento de prueba notarial y procesal para Centinela IA.');
+    expect(extractionResult.value).toContain('Documento de prueba notarial y procesal para Anulus AI.');
     expect(extractionResult.value).toContain('Verificación de compatibilidad con @xmldom/xmldom >= 0.8.15.');
     expect(extractionResult.messages).toEqual([]);
   });

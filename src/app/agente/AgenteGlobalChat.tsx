@@ -164,7 +164,7 @@ export function AgenteGlobalChat({ industry, puedeUsarIA }: Props) {
             ℹ️ Para trabajar sobre documentos o ejecutar acciones, abrí {terms.unExpediente} y usá su Agente IA.
           </p>
           <p className="text-slate-500">
-            ⌛ Por privacidad, esta conversación no se guarda en Centinela IA y se reinicia al salir o recargar.
+            ⌛ Por privacidad, esta conversación no se guarda en Anulus AI y se reinicia al salir o recargar.
           </p>
         </div>
       </div>

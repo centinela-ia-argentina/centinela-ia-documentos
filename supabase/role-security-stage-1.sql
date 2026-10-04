@@ -1,4 +1,4 @@
--- Centinela IA - Etapa 1 de seguridad por roles y organizacion.
+-- Anulus AI - Etapa 1 de seguridad por roles y organizacion.
 -- Ejecutar una vez en Supabase SQL Editor despues de desplegar el codigo.
 
 begin;

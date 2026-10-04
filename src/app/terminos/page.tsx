@@ -3,14 +3,14 @@ import Link from 'next/link';
 
 export const metadata: Metadata = {
   title: 'Términos de uso',
-  description: 'Condiciones generales de uso de Centinela IA en su etapa beta.',
+  description: 'Condiciones generales de uso de Anulus AI en su etapa beta.',
 };
 
 const sections = [
   {
     title: 'Alcance de la beta',
     content:
-      'Centinela IA se encuentra en una etapa beta operativa. Las funciones, límites y condiciones comerciales se acuerdan con cada organización antes de habilitar el acceso.',
+      'Anulus AI se encuentra en una etapa beta operativa. Las funciones, límites y condiciones comerciales se acuerdan con cada organización antes de habilitar el acceso.',
   },
   {
     title: 'Usuarios autorizados',
@@ -44,7 +44,7 @@ export default function TermsPage() {
     <main className="min-h-screen bg-[#f4f8fb] px-6 py-12 text-slate-950">
       <div className="mx-auto max-w-3xl rounded-3xl border border-slate-200 bg-white p-7 shadow-sm sm:p-10">
         <Link href="/" className="text-sm font-bold text-sky-700 hover:text-sky-800">
-          Volver a Centinela IA
+          Volver a Anulus AI
         </Link>
         <p className="mt-8 text-xs font-bold uppercase tracking-[0.2em] text-sky-600">Información legal</p>
         <h1 className="mt-3 text-3xl font-black tracking-tight sm:text-5xl">Términos de uso</h1>

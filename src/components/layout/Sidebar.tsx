@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase/server';
 import { normalizeIndustryType, type IndustryType } from '@/lib/industries/documentTypes';
 
 import { navigation } from '@/config/navigation';
+import { BrandWordmark } from '@/components/BrandWordmark';
 import { getNavGroupLabel, getNavItemLabel } from '@/lib/industries/uiLabels';
 
 export async function Sidebar() {
@@ -37,10 +38,7 @@ export async function Sidebar() {
   return (
     <aside className="fixed inset-y-0 left-0 hidden h-screen w-72 flex-col border-r border-white/10 bg-[#071326] px-5 py-4 shadow-[18px_0_55px_rgba(0,0,0,0.24)] lg:flex">
       <Link href="/dashboard" className="mb-6 block">
-        <p className="text-xs font-semibold uppercase tracking-[0.25em]">
-          <span className="text-white">Centinela</span>{' '}
-          <span className="text-[#1E9BF0]">IA</span>
-        </p>
+        <BrandWordmark className="text-sm" />
         <h1 className="mt-2 text-xl font-bold text-white">
           Panel operativo
         </h1>

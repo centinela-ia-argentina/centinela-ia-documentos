@@ -14,7 +14,7 @@ ${property.address ? `📍 ${property.address}\n` : ''}${property.price ? `💰 
 
 export function generateClientMessage(client: any): string {
   return `¡Hola ${client.name}! ¿Cómo estás?
-Te escribo desde Centinela para hacer seguimiento de tu búsqueda de ${client.operation_interest || 'propiedades'}.
+Te escribo desde Anulus AI para hacer seguimiento de tu búsqueda de ${client.operation_interest || 'propiedades'}.
 ¿Pudiste ver las opciones que te mandamos? ¡Avisame y coordinamos!`;
 }
 

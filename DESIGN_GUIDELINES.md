@@ -1,23 +1,22 @@
-# 🎨 DESIGN GUIDELINES — Centinela IA
+# 🎨 DESIGN GUIDELINES — Anulus AI
 
-> PARA EL AGENTE (Antigravity): este archivo es la FUENTE DE VERDAD del diseño visual.
-> Seguilo SIEMPRE que crees o edites UI. Antes de tocar una pantalla:
-> 1) leé este archivo, 2) reutilizá los tokens y componentes existentes,
-> 3) cambiá SOLO el aspecto visual: nunca rompas la lógica, los datos ni los server actions.
+> Estado transitorio: esta guía documenta el sistema visual heredado que mantiene la aplicación estable mientras se define la identidad de Anulus AI.
+> Antes de editar UI: preservá lógica, datos y server actions; reutilizá componentes existentes; y consultá `.agents/policy/USAGE.md`.
+> Los colores y efectos descritos abajo no son la dirección definitiva. No deben expandirse ni reemplazarse globalmente hasta aprobar la nueva propuesta visual.
 
 ## 0. Principio rector
-Centinela es un SaaS jurídico PREMIUM. No debe parecer un panel administrativo genérico.
+Anulus AI es una plataforma operativa multirrubro de calidad profesional. No debe parecer un panel administrativo genérico.
 Nivel de referencia: Linear, Vercel, Raycast.
-Regla de oro: si una pantalla se ve como "dashboard oscuro por defecto", está MAL. Rehacela.
+Objetivo: evitar un panel genérico sin sacrificar claridad, accesibilidad ni densidad operativa.
 
-## 1. Fondo con atmósfera (NUNCA plano)
+## 1. Fondo actual (heredado)
 - El fondo base es #0a1830, pero SIEMPRE con profundidad encima:
   - Glows radiales tenues arriba: 
     radial-gradient(ellipse 80% 50% at 50% -20%, rgba(139,92,246,0.15), transparent),
     radial-gradient(ellipse 60% 50% at 85% 0%, rgba(34,211,238,0.10), transparent)
   - Grilla sutil (opcional, con máscara que se desvanece):
     linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px) 40px/40px + su versión horizontal.
-- Prohibido dejar un color de fondo liso sin ninguna de estas capas.
+- Mantener estas capas solo donde ya existen hasta aprobar la nueva paleta.
 
 ## 2. Tipografía con carácter
 - Títulos/headings: fuente DISPLAY (Space Grotesk o Geist vía next/font), font-semibold, tracking-tight.
@@ -25,7 +24,7 @@ Regla de oro: si una pantalla se ve como "dashboard oscuro por defecto", está M
 - Números clave (KPIs): grandes (text-4xl a text-5xl), font-semibold, idealmente con .text-gradient.
 - Jerarquía clara: título > subtítulo > cuerpo. Nada de todo del mismo tamaño/color.
 
-## 3. El degradé cian→violeta es la FIRMA (no solo botones)
+## 3. Acento actual (provisional)
 - Degradé firma: linear-gradient(135deg, #22d3ee 0%, #6366f1 55%, #8b5cf6 100%).
 - Usalo en: barra de acento antes de títulos de sección (un <span> h-5 w-1 rounded-full),
   chips de ícono, número KPI (.text-gradient), pestaña/nav activa, focus ring de inputs.
@@ -53,7 +52,7 @@ Regla de oro: si una pantalla se ve como "dashboard oscuro por defecto", está M
 - Hover: elevación suave (y:-4). Números: contar con CountUp.
 - Regla: todo entre 200–400ms. Nada brusco ni lento.
 
-## 7. Tokens (usar SIEMPRE estos; no hardcodear colores sueltos)
+## 7. Tokens provisionales (usar mientras se define la identidad de Anulus AI)
 - Fondos: --bg-base #0a1830, --bg-elevated #0c2340
 - Acento cian: #22d3ee (accent) / #06b6d4 (strong) / #67e8f9 (soft)
 - Violeta: #8b5cf6 (brandviolet) / #a78bfa (soft)
@@ -73,7 +72,7 @@ Regla de oro: si una pantalla se ve como "dashboard oscuro por defecto", está M
 - ❌ Más de 2 colores de acento.
 - ❌ Degradé en todos lados (pierde el efecto de "firma").
 
-## 10. Checklist antes de dar por lista una pantalla
+## 10. Checklist transitorio antes de dar por lista una pantalla
 - [ ] El fondo tiene profundidad (no es plano).
 - [ ] Los títulos usan la fuente display y hay jerarquía clara.
 - [ ] El degradé aparece como sello (barra/ícono/KPI/activo), no suelto.

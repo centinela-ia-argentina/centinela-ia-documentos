@@ -3,7 +3,7 @@ import Link from 'next/link';
 
 export const metadata: Metadata = {
   title: 'Política de privacidad',
-  description: 'Información sobre el tratamiento de datos personales en Centinela IA.',
+  description: 'Información sobre el tratamiento de datos personales en Anulus AI.',
 };
 
 const sections = [
@@ -25,7 +25,7 @@ const sections = [
   {
     title: 'Acceso y confidencialidad',
     content:
-      'Centinela IA aplica controles por organización y rol. El acceso a información operativa está limitado a usuarios autorizados según las funciones habilitadas en la beta actual.',
+      'Anulus AI aplica controles por organización y rol. El acceso a información operativa está limitado a usuarios autorizados según las funciones habilitadas en la beta actual.',
   },
   {
     title: 'Conservación y derechos',
@@ -39,7 +39,7 @@ export default function PrivacyPage() {
     <main className="min-h-screen bg-[#f4f8fb] px-6 py-12 text-slate-950">
       <div className="mx-auto max-w-3xl rounded-3xl border border-slate-200 bg-white p-7 shadow-sm sm:p-10">
         <Link href="/" className="text-sm font-bold text-sky-700 hover:text-sky-800">
-          Volver a Centinela IA
+          Volver a Anulus AI
         </Link>
         <p className="mt-8 text-xs font-bold uppercase tracking-[0.2em] text-sky-600">Información legal</p>
         <h1 className="mt-3 text-3xl font-black tracking-tight sm:text-5xl">Política de privacidad</h1>

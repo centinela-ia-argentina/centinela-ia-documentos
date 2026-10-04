@@ -10,7 +10,7 @@ if (!supabaseUrl || !supabaseAnonKey) {
   throw new Error('Missing Supabase credentials for Storage RLS tests.');
 }
 
-const createPdfBlob = (content = 'Centinela IA Storage RLS test') =>
+const createPdfBlob = (content = 'Anulus AI Storage RLS test') =>
   new Blob(
     [
       '%PDF-1.4\n',
@@ -90,7 +90,7 @@ describe('Storage RLS Policies (documents_*) con objetos reales PDF', () => {
     }
   });
 
-  const uploadFile = async (client: any, path: string, content = 'Centinela IA Storage RLS test') => {
+  const uploadFile = async (client: any, path: string, content = 'Anulus AI Storage RLS test') => {
     return client.storage
       .from('documents')
       .upload(path, createPdfBlob(content), {
@@ -99,7 +99,7 @@ describe('Storage RLS Policies (documents_*) con objetos reales PDF', () => {
       });
   };
 
-  const updateFile = async (client: any, path: string, content = 'Centinela IA Storage RLS updated test') => {
+  const updateFile = async (client: any, path: string, content = 'Anulus AI Storage RLS updated test') => {
     return client.storage
       .from('documents')
       .update(path, createPdfBlob(content), {

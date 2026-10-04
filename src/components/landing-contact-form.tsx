@@ -17,7 +17,7 @@ export function LandingContactForm() {
 
     const formData = new FormData(event.currentTarget);
     const message = [
-      'Hola, quiero consultar por Centinela IA.',
+      'Hola, quiero consultar por Anulus AI.',
       '',
       `Nombre: ${String(formData.get('name') ?? '')}`,
       `Organización: ${String(formData.get('organization') ?? '')}`,

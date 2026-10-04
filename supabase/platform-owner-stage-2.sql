@@ -1,4 +1,4 @@
--- Centinela IA - Etapa 2: dueno de plataforma y alta aislada de clientes.
+-- Anulus AI - Etapa 2: dueno de plataforma y alta aislada de clientes.
 -- Ejecutar una vez en Supabase SQL Editor despues de desplegar el codigo.
 
 begin;

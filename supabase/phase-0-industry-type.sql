@@ -1,4 +1,4 @@
--- Centinela IA - Fase 0: rubro documental por organizacion.
+-- Anulus AI - Fase 0: rubro documental por organizacion.
 -- Ejecutar una vez en Supabase SQL Editor.
 
 begin;

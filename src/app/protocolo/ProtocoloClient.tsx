@@ -131,7 +131,7 @@ export function ProtocoloClient({ escrituras, cases }: { escrituras: EscrituraPr
           <thead><tr><th>N°</th><th>Fecha</th><th>Tipo de acto</th><th>Comparecientes</th><th>Objeto</th><th>Folios</th></tr></thead>
           <tbody>${filas || '<tr><td colspan="6" style="text-align:center;color:#888;">Sin escrituras</td></tr>'}</tbody>
         </table>
-        <p class="foot">Generado el ${new Date().toLocaleString('es-AR')} · Centinela IA</p>
+        <p class="foot">Generado el ${new Date().toLocaleString('es-AR')} · Anulus AI</p>
       </body></html>`;
 
     const win = window.open('', '_blank');
