@@ -109,14 +109,14 @@ export default async function AcceptInvitationPage({
       <div className="mx-auto grid min-h-[calc(100vh-4rem)] w-full max-w-6xl items-center gap-6 lg:grid-cols-[0.9fr_1.1fr]">
         <section className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-7 shadow-2xl sm:p-9">
           <p className="text-xs font-black uppercase tracking-[0.35em] text-sky-300">
-            Centinela IA Documentos
+            Anulus AI Documentos
           </p>
           <h1 className="mt-5 text-4xl font-black tracking-tight sm:text-5xl">
             Creá tu acceso seguro
           </h1>
           <p className="mt-5 text-sm leading-7 text-slate-300">
             Este enlace reserva tu lugar dentro de una organización específica.
-            Definí tu contraseña y Centinela IA asociará la cuenta al rol que te
+            Definí tu contraseña y Anulus AI asociará la cuenta al rol que te
             asignó el administrador.
           </p>
 

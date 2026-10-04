@@ -17,7 +17,7 @@ const DOC_PALERMO_ID = 'ddcc3333-3333-3333-3333-333333333339';
 const DOC_ANTECEDENTE_ID = 'ddcc3333-3333-3333-3333-333333333338';
 const DOC_CERTIFICADOS_ID = 'ddcc3333-3333-3333-3333-333333333337';
 
-test.describe.serial('Centinela IA - Escribania E2E', () => {
+test.describe.serial('Anulus AI - Escribania E2E', () => {
   let tempCaseId = '';
 
   test.afterAll(async () => {

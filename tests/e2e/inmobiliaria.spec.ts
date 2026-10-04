@@ -12,7 +12,7 @@ const ORG_INM_ID = '22222222-2222-2222-2222-222222222222';
 const CASE_INM_ID = 'dddd2222-2222-2222-2222-222222222222';
 const CASE_LEGAL_ID = 'cccc1111-1111-1111-1111-111111111111';
 
-test.describe.serial('Centinela IA - Inmobiliaria E2E', () => {
+test.describe.serial('Anulus AI - Inmobiliaria E2E', () => {
   let tempCaseId = '';
   let tempRentalCaseId = '';
 

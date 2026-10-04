@@ -35,13 +35,13 @@ export async function sendInvitationEmail({
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        from: 'Centinela IA <onboarding@resend.dev>',
+        from: 'Anulus AI <onboarding@resend.dev>',
         to: [to],
-        subject: 'Te invitaron a Centinela IA',
-        text: `Te invitaron a formar parte de Centinela IA. Aceptá la invitación desde este enlace: ${invitationUrl}`,
+        subject: 'Te invitaron a Anulus AI',
+        text: `Te invitaron a formar parte de Anulus AI. Aceptá la invitación desde este enlace: ${invitationUrl}`,
         html: `
           <div style="font-family: Arial, sans-serif; color: #0f172a; line-height: 1.6;">
-            <h1 style="font-size: 24px; margin-bottom: 16px;">Te invitaron a Centinela IA</h1>
+            <h1 style="font-size: 24px; margin-bottom: 16px;">Te invitaron a Anulus AI</h1>
             <p>Recibiste una invitación para acceder a la plataforma.</p>
             <p>
               <a

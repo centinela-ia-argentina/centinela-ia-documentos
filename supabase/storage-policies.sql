@@ -1,4 +1,4 @@
--- Centinela IA — Storage policies para bucket privado documents
+-- Anulus AI — Storage policies para bucket privado documents
 -- Ejecutar después de schema.sql.
 -- Ruta esperada: organization_id/case_id/document_id/file_name
 

@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { BrandWordmark } from '@/components/BrandWordmark';
 import { signIn } from './actions';
 
 interface LoginPageProps {
@@ -28,15 +29,10 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
 
         <Link
           href="/"
-          className="mx-auto mb-4 mt-2 flex max-w-xs justify-center overflow-visible"
-          aria-label="Volver al inicio de Centinela IA"
+          className="mx-auto mb-8 mt-8 flex max-w-xs justify-center"
+          aria-label="Volver al inicio de Anulus AI"
         >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src="/brand/centinela-logo-transparent.png"
-            alt="Centinela IA"
-            className="h-36 w-full object-contain"
-          />
+          <BrandWordmark className="text-2xl" />
         </Link>
 
         <h1 className="text-3xl font-bold text-white">Ingresar al panel</h1>
