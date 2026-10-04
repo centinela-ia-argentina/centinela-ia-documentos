@@ -2,7 +2,6 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import {
   ArrowRight,
-  Bot,
   CalendarDays,
   Plus,
   Search,
@@ -20,6 +19,7 @@ import { getIndustryTerms } from '@/lib/industries/uiLabels';
 import { isUserRole } from '@/lib/permissions/roles';
 import { getDocumentExpiryStatus } from '@/lib/documents/expiry';
 import { PrimerosPasos } from '@/components/dashboard/PrimerosPasos';
+import { TimeAwareGreeting } from '@/components/dashboard/TimeAwareGreeting';
 
 interface DashboardDocument {
   id: string;
@@ -66,7 +66,7 @@ export default async function DashboardPage() {
     await Promise.all([
       supabase
         .from('organizations')
-        .select('industry_type')
+        .select('name, industry_type')
         .eq('id', profile.organization_id)
         .maybeSingle(),
       supabase
@@ -98,6 +98,11 @@ export default async function DashboardPage() {
   const documents = (documentsResult.data ?? []) as DashboardDocument[];
   const aiOutputs = aiOutputsResult.data ?? [];
   const isRealEstate = industry === 'inmobiliaria';
+  const profileName = profile.full_name?.trim();
+  const greetingName =
+    profileName && !/^inmobiliaria$/i.test(profileName)
+      ? firstName(profileName)
+      : organizationResult.data?.name?.trim() || firstName(profileName);
   const operationBasePath = isRealEstate ? '/operaciones' : '/expedientes';
 
   const activeCases = cases.filter((item) => isCaseActive(item.status));
@@ -173,26 +178,29 @@ export default async function DashboardPage() {
           ANULUS
         </span>
         <div className="relative max-w-4xl">
-          <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#85E4D4]">
-            Panorama operativo
+          <p className="font-display text-sm font-medium tracking-[-0.02em] text-[#85E4D4]">
+            Hoy en Anulus
           </p>
           <h1 data-testid="dashboard-title" className="mt-2 font-display text-[clamp(2.25rem,5vw,4.5rem)] font-semibold leading-[0.98] tracking-[-0.055em] text-[#F3F8F5]">
-            Buenos días, {firstName(profile.full_name)}.
+            <TimeAwareGreeting name={greetingName} />
           </h1>
           <p className="mt-4 max-w-2xl text-sm leading-6 text-[#91A39F] sm:text-base">
             {terms.dashboardSubtitulo} Priorizá lo que necesita una decisión y avanzá sin perder contexto.
           </p>
         </div>
 
-        <div className="relative mt-6 flex flex-wrap gap-2.5">
-          <Link href={`${operationBasePath}/nuevo`} className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-[#C8FF62] px-4 text-sm font-extrabold text-[#071110] hover:bg-[#D5FF87] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#85E4D4]">
-            <Plus className="h-4 w-4" /> {terms.nuevoCta}
+        <div className="relative mt-7 flex flex-wrap items-center gap-x-6 gap-y-3">
+          <Link href={`${operationBasePath}/nuevo`} className="group inline-flex min-h-12 items-center gap-3 rounded-full bg-[#C8FF62] py-1.5 pl-2 pr-5 text-sm font-extrabold text-[#071110] shadow-[0_14px_40px_rgba(200,255,98,0.12)] hover:bg-[#D5FF87] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#85E4D4]">
+            <span className="grid h-9 w-9 place-items-center rounded-full border border-[#071110]/15 bg-[#071110]/[0.06] transition-transform group-hover:rotate-90"><Plus className="h-4 w-4" /></span>
+            {terms.nuevoCta}
           </Link>
-          <Link href="/documentos/subir" className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-[#85E4D4]/20 bg-white/[0.025] px-4 text-sm font-bold text-[#D7E2DE] hover:bg-white/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#85E4D4]">
-            <Upload className="h-4 w-4 text-[#85E4D4]" /> Subir documento
+          <Link href="/documentos/subir" className="group inline-flex min-h-11 items-center gap-2 text-sm font-bold text-[#D7E2DE] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#85E4D4]">
+            <span className="grid h-8 w-8 place-items-center rounded-full border border-[#85E4D4]/25 text-[#85E4D4] group-hover:border-[#C8FF62]/50 group-hover:text-[#C8FF62]"><Upload className="h-3.5 w-3.5" /></span>
+            <span className="border-b border-[#85E4D4]/20 pb-0.5">Subir documento</span>
           </Link>
-          <Link href="/buscar" className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-[#85E4D4]/20 bg-white/[0.025] px-4 text-sm font-bold text-[#D7E2DE] hover:bg-white/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#85E4D4]">
-            <Search className="h-4 w-4 text-[#85E4D4]" /> Buscar
+          <Link href="/buscar" className="group inline-flex min-h-11 items-center gap-2 text-sm font-bold text-[#D7E2DE] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#85E4D4]">
+            <span className="grid h-8 w-8 place-items-center rounded-full border border-[#85E4D4]/25 text-[#85E4D4] group-hover:border-[#C8FF62]/50 group-hover:text-[#C8FF62]"><Search className="h-3.5 w-3.5" /></span>
+            <span className="border-b border-[#85E4D4]/20 pb-0.5">Buscar</span>
           </Link>
         </div>
       </section>
@@ -213,7 +221,7 @@ export default async function DashboardPage() {
       <section aria-label="Indicadores operativos" className="grid border-b border-[#85E4D4]/15 sm:grid-cols-2 xl:grid-cols-4">
         {metrics.map((metric, index) => (
           <article key={metric.label} className={`px-4 py-5 sm:px-5 ${index > 0 ? 'border-t border-[#85E4D4]/15 sm:border-l sm:border-t-0' : ''} ${index === 2 ? 'sm:border-t xl:border-t-0' : ''}`}>
-            <p className="text-[11px] font-semibold text-[#91A39F]">{metric.label}</p>
+            <p className="text-xs font-medium tracking-[-0.015em] text-[#9FB0AB]">{metric.label}</p>
             <p className="mt-1 font-display text-2xl font-bold tracking-[-0.04em] text-[#F3F8F5]">{metric.value}</p>
             <p className="mt-1 text-[10px] text-[#6F827D]">{metric.helper}</p>
           </article>
@@ -277,19 +285,6 @@ export default async function DashboardPage() {
               )) : (
                 <p className="py-6 text-xs text-[#91A39F]">No hay acciones urgentes. El panorama está al día.</p>
               )}
-            </div>
-          </section>
-
-          <section className="relative overflow-hidden rounded-2xl border border-[#85E4D4]/15 bg-[#0B1918]/80 p-5">
-            <div className="pointer-events-none absolute -right-7 -top-8 h-32 w-32 rounded-full border border-[#85E4D4]/50 shadow-[0_0_0_14px_rgba(133,228,212,0.035),0_0_0_30px_rgba(200,255,98,0.025)]" aria-hidden="true" />
-            <div className="relative">
-              <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#85E4D4]">Asistente de operación</p>
-              <h2 className="mt-1 max-w-[230px] font-display text-lg font-semibold leading-5 text-[#F3F8F5]">Preguntá sobre tus cierres.</h2>
-              <p className="mt-3 max-w-[270px] text-xs leading-5 text-[#91A39F]">Consultá documentos, vencimientos o inconsistencias. Anulus siempre muestra la fuente.</p>
-              <Link href="/agente" className="mt-4 inline-flex min-h-10 w-full items-center justify-between rounded-lg border border-[#85E4D4]/15 bg-white/[0.025] px-3 text-xs text-[#9FB0AB] hover:border-[#85E4D4]/35 hover:text-white">
-                <span>¿Qué necesita atención hoy?</span>
-                <span className="grid h-7 w-7 place-items-center rounded-md bg-[#C8FF62] text-[#071110]"><Bot className="h-4 w-4" /></span>
-              </Link>
             </div>
           </section>
         </div>

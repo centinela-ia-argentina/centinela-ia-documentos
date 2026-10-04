@@ -10,7 +10,7 @@ import { getShellContext } from '@/lib/shell/getShellContext';
 const groupOrder = ['Operación', 'Herramientas jurídicas', 'Utilidades', 'Gestión'];
 
 export async function Sidebar() {
-  const { profile, role, industry } = await getShellContext();
+  const { profile, role, industry, organizationName } = await getShellContext();
 
   const visibleNavigation = role
     ? navigation.filter(
@@ -21,7 +21,7 @@ export async function Sidebar() {
     : [];
 
   const renderNavigation = (keyPrefix: string): ReactNode => (
-    <nav aria-label="Navegación principal" className="space-y-5">
+    <nav aria-label="Navegación principal" className="flex h-full flex-col justify-between gap-2">
       {groupOrder.map((group) => {
         const items = visibleNavigation
           .filter((item) => item.group === group)
@@ -38,11 +38,11 @@ export async function Sidebar() {
           <section key={`${keyPrefix}-${group}`} aria-labelledby={`${keyPrefix}-${group.replaceAll(' ', '-')}`}>
             <h2
               id={`${keyPrefix}-${group.replaceAll(' ', '-')}`}
-              className="mb-1.5 px-3 text-[10px] font-bold uppercase tracking-[0.18em] text-[#5E756E]"
+              className="mb-0.5 px-2.5 text-[9px] font-bold uppercase tracking-[0.18em] text-[#5E756E]"
             >
               {getNavGroupLabel(group, industry)}
             </h2>
-            <div className="space-y-0.5">
+            <div className="space-y-0">
               {items.map((item) => {
                 const Icon = item.icon;
                 const href =
@@ -67,7 +67,7 @@ export async function Sidebar() {
     </nav>
   );
 
-  const accountName = profile?.full_name?.trim() || 'Cuenta Anulus';
+  const accountName = organizationName || profile?.full_name?.trim() || 'Cuenta Anulus';
   const accountRole = role === 'admin' ? 'Administrador' : role === 'auditor' ? 'Auditor' : 'Colaborador';
   const initials = accountName
     .split(/\s+/)
@@ -79,18 +79,17 @@ export async function Sidebar() {
   return (
     <>
       <aside className="fixed inset-y-0 left-0 z-30 hidden h-screen w-64 flex-col border-r border-[#85E4D4]/15 bg-[#071110] lg:flex">
-        <Link href="/dashboard" className="px-6 pb-7 pt-5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#85E4D4]">
+        <Link href="/dashboard" className="px-5 py-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#85E4D4]">
           <BrandWordmark className="text-lg" />
-          <p className="mt-3 text-xs text-[#7F938D]">Centro operativo seguro</p>
         </Link>
 
-        <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-5">
+        <div className="min-h-0 flex-1 overflow-hidden px-3 pb-2">
           {renderNavigation('desktop')}
         </div>
 
-        <div className="border-t border-[#85E4D4]/15 px-5 py-4">
+        <div className="mx-3 mb-3 rounded-xl bg-white/[0.025] px-3 py-2.5">
           <div className="flex items-center gap-3">
-            <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-[#C8FF62] text-[10px] font-black text-[#071110]">
+            <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-[#85E4D4]/20 bg-[#85E4D4]/[0.06] text-[10px] font-black text-[#C8FF62]">
               {initials || 'AI'}
             </span>
             <span className="min-w-0">
