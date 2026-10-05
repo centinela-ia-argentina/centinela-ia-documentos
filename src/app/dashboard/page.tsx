@@ -11,7 +11,6 @@ import {
 } from '@/lib/industries/caseConfig';
 import { getIndustryTerms } from '@/lib/industries/uiLabels';
 import { isUserRole } from '@/lib/permissions/roles';
-import { getDocumentExpiryStatus } from '@/lib/documents/expiry';
 import { PrimerosPasos } from '@/components/dashboard/PrimerosPasos';
 import {
   LocalDateLabel,
@@ -20,7 +19,6 @@ import {
 
 interface DashboardDocument {
   id: string;
-  expires_at?: string | null;
 }
 
 interface DashboardCase {
@@ -86,7 +84,7 @@ export default async function DashboardPage() {
         .order('created_at', { ascending: false }),
       supabase
         .from('documents')
-        .select('id, expires_at')
+        .select('id')
         .eq('organization_id', profile.organization_id)
         .order('created_at', { ascending: false }),
       supabase
@@ -114,28 +112,14 @@ export default async function DashboardPage() {
   const operationBasePath = isRealEstate ? '/operaciones' : '/expedientes';
 
   const activeCases = cases.filter((item) => isCaseActive(item.status));
-  const relevantCases = activeCases
-    .filter((item) => String(item.metadata?.fecha_relevante ?? '').trim())
-    .sort((a, b) =>
-      String(a.metadata?.fecha_relevante).localeCompare(
-        String(b.metadata?.fecha_relevante)
-      )
-    );
 
   const analyzedDocumentIds = new Set(
     aiOutputs.map((item) => String(item.document_id || '')).filter(Boolean)
   );
-  const pendingDocuments = documents.filter(
-    (document) => !analyzedDocumentIds.has(document.id)
-  );
   const coverage = documents.length
     ? Math.round((analyzedDocumentIds.size / documents.length) * 100)
     : 0;
-  const expiringDocuments = documents.filter((document) => {
-    if (!document.expires_at) return false;
-    const status = getDocumentExpiryStatus(document.expires_at);
-    return status === 'por_vencer' || status === 'vencido';
-  }).length;
+  const memberCount = memberResult.count ?? 0;
 
   const hasCase = cases.length > 0;
   const hasDocument = documents.length > 0;
@@ -148,36 +132,39 @@ export default async function DashboardPage() {
       helper: activeCases.length === 1 ? '1 abierta en este momento' : `${activeCases.length} abiertas en este momento`,
     },
     {
-      label: 'Documentos analizados',
+      label: 'Documentos',
+      value: String(documents.length).padStart(2, '0'),
+      helper: documents.length === 1 ? '1 documento en la bóveda' : `${documents.length} documentos en la bóveda`,
+    },
+    {
+      label: 'Cobertura de análisis',
       value: `${coverage}%`,
       helper: documents.length ? `${analyzedDocumentIds.size} de ${documents.length} con análisis disponible` : 'Todavía no hay documentos',
     },
     {
-      label: 'Próximas fechas',
-      value: String(relevantCases.length).padStart(2, '0'),
-      helper: relevantCases.length ? `${relevantCases.length} hito${relevantCases.length === 1 ? '' : 's'} con fecha registrada` : 'Sin fechas próximas',
-    },
-    {
-      label: 'Pendientes',
-      value: String(pendingDocuments.length + expiringDocuments).padStart(2, '0'),
-      helper: `${pendingDocuments.length} análisis y ${expiringDocuments} vencimiento${expiringDocuments === 1 ? '' : 's'}`,
+      label: 'Equipo',
+      value: String(memberCount).padStart(2, '0'),
+      helper: memberCount === 1 ? '1 integrante con acceso' : `${memberCount} integrantes con acceso`,
     },
   ];
 
-  const nextActions = [
-    ...relevantCases.slice(0, 2).map((item) => ({
-      title: item.title || terms.itemSinTitulo,
-      detail: `Revisar hito · ${formatRelevantDate(String(item.metadata?.fecha_relevante ?? ''))}`,
-      href: `${operationBasePath}/${item.id}`,
-    })),
-    ...(pendingDocuments.length
-      ? [{
-          title: 'Revisar análisis pendientes',
-          detail: `${pendingDocuments.length} documento${pendingDocuments.length === 1 ? '' : 's'} sin procesar`,
-          href: '/observaciones#analisis-ia-pendientes',
-        }]
-      : []),
-  ].slice(0, 3);
+  const workspaces = [
+    {
+      title: 'Agenda',
+      detail: 'Calendario, vencimientos, firmas y alertas.',
+      href: '/agenda',
+    },
+    {
+      title: 'Documentos',
+      detail: 'Bóveda, vigencias y análisis documental.',
+      href: '/documentos',
+    },
+    {
+      title: 'Observaciones',
+      detail: 'Excepciones y datos que requieren revisión.',
+      href: '/observaciones',
+    },
+  ];
 
   return (
     <AppShell>
@@ -257,7 +244,7 @@ export default async function DashboardPage() {
                 {activeCases.length} activas
               </span>
               <span className="rounded-full border border-white/15 px-3 py-1.5 text-xs font-semibold text-[#D7E2DE]">
-                {pendingDocuments.length + expiringDocuments} pendientes
+                {documents.length} documentos
               </span>
             </div>
           </div>
@@ -320,22 +307,22 @@ export default async function DashboardPage() {
           <aside className="border-t border-white/10 p-5 sm:p-7 lg:border-l lg:border-t-0 lg:p-8">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <p className="font-ui text-xs font-semibold text-[#85E4D4]">Prioridad del día</p>
+                <p className="font-ui text-xs font-semibold text-[#85E4D4]">Navegación operativa</p>
                 <h3 className="mt-1 font-display text-2xl font-medium tracking-[-0.04em] text-[#F3F8F5]">
-                  Para resolver ahora
+                  Accesos de trabajo
                 </h3>
                 <p className="mt-2 font-ui text-xs leading-5 text-[#91A39F]">
-                  Tareas ordenadas por urgencia e impacto.
+                  Abrí la herramienta adecuada para cada tarea.
                 </p>
               </div>
               <CalendarDots size={20} weight="light" className="mt-1 shrink-0 text-[#85E4D4]" />
             </div>
 
             <div className="mt-5 divide-y divide-white/10 border-t border-white/10">
-              {nextActions.length ? nextActions.map((action, index) => (
+              {workspaces.map((workspace, index) => (
                 <Link
-                  key={`${action.href}-${index}`}
-                  href={action.href}
+                  key={workspace.href}
+                  href={workspace.href}
                   className="group grid grid-cols-[24px_1fr] gap-3 py-4"
                 >
                   <span className="pt-0.5 font-ui text-[10px] font-bold text-[#85E4D4]">
@@ -343,18 +330,14 @@ export default async function DashboardPage() {
                   </span>
                   <span>
                     <span className="block font-ui text-xs font-bold text-[#E5EEEA] group-hover:text-white">
-                      {action.title}
+                      {workspace.title}
                     </span>
                     <span className="mt-1 block font-ui text-[10px] text-[#7F938D]">
-                      {action.detail}
+                      {workspace.detail}
                     </span>
                   </span>
                 </Link>
-              )) : (
-                <p className="py-6 font-ui text-xs text-[#91A39F]">
-                  No hay acciones urgentes. El panorama está al día.
-                </p>
-              )}
+              ))}
             </div>
           </aside>
         </div>

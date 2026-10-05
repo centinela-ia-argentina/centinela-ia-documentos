@@ -33,7 +33,7 @@ export type NavItem = {
 
 export const navigation: NavItem[] = [
   { name: 'Inicio', href: '/dashboard', icon: House, roles: ['admin', 'employee', 'auditor'], group: 'Operación', description: 'Panel principal y acceso rápido a módulos.' },
-  { name: 'Agente IA general', href: '/agente', icon: Robot, roles: ['admin', 'employee'], group: 'Operación', description: 'Consultas generales sobre tu organización, casos, plazos y alertas.' },
+  { name: 'Agente IA general', href: '/agente', icon: Robot, roles: ['admin', 'employee'], group: 'Operación', description: 'Guía de navegación, módulos y flujos de la plataforma.' },
   { name: 'Expedientes', href: '/expedientes', icon: FolderOpen, roles: ['admin', 'employee', 'auditor'], group: 'Operación', description: 'Gestión operativa de expedientes vinculados.' },
   { name: 'Propiedades', href: '/propiedades', icon: Buildings, roles: ['admin', 'employee', 'auditor'], industries: ['inmobiliaria'], group: 'Operación', description: 'Gestión y catálogo de propiedades.' },
   { name: 'Clientes', href: '/clientes', icon: UsersThree, roles: ['admin', 'employee', 'auditor'], industries: ['inmobiliaria'], group: 'Operación', description: 'Gestión de clientes y búsqueda inmobiliaria.' },

@@ -86,17 +86,17 @@ function agentTitle(industry: IndustryType) {
 }
 
 function contextLabel(industry: IndustryType) {
-  if (industry === 'inmobiliaria') return 'Panorama de la inmobiliaria';
-  if (industry === 'escribania') return 'Panorama de la escribanía';
-  if (industry === 'legal') return 'Panorama del estudio';
-  return 'Panorama de la organización';
+  if (industry === 'inmobiliaria') return 'Guía inmobiliaria';
+  if (industry === 'escribania') return 'Guía notarial';
+  if (industry === 'legal') return 'Guía jurídica';
+  return 'Guía de la plataforma';
 }
 
 function activationGreeting(industry: IndustryType) {
-  if (industry === 'inmobiliaria') return 'Hola. ¿Qué operación revisamos?';
-  if (industry === 'escribania') return 'Hola. ¿Qué legajo revisamos?';
-  if (industry === 'legal') return 'Hola. ¿Qué expediente revisamos?';
-  return 'Hola. ¿Qué revisamos?';
+  if (industry === 'inmobiliaria') return 'Hola. ¿Qué función necesitás encontrar?';
+  if (industry === 'escribania') return 'Hola. ¿Qué herramienta necesitás?';
+  if (industry === 'legal') return 'Hola. ¿Dónde necesitás orientación?';
+  return 'Hola. ¿Cómo te guío?';
 }
 
 export function AgenteGlobalChat({ industry, puedeUsarIA }: Props) {
@@ -186,7 +186,7 @@ export function AgenteGlobalChat({ industry, puedeUsarIA }: Props) {
 
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2.5">
-            <span className="font-ui text-xs font-semibold text-[#85E4D4]">Inteligencia operativa</span>
+            <span className="font-ui text-xs font-semibold text-[#85E4D4]">Guía general de Anulus</span>
             <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.065),rgba(255,255,255,0.025))] px-2.5 py-1 font-ui text-[10px] font-semibold text-[#C5D2CE] shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_6px_18px_rgba(0,0,0,0.12)]">
               <span className="relative flex h-2.5 w-2.5 items-center justify-center">
                 <span className="absolute h-full w-full animate-ping rounded-full bg-[#C8FF62]/25 motion-reduce:animate-none" />
@@ -227,9 +227,9 @@ export function AgenteGlobalChat({ industry, puedeUsarIA }: Props) {
                   <Sparkle size={16} weight="fill" />
                 </span>
                 <div>
-                  <p className="font-ui text-sm font-semibold text-[#F0F6F3]">¿Qué necesitás revisar hoy?</p>
+                  <p className="font-ui text-sm font-semibold text-[#F0F6F3]">¿En qué parte de Anulus te ayudo?</p>
                   <p className="mt-1 font-ui text-xs leading-5 text-[#869A94]">
-                    Puedo orientarte sobre operaciones recientes, vencimientos y prioridades. Para ejecutar acciones, abrí {terms.unExpediente} y usá su agente contextual.
+                    Puedo mostrarte dónde está cada función y cómo recorrer la plataforma. Para analizar un caso concreto, abrí {terms.unExpediente} y usá su agente contextual.
                   </p>
                 </div>
               </div>
