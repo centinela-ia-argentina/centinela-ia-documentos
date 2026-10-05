@@ -6,6 +6,7 @@ import { getIndustryTerms } from '@/lib/industries/uiLabels';
 import { getUserProfile } from '@/lib/auth/getUserProfile';
 import { createClient } from '@/lib/supabase/server';
 import { createCase } from '../actions';
+import { NewOperationForm } from '@/app/operaciones/nueva/NewOperationForm';
 
 export default async function NewCasePage() {
   const { user, profile } = await getUserProfile();
@@ -35,6 +36,19 @@ export default async function NewCasePage() {
       .is('archived_at', null)
       .order('created_at', { ascending: false });
     properties = data || [];
+  }
+
+  if (industry === 'inmobiliaria') {
+    return (
+      <AppShell>
+        <NewOperationForm
+          caseFields={caseFields}
+          caseStatuses={caseStatuses}
+          caseTypes={caseTypes}
+          properties={properties}
+        />
+      </AppShell>
+    );
   }
 
   return (
@@ -117,25 +131,6 @@ export default async function NewCasePage() {
                 ))}
               </select>
             </div>
-
-            {industry === 'inmobiliaria' && (
-              <div>
-                <label className="text-sm font-semibold text-slate-700">
-                  Propiedad asociada
-                </label>
-                <select
-                  name="property_id"
-                  className="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none focus:ring-2 focus:ring-sky-400"
-                >
-                  <option value="">Sin propiedad asociada</option>
-                  {properties.map(p => (
-                    <option key={p.id} value={p.id}>
-                      {p.name} {p.address ? `— ${p.address}` : ''}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
 
             {caseFields.length > 0 ? (
               <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
