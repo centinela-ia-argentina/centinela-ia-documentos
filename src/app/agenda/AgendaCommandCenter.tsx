@@ -1,20 +1,14 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import {
-  ArrowRight,
-  CalendarX,
-  CaretLeft,
-  CaretRight,
-  Plus,
-} from '@phosphor-icons/react';
-import { FERIADOS_NACIONALES_2026 } from '@/lib/legal/config';
+import { Plus } from '@phosphor-icons/react';
 import type { IndustryType } from '@/lib/industries/documentTypes';
 import type { AgendaLabels, IndustryTerms } from '@/lib/industries/uiLabels';
 import type { AgendaEvento } from './AgendaClient';
+import { AnulusCalendar, type CalendarView } from './AnulusCalendar';
 import { getAgendaEventMeta } from './agendaPresentation';
 
-type Vista = 'hoy' | 'semana' | 'mes';
+type Vista = CalendarView;
 type Filtro = 'todos' | AgendaEvento['tipo'];
 
 type Props = {
@@ -27,10 +21,6 @@ type Props = {
   onSelect: (evento: AgendaEvento) => void;
 };
 
-const DIAS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
-const MESES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
-const feriadosSet = new Set(FERIADOS_NACIONALES_2026);
-
 function iso(date: Date): string {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 }
@@ -38,19 +28,6 @@ function iso(date: Date): string {
 function fromIso(value: string): Date {
   const [year, month, day] = value.split('-').map(Number);
   return new Date(year, month - 1, day);
-}
-
-function startOfWeek(date: Date): Date {
-  const result = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-  const offset = (result.getDay() + 6) % 7;
-  result.setDate(result.getDate() - offset);
-  return result;
-}
-
-function addDays(date: Date, amount: number): Date {
-  const result = new Date(date);
-  result.setDate(result.getDate() + amount);
-  return result;
 }
 
 function daysFromToday(value: string, today: Date): number {
@@ -76,7 +53,6 @@ export function AgendaCommandCenter({
   const todayIso = iso(now);
   const [vista, setVista] = useState<Vista>('mes');
   const [filtro, setFiltro] = useState<Filtro>('todos');
-  const [cursor, setCursor] = useState(() => new Date(now.getFullYear(), now.getMonth(), 1));
 
   const sortedEvents = useMemo(
     () => [...eventos].sort((a, b) => `${a.fecha}-${a.hora ?? ''}-${a.titulo}`.localeCompare(`${b.fecha}-${b.hora ?? ''}-${b.titulo}`)),
@@ -87,27 +63,6 @@ export function AgendaCommandCenter({
     () => filtro === 'todos' ? sortedEvents : sortedEvents.filter((event) => event.tipo === filtro),
     [filtro, sortedEvents],
   );
-
-  const monthPrefix = `${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, '0')}`;
-  const weekStart = startOfWeek(now);
-  const weekDays = Array.from({ length: 7 }, (_, index) => addDays(weekStart, index));
-  const weekEndIso = iso(weekDays[6]);
-
-  const visibleEvents = filteredEvents.filter((event) => {
-    if (vista === 'hoy') return event.fecha === todayIso;
-    if (vista === 'semana') return event.fecha >= iso(weekStart) && event.fecha <= weekEndIso;
-    return event.fecha.startsWith(monthPrefix);
-  });
-
-  const eventsByDay = useMemo(() => {
-    const result = new Map<string, AgendaEvento[]>();
-    for (const event of filteredEvents) {
-      const list = result.get(event.fecha) ?? [];
-      list.push(event);
-      result.set(event.fecha, list);
-    }
-    return result;
-  }, [filteredEvents]);
 
   const expired = sortedEvents.filter((event) => event.fecha < todayIso).length;
   const nextSeven = sortedEvents.filter((event) => {
@@ -125,20 +80,6 @@ export function AgendaCommandCenter({
       return a.titulo.localeCompare(b.titulo);
     })
     .slice(0, 7);
-
-  const monthStart = new Date(cursor.getFullYear(), cursor.getMonth(), 1);
-  const offset = (monthStart.getDay() + 6) % 7;
-  const daysInMonth = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 0).getDate();
-  const monthCells: Array<string | null> = [];
-  for (let index = 0; index < offset; index++) monthCells.push(null);
-  for (let day = 1; day <= daysInMonth; day++) monthCells.push(iso(new Date(cursor.getFullYear(), cursor.getMonth(), day)));
-  while (monthCells.length % 7 !== 0) monthCells.push(null);
-
-  function navigate(delta: number) {
-    if (vista === 'mes') {
-      setCursor((current) => new Date(current.getFullYear(), current.getMonth() + delta, 1));
-    }
-  }
 
   const filters: Array<{ value: Filtro; label: string }> = [
     { value: 'todos', label: 'Todos' },
@@ -215,129 +156,13 @@ export function AgendaCommandCenter({
       </div>
 
       <section className="grid gap-3 lg:grid-cols-[minmax(0,1.65fr)_minmax(320px,0.85fr)]">
-          <div className="overflow-hidden rounded-xl border border-white/[0.08] bg-[#091411] p-4 shadow-[0_24px_70px_rgba(0,0,0,0.18)] sm:p-6">
-            <div className="mb-5 flex items-center justify-between gap-3">
-              <div>
-                <p className="font-ui text-xs font-semibold text-[#85E4D4]">Vista {vista}</p>
-                <h2 className="mt-1 font-display text-2xl font-medium tracking-[-0.04em] text-[#F3F8F5]">
-                  {vista === 'hoy' ? new Intl.DateTimeFormat('es-AR', { weekday: 'long', day: 'numeric', month: 'long' }).format(now) : vista === 'semana' ? 'Esta semana' : `${MESES[cursor.getMonth()]} ${cursor.getFullYear()}`}
-                </h2>
-                {vista === 'mes' ? (
-                  <span className="mt-2 inline-flex items-center gap-1.5 font-ui text-[10px] font-semibold text-amber-200/75">
-                    <CalendarX size={12} /> Feriado nacional
-                  </span>
-                ) : null}
-              </div>
-              {vista === 'mes' ? (
-                <div className="inline-flex overflow-hidden rounded-lg border border-white/12 bg-white/[0.018]">
-                  <button type="button" onClick={() => navigate(-1)} aria-label="Mes anterior" className="grid h-10 w-10 place-items-center text-[#8FA19B] transition hover:bg-white/[0.05] hover:text-white"><CaretLeft size={16} /></button>
-                  <button type="button" onClick={() => setCursor(new Date(now.getFullYear(), now.getMonth(), 1))} className="h-10 border-x border-white/10 px-3.5 font-ui text-xs font-bold text-[#D7E2DE] transition hover:bg-white/[0.05]">Hoy</button>
-                  <button type="button" onClick={() => navigate(1)} aria-label="Mes siguiente" className="grid h-10 w-10 place-items-center text-[#8FA19B] transition hover:bg-white/[0.05] hover:text-white"><CaretRight size={16} /></button>
-                </div>
-              ) : null}
-            </div>
-
-            {vista === 'mes' ? (
-              <>
-                <div className="grid grid-cols-7 rounded-lg bg-white/[0.025] py-2.5 text-center font-ui text-[10px] font-bold uppercase tracking-[0.08em] text-[#71857F]">
-                  {DIAS.map((day) => <span key={day}>{day}</span>)}
-                </div>
-                <div className="mt-1 grid grid-cols-7 gap-1">
-                  {monthCells.map((value, index) => {
-                    if (!value) return <div key={`empty-${index}`} className="min-h-24 rounded-md bg-black/[0.035]" />;
-                    const dayEvents = eventsByDay.get(value) ?? [];
-                    const holiday = feriadosSet.has(value);
-                    const isToday = value === todayIso;
-                    return (
-                      <div key={value} className={`min-h-24 rounded-md p-1.5 transition-colors hover:bg-white/[0.025] sm:min-h-28 sm:p-2 ${holiday ? 'bg-amber-300/[0.045]' : ''}`}>
-                        <div className="flex items-center justify-between">
-                          <span className={`grid h-6 min-w-6 place-items-center rounded-full font-ui text-[11px] font-bold ${isToday ? 'bg-[#C8FF62] text-[#071110]' : 'text-[#8FA19B]'}`}>{fromIso(value).getDate()}</span>
-                          {holiday ? (
-                            <span
-                              title="Feriado nacional"
-                              aria-label="Feriado nacional"
-                              className="inline-flex h-6 w-6 items-center justify-center rounded-md border border-amber-300/20 bg-amber-300/[0.08] text-amber-200"
-                            >
-                              <CalendarX size={13} weight="regular" />
-                            </span>
-                          ) : null}
-                        </div>
-                        <div className="mt-1 space-y-1">
-                          {dayEvents.slice(0, 2).map((event) => {
-                            const meta = getAgendaEventMeta(event.tipo, agendaLabels.plazoLabel, terms);
-                            return (
-                              <button
-                                key={event.id}
-                                type="button"
-                                onClick={() => onSelect(event)}
-                                title={`${meta.label}: ${event.titulo}`}
-                                className="group/event flex min-h-7 w-full items-center gap-1.5 rounded-[4px] px-1.5 py-1 text-left transition hover:bg-white/[0.045] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#C8FF62]"
-                              >
-                                <span className="h-4 w-0.5 shrink-0 rounded-full" style={{ background: meta.color }} />
-                                <span className="truncate font-ui text-[9px] font-semibold text-[#D6E1DD] sm:text-[10px]">{event.titulo}</span>
-                              </button>
-                            );
-                          })}
-                          {dayEvents.length > 2 ? <span className="block pl-1 font-ui text-[9px] text-[#60736D]">+{dayEvents.length - 2} más</span> : null}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </>
-            ) : null}
-
-            {vista === 'semana' ? (
-              <div className="grid gap-2 sm:grid-cols-7">
-                {weekDays.map((day) => {
-                  const value = iso(day);
-                  const dayEvents = eventsByDay.get(value) ?? [];
-                  return (
-                    <div key={value} className={`min-h-32 rounded-xl border p-3 ${value === todayIso ? 'border-[#C8FF62]/35 bg-[#C8FF62]/[0.045]' : 'border-white/10 bg-white/[0.015]'}`}>
-                      <p className="font-ui text-[10px] font-bold uppercase text-[#71857F]">{DIAS[(day.getDay() + 6) % 7]}</p>
-                      <p className="mt-1 font-display text-2xl font-semibold text-[#F3F8F5]">{day.getDate()}</p>
-                      <div className="mt-3 space-y-1.5">
-                        {dayEvents.map((event) => {
-                          const meta = getAgendaEventMeta(event.tipo, agendaLabels.plazoLabel, terms);
-                          return (
-                            <button
-                              key={event.id}
-                              type="button"
-                              onClick={() => onSelect(event)}
-                              className="flex w-full items-start gap-2 rounded-md px-2 py-1.5 text-left font-ui text-[10px] text-[#C9D5D1] hover:bg-white/[0.04]"
-                            >
-                              <span className="mt-0.5 h-3.5 w-0.5 shrink-0 rounded-full" style={{ background: meta.color }} />
-                              <span>{event.hora ? `${event.hora} · ` : ''}{event.titulo}</span>
-                            </button>
-                          );
-                        })}
-                        {!dayEvents.length ? <span className="font-ui text-[10px] text-[#536760]">Sin eventos</span> : null}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            ) : null}
-
-            {vista === 'hoy' ? (
-              <div className="space-y-2">
-                {visibleEvents.map((event) => {
-                  const meta = getAgendaEventMeta(event.tipo, agendaLabels.plazoLabel, terms);
-                  return (
-                    <button key={event.id} type="button" onClick={() => onSelect(event)} className="group grid w-full grid-cols-[3px_minmax(0,1fr)_auto] items-center gap-4 rounded-lg px-3 py-4 text-left transition hover:bg-white/[0.035]">
-                      <span className="h-full min-h-10 rounded-full" style={{ background: meta.color }} />
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate font-ui text-sm font-bold text-[#E7EFEC]">{event.titulo}</span>
-                        <span className="mt-1 block font-ui text-xs text-[#71857F]">{event.hora ? `${event.hora} · ` : ''}{meta.label}{event.expedienteNombre ? ` · ${event.expedienteNombre}` : ''}</span>
-                      </span>
-                      <ArrowRight size={17} className="text-[#85E4D4] transition-transform group-hover:translate-x-0.5" />
-                    </button>
-                  );
-                })}
-                {!visibleEvents.length ? <div className="rounded-xl border border-dashed border-white/10 py-14 text-center font-ui text-sm text-[#71857F]">No hay eventos para hoy con este filtro.</div> : null}
-              </div>
-            ) : null}
-          </div>
+          <AnulusCalendar
+            eventos={filteredEvents}
+            vista={vista}
+            agendaLabels={agendaLabels}
+            terms={terms}
+            onSelect={onSelect}
+          />
 
           <aside className="rounded-xl border border-white/[0.08] bg-[linear-gradient(180deg,#0D1B17,#0A1512)] p-5 shadow-[0_24px_70px_rgba(0,0,0,0.18)] sm:p-6">
             <div className="flex items-start justify-between gap-3">
