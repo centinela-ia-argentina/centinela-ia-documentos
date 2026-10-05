@@ -44,7 +44,7 @@ export function OperationsRowMenu({ caseId, isArchived, canArchive, canDelete }:
         aria-label="Más acciones"
         aria-haspopup="menu"
         aria-expanded={open}
-        className={`grid h-10 w-10 place-items-center rounded-lg border font-ui transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C8FF62] ${open ? 'border-[#85E4D4]/25 bg-[#85E4D4]/[0.08] text-[#B7F0E6]' : 'border-white/[0.08] bg-white/[0.02] text-[#81948E] hover:border-white/15 hover:bg-white/[0.055] hover:text-white'}`}
+        className={`grid h-10 w-10 place-items-center rounded-lg border font-ui transition-[background-color,border-color,color,transform,box-shadow] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C8FF62] ${open ? 'border-[#85E4D4]/35 bg-[#85E4D4]/[0.1] text-[#B7F0E6] shadow-[0_0_18px_rgba(133,228,212,0.08)]' : 'border-white/20 bg-transparent text-[#B8C6C1] hover:-translate-y-px hover:border-white/40 hover:bg-white/[0.05] hover:text-white'}`}
       >
         <DotsThreeVertical size={18} weight="bold" />
       </button>

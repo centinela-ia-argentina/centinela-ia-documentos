@@ -1,13 +1,13 @@
 import Link from 'next/link';
 import {
   ArrowUpRight,
-  CalendarBlank,
+  CalendarDots,
   CaretLeft,
   CaretRight,
   FileText,
+  IdentificationBadge,
   MagnifyingGlass,
   Plus,
-  User,
   X,
 } from '@phosphor-icons/react/dist/ssr';
 import type { CaseRecord } from '@/types/case';
@@ -151,13 +151,13 @@ export function OperationsListView({
                         </div>
 
                         <div className="flex min-w-0 items-center gap-2.5 font-ui text-xs text-[#A7B6B1]">
-                          <span className="grid h-8 w-8 shrink-0 place-items-center rounded-md bg-[#85E4D4]/[0.055] text-[#85E4D4]"><User size={15} /></span>
-                          <span className="min-w-0"><span className="block text-[9px] font-bold uppercase tracking-[0.08em] text-[#60736D] lg:hidden">Cliente</span><span className="block truncate">{displayText(item.client_name, 'Sin cliente')}</span></span>
+                          <span className="grid h-8 w-8 shrink-0 place-items-center rounded-md border border-[#85E4D4]/15 bg-[#85E4D4]/[0.045] text-[#85E4D4]"><IdentificationBadge size={16} weight="regular" /></span>
+                          <span className="min-w-0"><span className="block text-[9px] font-bold uppercase tracking-[0.08em] text-[#60736D] lg:hidden">Cliente</span><span className="block truncate font-display text-[13px] font-medium tracking-[-0.015em] text-[#BBC9C4]">{displayText(item.client_name, 'Sin cliente')}</span></span>
                         </div>
 
-                        <div className={`grid min-h-10 w-fit grid-cols-[3px_minmax(0,1fr)] items-center gap-2 rounded-lg px-2.5 py-1.5 ${status.surface}`}>
+                        <div className={`grid h-10 w-[116px] grid-cols-[3px_minmax(0,1fr)] items-center gap-2 rounded-lg px-2.5 ${status.surface}`}>
                           <span className="h-5 rounded-full" style={{ background: status.rail }} />
-                          <span className={`font-ui text-[10px] font-bold leading-3.5 ${status.text}`}>{getCaseStatusLabel(item.status, 'inmobiliaria')}</span>
+                          <span className={`font-ui text-[10px] font-bold leading-[13px] ${status.text}`}>{getCaseStatusLabel(item.status, 'inmobiliaria')}</span>
                         </div>
 
                         <div className="min-w-0">
@@ -166,11 +166,11 @@ export function OperationsListView({
                         </div>
 
                         <div className="font-ui text-[11px]">
-                          {relevantDate ? <div className="flex items-center gap-2.5"><span className={`grid h-8 w-8 shrink-0 place-items-center rounded-md ${expiry === 'vencido' ? 'bg-rose-400/[0.07] text-rose-300' : expiry === 'por_vencer' ? 'bg-amber-300/[0.07] text-amber-200' : 'bg-[#85E4D4]/[0.055] text-[#85E4D4]'}`}><CalendarBlank size={15} /></span><span><span className="block text-[#C4D0CC]">{formatPlazoDate(relevantDate)}</span><span className={`mt-0.5 block text-[9px] font-bold ${expiry === 'vencido' ? 'text-rose-300' : expiry === 'por_vencer' ? 'text-amber-200' : 'text-[#71857F]'}`}>{expiry === 'vencido' ? 'Vencida' : expiry === 'por_vencer' ? 'Próxima' : 'Vigente'}</span></span></div> : <span className="text-[#60736D]">Sin fecha clave</span>}
+                          {relevantDate ? <div className="flex items-center gap-2.5"><span className={`grid h-8 w-8 shrink-0 place-items-center rounded-md border ${expiry === 'vencido' ? 'border-rose-300/15 bg-rose-400/[0.055] text-rose-300' : expiry === 'por_vencer' ? 'border-amber-200/15 bg-amber-300/[0.055] text-amber-200' : 'border-[#85E4D4]/15 bg-[#85E4D4]/[0.045] text-[#85E4D4]'}`}><CalendarDots size={16} weight="regular" /></span><span><span className="block font-display text-[13px] font-medium tracking-[-0.015em] text-[#C4D0CC]">{formatPlazoDate(relevantDate)}</span><span className={`mt-0.5 block font-ui text-[10px] font-semibold ${expiry === 'vencido' ? 'text-rose-300' : expiry === 'por_vencer' ? 'text-amber-200' : 'text-[#7F938D]'}`}>{expiry === 'vencido' ? 'Vencida' : expiry === 'por_vencer' ? 'Próxima' : 'Vigente'}</span></span></div> : <span className="font-ui text-[11px] text-[#60736D]">Sin fecha clave</span>}
                         </div>
 
                         <div className="flex items-center gap-1.5 lg:justify-end">
-                          <Link href={`${basePath}/${item.id}`} aria-label={`Abrir ${displayText(item.title, terms.itemSinTitulo)}`} className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-white/[0.08] bg-white/[0.02] px-3 font-ui text-[10px] font-bold text-[#AFC0BA] transition-colors hover:border-[#85E4D4]/25 hover:bg-[#85E4D4]/[0.06] hover:text-[#B7F0E6] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C8FF62]">
+                          <Link href={`${basePath}/${item.id}`} aria-label={`Abrir ${displayText(item.title, terms.itemSinTitulo)}`} className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-white/60 bg-[#F3F8F5] px-3 font-ui text-[10px] font-bold text-[#071110] transition-[transform,box-shadow] duration-150 hover:-translate-y-px hover:shadow-[0_0_0_1px_rgba(200,255,98,0.22),0_0_18px_rgba(200,255,98,0.13)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C8FF62]">
                             Abrir <ArrowUpRight size={14} />
                           </Link>
                           {(canArchive || canDelete) ? <OperationsRowMenu caseId={item.id} isArchived={item.status === 'archived' || item.status === 'Archivado'} canArchive={canArchive} canDelete={canDelete} /> : null}
@@ -197,7 +197,7 @@ export function OperationsListView({
           <p className="font-ui text-xs text-[#71857F]">Mostrando {start + 1}–{Math.min(end + 1, totalCount)} de {totalCount}</p>
           <nav className="inline-flex items-center gap-1 rounded-xl border border-white/[0.08] bg-white/[0.015] p-1" aria-label="Paginación">
             <Link href={pageHref(basePath, rawQ, estado, Math.max(1, page - 1))} aria-disabled={page <= 1} className={`inline-flex min-h-10 items-center gap-2 rounded-lg px-3.5 font-ui text-xs font-bold transition-colors ${page <= 1 ? 'pointer-events-none text-[#4E615B]' : 'text-[#A9B8B3] hover:bg-white/[0.05] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C8FF62]'}`}><CaretLeft size={14} /> Anterior</Link>
-            <span className="min-h-10 rounded-lg bg-white/[0.045] px-4 py-2.5 font-ui text-xs font-bold text-[#D9E3DF]"><span className="text-[#71857F]">Página</span> {page} <span className="text-[#71857F]">de</span> {totalPages}</span>
+            <span className="grid min-h-10 min-w-[68px] place-items-center rounded-lg bg-white/[0.045] px-4 font-display text-sm font-semibold tracking-[-0.02em] text-[#D9E3DF]">{page} / {totalPages}</span>
             <Link href={pageHref(basePath, rawQ, estado, Math.min(totalPages, page + 1))} aria-disabled={page >= totalPages} className={`inline-flex min-h-10 items-center gap-2 rounded-lg px-3.5 font-ui text-xs font-bold transition-colors ${page >= totalPages ? 'pointer-events-none text-[#4E615B]' : 'text-[#A9B8B3] hover:bg-white/[0.05] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C8FF62]'}`}>Siguiente <CaretRight size={14} /></Link>
           </nav>
         </footer>
