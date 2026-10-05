@@ -1,7 +1,9 @@
 import Link from 'next/link';
 import {
-  ArrowRight,
+  ArrowUpRight,
   CalendarBlank,
+  CaretLeft,
+  CaretRight,
   FileText,
   MagnifyingGlass,
   Plus,
@@ -14,7 +16,7 @@ import { getCaseStatusLabel, getCaseTypeLabel } from '@/lib/industries/caseConfi
 import { summarizeChecklistStatuses } from '@/lib/checklist/progress';
 import { getDocumentExpiryStatus } from '@/lib/documents/expiry';
 import { formatPlazoDate } from '@/lib/format/date';
-import { CaseCardMenu } from '@/app/expedientes/CaseCardMenu';
+import { OperationsRowMenu } from './OperationsRowMenu';
 
 type Props = {
   records: CaseRecord[];
@@ -117,7 +119,7 @@ export function OperationsListView({
         </div>
       </section>
 
-      <section className="overflow-hidden rounded-xl border border-white/[0.08] bg-[#091411] shadow-[0_24px_70px_rgba(0,0,0,0.18)]" aria-labelledby="operations-list-title">
+      <section className="rounded-xl border border-white/[0.08] bg-[#091411] shadow-[0_24px_70px_rgba(0,0,0,0.18)]" aria-labelledby="operations-list-title">
         <div className="flex items-center justify-between gap-4 border-b border-white/[0.07] px-4 py-4 sm:px-5">
           <div>
             <h2 id="operations-list-title" className="font-display text-xl font-medium tracking-[-0.035em] text-[#F3F8F5]">{archived ? 'Operaciones archivadas' : 'Cartera activa'}</h2>
@@ -128,8 +130,8 @@ export function OperationsListView({
 
         {records.length ? (
           <>
-            <div className="hidden grid-cols-[minmax(220px,1.45fr)_minmax(135px,.8fr)_120px_minmax(150px,.85fr)_140px_36px] gap-4 border-b border-white/[0.06] px-5 py-3 font-ui text-[10px] font-bold uppercase tracking-[0.08em] text-[#61736D] lg:grid">
-              <span>Operación</span><span>Cliente</span><span>Estado</span><span>Documentación</span><span>Fecha clave</span><span />
+            <div className="hidden grid-cols-[minmax(220px,1.35fr)_minmax(145px,.8fr)_125px_minmax(145px,.8fr)_145px_112px] gap-4 border-b border-white/[0.06] px-5 py-3 font-ui text-[10px] font-bold uppercase tracking-[0.08em] text-[#61736D] lg:grid">
+              <span>Operación</span><span>Cliente</span><span>Estado</span><span>Documentación</span><span>Fecha clave</span><span>Acciones</span>
             </div>
             <div className="divide-y divide-white/[0.065]">
               {records.map((item) => {
@@ -138,22 +140,25 @@ export function OperationsListView({
                 const expiry = relevantDate ? getDocumentExpiryStatus(relevantDate) : null;
                 const status = statusStyle(item.status);
                 return (
-                  <article key={item.id} className="group relative transition-colors hover:bg-white/[0.022]">
-                    <Link href={`${basePath}/${item.id}`} className="block px-4 py-4 pr-14 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#C8FF62] sm:px-5 lg:pr-14">
-                      <div className="grid gap-4 lg:grid-cols-[minmax(220px,1.45fr)_minmax(135px,.8fr)_120px_minmax(150px,.85fr)_140px_20px] lg:items-center">
+                  <article key={item.id} className="group relative px-4 py-4 transition-colors hover:bg-white/[0.022] sm:px-5">
+                      <div className="grid gap-4 lg:grid-cols-[minmax(220px,1.35fr)_minmax(145px,.8fr)_125px_minmax(145px,.8fr)_145px_112px] lg:items-center">
                         <div className="grid min-w-0 grid-cols-[3px_minmax(0,1fr)] gap-3">
                           <span className="h-full min-h-11 rounded-full" style={{ background: status.rail }} />
                           <span className="min-w-0">
-                            <span className="block truncate font-ui text-sm font-bold text-[#E7EFEC] transition-colors group-hover:text-white">{displayText(item.title, terms.itemSinTitulo)}</span>
+                            <Link href={`${basePath}/${item.id}`} className="block truncate font-ui text-sm font-bold text-[#E7EFEC] transition-colors hover:text-[#B7F0E6] focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C8FF62]">{displayText(item.title, terms.itemSinTitulo)}</Link>
                             <span className="mt-1 block truncate font-ui text-[11px] text-[#71857F]">{getCaseTypeLabel(item.case_type)}</span>
                           </span>
                         </div>
 
-                        <div className="flex min-w-0 items-center gap-2 font-ui text-xs text-[#A7B6B1]">
-                          <User size={15} className="shrink-0 text-[#60736D]" /><span className="truncate">{displayText(item.client_name, 'Sin cliente')}</span>
+                        <div className="flex min-w-0 items-center gap-2.5 font-ui text-xs text-[#A7B6B1]">
+                          <span className="grid h-8 w-8 shrink-0 place-items-center rounded-md bg-[#85E4D4]/[0.055] text-[#85E4D4]"><User size={15} /></span>
+                          <span className="min-w-0"><span className="block text-[9px] font-bold uppercase tracking-[0.08em] text-[#60736D] lg:hidden">Cliente</span><span className="block truncate">{displayText(item.client_name, 'Sin cliente')}</span></span>
                         </div>
 
-                        <div><span className={`inline-flex min-h-7 items-center rounded-md px-2.5 font-ui text-[10px] font-bold ${status.surface} ${status.text}`}>{getCaseStatusLabel(item.status, 'inmobiliaria')}</span></div>
+                        <div className={`grid min-h-10 w-fit grid-cols-[3px_minmax(0,1fr)] items-center gap-2 rounded-lg px-2.5 py-1.5 ${status.surface}`}>
+                          <span className="h-5 rounded-full" style={{ background: status.rail }} />
+                          <span className={`font-ui text-[10px] font-bold leading-3.5 ${status.text}`}>{getCaseStatusLabel(item.status, 'inmobiliaria')}</span>
+                        </div>
 
                         <div className="min-w-0">
                           <div className="flex items-center justify-between gap-2 font-ui text-[10px] text-[#8FA19B]"><span className="inline-flex items-center gap-1.5"><FileText size={14} />{progress.total ? `${progress.fulfilled}/${progress.total}` : 'Sin checklist'}</span>{progress.total ? <span>{progress.percent}%</span> : null}</div>
@@ -161,13 +166,16 @@ export function OperationsListView({
                         </div>
 
                         <div className="font-ui text-[11px]">
-                          {relevantDate ? <><span className="flex items-center gap-1.5 text-[#C4D0CC]"><CalendarBlank size={14} className="text-[#71857F]" />{formatPlazoDate(relevantDate)}</span><span className={`mt-1 block text-[9px] font-bold ${expiry === 'vencido' ? 'text-rose-300' : expiry === 'por_vencer' ? 'text-amber-200' : 'text-[#71857F]'}`}>{expiry === 'vencido' ? 'Vencida' : expiry === 'por_vencer' ? 'Próxima' : 'Vigente'}</span></> : <span className="text-[#60736D]">Sin fecha clave</span>}
+                          {relevantDate ? <div className="flex items-center gap-2.5"><span className={`grid h-8 w-8 shrink-0 place-items-center rounded-md ${expiry === 'vencido' ? 'bg-rose-400/[0.07] text-rose-300' : expiry === 'por_vencer' ? 'bg-amber-300/[0.07] text-amber-200' : 'bg-[#85E4D4]/[0.055] text-[#85E4D4]'}`}><CalendarBlank size={15} /></span><span><span className="block text-[#C4D0CC]">{formatPlazoDate(relevantDate)}</span><span className={`mt-0.5 block text-[9px] font-bold ${expiry === 'vencido' ? 'text-rose-300' : expiry === 'por_vencer' ? 'text-amber-200' : 'text-[#71857F]'}`}>{expiry === 'vencido' ? 'Vencida' : expiry === 'por_vencer' ? 'Próxima' : 'Vigente'}</span></span></div> : <span className="text-[#60736D]">Sin fecha clave</span>}
                         </div>
 
-                        <ArrowRight size={16} className="hidden text-[#85E4D4] transition-transform group-hover:translate-x-0.5 lg:block" />
+                        <div className="flex items-center gap-1.5 lg:justify-end">
+                          <Link href={`${basePath}/${item.id}`} aria-label={`Abrir ${displayText(item.title, terms.itemSinTitulo)}`} className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-white/[0.08] bg-white/[0.02] px-3 font-ui text-[10px] font-bold text-[#AFC0BA] transition-colors hover:border-[#85E4D4]/25 hover:bg-[#85E4D4]/[0.06] hover:text-[#B7F0E6] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C8FF62]">
+                            Abrir <ArrowUpRight size={14} />
+                          </Link>
+                          {(canArchive || canDelete) ? <OperationsRowMenu caseId={item.id} isArchived={item.status === 'archived' || item.status === 'Archivado'} canArchive={canArchive} canDelete={canDelete} /> : null}
+                        </div>
                       </div>
-                    </Link>
-                    {(canArchive || canDelete) ? <CaseCardMenu caseId={item.id} isArchived={item.status === 'archived' || item.status === 'Archivado'} canArchive={canArchive} canDelete={canDelete} industry="inmobiliaria" /> : null}
                   </article>
                 );
               })}
@@ -187,10 +195,10 @@ export function OperationsListView({
       {!isCountError && !searchError && totalCount > 0 ? (
         <footer className="mt-6 flex flex-col items-center justify-between gap-4 sm:flex-row">
           <p className="font-ui text-xs text-[#71857F]">Mostrando {start + 1}–{Math.min(end + 1, totalCount)} de {totalCount}</p>
-          <nav className="inline-flex overflow-hidden rounded-lg border border-white/10" aria-label="Paginación">
-            <Link href={pageHref(basePath, rawQ, estado, Math.max(1, page - 1))} aria-disabled={page <= 1} className={`min-h-10 px-4 py-2.5 font-ui text-xs font-bold ${page <= 1 ? 'pointer-events-none text-[#4E615B]' : 'text-[#A9B8B3] hover:bg-white/[0.045] hover:text-white'}`}>Anterior</Link>
-            <span className="min-h-10 border-x border-white/10 px-4 py-2.5 font-ui text-xs font-bold text-[#D9E3DF]">{page} / {totalPages}</span>
-            <Link href={pageHref(basePath, rawQ, estado, Math.min(totalPages, page + 1))} aria-disabled={page >= totalPages} className={`min-h-10 px-4 py-2.5 font-ui text-xs font-bold ${page >= totalPages ? 'pointer-events-none text-[#4E615B]' : 'text-[#A9B8B3] hover:bg-white/[0.045] hover:text-white'}`}>Siguiente</Link>
+          <nav className="inline-flex items-center gap-1 rounded-xl border border-white/[0.08] bg-white/[0.015] p-1" aria-label="Paginación">
+            <Link href={pageHref(basePath, rawQ, estado, Math.max(1, page - 1))} aria-disabled={page <= 1} className={`inline-flex min-h-10 items-center gap-2 rounded-lg px-3.5 font-ui text-xs font-bold transition-colors ${page <= 1 ? 'pointer-events-none text-[#4E615B]' : 'text-[#A9B8B3] hover:bg-white/[0.05] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C8FF62]'}`}><CaretLeft size={14} /> Anterior</Link>
+            <span className="min-h-10 rounded-lg bg-white/[0.045] px-4 py-2.5 font-ui text-xs font-bold text-[#D9E3DF]"><span className="text-[#71857F]">Página</span> {page} <span className="text-[#71857F]">de</span> {totalPages}</span>
+            <Link href={pageHref(basePath, rawQ, estado, Math.min(totalPages, page + 1))} aria-disabled={page >= totalPages} className={`inline-flex min-h-10 items-center gap-2 rounded-lg px-3.5 font-ui text-xs font-bold transition-colors ${page >= totalPages ? 'pointer-events-none text-[#4E615B]' : 'text-[#A9B8B3] hover:bg-white/[0.05] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C8FF62]'}`}>Siguiente <CaretRight size={14} /></Link>
           </nav>
         </footer>
       ) : null}
