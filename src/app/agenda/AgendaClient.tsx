@@ -3,13 +3,21 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { X } from 'lucide-react';
+import {
+  ArrowRight,
+  CalendarBlank,
+  Clock,
+  PencilSimple,
+  Trash,
+  X,
+} from '@phosphor-icons/react';
 import { MotionCard } from '@/components/ui/MotionCard';
 import { MotionButton } from '@/components/ui/MotionButton';
 import { guardarEventoManual, guardarTurno, eliminarEventoAgenda, editarEventoAgenda } from './actions';
 import type { IndustryType } from '@/lib/industries/documentTypes';
 import { getAgendaLabels, getIndustryTerms } from '@/lib/industries/uiLabels';
 import { AgendaCommandCenter } from './AgendaCommandCenter';
+import { getAgendaEventActionLabel, getAgendaEventMeta } from './agendaPresentation';
 
 export type AgendaEvento = {
   id: string;
@@ -146,6 +154,11 @@ export function AgendaClient({ eventos, cases, industry, puedeGuardar = true }: 
     }
   };
 
+  const selectedMeta = eventoDetalle
+    ? getAgendaEventMeta(eventoDetalle.tipo, agendaLabels.plazoLabel, terms)
+    : null;
+  const SelectedIcon = selectedMeta?.Icon;
+
   return (
     <div className="space-y-6">
       <AgendaCommandCenter
@@ -228,28 +241,39 @@ export function AgendaClient({ eventos, cases, industry, puedeGuardar = true }: 
       )}
 
       {eventoDetalle && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-md rounded-2xl border border-white/10 bg-slate-900 p-6 shadow-2xl space-y-4">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <span className="inline-block rounded-full bg-white/10 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-cyan-300">
-                  {eventoDetalle.tipo.toUpperCase()}
-                </span>
-                <h3 className="mt-1 text-lg font-bold text-white">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#020806]/80 p-4 backdrop-blur-md">
+          <div className="w-full max-w-lg overflow-hidden rounded-[24px] border border-[#85E4D4]/15 bg-[#0A1512] shadow-[0_32px_100px_rgba(0,0,0,0.55)]">
+            <div className="flex items-start justify-between gap-4 border-b border-white/10 px-5 py-5 sm:px-6">
+              <div className="flex min-w-0 items-start gap-3">
+                {SelectedIcon && selectedMeta ? (
+                  <span
+                    className="grid h-11 w-11 shrink-0 place-items-center rounded-xl border"
+                    style={{ color: selectedMeta.color, background: `${selectedMeta.color}12`, borderColor: `${selectedMeta.color}28` }}
+                  >
+                    <SelectedIcon size={21} weight="fill" />
+                  </span>
+                ) : null}
+                <div className="min-w-0">
+                  <span className="font-ui text-[10px] font-bold uppercase tracking-[0.08em]" style={{ color: selectedMeta?.color }}>
+                    {selectedMeta?.label}
+                  </span>
+                  <h3 className="mt-1 font-display text-xl font-medium leading-tight tracking-[-0.035em] text-[#F3F8F5]">
                   {editando ? 'Editar evento' : eventoDetalle.titulo}
-                </h3>
+                  </h3>
+                </div>
               </div>
               <button
                 type="button"
                 onClick={() => { setEventoDetalle(null); setEditando(false); }}
-                className="rounded-lg p-1 text-slate-400 hover:bg-white/10 hover:text-white"
+                aria-label="Cerrar detalle"
+                className="grid h-10 w-10 shrink-0 place-items-center rounded-lg border border-white/10 text-[#8FA19B] transition hover:border-white/20 hover:bg-white/[0.05] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C8FF62]"
               >
-                <X className="h-5 w-5" />
+                <X size={18} />
               </button>
             </div>
 
             {editando ? (
-              <div className="space-y-3 border-t border-white/10 pt-3">
+              <div className="space-y-3 px-5 py-5 sm:px-6">
                 <label className="block">
                   <span className="mb-1 block text-xs font-semibold text-slate-400">Categoría</span>
                   <select
@@ -348,61 +372,79 @@ export function AgendaClient({ eventos, cases, industry, puedeGuardar = true }: 
               </div>
             ) : (
               <>
-                <div className="space-y-2 text-sm text-slate-300 border-t border-white/10 pt-3">
-                  <p>
-                    <strong className="text-white">Fecha:</strong> {eventoDetalle.fecha.split('-').reverse().join('/')}
-                    {eventoDetalle.hora ? ` · ${eventoDetalle.hora} hs` : ''}
-                  </p>
-                  <p className="text-xs text-slate-400">
-                    Zona horaria: America/Argentina/Buenos_Aires (UTC-3)
-                  </p>
+                <div className="space-y-4 px-5 py-5 sm:px-6">
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/[0.018] p-3.5">
+                      <span className="grid h-9 w-9 place-items-center rounded-lg bg-[#85E4D4]/10 text-[#85E4D4]">
+                        <CalendarBlank size={18} weight="regular" />
+                      </span>
+                      <span>
+                        <span className="block font-ui text-[10px] font-semibold text-[#71857F]">Fecha</span>
+                        <span className="mt-0.5 block font-ui text-sm font-bold text-[#E7EFEC]">{eventoDetalle.fecha.split('-').reverse().join('/')}</span>
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/[0.018] p-3.5">
+                      <span className="grid h-9 w-9 place-items-center rounded-lg bg-[#C8FF62]/[0.08] text-[#C8FF62]">
+                        <Clock size={18} weight="regular" />
+                      </span>
+                      <span>
+                        <span className="block font-ui text-[10px] font-semibold text-[#71857F]">Horario</span>
+                        <span className="mt-0.5 block font-ui text-sm font-bold text-[#E7EFEC]">{eventoDetalle.hora ? `${eventoDetalle.hora} hs` : 'Todo el día'}</span>
+                      </span>
+                    </div>
+                  </div>
+
                   {eventoDetalle.detalle && (
-                    <div className="rounded-xl border border-white/5 bg-white/[0.02] p-3 text-xs text-slate-300 whitespace-pre-wrap">
-                      {eventoDetalle.detalle}
+                    <div className="rounded-xl border border-white/10 bg-white/[0.018] p-4">
+                      <p className="font-ui text-[10px] font-semibold text-[#71857F]">Detalle</p>
+                      <p className="mt-2 whitespace-pre-wrap font-ui text-sm leading-6 text-[#C9D5D1]">{eventoDetalle.detalle}</p>
                     </div>
                   )}
                   {eventoDetalle.expedienteNombre && (
-                    <p>
-                      <strong className="text-white">{terms.expedienteSingular}:</strong> {eventoDetalle.expedienteNombre}
-                    </p>
+                    <div className="rounded-xl border border-[#EAC26B]/20 bg-[#EAC26B]/[0.055] p-4">
+                      <p className="font-ui text-[10px] font-semibold text-[#B79B62]">{terms.expedienteSingular} asociado</p>
+                      <p className="mt-1 font-ui text-sm font-bold text-[#EEE5D2]">{eventoDetalle.expedienteNombre}</p>
+                    </div>
                   )}
+                  <p className="font-ui text-[10px] text-[#60736D]">America/Argentina/Buenos_Aires · UTC-3</p>
                 </div>
 
-                <div className="flex flex-wrap items-center justify-between gap-3 border-t border-white/10 pt-4">
+                <div className="flex flex-col-reverse gap-3 border-t border-white/10 bg-black/[0.08] px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
                   {eventoDetalle.href && eventoDetalle.href !== '/agenda' ? (
                     <Link
                       href={eventoDetalle.href}
-                      className="rounded-xl bg-cyan-500/20 px-4 py-2 text-sm font-semibold text-cyan-300 hover:bg-cyan-500/30"
+                      className="group inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-[#F3F8F5] px-4 font-ui text-sm font-bold text-[#071110] transition hover:-translate-y-px hover:shadow-[0_0_24px_rgba(200,255,98,0.18)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C8FF62]"
                     >
-                      Ver {terms.expedienteSingular.toLowerCase()} →
+                      {getAgendaEventActionLabel(eventoDetalle, terms)}
+                      <ArrowRight size={16} weight="bold" className="transition-transform group-hover:translate-x-0.5" />
                     </Link>
-                  ) : <div />}
+                  ) : <span />}
 
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center justify-end gap-2">
                     {eventoDetalle.rawId && puedeGuardar && (
                       <>
                         <button
                           type="button"
                           onClick={() => iniciarEdicion(eventoDetalle)}
                           data-testid="agenda-editar-btn"
-                          className="rounded-xl border border-cyan-500/30 bg-cyan-500/10 px-3 py-2 text-xs font-semibold text-cyan-300 hover:bg-cyan-500/20"
+                          className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-[#85E4D4]/25 bg-[#85E4D4]/[0.06] px-3 font-ui text-xs font-bold text-[#9AF0E2] hover:bg-[#85E4D4]/10"
                         >
-                          Editar
+                          <PencilSimple size={14} /> Editar
                         </button>
                         <button
                           type="button"
                           disabled={eliminando}
                           onClick={() => eventoDetalle.rawId && eliminar(eventoDetalle.rawId)}
-                          className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-xs font-semibold text-rose-300 hover:bg-rose-500/20 disabled:opacity-50"
+                          className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-rose-400/20 bg-rose-400/[0.055] px-3 font-ui text-xs font-bold text-rose-300 hover:bg-rose-400/10 disabled:opacity-50"
                         >
-                          {eliminando ? 'Borrando…' : 'Eliminar de agenda'}
+                          <Trash size={14} /> {eliminando ? 'Borrando…' : 'Eliminar'}
                         </button>
                       </>
                     )}
                     <button
                       type="button"
                       onClick={() => { setEventoDetalle(null); setEditando(false); }}
-                      className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-white hover:bg-white/10"
+                      className="min-h-10 rounded-lg border border-white/12 px-4 font-ui text-xs font-bold text-[#D7E2DE] hover:bg-white/[0.05]"
                     >
                       Cerrar
                     </button>

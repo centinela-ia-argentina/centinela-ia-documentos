@@ -3,20 +3,18 @@
 import { useMemo, useState } from 'react';
 import {
   ArrowRight,
-  CalendarBlank,
+  CalendarX,
   CaretLeft,
   CaretRight,
-  ClockCountdown,
-  FileText,
   Plus,
-  SealCheck,
-  Signature,
+  SquaresFour,
   Warning,
 } from '@phosphor-icons/react';
 import { FERIADOS_NACIONALES_2026 } from '@/lib/legal/config';
 import type { IndustryType } from '@/lib/industries/documentTypes';
 import type { AgendaLabels, IndustryTerms } from '@/lib/industries/uiLabels';
 import type { AgendaEvento } from './AgendaClient';
+import { getAgendaEventMeta } from './agendaPresentation';
 
 type Vista = 'hoy' | 'semana' | 'mes';
 type Filtro = 'todos' | AgendaEvento['tipo'];
@@ -65,15 +63,6 @@ function daysFromToday(value: string, today: Date): number {
 
 function dateLabel(value: string): string {
   return new Intl.DateTimeFormat('es-AR', { day: '2-digit', month: 'short' }).format(fromIso(value));
-}
-
-function eventMeta(tipo: AgendaEvento['tipo'], plazoLabel: string) {
-  if (tipo === 'documento') return { label: 'Documento', color: '#72B7FF', Icon: FileText };
-  if (tipo === 'firma') return { label: 'Firma', color: '#FF9EB1', Icon: Signature };
-  if (tipo === 'turno') return { label: 'Turno', color: '#85E4D4', Icon: CalendarBlank };
-  if (tipo === 'evento') return { label: 'Recordatorio', color: '#C8FF62', Icon: SealCheck };
-  if (tipo === 'plazo') return { label: plazoLabel, color: '#D2B4FF', Icon: ClockCountdown };
-  return { label: 'Fecha clave', color: '#D2B4FF', Icon: CalendarBlank };
 }
 
 export function AgendaCommandCenter({
@@ -153,13 +142,13 @@ export function AgendaCommandCenter({
     }
   }
 
-  const filters: Array<{ value: Filtro; label: string }> = [
-    { value: 'todos', label: 'Todos' },
-    { value: 'documento', label: 'Documentos' },
-    { value: 'plazo', label: agendaLabels.plazoLabel },
-    { value: 'firma', label: 'Firmas' },
-    { value: 'turno', label: 'Turnos' },
-    { value: 'evento', label: 'Recordatorios' },
+  const filters = [
+    { value: 'todos', label: 'Todos', Icon: SquaresFour, color: '#85E4D4' },
+    { value: 'documento', ...getAgendaEventMeta('documento', agendaLabels.plazoLabel, terms), label: 'Documentos' },
+    { value: 'plazo', ...getAgendaEventMeta('plazo', agendaLabels.plazoLabel, terms) },
+    { value: 'firma', ...getAgendaEventMeta('firma', agendaLabels.plazoLabel, terms), label: 'Firmas' },
+    { value: 'turno', ...getAgendaEventMeta('turno', agendaLabels.plazoLabel, terms), label: 'Turnos' },
+    { value: 'evento', ...getAgendaEventMeta('evento', agendaLabels.plazoLabel, terms), label: 'Recordatorios' },
   ];
 
   return (
@@ -218,24 +207,30 @@ export function AgendaCommandCenter({
             <button
               key={item.value}
               type="button"
-              onClick={() => setFiltro(item.value)}
-              className={`min-h-9 shrink-0 rounded-full border px-3 font-ui text-[11px] font-semibold transition-colors ${filtro === item.value ? 'border-[#85E4D4]/35 bg-[#85E4D4]/10 text-[#9AF0E2]' : 'border-white/10 text-[#7F938D] hover:border-white/20 hover:text-white'}`}
+              onClick={() => setFiltro(item.value as Filtro)}
+              className={`inline-flex min-h-9 shrink-0 items-center gap-2 rounded-full border px-3 font-ui text-[11px] font-semibold transition-colors ${filtro === item.value ? 'border-white/20 bg-white/[0.07] text-white' : 'border-white/10 text-[#7F938D] hover:border-white/20 hover:text-white'}`}
             >
+              <item.Icon size={13} weight={filtro === item.value ? 'fill' : 'regular'} style={{ color: item.color }} />
               {item.label}
             </button>
           ))}
         </div>
       </div>
 
-      <section className="overflow-hidden rounded-[28px] border border-white/10 bg-[#081A22] shadow-[0_28px_90px_rgba(0,0,0,0.22)]">
+      <section className="overflow-hidden rounded-[24px] border border-[#85E4D4]/15 bg-[#0A1512] shadow-[0_28px_90px_rgba(0,0,0,0.24)]">
         <div className="grid lg:grid-cols-[minmax(0,1.65fr)_minmax(320px,0.85fr)]">
-          <div className="border-b border-white/10 p-4 sm:p-6 lg:border-b-0 lg:border-r">
+          <div className="border-b border-[#85E4D4]/12 bg-[#091411] p-4 sm:p-6 lg:border-b-0 lg:border-r">
             <div className="mb-5 flex items-center justify-between gap-3">
               <div>
                 <p className="font-ui text-xs font-semibold text-[#85E4D4]">Vista {vista}</p>
                 <h2 className="mt-1 font-display text-2xl font-medium tracking-[-0.04em] text-[#F3F8F5]">
                   {vista === 'hoy' ? new Intl.DateTimeFormat('es-AR', { weekday: 'long', day: 'numeric', month: 'long' }).format(now) : vista === 'semana' ? 'Esta semana' : `${MESES[cursor.getMonth()]} ${cursor.getFullYear()}`}
                 </h2>
+                {vista === 'mes' ? (
+                  <span className="mt-2 inline-flex items-center gap-1.5 font-ui text-[10px] font-semibold text-amber-200/75">
+                    <CalendarX size={12} /> Feriado nacional
+                  </span>
+                ) : null}
               </div>
               {vista === 'mes' ? (
                 <div className="flex items-center gap-1">
@@ -248,28 +243,46 @@ export function AgendaCommandCenter({
 
             {vista === 'mes' ? (
               <>
-                <div className="grid grid-cols-7 border-y border-white/10 py-2 text-center font-ui text-[10px] font-bold uppercase tracking-[0.08em] text-[#6F817B]">
+                <div className="grid grid-cols-7 border-y border-[#85E4D4]/12 bg-white/[0.012] py-2.5 text-center font-ui text-[10px] font-bold uppercase tracking-[0.08em] text-[#71857F]">
                   {DIAS.map((day) => <span key={day}>{day}</span>)}
                 </div>
                 <div className="grid grid-cols-7">
                   {monthCells.map((value, index) => {
-                    if (!value) return <div key={`empty-${index}`} className="min-h-24 border-b border-r border-white/[0.055] bg-white/[0.008]" />;
+                    if (!value) return <div key={`empty-${index}`} className="min-h-24 border-b border-r border-[#85E4D4]/[0.07] bg-black/[0.06]" />;
                     const dayEvents = eventsByDay.get(value) ?? [];
                     const holiday = feriadosSet.has(value);
                     const isToday = value === todayIso;
                     return (
-                      <div key={value} className={`min-h-24 border-b border-r border-white/[0.055] p-1.5 transition-colors hover:bg-white/[0.025] sm:min-h-28 sm:p-2 ${holiday ? 'bg-amber-400/[0.035]' : ''}`}>
+                      <div key={value} className={`min-h-24 border-b border-r border-[#85E4D4]/[0.07] p-1.5 transition-colors hover:bg-[#85E4D4]/[0.025] sm:min-h-28 sm:p-2 ${holiday ? 'bg-amber-300/[0.045]' : ''}`}>
                         <div className="flex items-center justify-between">
                           <span className={`grid h-6 min-w-6 place-items-center rounded-full font-ui text-[11px] font-bold ${isToday ? 'bg-[#C8FF62] text-[#071110]' : 'text-[#8FA19B]'}`}>{fromIso(value).getDate()}</span>
-                          {holiday ? <span className="h-1.5 w-1.5 rotate-45 bg-amber-300" title="Feriado" /> : null}
+                          {holiday ? (
+                            <span
+                              title="Feriado nacional"
+                              aria-label="Feriado nacional"
+                              className="inline-flex h-6 w-6 items-center justify-center rounded-md border border-amber-300/20 bg-amber-300/[0.08] text-amber-200"
+                            >
+                              <CalendarX size={13} weight="regular" />
+                            </span>
+                          ) : null}
                         </div>
                         <div className="mt-1 space-y-1">
                           {dayEvents.slice(0, 2).map((event) => {
-                            const meta = eventMeta(event.tipo, agendaLabels.plazoLabel);
+                            const meta = getAgendaEventMeta(event.tipo, agendaLabels.plazoLabel, terms);
+                            const EventIcon = meta.Icon;
                             return (
-                              <button key={event.id} type="button" onClick={() => onSelect(event)} className="flex w-full items-center gap-1.5 rounded-[4px] border border-white/[0.07] bg-white/[0.025] px-1.5 py-1 text-left transition hover:border-white/15 hover:bg-white/[0.05]">
-                                <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: meta.color }} />
-                                <span className="truncate font-ui text-[9px] font-semibold text-[#C6D2CE] sm:text-[10px]">{event.titulo}</span>
+                              <button
+                                key={event.id}
+                                type="button"
+                                onClick={() => onSelect(event)}
+                                title={`${meta.label}: ${event.titulo}`}
+                                className="group/event flex min-h-7 w-full items-center gap-1.5 rounded-md border px-1.5 py-1 text-left transition hover:-translate-y-px hover:brightness-125 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#C8FF62]"
+                                style={{ borderColor: `${meta.color}2E`, background: `${meta.color}0D` }}
+                              >
+                                <span className="grid h-4 w-4 shrink-0 place-items-center rounded-[3px]" style={{ color: meta.color, background: `${meta.color}14` }}>
+                                  <EventIcon size={11} weight="fill" />
+                                </span>
+                                <span className="truncate font-ui text-[9px] font-semibold text-[#D6E1DD] sm:text-[10px]">{event.titulo}</span>
                               </button>
                             );
                           })}
@@ -292,11 +305,22 @@ export function AgendaCommandCenter({
                       <p className="font-ui text-[10px] font-bold uppercase text-[#71857F]">{DIAS[(day.getDay() + 6) % 7]}</p>
                       <p className="mt-1 font-display text-2xl font-semibold text-[#F3F8F5]">{day.getDate()}</p>
                       <div className="mt-3 space-y-1.5">
-                        {dayEvents.map((event) => (
-                          <button key={event.id} type="button" onClick={() => onSelect(event)} className="w-full rounded-md border border-white/10 px-2 py-1.5 text-left font-ui text-[10px] text-[#C9D5D1] hover:bg-white/[0.05]">
-                            {event.hora ? `${event.hora} · ` : ''}{event.titulo}
-                          </button>
-                        ))}
+                        {dayEvents.map((event) => {
+                          const meta = getAgendaEventMeta(event.tipo, agendaLabels.plazoLabel, terms);
+                          const EventIcon = meta.Icon;
+                          return (
+                            <button
+                              key={event.id}
+                              type="button"
+                              onClick={() => onSelect(event)}
+                              className="flex w-full items-start gap-1.5 rounded-md border px-2 py-1.5 text-left font-ui text-[10px] text-[#C9D5D1] hover:brightness-125"
+                              style={{ borderColor: `${meta.color}2E`, background: `${meta.color}0D` }}
+                            >
+                              <EventIcon size={12} weight="fill" className="mt-px shrink-0" style={{ color: meta.color }} />
+                              <span>{event.hora ? `${event.hora} · ` : ''}{event.titulo}</span>
+                            </button>
+                          );
+                        })}
                         {!dayEvents.length ? <span className="font-ui text-[10px] text-[#536760]">Sin eventos</span> : null}
                       </div>
                     </div>
@@ -308,7 +332,7 @@ export function AgendaCommandCenter({
             {vista === 'hoy' ? (
               <div className="space-y-2">
                 {visibleEvents.map((event) => {
-                  const meta = eventMeta(event.tipo, agendaLabels.plazoLabel);
+                  const meta = getAgendaEventMeta(event.tipo, agendaLabels.plazoLabel, terms);
                   const Icon = meta.Icon;
                   return (
                     <button key={event.id} type="button" onClick={() => onSelect(event)} className="group flex w-full items-center gap-4 rounded-xl border border-white/10 bg-white/[0.018] p-4 text-left transition hover:border-[#85E4D4]/25 hover:bg-white/[0.04]">
@@ -326,30 +350,41 @@ export function AgendaCommandCenter({
             ) : null}
           </div>
 
-          <aside className="bg-[linear-gradient(180deg,rgba(200,255,98,0.035),transparent_42%)] p-5 sm:p-6">
+          <aside className="bg-[radial-gradient(circle_at_top_right,rgba(133,228,212,0.07),transparent_34%),linear-gradient(180deg,#0D1B17,#0A1512)] p-5 sm:p-6">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <p className="font-ui text-xs font-semibold text-[#85E4D4]">Centro de alertas</p>
-                <h2 className="mt-1 font-display text-2xl font-medium tracking-[-0.04em] text-[#F3F8F5]">Para revisar</h2>
-                <p className="mt-2 font-ui text-xs leading-5 text-[#81948E]">Vencidas y próximas, ordenadas por fecha.</p>
+                <p className="font-ui text-xs font-semibold text-[#85E4D4]">Agenda priorizada</p>
+                <h2 className="mt-1 font-display text-2xl font-medium tracking-[-0.04em] text-[#F3F8F5]">Fechas para revisar</h2>
+                <p className="mt-2 font-ui text-xs leading-5 text-[#81948E]">Cada símbolo identifica el origen y el tipo de evento.</p>
               </div>
-              <Warning size={20} weight="regular" className="text-[#C8FF62]" />
+              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg border border-[#C8FF62]/20 bg-[#C8FF62]/[0.07] text-[#C8FF62]">
+                <Warning size={19} weight="regular" />
+              </span>
             </div>
 
-            <div className="mt-5 divide-y divide-white/10 border-y border-white/10">
+            <div className="mt-5 space-y-2 border-t border-white/10 pt-4">
               {priorityEvents.map((event) => {
                 const days = daysFromToday(event.fecha, now);
-                const meta = eventMeta(event.tipo, agendaLabels.plazoLabel);
+                const meta = getAgendaEventMeta(event.tipo, agendaLabels.plazoLabel, terms);
                 const Icon = meta.Icon;
                 const urgency = days < 0 ? `Hace ${Math.abs(days)} d` : days === 0 ? 'Hoy' : days === 1 ? 'Mañana' : `En ${days} d`;
                 return (
-                  <button key={event.id} type="button" onClick={() => onSelect(event)} className="group grid w-full grid-cols-[auto_1fr_auto] items-start gap-3 py-3.5 text-left">
-                    <span className="grid h-8 w-8 place-items-center rounded-md" style={{ color: meta.color, background: `${meta.color}12` }}><Icon size={16} /></span>
+                  <button
+                    key={event.id}
+                    type="button"
+                    onClick={() => onSelect(event)}
+                    className="group grid w-full grid-cols-[auto_1fr] gap-3 rounded-xl border p-3 text-left transition hover:-translate-y-px hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C8FF62]"
+                    style={{ borderColor: `${meta.color}24`, background: `linear-gradient(105deg, ${meta.color}0D, rgba(255,255,255,0.012) 48%)` }}
+                  >
+                    <span className="grid h-9 w-9 place-items-center rounded-lg" style={{ color: meta.color, background: `${meta.color}14` }}><Icon size={17} weight="fill" /></span>
                     <span className="min-w-0">
-                      <span className="block truncate font-ui text-xs font-bold text-[#DEE8E4] group-hover:text-white">{event.titulo}</span>
-                      <span className="mt-1 block truncate font-ui text-[10px] text-[#657A73]">{meta.label}{event.expedienteNombre ? ` · ${event.expedienteNombre}` : ''}</span>
+                      <span className="flex items-start justify-between gap-2">
+                        <span className="min-w-0 truncate font-ui text-xs font-bold text-[#E5EEEA] group-hover:text-white">{event.titulo}</span>
+                        <span className={`shrink-0 rounded-md px-2 py-1 font-ui text-[9px] font-bold ${days < 0 ? 'bg-rose-400/10 text-rose-300' : days <= 7 ? 'bg-amber-300/10 text-amber-200' : 'bg-white/[0.05] text-[#9FB0AB]'}`}>{urgency}</span>
+                      </span>
+                      <span className="mt-1 block truncate font-ui text-[10px]" style={{ color: meta.color }}>{meta.label}</span>
+                      {event.expedienteNombre ? <span className="mt-0.5 block truncate font-ui text-[10px] text-[#657A73]">{event.expedienteNombre}</span> : null}
                     </span>
-                    <span className={`rounded-md px-2 py-1 font-ui text-[9px] font-bold ${days < 0 ? 'bg-rose-400/10 text-rose-300' : days <= 7 ? 'bg-amber-300/10 text-amber-200' : 'bg-white/[0.04] text-[#8FA19B]'}`}>{urgency}</span>
                   </button>
                 );
               })}
