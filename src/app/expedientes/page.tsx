@@ -16,6 +16,7 @@ import type { CaseRecord } from '@/types/case';
 import { Calendar, User, FileText, ArrowRight } from 'lucide-react';
 import { isUserRole, canArchiveCase, canDeleteCase } from '@/lib/permissions/roles';
 import { CaseCardMenu } from './CaseCardMenu';
+import { OperationsListView } from '@/app/operaciones/OperationsListView';
 
 function displayText(value?: string | null, fallback = 'Sin definir') {
   const cleanValue = value?.trim();
@@ -161,7 +162,7 @@ export default async function CasesPage({
     if (rawQ) url.set('q', rawQ);
     if (estado) url.set('estado', estado);
     url.set('page', '1');
-    redirect(`/expedientes?${url.toString()}`);
+    redirect(`${basePath}?${url.toString()}`);
   }
 
   const terms = getIndustryTerms(organizationIndustry);
@@ -186,6 +187,31 @@ export default async function CasesPage({
 
   const canArchive = isUserRole(profile.role) && canArchiveCase(profile.role);
   const canDelete = isUserRole(profile.role) && canDeleteCase(profile.role);
+
+  if (organizationIndustry === 'inmobiliaria') {
+    return (
+      <AppShell>
+        <OperationsListView
+          records={records}
+          statusesByCase={statusesByCase}
+          basePath={basePath}
+          rawQ={rawQ}
+          estado={estado}
+          page={page}
+          totalPages={totalPages}
+          totalCount={totalCount}
+          start={start}
+          end={end}
+          terms={terms}
+          canArchive={canArchive}
+          canDelete={canDelete}
+          hasError={Boolean(error)}
+          isCountError={isCountError}
+          searchError={searchError}
+        />
+      </AppShell>
+    );
+  }
 
   return (
     <AppShell>

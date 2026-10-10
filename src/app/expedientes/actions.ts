@@ -269,7 +269,7 @@ export async function createCase(formData: FormData) {
   revalidatePath('/dashboard');
   revalidatePath('/expedientes');
   revalidatePath('/operaciones');
-  redirect(`/expedientes/${data.id}`);
+  redirect(industry === 'inmobiliaria' ? `/operaciones/${data.id}` : `/expedientes/${data.id}`);
 }
 
 export async function vincularPropiedadOperacion(formData: FormData) {

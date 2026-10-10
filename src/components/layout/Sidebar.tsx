@@ -1,29 +1,16 @@
+import type { ReactNode } from 'react';
 import Link from 'next/link';
-import type { LucideIcon } from 'lucide-react';
-import { BarChart3, FileText, FolderKanban, Users, AlertCircle, Calculator, FileSignature, CalendarDays, ScanLine, Search, Settings } from 'lucide-react';
-import { getUserProfile } from '@/lib/auth/getUserProfile';
-import { isUserRole } from '@/lib/permissions/roles';
-import { createClient } from '@/lib/supabase/server';
-import { normalizeIndustryType, type IndustryType } from '@/lib/industries/documentTypes';
-
+import { List, X } from '@phosphor-icons/react/ssr';
 import { navigation } from '@/config/navigation';
 import { BrandWordmark } from '@/components/BrandWordmark';
+import { ActiveNavLink } from './ActiveNavLink';
 import { getNavGroupLabel, getNavItemLabel } from '@/lib/industries/uiLabels';
+import { getShellContext } from '@/lib/shell/getShellContext';
+
+const groupOrder = ['Operación', 'Herramientas jurídicas', 'Utilidades', 'Gestión'];
 
 export async function Sidebar() {
-  const { profile } = await getUserProfile();
-  const role = isUserRole(profile?.role) ? profile.role : null;
-
-  let industry: IndustryType = 'general';
-  if (profile?.organization_id) {
-    const supabase = await createClient();
-    const { data: org } = await supabase
-      .from('organizations')
-      .select('industry_type')
-      .eq('id', profile.organization_id)
-      .maybeSingle();
-    industry = normalizeIndustryType(org?.industry_type);
-  }
+  const { role, industry } = await getShellContext();
 
   const visibleNavigation = role
     ? navigation.filter(
@@ -33,47 +20,77 @@ export async function Sidebar() {
       )
     : [];
 
-  const groupOrder = ['Operación', 'Herramientas jurídicas', 'Utilidades', 'Gestión'];
+  const renderNavigation = (keyPrefix: string): ReactNode => (
+    <nav aria-label="Navegación principal" className="flex h-full flex-col justify-between gap-2">
+      {groupOrder.map((group) => {
+        const items = visibleNavigation
+          .filter((item) => item.group === group)
+          .sort((a, b) =>
+            getNavItemLabel(a, industry).localeCompare(
+              getNavItemLabel(b, industry),
+              'es'
+            )
+          );
 
-  return (
-    <aside className="fixed inset-y-0 left-0 hidden h-screen w-72 flex-col border-r border-white/10 bg-[#071326] px-5 py-4 shadow-[18px_0_55px_rgba(0,0,0,0.24)] lg:flex">
-      <Link href="/dashboard" className="mb-6 block">
-        <BrandWordmark className="text-sm" />
-        <h1 className="mt-2 text-xl font-bold text-white">
-          Panel operativo
-        </h1>
-      </Link>
+        if (items.length === 0) return null;
 
-      <nav className="space-y-0.5 flex-1 overflow-y-auto pb-6">
-        {groupOrder.map((group) => {
-          const items = visibleNavigation.filter((i) => i.group === group);
-          if (items.length === 0) return null;
-          return (
-            <div key={group} className="mb-0">
-              <p className="px-3 pt-1 pb-0 text-[10px] leading-none font-semibold uppercase tracking-wider text-slate-500">
-                {getNavGroupLabel(group, industry)}
-              </p>
+        return (
+          <section key={`${keyPrefix}-${group}`} aria-labelledby={`${keyPrefix}-${group.replaceAll(' ', '-')}`}>
+            <h2
+              id={`${keyPrefix}-${group.replaceAll(' ', '-')}`}
+              className="mb-1 px-2.5 text-[10px] font-medium tracking-[-0.01em] text-[#71857F]"
+            >
+              {getNavGroupLabel(group, industry)}
+            </h2>
+            <div>
               {items.map((item) => {
                 const Icon = item.icon;
                 const href =
                   industry === 'inmobiliaria' && item.href === '/expedientes'
                     ? '/operaciones'
                     : item.href;
+
                 return (
-                  <Link
-                    key={href}
+                  <ActiveNavLink
+                    key={`${keyPrefix}-${href}`}
                     href={href}
-                    className="flex items-center gap-2.5 rounded-2xl px-3 py-1 text-sm font-semibold text-[#C2CCD9] transition-all hover:bg-[#1E9BF0]/12 hover:text-[#29C5FF]"
+                    label={getNavItemLabel(item, industry)}
                   >
-                    <Icon className="h-[18px] w-[18px] text-current" />
-                    {getNavItemLabel(item, industry)}
-                  </Link>
+                    <Icon size={17} weight="regular" />
+                  </ActiveNavLink>
                 );
               })}
             </div>
-          );
-        })}
-      </nav>
-    </aside>
+          </section>
+        );
+      })}
+    </nav>
+  );
+
+  return (
+    <>
+      <aside className="fixed inset-y-0 left-0 z-30 hidden h-screen w-64 flex-col border-r border-[#85E4D4]/15 bg-[#071110] lg:flex">
+        <Link href="/dashboard" className="px-5 py-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#85E4D4]">
+          <BrandWordmark className="text-lg" />
+        </Link>
+        <div className="min-h-0 flex-1 overflow-hidden px-3 pb-4">
+          {renderNavigation('desktop')}
+        </div>
+      </aside>
+
+      <details className="group sticky top-0 z-40 border-b border-[#85E4D4]/15 bg-[#071110]/95 backdrop-blur-xl lg:hidden">
+        <summary className="flex h-[62px] cursor-pointer list-none items-center justify-between px-4 [&::-webkit-details-marker]:hidden">
+          <BrandWordmark className="text-base" />
+          <span className="grid h-10 w-10 place-items-center rounded-lg border border-[#85E4D4]/15 text-[#9BB0A9] group-open:bg-white/[0.05] group-open:text-white">
+            <List size={20} weight="regular" className="group-open:hidden" aria-hidden="true" />
+            <X size={20} weight="regular" className="hidden group-open:block" aria-hidden="true" />
+            <span className="sr-only">Abrir o cerrar menú</span>
+          </span>
+        </summary>
+        <div className="max-h-[calc(100vh-62px)] overflow-y-auto border-t border-[#85E4D4]/15 px-4 py-5">
+          {renderNavigation('mobile')}
+        </div>
+      </details>
+    </>
   );
 }

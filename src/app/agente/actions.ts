@@ -1,8 +1,7 @@
 'use server';
 
-import { createClient } from '@/lib/supabase/server';
 import { getUserProfile } from '@/lib/auth/getUserProfile';
-import { normalizeIndustryType, type IndustryType } from '@/lib/industries/documentTypes';
+import type { IndustryType } from '@/lib/industries/documentTypes';
 import { getIndustryTerms } from '@/lib/industries/uiLabels';
 import { getStrictIndustryForOrganization } from '@/lib/auth/getStrictIndustry';
 import { canUseAi } from '@/lib/permissions/roles';
@@ -11,16 +10,6 @@ import {
   type MensajeChat,
   type AccionPropuesta,
 } from '@/lib/ai/agente';
-
-function diasDesdeHoy(iso: string): number {
-  const [y, m, d] = iso.split('-').map(Number);
-  if (!y || !m || !d) return NaN;
-  const hoy = new Date();
-  hoy.setHours(0, 0, 0, 0);
-  const f = new Date(y, m - 1, d);
-  f.setHours(0, 0, 0, 0);
-  return Math.round((f.getTime() - hoy.getTime()) / 86_400_000);
-}
 
 export async function preguntarAgenteGlobal(input: {
   historial: MensajeChat[];
@@ -34,168 +23,67 @@ export async function preguntarAgenteGlobal(input: {
 
   const { user, profile } = await getUserProfile();
   if (!user || !profile) return { ok: false, motivo: 'Sesión no válida.' };
-  if (!canUseAi(profile.role))
+  if (!canUseAi(profile.role)) {
     return { ok: false, motivo: 'No tenés permiso para usar la IA.' };
-
-  const supabase = await createClient();
+  }
 
   let industry: IndustryType;
   try {
     industry = await getStrictIndustryForOrganization(profile.organization_id);
-  } catch (e) {
+  } catch {
     return { ok: false, motivo: 'Industria no autorizada.' };
   }
 
   const terms = getIndustryTerms(industry);
-
-const GLOBAL_AGENT_CASE_CONTEXT_LIMIT = 40;
-
-  const [casesResult, docsResult, plazosResult] = await Promise.all([
-    supabase
-      .from('cases')
-      .select('id, title, client_name, case_type, status', { count: 'exact' })
-      .eq('organization_id', profile.organization_id)
-      .neq('status', 'archived')
-      .neq('status', 'Archivado')
-      .order('created_at', { ascending: false })
-      .order('id', { ascending: false })
-      .limit(GLOBAL_AGENT_CASE_CONTEXT_LIMIT),
-    supabase
-      .from('documents')
-      .select('file_name, expires_at, case_id')
-      .eq('organization_id', profile.organization_id)
-      .not('expires_at', 'is', null),
-    supabase
-      .from('agenda_plazos')
-      .select('titulo, fecha, detalle, case_id, categoria')
-      .eq('organization_id', profile.organization_id),
-  ]);
-
-  const cases = casesResult.data ?? [];
-  const countIsUnknown = casesResult.count === null;
-  const totalActiveCases = casesResult.count ?? cases.length;
-  const includedCaseCount = cases.length;
-  const isCaseContextPartial = totalActiveCases > includedCaseCount;
-
-  const documents = docsResult.data ?? [];
-  const plazos = plazosResult.data ?? [];
-
-  const caseTitleById = new Map<string, string>();
-  for (const c of cases) caseTitleById.set(c.id, c.title || terms.itemSinTitulo);
-
-  const partes: string[] = [];
-  partes.push(`VISTA GLOBAL DE LA ORGANIZACIÓN (${terms.todosLosLegajosActivos}).`);
-  partes.push(
-    `REGLAS INNEGOCIABLES DE RESPUESTA Y LÍMITES DE EJECUCIÓN:\n` +
-      `Estás operando exclusivamente como Agente IA general de orientación y panorama organizacional.\n\n` +
-      `1. CONSULTAS INFORMATIVAS: Si el usuario hace una pregunta informativa (ej. "¿Qué información tenés sobre ${terms.elExpediente} X?"), NO apliques la limitación de ejecución. Respondé con los datos disponibles. Si ${terms.elExpediente} consultado no figura en tu contexto, aplicá estrictamente las reglas de no encontrado detalladas más abajo.\n\n` +
-      `2. SOLICITUDES OPERATIVAS: Ante pedidos de ejecución o modificación (por ejemplo: cambiar estado de ${terms.unExpediente}, agendar un plazo, modificar ${terms.unExpediente}, vincular documentos, eliminar o cargar un documento desde acá), TENÉS ESTRICTAMENTE PROHIBIDO:\n` +
-      `- Pedir parámetros de ejecución, fechas o el ID del caso.\n` +
-      `- Prometer o dar a entender que podrás realizar la acción luego.\n` +
-      `- Devolver tokens o bloques de acción.\n` +
-      `Ante pedidos operativos, DEBÉS RESPONDER EXACTA Y CLARAMENTE CON ESTE TEXTO:\n` +
-      `“Desde el Agente IA general no puedo modificar casos ni ejecutar acciones concretas. Abrí ${terms.elExpediente} correspondiente y utilizá su Agente IA.”`
-  );
-
-  if (countIsUnknown && includedCaseCount === GLOBAL_AGENT_CASE_CONTEXT_LIMIT) {
-    partes.push(
-      `Contexto limitado a un máximo de ${GLOBAL_AGENT_CASE_CONTEXT_LIMIT} ${terms.expedientePlural.toLowerCase()} ${terms.adjetivoActivos} creados más recientemente.\n` +
-      `REGLA PARA ${terms.expedientePlural.toUpperCase()} NO ENCONTRADOS: Si el usuario pregunta por ${terms.unExpediente} que no figura acá, respondé exactamente: "${terms.EseExpediente} no aparece entre los ${GLOBAL_AGENT_CASE_CONTEXT_LIMIT} incluidos en el contexto actual. Puede estar fuera del recorte. Usá Buscar o abrí ${terms.elExpediente} ${terms.adjetivoEspecifico}."\n` +
-      `Si el usuario hace peticiones exhaustivas (ej. "todos mis casos", "panorama completo"), TENÉS ESTRICTAMENTE PROHIBIDO presentar este análisis parcial como total.`
-    );
-  } else if (isCaseContextPartial) {
-    partes.push(
-      `La organización tiene ${totalActiveCases} ${terms.expedientePlural.toLowerCase()} ${terms.adjetivoActivos}. En esta conversación disponés únicamente de los ${GLOBAL_AGENT_CASE_CONTEXT_LIMIT} ${terms.expedientePlural.toLowerCase()} creados más recientemente.\n` +
-      `REGLA PARA ${terms.expedientePlural.toUpperCase()} NO ENCONTRADOS: Si el usuario pregunta por ${terms.unExpediente} que no figura acá, respondé exactamente: "${terms.EseExpediente} no aparece entre los ${GLOBAL_AGENT_CASE_CONTEXT_LIMIT} incluidos en el contexto actual. Puede estar fuera del recorte. Usá Buscar o abrí ${terms.elExpediente} ${terms.adjetivoEspecifico}."\n` +
-      `Si el usuario hace peticiones exhaustivas (ej. "todos mis casos", "panorama completo", "resumen de todos"), TENÉS ESTRICTAMENTE PROHIBIDO presentar un análisis parcial como total. DEBÉS INCLUIR EXACTAMENTE ESTA ADVERTENCIA:\n` +
-      `“Esta vista del Agente General incluye los ${GLOBAL_AGENT_CASE_CONTEXT_LIMIT} ${terms.expedientePlural.toLowerCase()} creados más recientemente de ${totalActiveCases} ${terms.adjetivoActivos}. No puedo afirmar que el análisis cubra la totalidad. Para localizar ${terms.unExpediente} fuera de este contexto, usá Buscar o abrí ${terms.elExpediente} ${terms.adjetivoEspecifico}.”`
-    );
-  } else {
-    partes.push(
-      `Disponés de detalles de los ${totalActiveCases} ${terms.expedientePlural.toLowerCase()} ${terms.adjetivoActivos} de esta organización.\n` +
-      `REGLA PARA ${terms.expedientePlural.toUpperCase()} NO ENCONTRADOS: Si el usuario pregunta por ${terms.unExpediente} que no aparece en este contexto, respondé exactamente: "${terms.EseExpediente} no aparece entre ${terms.losExpedientes} ${terms.adjetivoActivos} disponibles en este contexto. No puedo concluir que no exista. Verificá el nombre con Buscar o abrí ${terms.elExpediente} ${terms.adjetivoEspecifico}."`
-    );
-  }
-
-  if (cases.length) {
-    partes.push(`\n${terms.expedientePlural.toUpperCase()} INCLUIDOS EN CONTEXTO:`);
-    partes.push(
-      cases
-        .map(
-          (c) =>
-            `- ${c.title ?? terms.itemSinTitulo} | Cliente: ${c.client_name ?? '-'} | Tipo: ${c.case_type ?? '-'} | Estado: ${c.status ?? '-'}`
-        )
-        .join('\n')
-    );
-  }
-
-  const alertas: string[] = [];
-  for (const d of documents) {
-    if (!d.expires_at) continue;
-    const f = String(d.expires_at).slice(0, 10);
-    const n = diasDesdeHoy(f);
-    if (Number.isNaN(n) || n < -90 || n > 30) continue;
-    const ctx = d.case_id ? caseTitleById.get(d.case_id) ?? 'Documento' : 'Documento suelto';
-    alertas.push(
-      `- ${f} (${n < 0 ? `vencido hace ${Math.abs(n)}d` : `en ${n}d`}) Vence documento "${d.file_name}" — ${ctx}`
-    );
-  }
-  const firmasVistas = new Set<string>();
-
-  for (const p of plazos) {
-    if (!p.fecha) continue;
-    const cid = p.case_id ?? null;
-    const categoria = p.categoria ?? '__sin_categoria__';
-    const tituloString = p.titulo ?? 'Plazo';
-    const tituloNorm = tituloString.normalize('NFC').trim().toLowerCase().replace(/\s+/g, ' ');
-    const f = String(p.fecha).slice(0, 10);
-    const firma = `${cid || ''}|${f}|${categoria}|${tituloNorm}`;
-
-    if (firmasVistas.has(firma)) continue;
-    firmasVistas.add(firma);
-
-    const n = diasDesdeHoy(f);
-    if (Number.isNaN(n) || n < -90 || n > 30) continue;
-    const ctx = p.case_id ? caseTitleById.get(p.case_id) ?? 'Agenda' : 'Agenda general';
-    alertas.push(
-      `- ${f} (${n < 0 ? `vencido hace ${Math.abs(n)}d` : `en ${n}d`}) ${tituloString} — ${ctx}`
-    );
-  }
-
-  if (alertas.length) {
-    partes.push(
-      '\nALERTAS TEMPRANAS (vencimientos y plazos; vencidos recientes y próximos 30 días):'
-    );
-    partes.push(alertas.join('\n'));
-  } else {
-    partes.push('\nNo hay vencimientos ni plazos próximos (30 días).');
-  }
-
-  const contextoLegajo = partes.join('\n');
+  const contextoLegajo = [
+    'ROL: Agente IA general de guía de la plataforma Anulus.',
+    'ALCANCE OBLIGATORIO:',
+    '- Explicá para qué sirve cada módulo, dónde encontrar una función y qué flujo seguir dentro de la plataforma.',
+    `- Usá el vocabulario del rubro activo: ${terms.expedientePlural}, documentos y herramientas asociadas.`,
+    '- No disponés de datos operativos de la organización, documentos, Agenda, alertas, vencimientos ni casos concretos.',
+    '- No enumeres, resumas ni interpretes alertas, prioridades, fechas o riesgos de la organización.',
+    '- Si preguntan por alertas, vencimientos, firmas o turnos, indicá que se consultan en Agenda.',
+    `- Si preguntan por el contenido, estado, documentos, riesgos o próximos pasos de ${terms.unExpediente} específico, indicá que deben abrir ${terms.elExpediente} y usar su Agente IA contextual.`,
+    '- No ejecutes acciones ni propongas bloques de acción.',
+    '',
+    'MAPA BÁSICO DE LA PLATAFORMA:',
+    `- Inicio: panorama general y acceso a las áreas de trabajo; no contiene el centro de alertas.`,
+    `- ${terms.expedientePlural}: listado y gestión de los registros del rubro.`,
+    '- Documentos: bóveda, carga, consulta y análisis documental.',
+    '- Agenda: único centro visual de alertas, calendario, vencimientos, firmas, turnos y recordatorios.',
+    '- Observaciones: excepciones, inconsistencias y datos que requieren revisión.',
+    '- Buscar: localización transversal de registros y documentos.',
+    '- Modelos y Herramientas: recursos reutilizables y utilidades del rubro.',
+    '- Agente IA contextual: análisis y orientación sobre un registro específico.',
+    '',
+    'ESTILO DE RESPUESTA: breve, claro, orientado a navegación y sin inventar datos de la organización.',
+  ].join('\n');
 
   const historial = Array.isArray(input.historial)
     ? input.historial
         .filter(
-          (m) =>
-            m && (m.rol === 'user' || m.rol === 'model') && typeof m.texto === 'string'
+          (message) =>
+            message &&
+            (message.rol === 'user' || message.rol === 'model') &&
+            typeof message.texto === 'string'
         )
         .slice(-12)
     : [];
 
-  const res = await responderAgenteLegajo({
+  const response = await responderAgenteLegajo({
     industry,
     contextoLegajo,
     historial,
     pregunta,
   });
 
-  if (!res.ok) {
+  if (!response.ok) {
     const motivo =
-      res.motivo === 'sin_api_key'
+      response.motivo === 'sin_api_key'
         ? 'La IA no está configurada (falta la API key).'
         : 'No pude generar una respuesta. Probá de nuevo.';
     return { ok: false, motivo };
   }
-  // Blindaje para agente global: las propuestas de acciones se eliminan de esta vista
-  return { ok: true, respuesta: res.respuesta, acciones: [] };
+
+  return { ok: true, respuesta: response.respuesta, acciones: [] };
 }
