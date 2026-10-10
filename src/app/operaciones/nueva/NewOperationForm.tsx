@@ -68,6 +68,7 @@ export function NewOperationForm({ caseFields, caseStatuses, caseTypes, properti
   const [caseType, setCaseType] = useState(caseTypes[0] ?? '');
   const [propertyId, setPropertyId] = useState('');
   const [status, setStatus] = useState(caseStatuses[0]?.value ?? 'active');
+  const [metadata, setMetadata] = useState<Record<string, string>>({});
 
   const selectedProperty = useMemo(
     () => properties.find((property) => property.id === propertyId),
@@ -98,7 +99,29 @@ export function NewOperationForm({ caseFields, caseStatuses, caseTypes, properti
         </AppButtonLink>
       </header>
 
-      <Surface as="form" family="panel" action={createCase} className="mt-6">
+      <Surface as="form" family="panel" action={createCase} className="mt-6"
+        onSubmit={(event) => {
+          if (!title.trim()) {
+            event.preventDefault();
+            const form = event.currentTarget;
+            setStep(1);
+            requestAnimationFrame(() => form.querySelector<HTMLInputElement>('[name="title"]')?.focus());
+          }
+        }}
+      >
+        {/* Unmounted steps still contribute exactly one successful control per field. */}
+        {step !== 1 ? <>
+          <input type="hidden" name="title" value={title} />
+          <input type="hidden" name="case_type" value={caseType} />
+          <input type="hidden" name="status" value={status} />
+        </> : null}
+        {step !== 2 ? <>
+          <input type="hidden" name="client_name" value={client} />
+          <input type="hidden" name="property_id" value={propertyId} />
+        </> : null}
+        {step !== 3 ? caseFields.map((field) => (
+          <input key={field.key} type="hidden" name={`case_metadata.${field.key}`} value={metadata[field.key] ?? ''} />
+        )) : null}
         <div className="border-b border-white/[0.07] px-4 sm:px-6">
           <WorkflowStepper steps={steps} step={step} onStepChange={setStep} />
         </div>
@@ -245,6 +268,8 @@ export function NewOperationForm({ caseFields, caseStatuses, caseTypes, properti
                           <SelectField
                             label={field.label}
                             name={`case_metadata.${field.key}`}
+                            value={metadata[field.key] ?? ''}
+                            onChange={(value) => setMetadata((current) => ({ ...current, [field.key]: value }))}
                             placeholder="Sin definir"
                             icon={field.key === 'moneda_operacion' ? <span className="font-display text-sm font-semibold">$</span> : <ShieldCheck size={16} />}
                             options={[
@@ -262,7 +287,10 @@ export function NewOperationForm({ caseFields, caseStatuses, caseTypes, properti
                     return (
                       <label key={field.key} className={`font-ui text-xs font-bold text-[#B8C6C1] ${spanClass}`}>
                         {field.label}
-                        <input name={`case_metadata.${field.key}`} type={field.type} className={inputClass} />
+                        <input name={`case_metadata.${field.key}`} type={field.type} className={inputClass}
+                          value={metadata[field.key] ?? ''}
+                          onChange={(event) => setMetadata((current) => ({ ...current, [field.key]: event.target.value }))}
+                        />
                       </label>
                     );
                   })}
