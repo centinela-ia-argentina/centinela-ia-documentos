@@ -51,5 +51,14 @@
     "typescript": "latest",
     "vitest": "^2.1.8",
     "wait-on": "^9.1.0"
+  },
+  "overrides": {
+    "source-map-js": "1.2.2",
+    "next": {
+      "sharp": "0.35.5"
+    },
+    "mammoth": {
+      "argparse": "2.0.1"
+    }
   }
 }
