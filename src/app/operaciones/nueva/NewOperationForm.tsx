@@ -1,13 +1,16 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import Link from 'next/link';
+import { useMemo, useState } from 'react';
+import { AppButton, AppButtonLink } from '@/components/ui/AppButton';
+import { Surface } from '@/components/ui/Surface';
+import { Eyebrow, PageTitle, SectionTitle, SupportingCopy } from '@/components/ui/Typography';
+import { WorkflowStepper } from '@/components/ui/WorkflowStepper';
+import { SelectField } from '@/components/ui/SelectField';
 import {
   ArrowLeft,
   ArrowRight,
   BookmarkSimple,
   Buildings,
-  CaretDown,
   Check,
   DotsThree,
   HouseLine,
@@ -44,122 +47,6 @@ const steps = [
 const inputClass =
   'mt-2 min-h-12 w-full rounded-lg border border-white/[0.11] bg-[#07110F] px-4 font-ui text-sm text-[#E8F0ED] outline-none transition placeholder:text-[#52655F] focus:border-[#85E4D4]/55 focus:ring-2 focus:ring-[#85E4D4]/15';
 
-type SelectOption = {
-  value: string;
-  label: string;
-  detail?: string;
-};
-
-type ModernSelectProps = {
-  name: string;
-  value?: string;
-  defaultValue?: string;
-  options: SelectOption[];
-  placeholder: string;
-  icon?: ReactNode;
-  onChange?: (value: string) => void;
-};
-
-function ModernSelect({
-  name,
-  value,
-  defaultValue = '',
-  options,
-  placeholder,
-  icon,
-  onChange,
-}: ModernSelectProps) {
-  const [open, setOpen] = useState(false);
-  const [internalValue, setInternalValue] = useState(defaultValue);
-  const rootRef = useRef<HTMLDivElement>(null);
-  const currentValue = value ?? internalValue;
-  const selected = options.find((option) => option.value === currentValue);
-
-  useEffect(() => {
-    if (!open) return;
-    function closeOnOutside(event: MouseEvent) {
-      if (rootRef.current && !rootRef.current.contains(event.target as Node)) setOpen(false);
-    }
-    function closeOnEscape(event: KeyboardEvent) {
-      if (event.key === 'Escape') setOpen(false);
-    }
-    document.addEventListener('mousedown', closeOnOutside);
-    document.addEventListener('keydown', closeOnEscape);
-    return () => {
-      document.removeEventListener('mousedown', closeOnOutside);
-      document.removeEventListener('keydown', closeOnEscape);
-    };
-  }, [open]);
-
-  function choose(nextValue: string) {
-    setInternalValue(nextValue);
-    onChange?.(nextValue);
-    setOpen(false);
-  }
-
-  return (
-    <div ref={rootRef} className="relative mt-2">
-      <input type="hidden" name={name} value={currentValue} />
-      <button
-        type="button"
-        aria-haspopup="listbox"
-        aria-expanded={open}
-        onClick={() => setOpen((current) => !current)}
-        className={`group flex min-h-12 w-full items-center gap-3 rounded-lg border px-3.5 text-left transition-[border-color,background-color,box-shadow] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C8FF62] ${
-          open
-            ? 'border-[#85E4D4]/45 bg-[#0B1815] shadow-[0_0_0_3px_rgba(133,228,212,0.08)]'
-            : 'border-white/[0.11] bg-[#07110F] hover:border-white/[0.22] hover:bg-white/[0.025]'
-        }`}
-      >
-        {icon ? (
-          <span className="grid h-8 w-8 shrink-0 place-items-center rounded-md border border-white/[0.07] bg-white/[0.035] text-[#85E4D4]">
-            {icon}
-          </span>
-        ) : null}
-        <span className="min-w-0 flex-1">
-          <span className={`block truncate font-display text-sm font-medium tracking-[-0.015em] ${selected ? 'text-[#E1EAE7]' : 'text-[#71857F]'}`}>
-            {selected?.label ?? placeholder}
-          </span>
-          {selected?.detail ? <span className="mt-0.5 block truncate font-ui text-[10px] text-[#61736D]">{selected.detail}</span> : null}
-        </span>
-        <span className={`grid h-7 w-7 shrink-0 place-items-center rounded-md border border-white/[0.08] text-[#8FA19B] transition-transform ${open ? 'rotate-180 bg-white/[0.05] text-white' : 'group-hover:text-white'}`}>
-          <CaretDown size={13} weight="bold" />
-        </span>
-      </button>
-
-      {open ? (
-        <div
-          role="listbox"
-          className="absolute left-0 right-0 top-[calc(100%+8px)] z-40 max-h-64 overflow-y-auto rounded-xl border border-[#85E4D4]/18 bg-[#0A1613]/98 p-1.5 shadow-[0_24px_64px_rgba(0,0,0,0.48)] backdrop-blur-xl"
-        >
-          {options.map((option) => {
-            const active = option.value === currentValue;
-            return (
-              <button
-                key={`${name}-${option.value}`}
-                type="button"
-                role="option"
-                aria-selected={active}
-                onClick={() => choose(option.value)}
-                className={`flex min-h-11 w-full items-center gap-3 rounded-lg px-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#C8FF62] ${
-                  active ? 'bg-[#85E4D4]/[0.09]' : 'hover:bg-white/[0.045]'
-                }`}
-              >
-                <span className={`h-5 w-[3px] rounded-full ${active ? 'bg-[#C8FF62]' : 'bg-transparent'}`} />
-                <span className="min-w-0 flex-1">
-                  <span className={`block truncate font-ui text-xs font-bold ${active ? 'text-[#E8F0ED]' : 'text-[#B8C6C1]'}`}>{option.label}</span>
-                  {option.detail ? <span className="mt-0.5 block truncate font-ui text-[10px] text-[#61736D]">{option.detail}</span> : null}
-                </span>
-                {active ? <Check size={14} weight="bold" className="shrink-0 text-[#C8FF62]" /> : null}
-              </button>
-            );
-          })}
-        </div>
-      ) : null}
-    </div>
-  );
-}
-
 function operationTypeVisual(type: string) {
   const normalized = type.toLowerCase();
   if (normalized.includes('compra') || normalized.includes('venta')) {
@@ -194,62 +81,26 @@ export function NewOperationForm({ caseFields, caseStatuses, caseTypes, properti
     <div className="mx-auto max-w-6xl py-2 sm:py-3">
       <header className="flex flex-col gap-6 border-b border-white/10 pb-7 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <p className="font-ui text-xs font-semibold text-[#85E4D4]">Cartera · Gestión inmobiliaria</p>
-          <h1 className="mt-2 font-display text-[clamp(2.35rem,5vw,4.5rem)] font-medium leading-none tracking-[-0.06em] text-[#F3F8F5]">
+          <Eyebrow>Cartera · Gestión inmobiliaria</Eyebrow>
+          <PageTitle className="mt-2">
             Nueva operación
-          </h1>
-          <p className="mt-4 max-w-2xl font-ui text-sm font-medium leading-6 text-[#B8C6C1] sm:text-[16px]">
+          </PageTitle>
+          <SupportingCopy variant="hero" className="mt-4">
             Registrá la información esencial ahora. Podrás completar documentos, fechas y seguimiento después.
-          </p>
+          </SupportingCopy>
         </div>
-        <Link
-          href="/operaciones"
-          className="group inline-flex min-h-12 w-fit items-center gap-3 rounded-md border border-white/20 bg-white/[0.045] px-2.5 pr-4 font-ui text-xs font-bold text-[#D5E0DC] transition-[transform,border-color,background-color] hover:-translate-y-px hover:border-white/35 hover:bg-white/[0.075] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C8FF62]"
+        <AppButtonLink href="/operaciones" variant="secondary" appearance="navigation"
         >
           <span className="grid h-8 w-8 place-items-center rounded-[5px] border border-white/[0.09] bg-[#07110F] text-[#85E4D4] transition-transform group-hover:-translate-x-0.5">
             <ArrowLeft size={15} weight="bold" />
           </span>
           Volver a operaciones
-        </Link>
+        </AppButtonLink>
       </header>
 
-      <form action={createCase} className="mt-6 rounded-xl border border-white/[0.09] bg-[#091411] shadow-[0_24px_70px_rgba(0,0,0,0.2)]">
+      <Surface as="form" family="panel" action={createCase} className="mt-6">
         <div className="border-b border-white/[0.07] px-4 sm:px-6">
-          <ol className="grid grid-cols-3" aria-label="Progreso de creación">
-            {steps.map((item) => {
-              const active = step === item.id;
-              const complete = step > item.id;
-              return (
-                <li key={item.id} className="relative">
-                  <button
-                    type="button"
-                    onClick={() => setStep(item.id)}
-                    aria-current={active ? 'step' : undefined}
-                    className={`group relative flex min-h-[72px] w-full flex-col items-start justify-center gap-1.5 px-2 text-left transition-colors focus-visible:z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#C8FF62] sm:flex-row sm:items-center sm:justify-start sm:gap-3 sm:px-3 ${
-                      active ? 'text-[#F3F8F5]' : 'text-[#82948E] hover:text-[#C7D3CF]'
-                    }`}
-                  >
-                    <span
-                      className={`grid h-8 w-8 shrink-0 place-items-center rounded-full border font-display text-xs font-semibold transition-colors ${
-                        complete
-                          ? 'border-[#C8FF62] bg-[#C8FF62] text-[#071110]'
-                          : active
-                            ? 'border-[#85E4D4]/55 bg-[#85E4D4]/10 text-[#C7F4EC]'
-                            : 'border-white/10 bg-white/[0.015] text-[#62756F] group-hover:border-white/20'
-                      }`}
-                    >
-                      {complete ? <Check size={15} weight="bold" /> : item.id}
-                    </span>
-                    <span>
-                      <span className="block font-display text-sm font-medium tracking-[-0.02em]">{item.label}</span>
-                      <span className="mt-0.5 hidden font-ui text-[10px] text-[#60736D] min-[460px]:block">{item.helper}</span>
-                    </span>
-                    <span className={`absolute inset-x-2 bottom-0 h-[2px] origin-left transition-transform duration-200 ${active ? 'scale-x-100 bg-[#85E4D4]' : 'scale-x-0 bg-transparent'}`} />
-                  </button>
-                </li>
-              );
-            })}
-          </ol>
+          <WorkflowStepper steps={steps} step={step} onStepChange={setStep} />
         </div>
 
         <div className="grid lg:grid-cols-[minmax(0,1fr)_300px]">
@@ -257,9 +108,9 @@ export function NewOperationForm({ caseFields, caseStatuses, caseTypes, properti
             {step === 1 ? (
               <section aria-labelledby="operation-step-title">
                 <div className="mb-7">
-                  <p className="font-ui text-[10px] font-bold uppercase tracking-[0.12em] text-[#85E4D4]">Paso 1 de 3</p>
-                  <h2 id="operation-step-title" className="mt-2 font-display text-2xl font-medium tracking-[-0.04em] text-[#F3F8F5]">Identificá la operación</h2>
-                  <p className="mt-2 max-w-xl font-ui text-sm leading-6 text-[#7F938D]">Usá un nombre reconocible y elegí el flujo que corresponde.</p>
+                  <Eyebrow variant="step">Paso 1 de 3</Eyebrow>
+                  <SectionTitle id="operation-step-title" className="mt-2">Identificá la operación</SectionTitle>
+                  <SupportingCopy className="mt-2">Usá un nombre reconocible y elegí el flujo que corresponde.</SupportingCopy>
                 </div>
 
                 <div className="grid gap-5">
@@ -310,7 +161,8 @@ export function NewOperationForm({ caseFields, caseStatuses, caseTypes, properti
 
                   <div className="font-ui text-xs font-bold text-[#B8C6C1]">
                     Estado inicial
-                    <ModernSelect
+                    <SelectField
+                      label="Estado inicial"
                       name="status"
                       value={status}
                       onChange={setStatus}
@@ -326,9 +178,9 @@ export function NewOperationForm({ caseFields, caseStatuses, caseTypes, properti
             {step === 2 ? (
               <section aria-labelledby="link-step-title">
                 <div className="mb-7">
-                  <p className="font-ui text-[10px] font-bold uppercase tracking-[0.12em] text-[#85E4D4]">Paso 2 de 3</p>
-                  <h2 id="link-step-title" className="mt-2 font-display text-2xl font-medium tracking-[-0.04em] text-[#F3F8F5]">Vinculá cliente y propiedad</h2>
-                  <p className="mt-2 max-w-xl font-ui text-sm leading-6 text-[#7F938D]">Estos datos permiten encontrar y contextualizar la operación rápidamente.</p>
+                  <Eyebrow variant="step">Paso 2 de 3</Eyebrow>
+                  <SectionTitle id="link-step-title" className="mt-2">Vinculá cliente y propiedad</SectionTitle>
+                  <SupportingCopy className="mt-2">Estos datos permiten encontrar y contextualizar la operación rápidamente.</SupportingCopy>
                 </div>
 
                 <div className="grid gap-5">
@@ -349,7 +201,8 @@ export function NewOperationForm({ caseFields, caseStatuses, caseTypes, properti
 
                   <div className="font-ui text-xs font-bold text-[#B8C6C1]">
                     Propiedad asociada
-                    <ModernSelect
+                    <SelectField
+                      label="Propiedad asociada"
                       name="property_id"
                       value={propertyId}
                       onChange={setPropertyId}
@@ -377,9 +230,9 @@ export function NewOperationForm({ caseFields, caseStatuses, caseTypes, properti
             {step === 3 ? (
               <section aria-labelledby="conditions-step-title">
                 <div className="mb-7">
-                  <p className="font-ui text-[10px] font-bold uppercase tracking-[0.12em] text-[#85E4D4]">Paso 3 de 3</p>
-                  <h2 id="conditions-step-title" className="mt-2 font-display text-2xl font-medium tracking-[-0.04em] text-[#F3F8F5]">Completá las condiciones</h2>
-                  <p className="mt-2 max-w-xl font-ui text-sm leading-6 text-[#7F938D]">Solo pedimos información útil para iniciar el seguimiento. Todo puede actualizarse después.</p>
+                  <Eyebrow variant="step">Paso 3 de 3</Eyebrow>
+                  <SectionTitle id="conditions-step-title" className="mt-2">Completá las condiciones</SectionTitle>
+                  <SupportingCopy className="mt-2">Solo pedimos información útil para iniciar el seguimiento. Todo puede actualizarse después.</SupportingCopy>
                 </div>
 
                 <div className="grid gap-5 sm:grid-cols-2">
@@ -389,7 +242,8 @@ export function NewOperationForm({ caseFields, caseStatuses, caseTypes, properti
                       return (
                         <div key={field.key} className={`font-ui text-xs font-bold text-[#B8C6C1] ${spanClass}`}>
                           {field.label}
-                          <ModernSelect
+                          <SelectField
+                            label={field.label}
                             name={`case_metadata.${field.key}`}
                             placeholder="Sin definir"
                             icon={field.key === 'moneda_operacion' ? <span className="font-display text-sm font-semibold">$</span> : <ShieldCheck size={16} />}
@@ -462,37 +316,37 @@ export function NewOperationForm({ caseFields, caseStatuses, caseTypes, properti
         </div>
 
         <footer className="flex flex-col-reverse gap-3 border-t border-white/[0.07] bg-[#07110F]/35 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
-          <button
+          <AppButton
             type="button"
             onClick={previous}
             disabled={step === 1}
-            className="group inline-flex min-h-12 items-center justify-center gap-3 rounded-md border border-white/20 bg-white/[0.035] px-2.5 pr-4 font-ui text-xs font-bold text-[#C0CEC9] transition-[transform,border-color,background-color] hover:-translate-y-px hover:border-white/35 hover:bg-white/[0.065] hover:text-white disabled:pointer-events-none disabled:opacity-25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C8FF62]"
+            variant="secondary"
           >
             <span className="grid h-8 w-8 place-items-center rounded-[5px] border border-white/[0.08] bg-[#07110F] text-[#85E4D4] transition-transform group-hover:-translate-x-0.5"><ArrowLeft size={15} weight="bold" /></span>
             Anterior
-          </button>
+          </AppButton>
 
           {step < 3 ? (
-            <button
+            <AppButton
               type="button"
               onClick={next}
-              className="group inline-flex min-h-12 items-center justify-center gap-3 rounded-md border border-white/70 bg-[#F3F8F5] px-2.5 pl-5 font-ui text-xs font-bold text-[#071110] transition-[transform,box-shadow] hover:-translate-y-px hover:shadow-[0_0_0_1px_rgba(200,255,98,0.22),0_0_20px_rgba(200,255,98,0.14)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C8FF62]"
+              variant="primary"
             >
               Continuar
               <span className="grid h-8 w-8 place-items-center rounded-[5px] bg-[#07110F] text-[#F3F8F5] transition-transform group-hover:translate-x-0.5"><ArrowRight size={15} weight="bold" /></span>
-            </button>
+            </AppButton>
           ) : (
-            <button
+            <AppButton
               type="submit"
               data-testid="case-submit"
-              className="group inline-flex min-h-12 items-center justify-center gap-3 rounded-md border border-white/70 bg-[#F3F8F5] px-2.5 pl-5 font-ui text-xs font-bold text-[#071110] transition-[transform,box-shadow] hover:-translate-y-px hover:shadow-[0_0_0_1px_rgba(200,255,98,0.22),0_0_20px_rgba(200,255,98,0.14)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C8FF62]"
+              variant="primary"
             >
               Crear operación
               <span className="grid h-8 w-8 place-items-center rounded-[5px] bg-[#07110F] text-[#F3F8F5]"><Plus size={15} weight="bold" /></span>
-            </button>
+            </AppButton>
           )}
         </footer>
-      </form>
+      </Surface>
     </div>
   );
 }
