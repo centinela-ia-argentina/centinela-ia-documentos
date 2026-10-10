@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { expectDashboardGreeting } from './helpers';
 import { randomUUID } from 'crypto';
 import { createClient } from '@supabase/supabase-js';
 
@@ -65,9 +66,7 @@ test.describe.serial('Anulus AI - Flujo Jurídico E2E Obligatorio', () => {
   test('02. roles y auditoría (verificaciones básicas de sesión)', async ({ browser }) => {
     // Current user is admin.legal@test.com
     await expect(page).toHaveURL(/\/dashboard/);
-    const dashboardTitle = page.locator('[data-testid="dashboard-title"]');
-    await expect(dashboardTitle).toBeVisible({ timeout: 15000 });
-    await expect(dashboardTitle).toContainText('Bienvenido');
+    await expectDashboardGreeting(page);
     await gotoStable('/usuarios');
     await expect(page).toHaveURL(/\/usuarios/);
     const usersPageTitle = page.locator('[data-testid="users-page-title"]');
