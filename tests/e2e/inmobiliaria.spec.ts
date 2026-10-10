@@ -205,8 +205,20 @@ test.describe.serial('Anulus AI - Inmobiliaria E2E', () => {
     const { context, page } = await loginAs(browser, 'admin.inm@test.com');
     try {
       await page.goto('/operaciones/nueva');
+      // Observe native submit events before navigation: React must not reuse
+      // the clicked Continue button as the final submit button.
+      await page.locator('form').filter({ has: page.getByTestId('case-title') }).evaluate((form) => {
+        form.setAttribute('data-e2e-submit-count', '0');
+        form.addEventListener('submit', () => {
+          const count = Number(form.getAttribute('data-e2e-submit-count'));
+          form.setAttribute('data-e2e-submit-count', String(count + 1));
+        });
+      });
       await page.getByRole('button', { name: 'Continuar', exact: true }).click();
+      await expect(page.getByTestId('case-client')).toBeVisible();
       await page.getByRole('button', { name: 'Continuar', exact: true }).click();
+      await expect(page.getByTestId('case-submit')).toBeVisible();
+      await expect(page.locator('form[data-e2e-submit-count]')).toHaveAttribute('data-e2e-submit-count', '0');
       let submits = 0;
       const onRequest = (request: import('@playwright/test').Request) => {
         if (request.method() === 'POST' && request.url().includes('/operaciones/nueva')) submits += 1;
@@ -217,6 +229,7 @@ test.describe.serial('Anulus AI - Inmobiliaria E2E', () => {
       await expect(page.getByTestId('case-title')).toBeFocused();
       await expect(page).toHaveURL(/\/operaciones\/nueva$/);
       expect(submits).toBe(0);
+      await expect(page.locator('form[data-e2e-submit-count]')).toHaveAttribute('data-e2e-submit-count', '1');
       page.off('request', onRequest);
     } finally {
       await page.close();

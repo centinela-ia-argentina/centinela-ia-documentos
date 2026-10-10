@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type MouseEvent } from 'react';
 import { AppButton, AppButtonLink } from '@/components/ui/AppButton';
 import { Surface } from '@/components/ui/Surface';
 import { Eyebrow, PageTitle, SectionTitle, SupportingCopy } from '@/components/ui/Typography';
@@ -75,7 +75,14 @@ export function NewOperationForm({ caseFields, caseStatuses, caseTypes, properti
     [properties, propertyId],
   );
 
-  const next = () => setStep((current) => Math.min(3, current + 1));
+  const next = (event: MouseEvent<HTMLButtonElement>) => {
+    const form = event.currentTarget.form;
+    const preserveFocus = step === 2 && event.currentTarget === document.activeElement;
+    setStep((current) => Math.min(3, current + 1));
+    if (preserveFocus) {
+      requestAnimationFrame(() => form?.querySelector<HTMLButtonElement>('[data-testid="case-submit"]')?.focus());
+    }
+  };
   const previous = () => setStep((current) => Math.max(1, current - 1));
 
   return (
@@ -356,6 +363,7 @@ export function NewOperationForm({ caseFields, caseStatuses, caseTypes, properti
 
           {step < 3 ? (
             <AppButton
+              key="continue-operation"
               type="button"
               onClick={next}
               variant="primary"
@@ -365,6 +373,7 @@ export function NewOperationForm({ caseFields, caseStatuses, caseTypes, properti
             </AppButton>
           ) : (
             <AppButton
+              key="create-operation"
               type="submit"
               data-testid="case-submit"
               variant="primary"

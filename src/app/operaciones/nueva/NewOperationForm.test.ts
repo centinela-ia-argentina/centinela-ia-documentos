@@ -47,6 +47,32 @@ function checkPayload(data: FormData) {
   for (const [key, value] of Object.entries(expected)) expect(data.getAll(key), key).toEqual([value]);
 }
 describe('New operation multi-step payload regression', () => {
+  it('uses a different DOM button for navigation and creation', () => {
+    setup();
+    fireEvent.click(screen.getByRole('button', { name: 'Continuar' }));
+    const continueButton = screen.getByRole('button', { name: 'Continuar' });
+    expect(continueButton.getAttribute('type')).toBe('button');
+    fireEvent.click(continueButton);
+    const createButton = screen.getByTestId('case-submit');
+    expect(createButton).not.toBe(continueButton);
+    expect(continueButton.isConnected).toBe(false);
+    expect(createButton.getAttribute('type')).toBe('submit');
+    expect(createCase).not.toHaveBeenCalled();
+  });
+  it('preserves navigation focus when the final button is remounted', async () => {
+    setup();
+    fireEvent.click(screen.getByRole('button', { name: 'Continuar' }));
+    const continueButton = screen.getByRole('button', { name: 'Continuar' });
+    continueButton.focus();
+    fireEvent.click(continueButton);
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByTestId('case-submit')));
+    expect(createCase).not.toHaveBeenCalled();
+  });
+  it('does not invoke creation while advancing a populated operation', () => {
+    setup(); complete();
+    expect(screen.getByTestId('case-submit')).toBeTruthy();
+    expect(createCase).not.toHaveBeenCalled();
+  });
   it('sends the complete payload to the unchanged server action', async () => {
     const view = setup(); complete();
     fireEvent.submit(view.container.querySelector('form')!);
