@@ -25,7 +25,7 @@ async function selectWizardOption(page: Page, label: string, option: RegExp) {
 }
 
 async function expectSingleFormValues(page: Page, values: Record<string, string>) {
-  const entries = await page.locator('form').filter({ has: page.getByTestId('case-submit') }).evaluate((form) => {
+  const entries = await page.locator('form').filter({ has: page.getByRole('list', { name: 'Progreso de creación', exact: true }) }).evaluate((form) => {
     const data = new FormData(form as HTMLFormElement);
     return [...data.entries()].map(([key, value]) => [key, String(value)]);
   });
