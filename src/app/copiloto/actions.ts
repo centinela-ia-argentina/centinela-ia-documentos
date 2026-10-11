@@ -2,6 +2,7 @@
 
 import { createClient } from '@/lib/supabase/server';
 import { getUserProfile } from '@/lib/auth/getUserProfile';
+import { canUseAi } from '@/lib/permissions/roles';
 import { getStrictIndustry } from '@/lib/auth/getStrictIndustry';
 import { calcularProximoAjuste, estadoVencimiento, getIndexTypeLabel, getRentalStatusLabel } from '@/lib/rentals/labels';
 import { getPropertyStatusLabel, getPropertyTypeLabel } from '@/lib/properties/labels';
@@ -13,6 +14,7 @@ import type { RentalContract } from '@/types/rental';
 export async function generarBriefing() {
   const { user, profile } = await getUserProfile();
   if (!user || !profile) return { ok: false as const, motivo: 'sin_sesion' as const };
+  if (!canUseAi(profile.role)) return { ok: false as const, motivo: 'sin_permiso' as const };
 
   try {
     const industry = await getStrictIndustry();
@@ -68,6 +70,7 @@ export async function generarBriefing() {
 export async function preguntarCopiloto(pregunta: string) {
   const { user, profile } = await getUserProfile();
   if (!user || !profile) return { ok: false as const, motivo: 'sin_sesion' as const };
+  if (!canUseAi(profile.role)) return { ok: false as const, motivo: 'sin_permiso' as const };
 
   try {
     const industry = await getStrictIndustry();
