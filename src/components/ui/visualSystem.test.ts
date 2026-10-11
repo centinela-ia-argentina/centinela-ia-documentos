@@ -1,7 +1,7 @@
 /** @vitest-environment jsdom */
 import React from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { AppButton, AppButtonLink, type AppButtonVariant } from './AppButton';
 import { Surface, type SurfaceFamily } from './Surface';
 import { Eyebrow, PageTitle, SectionTitle, SupportingCopy } from './Typography';
@@ -81,7 +81,7 @@ describe('Extracted SelectField', () => {
     render(h(SelectField, selectorProps));
     const trigger = screen.getByRole('button');
     fireEvent.click(trigger);
-    screen.getAllByRole('option')[1].focus();
+    act(() => screen.getAllByRole('option')[1].focus());
     fireEvent.keyDown(document, { key: 'Escape' });
     expect(screen.queryByRole('listbox')).toBeNull();
     expect(document.activeElement).toBe(trigger);
@@ -113,5 +113,69 @@ describe('Extracted SelectField', () => {
     expect(remove.mock.calls.some(([event]) => event === 'mousedown')).toBe(true);
     expect(remove.mock.calls.some(([event]) => event === 'keydown')).toBe(true);
     remove.mockRestore();
+  });
+});
+
+describe('SelectField keyboard contract', () => {
+  it('opens on ArrowDown and focuses the selected option', () => {
+    render(h(SelectField, { ...selectorProps, defaultValue: 'USD' }));
+    const trigger = screen.getByRole('button', { name: 'Moneda' });
+    trigger.focus();
+    fireEvent.keyDown(trigger, { key: 'ArrowDown' });
+    expect(screen.getByRole('listbox')).toBeTruthy();
+    expect(document.activeElement).toBe(screen.getByRole('option', { name: /USD/ }));
+    expect(trigger.getAttribute('aria-controls')).toBe(screen.getByRole('listbox').id);
+  });
+  it('supports arrows and Home/End without changing the field value', () => {
+    const { container } = render(h(SelectField, selectorProps));
+    fireEvent.click(screen.getByRole('button', { name: 'Moneda' }));
+    const items = screen.getAllByRole('option');
+    expect(document.activeElement).toBe(items[0]);
+    fireEvent.keyDown(items[0], { key: 'ArrowDown' });
+    expect(document.activeElement).toBe(items[1]);
+    fireEvent.keyDown(items[1], { key: 'End' });
+    expect(document.activeElement).toBe(items[2]);
+    fireEvent.keyDown(items[2], { key: 'ArrowDown' });
+    expect(document.activeElement).toBe(items[2]);
+    fireEvent.keyDown(items[2], { key: 'ArrowUp' });
+    expect(document.activeElement).toBe(items[1]);
+    fireEvent.keyDown(items[1], { key: 'Home' });
+    expect(document.activeElement).toBe(items[0]);
+    expect(container.querySelector('input')?.value).toBe('');
+    expect(items.filter((item) => item.tabIndex === 0)).toEqual([items[0]]);
+  });
+  it('returns focus after mouse selection', () => {
+    render(h(SelectField, selectorProps));
+    const trigger = screen.getByRole('button', { name: 'Moneda' });
+    fireEvent.click(trigger);
+    const option = screen.getByRole('option', { name: /USD/ });
+    act(() => option.focus());
+    fireEvent.click(option);
+    expect(document.activeElement).toBe(trigger);
+    expect(screen.queryByRole('listbox')).toBeNull();
+  });
+  it('keeps Tab native and closes once focus leaves the selector', () => {
+    render(h('div', null, h(SelectField, selectorProps), h('button', null, 'Después')));
+    fireEvent.click(screen.getByRole('button', { name: 'Moneda' }));
+    const event = new KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true });
+    screen.getAllByRole('option')[0].dispatchEvent(event);
+    expect(event.defaultPrevented).toBe(false);
+    act(() => screen.getByRole('button', { name: 'Después' }).focus());
+    expect(screen.queryByRole('listbox')).toBeNull();
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Después' }));
+  });
+  it('opens with ArrowUp when no value matches and tolerates no options', () => {
+    const view = render(h(SelectField, { ...selectorProps, defaultValue: 'missing' }));
+    fireEvent.keyDown(screen.getByRole('button'), { key: 'ArrowUp' });
+    expect(document.activeElement).toBe(screen.getAllByRole('option')[2]);
+    view.unmount();
+    render(h(SelectField, { ...selectorProps, options: [] }));
+    const trigger = screen.getByRole('button');
+    trigger.focus();
+    fireEvent.keyDown(trigger, { key: 'ArrowDown' });
+    expect(screen.getByRole('listbox')).toBeTruthy();
+    expect(document.activeElement).toBe(trigger);
+    fireEvent.keyDown(trigger, { key: 'Escape' });
+    expect(screen.queryByRole('listbox')).toBeNull();
   });
 });

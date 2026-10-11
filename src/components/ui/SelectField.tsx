@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { CaretDown, Check } from '@phosphor-icons/react';
 
 export type SelectOption = {
@@ -31,11 +31,27 @@ export function SelectField({
   onChange,
 }: SelectFieldProps) {
   const [open, setOpen] = useState(false);
+  const [activeIndex, setActiveIndex] = useState(0);
+  const listId = useId();
+  const optionRefs = useRef<Array<HTMLButtonElement | null>>([]);
   const [internalValue, setInternalValue] = useState(defaultValue);
   const rootRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const currentValue = value ?? internalValue;
   const selected = options.find((option) => option.value === currentValue);
+
+  function openMenu(fromEnd = false) {
+    const selectedIndex = options.findIndex((option) => option.value === currentValue);
+    setActiveIndex(selectedIndex >= 0 ? selectedIndex : fromEnd ? Math.max(0, options.length - 1) : 0);
+    setOpen(true);
+  }
+
+  useEffect(() => {
+    if (!open) return;
+    const option = optionRefs.current[activeIndex];
+    option?.focus({ preventScroll: true });
+    option?.scrollIntoView?.({ block: 'nearest' });
+  }, [open, activeIndex]);
 
   useEffect(() => {
     if (!open) return;
@@ -60,10 +76,17 @@ export function SelectField({
     setInternalValue(nextValue);
     onChange?.(nextValue);
     setOpen(false);
+    triggerRef.current?.focus();
   }
 
   return (
-    <div ref={rootRef} className="relative mt-2">
+    <div
+      ref={rootRef}
+      className="relative mt-2"
+      onBlur={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setOpen(false);
+      }}
+    >
       <input type="hidden" name={name} value={currentValue} />
       <button
         type="button"
@@ -71,7 +94,14 @@ export function SelectField({
         aria-label={label}
         aria-haspopup="listbox"
         aria-expanded={open}
-        onClick={() => setOpen((current) => !current)}
+        aria-controls={open ? listId : undefined}
+        onClick={() => open ? setOpen(false) : openMenu()}
+        onKeyDown={(event) => {
+          if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+            event.preventDefault();
+            openMenu(event.key === 'ArrowUp');
+          }
+        }}
         className={`group flex min-h-12 w-full items-center gap-3 rounded-lg border px-3.5 text-left transition-[border-color,background-color,box-shadow] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C8FF62] ${
           open
             ? 'border-[#85E4D4]/45 bg-[#0B1815] shadow-[0_0_0_3px_rgba(133,228,212,0.08)]'
@@ -96,17 +126,33 @@ export function SelectField({
 
       {open ? (
         <div
+          id={listId}
           aria-label={label}
           role="listbox"
           className="absolute left-0 right-0 top-[calc(100%+8px)] z-40 max-h-64 overflow-y-auto rounded-xl border border-[#85E4D4]/18 bg-[#0A1613]/98 p-1.5 shadow-[0_24px_64px_rgba(0,0,0,0.48)] backdrop-blur-xl"
         >
-          {options.map((option) => {
+          {options.map((option, index) => {
             const active = option.value === currentValue;
             return (
               <button
                 key={`${name}-${option.value}`}
+                ref={(element) => { optionRefs.current[index] = element; }}
                 type="button"
                 role="option"
+                tabIndex={index === activeIndex ? 0 : -1}
+                onFocus={() => setActiveIndex(index)}
+                onKeyDown={(event) => {
+                  let nextIndex: number;
+                  switch (event.key) {
+                    case 'ArrowDown': nextIndex = Math.min(options.length - 1, index + 1); break;
+                    case 'ArrowUp': nextIndex = Math.max(0, index - 1); break;
+                    case 'Home': nextIndex = 0; break;
+                    case 'End': nextIndex = options.length - 1; break;
+                    default: return;
+                  }
+                  event.preventDefault();
+                  setActiveIndex(nextIndex);
+                }}
                 aria-selected={active}
                 onClick={() => choose(option.value)}
                 className={`flex min-h-11 w-full items-center gap-3 rounded-lg px-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#C8FF62] ${
