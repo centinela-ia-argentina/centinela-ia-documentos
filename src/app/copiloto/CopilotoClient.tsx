@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
-import { Sparkle, ArrowRight, ChatCircle, TextAlignLeft, ShieldCheck, CircleNotch, WarningCircle, Compass, ListChecks, Lightbulb } from '@phosphor-icons/react';
+import { Brain, Sparkle, ArrowRight, ChatCircle, TextAlignLeft, ShieldCheck, CircleNotch, WarningCircle, Compass, ListChecks, Lightbulb } from '@phosphor-icons/react';
+import { ArrowRight as SimpleArrowRight } from 'lucide-react';
 import { AppButton } from '@/components/ui/AppButton';
 import { Surface } from '@/components/ui/Surface';
 import { SectionTitle } from '@/components/ui/Typography';
@@ -115,18 +116,21 @@ export function CopilotoClient({ canUsePortfolioAi }: { canUsePortfolioAi: boole
   return (
     <Surface as="section" className={styles.intelligence} aria-labelledby={`${id}-title`}>
       <header className={styles.intelligenceHeader}>
-        <div><span className={styles.aiLabel}><Sparkle size={14} aria-hidden="true" />Asistente IA</span>
-          <SectionTitle id={`${id}-title`}>Inteligencia de cartera</SectionTitle>
-          <p>Consultá tu cartera y generá un resumen con inteligencia artificial.</p>
+        <div className={styles.aiHeading}>
+          <span className={styles.aiMark}><Brain size={43} weight="duotone" aria-hidden="true" /></span>
+          <div><span className={styles.aiLabel}>Asistente IA</span>
+            <SectionTitle id={`${id}-title`} className={styles.intelligenceTitle}>Inteligencia de cartera</SectionTitle>
+            <p>Consultá tu cartera y generá un resumen con inteligencia artificial.</p>
+          </div>
         </div>
-        <AppButton aria-expanded={expanded} aria-controls={bodyId} className={styles.primaryAction} onClick={() => setExpanded((prev) => !prev)}>
-          {expanded ? 'Cerrar asistente IA' : 'Abrir asistente IA'}<ArrowRight size={17} aria-hidden="true" />
+        <AppButton aria-expanded={expanded} aria-controls={bodyId} className={`${styles.primaryAction} ${styles.toggleAction}`} onClick={() => setExpanded((prev) => !prev)}>
+          {expanded ? 'Cerrar asistente IA' : 'Abrir asistente IA'}<SimpleArrowRight size={18} strokeWidth={1.7} aria-hidden="true" />
         </AppButton>
       </header>
       <div id={bodyId} hidden={!expanded} className={styles.intelligenceBody}>
         <div role="tablist" aria-label="Vistas del asistente IA" className={styles.tabs}>
-          <button ref={summaryTab} id={`${id}-summary-tab`} type="button" role="tab" aria-selected={view === 'summary'} aria-controls={`${id}-summary-panel`} tabIndex={view === 'summary' ? 0 : -1} onClick={() => setView('summary')} onKeyDown={onTabKey}>Resumen de cartera</button>
-          <button ref={chatTab} id={`${id}-chat-tab`} type="button" role="tab" aria-selected={view === 'chat'} aria-controls={`${id}-chat-panel`} tabIndex={view === 'chat' ? 0 : -1} onClick={() => setView('chat')} onKeyDown={onTabKey}>Consultas de cartera</button>
+          <button ref={summaryTab} id={`${id}-summary-tab`} type="button" role="tab" aria-selected={view === 'summary'} aria-controls={`${id}-summary-panel`} tabIndex={view === 'summary' ? 0 : -1} onClick={() => setView('summary')} onKeyDown={onTabKey}><TextAlignLeft size={18} aria-hidden="true" />Resumen de cartera</button>
+          <button ref={chatTab} id={`${id}-chat-tab`} type="button" role="tab" aria-selected={view === 'chat'} aria-controls={`${id}-chat-panel`} tabIndex={view === 'chat' ? 0 : -1} onClick={() => setView('chat')} onKeyDown={onTabKey}><ChatCircle size={18} aria-hidden="true" />Consultas de cartera</button>
         </div>
         <div id={`${id}-summary-panel`} role="tabpanel" aria-labelledby={`${id}-summary-tab`} hidden={view !== 'summary'} tabIndex={0} className={styles.pane}>
           <h3 className={styles.paneTitle}><TextAlignLeft size={23} aria-hidden="true" />Resumen de cartera</h3>

@@ -12,7 +12,8 @@ vi.mock('@/lib/supabase/server', () => ({
   createClient: vi.fn(),
 }));
 
-import ReportsPage, { isAiAudit, parseStrictPositiveInteger } from './page';
+import ReportsPage from './page';
+import { isAiAudit, parseStrictPositiveInteger } from './reportHelpers';
 import { createClient } from '@/lib/supabase/server';
 import { getUserProfile } from '@/lib/auth/getUserProfile';
 import { redirect } from 'next/navigation';

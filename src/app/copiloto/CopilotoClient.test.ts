@@ -25,6 +25,21 @@ function draft(text = '  pregunta ficticia  ') { fireEvent.change(screen.getByRo
 function deferred<T>() { let resolve!: (v: T) => void; const promise = new Promise<T>((r) => { resolve = r; }); return { promise, resolve }; }
 
 describe('Portfolio AI presentation', () => {
+  it('uses a simple horizontal toggle arrow without changing the accessible name', () => {
+    setup(); const trigger = screen.getByRole('button', { name: 'Abrir asistente IA' });
+    const arrow = trigger.querySelector('svg.lucide-arrow-right');
+    expect(arrow).toBeTruthy(); expect(arrow?.getAttribute('aria-hidden')).toBe('true');
+    open(); expect(screen.getByRole('button', { name: 'Cerrar asistente IA' }).querySelector('svg.lucide-arrow-right')).toBeTruthy();
+    expect(generate).not.toHaveBeenCalled(); expect(ask).not.toHaveBeenCalled();
+  });
+  it('keeps decorative icons hidden from the two tab names', () => {
+    setup(); open();
+    for (const name of ['Resumen de cartera', 'Consultas de cartera']) {
+      const tab = screen.getByRole('tab', { name });
+      expect(tab.querySelector('svg')?.getAttribute('aria-hidden')).toBe('true');
+    }
+  });
+
   it('starts closed with an explicit linked expansion control', () => {
     setup();
     const trigger = screen.getByRole('button', { name: 'Abrir asistente IA' });

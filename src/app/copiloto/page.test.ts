@@ -40,6 +40,26 @@ async function page() { return render(await CopilotoPage()); }
 function metric(name: string) { return within(screen.getByText(name, { exact: true }).parentElement!); }
 
 describe('Panel server presentation', () => {
+  it('uses five simple horizontal arrows for real module links', async () => {
+    const { container } = await page();
+    const links = screen.getAllByRole('link');
+    expect(links).toHaveLength(5);
+    for (const link of links) expect(link.querySelector('svg.lucide-arrow-right')).toBeTruthy();
+    expect(container.querySelector('.lucide-arrow-up-right')).toBeNull();
+  });
+  it('zero adjustments show noninteractive neutral status labels', async () => {
+    await page();
+    expect(screen.getByText('Sin vencidos').getAttribute('data-status')).toBe('clear');
+    expect(screen.getByText('Sin próximos').getAttribute('data-status')).toBe('next');
+    expect(screen.queryByRole('button', { name: 'Sin vencidos' })).toBeNull();
+  });
+  it('unavailable adjustments do not show reassuring zero labels', async () => {
+    responses.rental_contracts = { data: null, error: { message: 'fixture' } };
+    await page(); expect(screen.queryByText('Sin vencidos')).toBeNull();
+    expect(screen.queryByText('Sin próximos')).toBeNull();
+    expect(screen.getAllByText('No disponible')).toHaveLength(3);
+  });
+
   it.each(['admin', 'employee', 'auditor', 'unknown'])('uses real IA role policy for %s', async (role) => {
     session(role); await page(); expect(screen.getByTestId('capability').getAttribute('data-ai')).toBe(String(role === 'admin' || role === 'employee'));
   });
