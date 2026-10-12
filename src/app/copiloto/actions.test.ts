@@ -53,7 +53,7 @@ beforeEach(() => {
   questionProvider.mockResolvedValue({ ok: true, model: 'fixture-model', respuesta: 'Fixture answer' });
 });
 
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals(); });
 
 for (const [label, action] of [
   ['briefing', () => generarBriefing()],
@@ -120,4 +120,21 @@ it('rejects a blank question from an auditor by permission first', async () => {
   expect(await preguntarCopiloto('')).toEqual({ ok: false, motivo: 'sin_permiso' });
   expect(industry).not.toHaveBeenCalled();
   expectNoDataOrAi();
+});
+
+
+describe('Panel IA calendar context, provider mocked', () => {
+  it.each([['2026-02-28T02:59:59Z', 'Ajusta en 1 día(s)'], ['2026-02-28T03:00:00Z', 'Ajusta hoy']])('uses the same February date and BA day on %s', async (instant, label) => {
+    vi.useFakeTimers(); vi.setSystemTime(new Date(instant));
+    from.mockImplementation((table: string) => {
+      const query: Record<string, unknown> = {};
+      for (const method of ['select', 'eq', 'is', 'not', 'order', 'limit']) query[method] = () => query;
+      query.then = (resolve: (value: unknown) => unknown) => Promise.resolve({ data: table === 'rental_contracts' ? [{ tenant_name: 'Fixture tenant', status: 'vigente', start_date: '2026-01-31T00:00:00.000Z', last_adjustment_date: null, adjustment_period_months: 1 }] : [], error: null }).then(resolve);
+      return query;
+    });
+    await generarBriefing(); await preguntarCopiloto('fecha ficticia');
+    expect(briefingProvider).toHaveBeenCalledWith(expect.objectContaining({ alquileres: expect.objectContaining({ vencidos: [], proximos: [`Fixture tenant — 28/2/2026 (${label})`] }) }));
+    expect(questionProvider).toHaveBeenCalledWith(expect.objectContaining({ contexto: expect.stringContaining(`próximo ajuste 28/2/2026 (${label})`) }));
+    expect(fetch).not.toHaveBeenCalled();
+  });
 });

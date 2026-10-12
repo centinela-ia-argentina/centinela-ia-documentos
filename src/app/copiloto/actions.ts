@@ -10,6 +10,7 @@ import { getClientStatusLabel, getClientTypeLabel, getOperationInterestLabel, ge
 import { getCaseStatusLabel } from '@/lib/industries/caseConfig';
 import { generarBriefingInmobiliaria, responderPreguntaInmobiliaria } from '@/lib/ai/copilotoInmobiliaria';
 import type { RentalContract } from '@/types/rental';
+import { formatRentalDate } from '@/lib/rentals/calendar';
 
 export async function generarBriefing() {
   const { user, profile } = await getUserProfile();
@@ -43,12 +44,13 @@ export async function generarBriefing() {
   };
 
   const rentals = (rentalsRes.data || []) as RentalContract[];
+  const now = new Date();
   const rentalAlerts = rentals.map((r) => {
     const prox = calcularProximoAjuste(r.start_date, r.last_adjustment_date, r.adjustment_period_months);
-    const est = estadoVencimiento(prox, r.status);
+    const est = estadoVencimiento(prox, r.status, now);
     return {
       tenant: r.tenant_name || 'Contrato sin inquilino',
-      fecha: prox ? prox.toLocaleDateString('es-AR') : '-',
+      fecha: formatRentalDate(prox),
       estado: est,
     };
   });
@@ -111,11 +113,12 @@ export async function preguntarCopiloto(pregunta: string) {
     : '(sin operaciones cargadas)';
 
   const rentals = (rentalsRes.data || []) as RentalContract[];
+  const now = new Date();
   const rentalsTxt = rentals.length
     ? rentals.map((r, i) => {
         const prox = calcularProximoAjuste(r.start_date, r.last_adjustment_date, r.adjustment_period_months);
-        const est = estadoVencimiento(prox, r.status);
-        return `${i + 1}. ${r.tenant_name || 'Sin inquilino'} — ${getRentalStatusLabel(r.status)}, ${money(r.current_amount, r.currency)}, índice ${getIndexTypeLabel(r.index_type)}, próximo ajuste ${prox ? prox.toLocaleDateString('es-AR') : '-'} (${est.label})`;
+        const est = estadoVencimiento(prox, r.status, now);
+        return `${i + 1}. ${r.tenant_name || 'Sin inquilino'} — ${getRentalStatusLabel(r.status)}, ${money(r.current_amount, r.currency)}, índice ${getIndexTypeLabel(r.index_type)}, próximo ajuste ${formatRentalDate(prox)} (${est.label})`;
       }).join('\n')
     : '(sin alquileres cargados)';
 

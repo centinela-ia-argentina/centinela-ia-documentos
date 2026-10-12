@@ -38,8 +38,9 @@ export default async function CopilotoPage() {
   ]);
 
   const rentals = (rentalsRes.data || []) as RentalContract[];
+  const now = new Date();
   const rentalEstados = rentals.map((r) =>
-    estadoVencimiento(calcularProximoAjuste(r.start_date, r.last_adjustment_date, r.adjustment_period_months), r.status)
+    estadoVencimiento(calcularProximoAjuste(r.start_date, r.last_adjustment_date, r.adjustment_period_months), r.status, now)
   );
   // Preserve the published query scope; an unavailable response is not an empty portfolio.
   const stats = {

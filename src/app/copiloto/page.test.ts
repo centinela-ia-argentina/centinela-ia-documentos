@@ -116,3 +116,16 @@ describe('Panel server presentation', () => {
     expect(screen.getByTestId('capability').attributes.length).toBe(2);
   });
 });
+
+
+describe('Panel date-only calendar regression', () => {
+  it.each(['2026-02-28T02:59:59Z', '2026-02-28T03:00:00Z'])('keeps clamped February date upcoming on %s', async instant => {
+    vi.setSystemTime(new Date(instant));
+    responses.rental_contracts.data = [{ status: 'vigente', start_date: '2026-01-31', last_adjustment_date: null, adjustment_period_months: 1 }];
+    await page();
+    const late = screen.getByRole('heading', { name: 'Ajustes vencidos' }).parentElement!.parentElement!;
+    const next = screen.getByRole('heading', { name: 'Ajustes próximos' }).parentElement!.parentElement!;
+    expect(within(late).getByText('0')).toBeTruthy(); expect(within(next).getByText('1')).toBeTruthy();
+    expect(fetch).not.toHaveBeenCalled();
+  });
+});

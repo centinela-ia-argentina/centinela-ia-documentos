@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui/Badge';
 import { MotionCard } from '@/components/ui/MotionCard';
 import type { RentalContract } from '@/types/rental';
 import { getIndexTypeLabel, getRentalStatusLabel, calcularProximoAjuste, estadoVencimiento } from '@/lib/rentals/labels';
+import { formatRentalDate } from '@/lib/rentals/calendar';
 
 export default async function RentalsPage() {
   const { user, profile } = await getUserProfile();
@@ -39,9 +40,10 @@ export default async function RentalsPage() {
   const rentals = (data || []) as RentalContract[];
   const canManage = isUserRole(profile.role) && canManageRental(profile.role);
 
+  const now = new Date();
   const rentalsData = rentals.map(r => {
     const proxAjuste = calcularProximoAjuste(r.start_date, r.last_adjustment_date, r.adjustment_period_months);
-    const estado = estadoVencimiento(proxAjuste, r.status);
+    const estado = estadoVencimiento(proxAjuste, r.status, now);
     return { ...r, proxAjuste, estado };
   });
 
@@ -171,7 +173,7 @@ export default async function RentalsPage() {
                             Próximo ajuste
                           </span>
                           <span className="font-bold text-slate-300">
-                            {rental.proxAjuste.toLocaleDateString('es-AR')}
+                            {formatRentalDate(rental.proxAjuste)}
                           </span>
                         </div>
                         {rental.estado.tipo === 'vencido' && (

@@ -1,3 +1,5 @@
+import { addRentalMonths, parseRentalDate, rentalDateISO, rentalToday } from './calendar';
+
 export function getIndexTypeLabel(type: string | null | undefined): string {
   switch (type) {
     case 'ICL':
@@ -31,15 +33,8 @@ export function calcularProximoAjuste(
 ): Date | null {
   if (!startDate || !periodMonths) return null;
   
-  const baseDateStr = lastAdjustmentDate || startDate;
-  const baseDate = new Date(baseDateStr);
-  
-  if (isNaN(baseDate.getTime())) return null;
-  
-  const nextDate = new Date(baseDate);
-  nextDate.setMonth(nextDate.getMonth() + periodMonths);
-  
-  return nextDate;
+  const baseDate = parseRentalDate(lastAdjustmentDate || startDate);
+  return baseDate ? addRentalMonths(baseDate, periodMonths) : null;
 }
 
 export function formatPeriodo(period: string): string {
@@ -57,19 +52,15 @@ export function formatPeriodo(period: string): string {
   return period;
 }
 
-export function estadoVencimiento(proxAjuste: Date | null, status: string | null): { tipo: 'vencido' | 'proximo' | 'al_dia' | 'sin_dato'; dias: number | null; label: string } {
-  if (status !== 'vigente' || !proxAjuste) {
+export function estadoVencimiento(proxAjuste: Date | null, status: string | null, now: Date = new Date()): { tipo: 'vencido' | 'proximo' | 'al_dia' | 'sin_dato'; dias: number | null; label: string } {
+  const hoy = rentalToday(now);
+  const ajusteDate = parseRentalDate(rentalDateISO(proxAjuste));
+  if (status !== 'vigente' || !hoy || !ajusteDate) {
     return { tipo: 'sin_dato', dias: null, label: '' };
   }
 
-  const hoy = new Date();
-  hoy.setHours(0, 0, 0, 0);
-  
-  const ajusteDate = new Date(proxAjuste);
-  ajusteDate.setHours(0, 0, 0, 0);
-
   const diffTime = ajusteDate.getTime() - hoy.getTime();
-  const dias = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  const dias = diffTime / (1000 * 60 * 60 * 24);
 
   if (dias < 0) {
     return { tipo: 'vencido', dias, label: `Ajuste vencido hace ${Math.abs(dias)} día(s)` };
