@@ -4,7 +4,10 @@ import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { crearComparable, eliminarComparable } from '../actions';
 import { Badge } from '@/components/ui/Badge';
-import { Plus, Trash2, ExternalLink, X, MapPin, Search, Eye } from 'lucide-react';
+import { Trash2, ExternalLink, X, MapPin, Search, ArrowRight } from 'lucide-react';
+import { ChartLineUp, PlusCircle } from '@phosphor-icons/react';
+import { AppButton } from '@/components/ui/AppButton';
+import styles from './PropertyDetail.module.css';
 import type { ComparableRecord } from '@/types/comparable';
 import { TasarButton } from './TasarButton';
 
@@ -12,9 +15,11 @@ interface TasacionPanelProps {
   propertyId: string;
   propertyType: string;
   comparables: ComparableRecord[];
+  canManage: boolean;
+  useAi: boolean;
 }
 
-export function TasacionPanel({ propertyId, propertyType, comparables }: TasacionPanelProps) {
+export function TasacionPanel({ propertyId, propertyType, comparables, canManage, useAi }: TasacionPanelProps) {
   const [mounted, setMounted] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [selectedComp, setSelectedComp] = useState<ComparableRecord | null>(null);
@@ -27,14 +32,25 @@ export function TasacionPanel({ propertyId, propertyType, comparables }: Tasacio
     setMounted(true);
   }, []);
 
-  // Bloqueo de scroll cuando hay modal abierto
+  // Restore the original scroll/focus state, including when the component unmounts.
   useEffect(() => {
-    if (showForm || selectedComp) {
-      document.body.style.overflow = 'hidden';
-    } else {
-      document.body.style.overflow = 'unset';
-    }
-    return () => { document.body.style.overflow = 'unset'; };
+    if (!showForm && !selectedComp) return;
+    const previousOverflow = document.body.style.overflow;
+    const previousFocus = document.activeElement as HTMLElement | null;
+    document.body.style.overflow = 'hidden';
+    const dialog = document.querySelector<HTMLElement>(`.${styles.modal}`);
+    const controls = () => Array.from(dialog?.querySelectorAll<HTMLElement>('button:not(:disabled),input:not(:disabled):not([type="hidden"]),select:not(:disabled),textarea:not(:disabled),a[href]') ?? []);
+    controls()[0]?.focus();
+    const trapFocus = (event: KeyboardEvent) => {
+      if (event.key !== 'Tab') return;
+      const items = controls();
+      if (!items.length) return;
+      const first = items[0], last = items[items.length - 1];
+      if (event.shiftKey && (document.activeElement === first || !dialog?.contains(document.activeElement))) { event.preventDefault(); last.focus(); }
+      else if (!event.shiftKey && (document.activeElement === last || !dialog?.contains(document.activeElement))) { event.preventDefault(); first.focus(); }
+    };
+    document.addEventListener('keydown', trapFocus);
+    return () => { document.body.style.overflow = previousOverflow; document.removeEventListener('keydown', trapFocus); previousFocus?.focus(); };
   }, [showForm, selectedComp]);
 
   // Cierre con escape
@@ -94,7 +110,7 @@ export function TasacionPanel({ propertyId, propertyType, comparables }: Tasacio
     if (!mounted || !showForm) return null;
     return createPortal(
       <div 
-        className="fixed inset-0 z-[100] grid place-items-center bg-black/70 p-4 backdrop-blur-sm"
+        className={`${styles.modal} fixed inset-0 z-[100] grid place-items-center bg-black/70 p-4 backdrop-blur-sm`}
         role="dialog"
         aria-modal="true"
         aria-labelledby="modal-title"
@@ -106,6 +122,7 @@ export function TasacionPanel({ propertyId, propertyType, comparables }: Tasacio
               <p className="mt-1 text-xs text-slate-400">Completá los datos de referencia para la tasación.</p>
             </div>
             <button
+              aria-label="Cerrar nuevo comparable"
               onClick={() => !isSaving && setShowForm(false)}
               className="text-slate-400 hover:text-white transition-colors"
               disabled={isSaving}
@@ -128,8 +145,8 @@ export function TasacionPanel({ propertyId, propertyType, comparables }: Tasacio
               <div className="grid gap-4 md:grid-cols-2">
                 {/* FILA 1 */}
                 <div>
-                  <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-400">Fuente / Portal</label>
-                  <input name="source_name" type="text" placeholder="Ej. Zonaprop, Argenprop, Colega" className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2.5 text-sm text-white placeholder:text-slate-500 outline-none focus:ring-2 focus:ring-cyan-500" />
+                  <label htmlFor="comparable-source_name" className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-400">Fuente / Portal</label>
+                  <input id="comparable-source_name" name="source_name" type="text" placeholder="Ej. Zonaprop, Argenprop, Colega" className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2.5 text-sm text-white placeholder:text-slate-500 outline-none focus:ring-2 focus:ring-cyan-500" />
                 </div>
                 <div>
                   <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-400">Tipo de propiedad</label>
@@ -138,67 +155,67 @@ export function TasacionPanel({ propertyId, propertyType, comparables }: Tasacio
 
                 {/* FILA 2 */}
                 <div>
-                  <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-400">Fecha de Referencia</label>
-                  <input name="reference_date" type="date" required defaultValue={new Date().toISOString().split('T')[0]} className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2.5 text-sm text-white placeholder:text-slate-500 outline-none focus:ring-2 focus:ring-cyan-500" />
+                  <label htmlFor="comparable-reference_date" className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-400">Fecha de Referencia</label>
+                  <input id="comparable-reference_date" name="reference_date" type="date" required defaultValue={new Date().toISOString().split('T')[0]} className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2.5 text-sm text-white placeholder:text-slate-500 outline-none focus:ring-2 focus:ring-cyan-500" />
                 </div>
                 <div>
-                  <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-400">URL de la fuente</label>
-                  <input name="source_url" type="url" placeholder="https://" className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2.5 text-sm text-white placeholder:text-slate-500 outline-none focus:ring-2 focus:ring-cyan-500" />
+                  <label htmlFor="comparable-source_url" className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-400">URL de la fuente</label>
+                  <input id="comparable-source_url" name="source_url" type="url" placeholder="https://" className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2.5 text-sm text-white placeholder:text-slate-500 outline-none focus:ring-2 focus:ring-cyan-500" />
                 </div>
 
                 {/* FILA 3 */}
                 <div>
-                  <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-400">Provincia</label>
-                  <input name="province" type="text" className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2.5 text-sm text-white placeholder:text-slate-500 outline-none focus:ring-2 focus:ring-cyan-500" />
+                  <label htmlFor="comparable-province" className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-400">Provincia</label>
+                  <input id="comparable-province" name="province" type="text" className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2.5 text-sm text-white placeholder:text-slate-500 outline-none focus:ring-2 focus:ring-cyan-500" />
                 </div>
                 <div>
-                  <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-400">Ciudad / Localidad</label>
-                  <input name="city" type="text" className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2.5 text-sm text-white placeholder:text-slate-500 outline-none focus:ring-2 focus:ring-cyan-500" />
+                  <label htmlFor="comparable-city" className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-400">Ciudad / Localidad</label>
+                  <input id="comparable-city" name="city" type="text" className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2.5 text-sm text-white placeholder:text-slate-500 outline-none focus:ring-2 focus:ring-cyan-500" />
                 </div>
 
                 {/* FILA 4 */}
                 <div>
-                  <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-400">Barrio / Zona</label>
-                  <input name="neighborhood" type="text" className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2.5 text-sm text-white placeholder:text-slate-500 outline-none focus:ring-2 focus:ring-cyan-500" />
+                  <label htmlFor="comparable-neighborhood" className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-400">Barrio / Zona</label>
+                  <input id="comparable-neighborhood" name="neighborhood" type="text" className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2.5 text-sm text-white placeholder:text-slate-500 outline-none focus:ring-2 focus:ring-cyan-500" />
                 </div>
                 <div>
-                  <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-400">Subzona</label>
-                  <input name="subzone" type="text" className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2.5 text-sm text-white placeholder:text-slate-500 outline-none focus:ring-2 focus:ring-cyan-500" />
+                  <label htmlFor="comparable-subzone" className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-400">Subzona</label>
+                  <input id="comparable-subzone" name="subzone" type="text" className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2.5 text-sm text-white placeholder:text-slate-500 outline-none focus:ring-2 focus:ring-cyan-500" />
                 </div>
 
                 {/* FILA 5 */}
                 <div className="md:col-span-2">
-                  <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-400">Dirección Exacta</label>
-                  <input name="address" type="text" className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2.5 text-sm text-white placeholder:text-slate-500 outline-none focus:ring-2 focus:ring-cyan-500" />
+                  <label htmlFor="comparable-address" className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-400">Dirección Exacta</label>
+                  <input id="comparable-address" name="address" type="text" className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2.5 text-sm text-white placeholder:text-slate-500 outline-none focus:ring-2 focus:ring-cyan-500" />
                 </div>
 
                 {/* FILA 6 */}
                 <div>
-                  <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-400">Moneda *</label>
-                  <select name="currency" required className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2.5 text-sm text-white outline-none focus:ring-2 focus:ring-cyan-500">
+                  <label htmlFor="comparable-currency" className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-400">Moneda *</label>
+                  <select id="comparable-currency" name="currency" required className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2.5 text-sm text-white outline-none focus:ring-2 focus:ring-cyan-500">
                     <option value="USD" className="bg-[#0C162D]">USD</option>
                     <option value="ARS" className="bg-[#0C162D]">ARS</option>
                   </select>
                 </div>
                 <div>
-                  <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-400">Precio *</label>
-                  <input name="price" type="number" required min="1" placeholder="Ej. 150000" className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2.5 text-sm text-white placeholder:text-slate-500 outline-none focus:ring-2 focus:ring-cyan-500" />
+                  <label htmlFor="comparable-price" className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-400">Precio *</label>
+                  <input id="comparable-price" name="price" type="number" required min="1" placeholder="Ej. 150000" className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2.5 text-sm text-white placeholder:text-slate-500 outline-none focus:ring-2 focus:ring-cyan-500" />
                 </div>
 
                 {/* FILA 7 */}
                 <div>
-                  <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-400">Sup. Total (m²) *</label>
-                  <input name="surface_total_m2" type="number" step="0.01" required min="0.1" placeholder="0.00" className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2.5 text-sm text-white placeholder:text-slate-500 outline-none focus:ring-2 focus:ring-cyan-500" />
+                  <label htmlFor="comparable-surface_total_m2" className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-400">Sup. Total (m²) *</label>
+                  <input id="comparable-surface_total_m2" name="surface_total_m2" type="number" step="0.01" required min="0.1" placeholder="0.00" className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2.5 text-sm text-white placeholder:text-slate-500 outline-none focus:ring-2 focus:ring-cyan-500" />
                 </div>
                 <div>
-                  <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-400">Sup. Cubierta (m²)</label>
-                  <input name="surface_covered_m2" type="number" step="0.01" min="0" placeholder="0.00" className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2.5 text-sm text-white placeholder:text-slate-500 outline-none focus:ring-2 focus:ring-cyan-500" />
+                  <label htmlFor="comparable-surface_covered_m2" className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-400">Sup. Cubierta (m²)</label>
+                  <input id="comparable-surface_covered_m2" name="surface_covered_m2" type="number" step="0.01" min="0" placeholder="0.00" className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2.5 text-sm text-white placeholder:text-slate-500 outline-none focus:ring-2 focus:ring-cyan-500" />
                 </div>
 
                 {/* FILA 8 */}
                 <div>
-                  <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-400">Ambientes</label>
-                  <input name="rooms" type="number" min="1" placeholder="Ej. 3" className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2.5 text-sm text-white placeholder:text-slate-500 outline-none focus:ring-2 focus:ring-cyan-500" />
+                  <label htmlFor="comparable-rooms" className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-400">Ambientes</label>
+                  <input id="comparable-rooms" name="rooms" type="number" min="1" placeholder="Ej. 3" className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2.5 text-sm text-white placeholder:text-slate-500 outline-none focus:ring-2 focus:ring-cyan-500" />
                 </div>
                 <div>
                   {/* Espacio reservado / complementario */}
@@ -206,8 +223,8 @@ export function TasacionPanel({ propertyId, propertyType, comparables }: Tasacio
 
                 {/* FILA 9 */}
                 <div className="md:col-span-2">
-                  <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-400">Observaciones</label>
-                  <textarea name="notes" rows={2} placeholder="Detalles adicionales..." className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2.5 text-sm text-white placeholder:text-slate-500 outline-none focus:ring-2 focus:ring-cyan-500" />
+                  <label htmlFor="comparable-notes" className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-400">Observaciones</label>
+                  <textarea id="comparable-notes" name="notes" rows={2} placeholder="Detalles adicionales..." className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2.5 text-sm text-white placeholder:text-slate-500 outline-none focus:ring-2 focus:ring-cyan-500" />
                 </div>
               </div>
             </form>
@@ -241,7 +258,7 @@ export function TasacionPanel({ propertyId, propertyType, comparables }: Tasacio
     if (!mounted || !selectedComp) return null;
     return createPortal(
       <div 
-        className="fixed inset-0 z-[100] grid place-items-center bg-black/70 p-4 backdrop-blur-sm"
+        className={`${styles.modal} fixed inset-0 z-[100] grid place-items-center bg-black/70 p-4 backdrop-blur-sm`}
         role="dialog"
         aria-modal="true"
         aria-labelledby="detail-title"
@@ -253,6 +270,7 @@ export function TasacionPanel({ propertyId, propertyType, comparables }: Tasacio
               <h3 id="detail-title" className="text-xl font-bold text-white">Detalle de la propiedad</h3>
             </div>
             <button
+              aria-label="Cerrar detalle de comparable"
               onClick={() => setSelectedComp(null)}
               className="text-slate-400 hover:text-white transition-colors"
             >
@@ -345,6 +363,7 @@ export function TasacionPanel({ propertyId, propertyType, comparables }: Tasacio
           <div className="flex shrink-0 justify-end border-t border-white/10 p-6 bg-[#0a1120]">
             <button
               type="button"
+              aria-label="Cerrar detalle de comparable"
               onClick={() => setSelectedComp(null)}
               className="rounded-xl px-5 py-2.5 text-sm font-semibold text-slate-300 transition hover:bg-white/5 hover:text-white"
             >
@@ -357,121 +376,20 @@ export function TasacionPanel({ propertyId, propertyType, comparables }: Tasacio
     );
   };
 
-  return (
-    <div className="rounded-3xl border border-white/5 bg-white/[0.02] p-6 mt-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6">
-        <div>
-          <h3 className="text-sm font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2">
-            📊 Tasación y Comparables (Testigo)
-          </h3>
-          <p className="mt-1 text-xs text-slate-500">Agregá comparables externos para usar en la tasación de la IA.</p>
-        </div>
-        <div className="mt-4 sm:mt-0 flex gap-2 flex-wrap">
-          <button
-            type="button"
-            onClick={() => setShowForm(true)}
-            className="inline-flex items-center justify-center gap-2 rounded-xl bg-white/10 px-4 py-2 text-sm font-bold text-white transition hover:bg-white/20"
-          >
-            <Plus className="h-4 w-4" />
-            Nuevo comparable
-          </button>
-          <TasarButton propertyId={propertyId} />
-        </div>
-      </div>
-
-      <div className="mb-6 rounded-2xl bg-[#0a1120] border border-cyan-500/20 p-4">
-        <div className="flex gap-3">
-          <div className="mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-cyan-500/20">
-            <InfoIcon className="h-4 w-4 text-cyan-400" />
-          </div>
-          <div>
-            <h4 className="text-sm font-bold text-cyan-400">Beta operativa comercial</h4>
-            <p className="mt-1 text-xs leading-relaxed text-slate-400">
-              Estimación orientativa basada en los comparables disponibles. No es una tasación oficial ni certificada y requiere revisión profesional. Las referencias externas son cargadas manualmente; el sistema no verifica por sí solo que un aviso externo continúe vigente. El resultado depende enteramente de la calidad y actualidad de los comparables proporcionados.
-            </p>
-          </div>
-        </div>
-      </div>
-
-      {comparables.length > 0 ? (
-        <div className="flex flex-col gap-3 mt-4">
-          {comparables.map((comp) => (
-            <div key={comp.id} className="group relative flex flex-col sm:flex-row sm:items-center justify-between rounded-2xl border border-white/10 bg-[#0C162D] p-4 shadow-sm transition-all hover:border-cyan-500/50">
-              <div className="flex-grow">
-                <div className="flex items-center gap-2 mb-2">
-                  <div className="mb-2"><Badge tone="accent">Comparable externo</Badge></div>
-                  <span className="text-xs text-slate-500 mb-2">{comp.source_name || 'Manual'}</span>
-                </div>
-                <div className="flex flex-col sm:flex-row sm:items-baseline gap-2 sm:gap-4">
-                  <h4 className="font-bold text-white text-lg">
-                    {comp.currency} {comp.price.toLocaleString('es-AR')}
-                  </h4>
-                  <div className="flex items-center gap-2 text-sm text-slate-400 line-clamp-2">
-                    <MapPin className="h-3.5 w-3.5 shrink-0" />
-                    <span className="truncate">{comp.address || comp.neighborhood || comp.city || 'Sin dirección'}</span>
-                  </div>
-                </div>
-                <div className="mt-2 flex flex-wrap items-center gap-4 text-xs text-slate-400">
-                  <span>Sup: <strong className="text-slate-300">{comp.surface_total_m2 ? `${comp.surface_total_m2}m²` : '-'}</strong></span>
-                  {comp.rooms && <span>Amb: <strong className="text-slate-300">{comp.rooms}</strong></span>}
-                  <span>Ref: <strong className="text-slate-300">{comp.reference_date || '-'}</strong></span>
-                </div>
-              </div>
-              
-              <div className="mt-4 sm:mt-0 flex shrink-0 items-center gap-2 sm:ml-4">
-                <button
-                  onClick={() => setSelectedComp(comp)}
-                  className="inline-flex items-center gap-1.5 rounded-lg bg-white/5 px-3 py-2 text-xs font-semibold text-cyan-400 hover:bg-white/10 transition-colors"
-                >
-                  <Eye className="h-4 w-4" />
-                  Ver detalle
-                </button>
-                <button
-                  onClick={async () => {
-                    if (confirm('¿Eliminar este comparable?')) {
-                      await eliminarComparable(comp.id, propertyId);
-                    }
-                  }}
-                  className="rounded-lg bg-white/5 p-2 text-slate-400 hover:bg-red-500/10 hover:text-red-400 transition-colors"
-                  title="Eliminar"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
-      ) : (
-        <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-white/10 bg-white/[0.01] p-8 text-center mt-4">
-          <Search className="h-8 w-8 text-slate-600 mb-3" />
-          <p className="text-sm font-medium text-slate-400">No hay comparables externos registrados</p>
-          <p className="text-xs text-slate-500 mt-1 max-w-sm">La tasación IA usará propiedades similares del sistema como testigos internos si están disponibles.</p>
-        </div>
-      )}
-
-      {renderFormModal()}
-      {renderDetailModal()}
+  return <section className={styles.panel}>
+    <div className={styles.sectionHead}><span className={styles.icon}><ChartLineUp size={28} weight="duotone" aria-hidden="true" /></span><div><span className={styles.eyebrow}>REFERENCIAS Y ESTIMACIÓN</span><h3>Tasación y comparables</h3></div></div>
+    <p>Agregá referencias externas para preparar una estimación orientativa.</p>
+    <div className={styles.toolbar}>
+      {canManage && <AppButton className={styles.primary} onClick={() => setShowForm(true)}><PlusCircle size={18} weight="duotone" aria-hidden="true" />Nuevo comparable<ArrowRight size={18} strokeWidth={1.7} aria-hidden="true" /></AppButton>}
+      {useAi && <TasarButton propertyId={propertyId} />}
     </div>
-  );
-}
-
-function InfoIcon(props: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg
-      {...props}
-      xmlns="http://www.w3.org/2000/svg"
-      width="24"
-      height="24"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <circle cx="12" cy="12" r="10" />
-      <path d="M12 16v-4" />
-      <path d="M12 8h.01" />
-    </svg>
-  );
+    <p className={styles.note}><strong>Estimación orientativa, no tasación oficial ni certificada.</strong> Requiere revisión profesional. Las referencias se cargan manualmente; el sistema no verifica que los avisos continúen vigentes. El resultado depende de la calidad y actualidad de los comparables.</p>
+    {comparables.length ? <div className={styles.tableWrap}><table className={styles.comparables}><caption className="sr-only">Comparables externos registrados</caption><thead><tr><th scope="col">Referencia</th><th scope="col">Precio</th><th scope="col">Características</th><th scope="col">Acciones</th></tr></thead><tbody>{comparables.map(comp => <tr key={comp.id}>
+      <td><strong>{comp.source_name || 'Manual'}</strong><span>{comp.address || comp.neighborhood || comp.city || 'Sin dirección'}</span><small>Ref. {comp.reference_date || 'Sin fecha'}</small></td>
+      <td><strong>{comp.currency} {comp.price.toLocaleString('es-AR')}</strong><small>Comparable externo</small></td>
+      <td>{comp.surface_total_m2 != null ? `${comp.surface_total_m2} m² totales` : 'Sin superficie'}<small>{comp.rooms != null ? `${comp.rooms} ambientes` : 'Sin ambientes'}</small></td>
+      <td><div className={styles.tableActions}><AppButton className={styles.primary} onClick={() => setSelectedComp(comp)}>Ver detalle<ArrowRight size={18} strokeWidth={1.7} aria-hidden="true" /></AppButton>{canManage && <AppButton variant="destructive" aria-label={`Eliminar comparable ${comp.source_name || comp.id}`} onClick={async () => { if (confirm('¿Eliminar este comparable?')) await eliminarComparable(comp.id, propertyId); }}><Trash2 size={18} aria-hidden="true" /></AppButton>}</div></td>
+    </tr>)}</tbody></table></div> : <div className={styles.note}><Search size={22} aria-hidden="true" /><p>No hay comparables externos registrados.</p><p>La tasación IA usará propiedades similares del sistema como testigos internos si están disponibles.</p></div>}
+    {renderFormModal()}{renderDetailModal()}
+  </section>;
 }

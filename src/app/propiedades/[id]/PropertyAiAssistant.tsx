@@ -1,170 +1,50 @@
 'use client';
 
 import { useState, useTransition } from 'react';
-import Link from 'next/link';
-import { Bot, FileText, CheckCircle2, X } from 'lucide-react';
-import { extraerDatosPropiedadIA, aplicarDatosIAPropiedad } from '../actions';
+import { ArrowRight } from 'lucide-react';
+import { Sparkle, FileText, CheckCircle } from '@phosphor-icons/react';
+import { AppButton, AppButtonLink } from '@/components/ui/AppButton';
+import { extraerDatosPropiedadIA } from '../actions';
 import type { PropertyExtraction } from '@/lib/ai/extraerPropiedad';
-import { FormSubmitButton } from '@/components/ui/FormSubmitButton';
+import styles from './PropertyDetail.module.css';
 
-interface DocumentOption {
-  id: string;
-  file_name: string;
+interface Props {
+  propertyId: string; documents: { id: string; file_name: string }[];
+  onApply: (data: PropertyExtraction) => void; disabled?: boolean;
 }
-
-interface PropertyAiAssistantProps {
-  propertyId: string;
-  documents: DocumentOption[];
-}
-
-export function PropertyAiAssistant({ propertyId, documents }: PropertyAiAssistantProps) {
-  const [selectedDocId, setSelectedDocId] = useState<string>(documents[0]?.id || '');
+export function PropertyAiAssistant({ propertyId, documents, onApply, disabled = false }: Props) {
+  const [selectedDocId, setSelectedDocId] = useState(documents[0]?.id || '');
   const [isPending, startTransition] = useTransition();
   const [extractedData, setExtractedData] = useState<PropertyExtraction | null>(null);
   const [error, setError] = useState<string | null>(null);
-
-  if (documents.length === 0) {
-    return (
-      <div className="rounded-3xl border border-white/5 bg-white/[0.02] p-6 sm:p-8">
-        <div className="flex items-center gap-3 mb-4">
-          <Bot className="h-6 w-6 text-brandviolet" />
-          <h2 className="text-xl font-bold text-white">Autocompletar con IA</h2>
-        </div>
-        <p className="text-sm text-slate-400">
-          Subí un documento a la Bóveda (título, boleto, contrato) para que la IA lea y complete los datos de la ficha automáticamente.
-        </p>
-        <div className="mt-4">
-          <Link href="/documentos/subir">
-            <button className="rounded-xl border border-brandviolet/30 bg-brandviolet/10 px-4 py-2 text-sm font-bold text-brandviolet transition-colors hover:bg-brandviolet/20">
-              Subir documento
-            </button>
-          </Link>
-        </div>
-      </div>
-    );
-  }
-
-  const handleExtract = () => {
-    if (!selectedDocId) return;
-    setError(null);
-    setExtractedData(null);
-
+  const [open, setOpen] = useState(false);
+  const busy = disabled || isPending;
+  const hasData = extractedData && Object.values(extractedData).some(value => value != null && value !== '');
+  function extract() {
+    if (!selectedDocId || busy) return;
+    setError(null); setExtractedData(null);
     startTransition(async () => {
       try {
-        const res = await extraerDatosPropiedadIA(propertyId, selectedDocId);
-        if (res.ok && res.data) {
-          setExtractedData(res.data);
-        } else {
-          setError(res.error || 'Ocurrió un error al analizar el documento');
-        }
-      } catch (e: any) {
-        setError(e.message || 'Error desconocido');
-      }
+        const result = await extraerDatosPropiedadIA(propertyId, selectedDocId);
+        if (result.ok && result.data) setExtractedData(result.data);
+        else setError(result.error || 'No se pudo leer el documento.');
+      } catch { setError('No se pudo analizar el documento. Intentá nuevamente.'); }
     });
-  };
-
-  const hasData = extractedData && Object.values(extractedData).some(val => val !== null && val !== '');
-
-  return (
-    <div className="rounded-3xl border border-cyan-500/20 bg-gradient-to-br from-cyan-500/5 to-brandviolet/5 p-6 sm:p-8 mb-8">
-      <div className="flex items-center gap-3 mb-6">
-        <Bot className="h-6 w-6 text-cyan-400" />
-        <div>
-          <h2 className="text-xl font-bold text-white">Autocompletar con IA</h2>
-          <p className="text-sm text-slate-400">Seleccioná un documento de la bóveda para extraer datos.</p>
-        </div>
+  }
+  return <section className={`${styles.panel} ${styles.documentHelp}`}>
+    <div className={styles.sectionHead}><span className={styles.icon}><Sparkle size={25} weight="duotone" aria-hidden="true" /></span><div><span className={styles.eyebrow}>AYUDA A PEDIDO</span><h3>Ayuda con documentos</h3></div></div>
+    <p>Leé un documento, revisá las sugerencias y aplicalas al borrador. La IA no guarda cambios en la ficha.</p>
+    {!documents.length ? <><p>No hay documentos disponibles. Subí un título, boleto o contrato a la Bóveda.</p><AppButtonLink href="/documentos/subir">Subir documento<ArrowRight size={18} strokeWidth={1.7} aria-hidden="true" /></AppButtonLink></> : <>
+      <AppButton variant="secondary" aria-expanded={open} aria-controls="property-document-help" disabled={busy} onClick={() => setOpen(value => !value)}>{open ? 'Ocultar ayuda documental' : 'Revisar un documento'}<ArrowRight size={18} strokeWidth={1.7} aria-hidden="true" /></AppButton>
+      <div id="property-document-help" hidden={!open}>
+        <p className={styles.note}>Documentos de la organización: verificá que el seleccionado corresponda a esta propiedad.</p>
+        {!extractedData && <div className={styles.documentControls}><label htmlFor="property-document">Documento de la Bóveda</label><select id="property-document" value={selectedDocId} disabled={busy} onChange={e => setSelectedDocId(e.target.value)}>{documents.map(doc => <option key={doc.id} value={doc.id}>{doc.file_name}</option>)}</select><AppButton className={styles.primary} disabled={busy || !selectedDocId} onClick={extract}><FileText size={18} weight="duotone" aria-hidden="true" />{isPending ? 'Leyendo…' : 'Leer con IA'}<ArrowRight size={18} strokeWidth={1.7} aria-hidden="true" /></AppButton></div>}
+        {error && <p role="alert" className={styles.error}>{error}</p>}
+        {extractedData && <>
+          <div className={styles.intro}><h4><CheckCircle size={20} weight="duotone" aria-hidden="true" />Sugerencias del documento</h4><AppButton variant="secondary" disabled={busy} onClick={() => setExtractedData(null)}>Descartar sugerencias</AppButton></div>
+          {!hasData ? <p>No se encontraron datos útiles. Tu borrador no cambió.</p> : <><dl className={styles.suggestions}>{Object.entries(extractedData).filter(([, value]) => value != null && value !== '').map(([key, value]) => <div key={key}><dt>{key.replace(/_/g, ' ')}</dt><dd>{String(value)}</dd></div>)}</dl><AppButton className={styles.primary} disabled={busy} onClick={() => { onApply(extractedData); setExtractedData(null); }}>Aplicar al borrador<ArrowRight size={18} strokeWidth={1.7} aria-hidden="true" /></AppButton></>}
+        </>}
       </div>
-
-      {!extractedData && (
-        <div className="flex flex-col sm:flex-row gap-4">
-          <select
-            value={selectedDocId}
-            onChange={(e) => setSelectedDocId(e.target.value)}
-            className="flex-1 rounded-xl border border-white/10 bg-[#0C2340] px-4 py-3 text-sm text-white outline-none focus:ring-2 focus:ring-cyan-400"
-            disabled={isPending}
-          >
-            {documents.map(doc => (
-              <option key={doc.id} value={doc.id}>{doc.file_name}</option>
-            ))}
-          </select>
-          <button
-            onClick={handleExtract}
-            disabled={isPending || !selectedDocId}
-            className="flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-cyan-500 to-brandviolet px-6 py-3 font-bold text-white transition-all hover:opacity-90 disabled:opacity-50"
-          >
-            <FileText className="h-4 w-4" />
-            {isPending ? 'Leyendo...' : 'Leer con IA'}
-          </button>
-        </div>
-      )}
-
-      {error && (
-        <div className="mt-4 rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-400">
-          {error}
-        </div>
-      )}
-
-      {extractedData && (
-        <div className="mt-6 animate-in fade-in slide-in-from-bottom-4">
-          <div className="mb-4 flex items-center justify-between">
-            <h3 className="font-bold text-cyan-400 flex items-center gap-2">
-              <CheckCircle2 className="h-5 w-5" />
-              Sugerencias de la IA detectadas
-            </h3>
-            <button
-              onClick={() => setExtractedData(null)}
-              className="flex items-center gap-1 text-xs font-bold text-slate-400 hover:text-white"
-            >
-              <X className="h-4 w-4" /> Descartar
-            </button>
-          </div>
-
-          {!hasData ? (
-            <p className="text-sm text-slate-400">No se encontraron datos útiles en el documento seleccionado.</p>
-          ) : (
-            <>
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 mb-6">
-                {Object.entries(extractedData).map(([key, value]) => {
-                  if (value === null || value === '') return null;
-                  return (
-                    <div key={key} className="rounded-xl border border-cyan-500/20 bg-[#071326]/50 p-3">
-                      <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
-                        {key.replace(/_/g, ' ')}
-                      </p>
-                      <p className="mt-1 text-sm font-medium text-white truncate" title={String(value)}>
-                        {String(value)}
-                      </p>
-                    </div>
-                  );
-                })}
-              </div>
-
-              <form
-                action={aplicarDatosIAPropiedad}
-                onSubmit={(e) => {
-                  if (!window.confirm('La IA va a completar la ficha con los datos detectados. Vas a poder revisarlos y editarlos después. ¿Aplicar?')) {
-                    e.preventDefault();
-                  }
-                }}
-                className="flex justify-end"
-              >
-                <input type="hidden" name="property_id" value={propertyId} />
-                <input type="hidden" name="direccion" value={extractedData.direccion || ''} />
-                <input type="hidden" name="tipo_propiedad" value={extractedData.tipo_propiedad || ''} />
-                <input type="hidden" name="matricula" value={extractedData.matricula || ''} />
-                <input type="hidden" name="superficie_total_m2" value={extractedData.superficie_total_m2 || ''} />
-                <input type="hidden" name="superficie_cubierta_m2" value={extractedData.superficie_cubierta_m2 || ''} />
-                <input type="hidden" name="ambientes" value={extractedData.ambientes || ''} />
-                <input type="hidden" name="titulares" value={extractedData.titulares || ''} />
-                <input type="hidden" name="gravamenes" value={extractedData.gravamenes || ''} />
-                <input type="hidden" name="observaciones" value={extractedData.observaciones || ''} />
-                
-                <FormSubmitButton label="Aplicar a la ficha" loadingLabel="Aplicando..." />
-              </form>
-            </>
-          )}
-        </div>
-      )}
-    </div>
-  );
+    </>}
+  </section>;
 }
