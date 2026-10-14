@@ -8,6 +8,7 @@ import { createAuditLog } from '@/lib/audit/createAuditLog';
 import { canManageRental, isUserRole } from '@/lib/permissions/roles';
 import { calcularAjuste, periodoDeFecha } from '@/lib/rentals/calcularAjuste';
 import { calcularProximoAjuste } from '@/lib/rentals/labels';
+import { rentalDateISO, rentalToday } from '@/lib/rentals/calendar';
 
 function parseNumber(value: FormDataEntryValue | null): number | null {
   if (!value) return null;
@@ -263,8 +264,11 @@ export async function aplicarAjusteAlquiler(formData: FormData) {
     throw new Error('No se puede calcular el próximo ajuste');
   }
 
-  const formatBA = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Argentina/Buenos_Aires', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
-  const nextDateISO = nextDate.toISOString().split('T')[0];
+  const formatBA = rentalDateISO(rentalToday());
+  const nextDateISO = rentalDateISO(nextDate);
+  if (!formatBA || !nextDateISO) {
+    throw new Error('No se puede calcular el próximo ajuste');
+  }
 
   if (nextDateISO > formatBA) {
     const [y, m, d] = nextDateISO.split('-');

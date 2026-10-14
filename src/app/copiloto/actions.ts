@@ -2,6 +2,7 @@
 
 import { createClient } from '@/lib/supabase/server';
 import { getUserProfile } from '@/lib/auth/getUserProfile';
+import { canUseAi } from '@/lib/permissions/roles';
 import { getStrictIndustry } from '@/lib/auth/getStrictIndustry';
 import { calcularProximoAjuste, estadoVencimiento, getIndexTypeLabel, getRentalStatusLabel } from '@/lib/rentals/labels';
 import { getPropertyStatusLabel, getPropertyTypeLabel } from '@/lib/properties/labels';
@@ -9,10 +10,12 @@ import { getClientStatusLabel, getClientTypeLabel, getOperationInterestLabel, ge
 import { getCaseStatusLabel } from '@/lib/industries/caseConfig';
 import { generarBriefingInmobiliaria, responderPreguntaInmobiliaria } from '@/lib/ai/copilotoInmobiliaria';
 import type { RentalContract } from '@/types/rental';
+import { formatRentalDate } from '@/lib/rentals/calendar';
 
 export async function generarBriefing() {
   const { user, profile } = await getUserProfile();
   if (!user || !profile) return { ok: false as const, motivo: 'sin_sesion' as const };
+  if (!canUseAi(profile.role)) return { ok: false as const, motivo: 'sin_permiso' as const };
 
   try {
     const industry = await getStrictIndustry();
@@ -41,12 +44,13 @@ export async function generarBriefing() {
   };
 
   const rentals = (rentalsRes.data || []) as RentalContract[];
+  const now = new Date();
   const rentalAlerts = rentals.map((r) => {
     const prox = calcularProximoAjuste(r.start_date, r.last_adjustment_date, r.adjustment_period_months);
-    const est = estadoVencimiento(prox, r.status);
+    const est = estadoVencimiento(prox, r.status, now);
     return {
       tenant: r.tenant_name || 'Contrato sin inquilino',
-      fecha: prox ? prox.toLocaleDateString('es-AR') : '-',
+      fecha: formatRentalDate(prox),
       estado: est,
     };
   });
@@ -68,6 +72,7 @@ export async function generarBriefing() {
 export async function preguntarCopiloto(pregunta: string) {
   const { user, profile } = await getUserProfile();
   if (!user || !profile) return { ok: false as const, motivo: 'sin_sesion' as const };
+  if (!canUseAi(profile.role)) return { ok: false as const, motivo: 'sin_permiso' as const };
 
   try {
     const industry = await getStrictIndustry();
@@ -108,11 +113,12 @@ export async function preguntarCopiloto(pregunta: string) {
     : '(sin operaciones cargadas)';
 
   const rentals = (rentalsRes.data || []) as RentalContract[];
+  const now = new Date();
   const rentalsTxt = rentals.length
     ? rentals.map((r, i) => {
         const prox = calcularProximoAjuste(r.start_date, r.last_adjustment_date, r.adjustment_period_months);
-        const est = estadoVencimiento(prox, r.status);
-        return `${i + 1}. ${r.tenant_name || 'Sin inquilino'} — ${getRentalStatusLabel(r.status)}, ${money(r.current_amount, r.currency)}, índice ${getIndexTypeLabel(r.index_type)}, próximo ajuste ${prox ? prox.toLocaleDateString('es-AR') : '-'} (${est.label})`;
+        const est = estadoVencimiento(prox, r.status, now);
+        return `${i + 1}. ${r.tenant_name || 'Sin inquilino'} — ${getRentalStatusLabel(r.status)}, ${money(r.current_amount, r.currency)}, índice ${getIndexTypeLabel(r.index_type)}, próximo ajuste ${formatRentalDate(prox)} (${est.label})`;
       }).join('\n')
     : '(sin alquileres cargados)';
 

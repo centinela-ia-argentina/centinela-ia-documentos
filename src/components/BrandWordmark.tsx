@@ -11,21 +11,20 @@ export function BrandWordmark({
 }: BrandWordmarkProps) {
   return (
     <span
-      className={`inline-flex min-w-0 items-center gap-2.5 ${className}`}
+      className={`inline-flex min-w-0 items-center gap-3 ${className}`}
       aria-label={brand.name}
       data-brand-provisional="true"
     >
       {showMark ? (
         <span
-          className="relative inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[#29C5FF]/70"
+          className="inline-flex h-8 min-w-8 shrink-0 items-center justify-center font-display text-[22px] font-medium leading-none tracking-[-0.12em] text-[#C8FF62]"
           aria-hidden="true"
         >
-          <span className="h-4 w-4 rounded-full border border-white/80" />
+          an
         </span>
       ) : null}
-      <span className="whitespace-nowrap font-black tracking-[-0.035em]">
-        <span className="text-white">{brand.shortName}</span>{' '}
-        <span className="text-[#1E9BF0]">{brand.aiSuffix}</span>
+      <span className="whitespace-nowrap font-display font-semibold tracking-[-0.045em] text-white">
+        {brand.shortName.toLowerCase()} {brand.aiSuffix.toLowerCase()}
       </span>
     </span>
   );

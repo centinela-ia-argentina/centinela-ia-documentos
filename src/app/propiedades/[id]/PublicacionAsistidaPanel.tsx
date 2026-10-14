@@ -1,6 +1,10 @@
 'use client';
 
-import { ExternalLink, Globe, Copy, Check, Info } from 'lucide-react';
+import { ExternalLink, ArrowRight } from 'lucide-react';
+import { GlobeHemisphereWest, TextT, TextAlignLeft, Hash, ClipboardText, CheckCircle } from '@phosphor-icons/react';
+import { AppButton } from '@/components/ui/AppButton';
+import { SelectField } from '@/components/ui/SelectField';
+import styles from './PropertyDetail.module.css';
 import { useState } from 'react';
 import type { PropertyRecord } from '@/types/property';
 import { getPropertyTypeLabel } from '@/lib/properties/labels';
@@ -80,121 +84,36 @@ export function PublicacionAsistidaPanel({ property, canManage }: PublicacionAsi
 Para más información, contactanos.`;
   const hashtagsText = `#Inmobiliaria #RealEstate #${getPropertyTypeLabel(property.property_type)?.replace(/\s+/g, '')} ${property.neighborhood ? `#${property.neighborhood.replace(/\s+/g, '')}` : ''} #Oportunidad`;
 
-  return (
-    <div className="rounded-3xl border border-white/5 bg-white/[0.02] p-6 mt-6">
-      <div className="mb-6">
-        <h3 className="text-sm font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2">
-          <Globe className="h-4 w-4" />
-          Publicación Asistida (Manual)
-        </h3>
-        <p className="mt-1 text-xs text-slate-500">
-          Registrá los enlaces donde publicaste manualmente esta propiedad. El sistema no publica automáticamente en los portales.
-        </p>
-      </div>
-
-      <form onSubmit={handleSubmit} className="space-y-4">
+  const portals = [
+    { key: 'mercadolibre', label: 'MercadoLibre', value: urlMercadoLibre, set: setUrlMercadoLibre },
+    { key: 'zonaprop', label: 'Zonaprop', value: urlZonaprop, set: setUrlZonaprop },
+    { key: 'argenprop', label: 'Argenprop', value: urlArgenprop, set: setUrlArgenprop },
+    { key: 'other', label: 'Otro / Redes', value: urlOther, set: setUrlOther },
+  ];
+  const options = [
+    { value: 'no_publicada', label: 'No publicada', detail: 'Sin publicación registrada' },
+    { value: 'en_preparacion', label: 'En preparación', detail: 'Material en preparación' },
+    { value: 'publicada', label: 'Publicada', detail: 'Publicación manual registrada' },
+    { value: 'pausada', label: 'Pausada / Finalizada', detail: 'Publicación detenida' },
+  ];
+  return <>
+    <section className={styles.quickSection}><h3>Textos rápidos</h3><p>Atajos de copia para preparar tu comunicación.</p><div className={styles.quickGrid}>
+      {[{ id: 'title', label: 'Título', detail: 'Una presentación breve', text: titleText, icon: TextT }, { id: 'desc', label: 'Descripción básica', detail: 'Datos principales del inmueble', text: descText, icon: TextAlignLeft }, { id: 'tags', label: 'Hashtags', detail: 'Etiquetas para tu publicación', text: hashtagsText, icon: Hash }].map(({ id, label, detail, text, icon: Icon }) => <button type="button" key={id} className={styles.quickCard} onClick={() => handleCopy(id, text)}><span className={styles.icon}><Icon size={24} weight="duotone" aria-hidden="true" /></span><span><strong>{copied === id ? 'Copiado' : label}</strong><small>{detail}</small></span>{copied === id ? <CheckCircle size={20} weight="duotone" aria-hidden="true" /> : <ClipboardText size={20} weight="duotone" aria-hidden="true" />}</button>)}
+    </div></section>
+    <section className={styles.panel}>
+      <div className={styles.sectionHead}><span className={styles.icon}><GlobeHemisphereWest size={27} weight="duotone" aria-hidden="true" /></span><div><span className={styles.eyebrow}>SEGUIMIENTO MANUAL</span><h3>Registro de publicación</h3></div></div>
+      <p>Registrá los enlaces donde publicaste manualmente. El sistema no publica automáticamente en los portales.</p>
+      <form onSubmit={handleSubmit} className={styles.publicationForm}>
         <input type="hidden" name="property_id" value={property.id} />
-
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div>
-            <label className="mb-1.5 block text-xs font-semibold text-slate-400">Estado de publicación</label>
-            <input type="hidden" name="publication_status" value={status} />
-            <select
-              value={status}
-              onChange={(e) => setStatus(e.target.value)}
-              disabled={!canManage}
-              className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2 text-sm text-white outline-none focus:ring-1 focus:ring-sky-400"
-            >
-              <option value="no_publicada" className="bg-[#0C2340]">No publicada</option>
-              <option value="en_preparacion" className="bg-[#0C2340]">En preparación</option>
-              <option value="publicada" className="bg-[#0C2340]">Publicada</option>
-              <option value="pausada" className="bg-[#0C2340]">Pausada / Finalizada</option>
-            </select>
-          </div>
-          <div>
-            <label className="mb-1.5 block text-xs font-semibold text-slate-400">Notas de publicación</label>
-            <input
-              name="publication_notes"
-              type="text"
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              disabled={!canManage}
-              placeholder="Ej. Falta renovar cartel"
-              className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2 text-sm text-white placeholder:text-slate-500 outline-none focus:ring-1 focus:ring-sky-400"
-            />
-          </div>
-        </div>
-
-        <div className="space-y-3 pt-2">
-          <label className="block text-xs font-semibold text-slate-400">Enlaces a portales</label>
-          <div className="flex flex-col gap-2">
-            <div className="flex items-center gap-2">
-              <span className="w-32 text-xs font-medium text-slate-300">MercadoLibre</span>
-              <input name="publication_url_mercadolibre" type="url" value={urlMercadoLibre} onChange={(e) => setUrlMercadoLibre(e.target.value)} disabled={!canManage} placeholder="https://inmueble.mercadolibre.com.ar/..." className="flex-1 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs text-white placeholder:text-slate-500 outline-none focus:ring-1 focus:ring-sky-400" />
-              {urlMercadoLibre && (
-                <a href={urlMercadoLibre} target="_blank" rel="noopener noreferrer" className="p-2 text-cyan-400 hover:text-cyan-300"><ExternalLink className="h-4 w-4" /></a>
-              )}
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="w-32 text-xs font-medium text-slate-300">Zonaprop</span>
-              <input name="publication_url_zonaprop" type="url" value={urlZonaprop} onChange={(e) => setUrlZonaprop(e.target.value)} disabled={!canManage} placeholder="https://www.zonaprop.com.ar/..." className="flex-1 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs text-white placeholder:text-slate-500 outline-none focus:ring-1 focus:ring-sky-400" />
-              {urlZonaprop && (
-                <a href={urlZonaprop} target="_blank" rel="noopener noreferrer" className="p-2 text-cyan-400 hover:text-cyan-300"><ExternalLink className="h-4 w-4" /></a>
-              )}
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="w-32 text-xs font-medium text-slate-300">Argenprop</span>
-              <input name="publication_url_argenprop" type="url" value={urlArgenprop} onChange={(e) => setUrlArgenprop(e.target.value)} disabled={!canManage} placeholder="https://www.argenprop.com/..." className="flex-1 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs text-white placeholder:text-slate-500 outline-none focus:ring-1 focus:ring-sky-400" />
-              {urlArgenprop && (
-                <a href={urlArgenprop} target="_blank" rel="noopener noreferrer" className="p-2 text-cyan-400 hover:text-cyan-300"><ExternalLink className="h-4 w-4" /></a>
-              )}
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="w-32 text-xs font-medium text-slate-300">Otro / Redes</span>
-              <input name="publication_url_other" type="url" value={urlOther} onChange={(e) => setUrlOther(e.target.value)} disabled={!canManage} placeholder="https://..." className="flex-1 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs text-white placeholder:text-slate-500 outline-none focus:ring-1 focus:ring-sky-400" />
-              {urlOther && (
-                <a href={urlOther} target="_blank" rel="noopener noreferrer" className="p-2 text-cyan-400 hover:text-cyan-300"><ExternalLink className="h-4 w-4" /></a>
-              )}
-            </div>
-          </div>
-        </div>
-
-        <div className="space-y-3 pt-4 border-t border-white/10">
-          <label className="block text-xs font-semibold text-slate-400">Copiar textos rápidos</label>
-          <div className="flex flex-wrap gap-2">
-            <button type="button" onClick={() => handleCopy('title', titleText)} className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-white/10">
-              {copied === 'title' ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <Copy className="h-3.5 w-3.5" />}
-              Título
-            </button>
-            <button type="button" onClick={() => handleCopy('desc', descText)} className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-white/10">
-              {copied === 'desc' ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <Copy className="h-3.5 w-3.5" />}
-              Descripción Básica
-            </button>
-            <button type="button" onClick={() => handleCopy('tags', hashtagsText)} className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-white/10">
-              {copied === 'tags' ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <Copy className="h-3.5 w-3.5" />}
-              Hashtags
-            </button>
-          </div>
-          <p className="text-[10px] text-slate-500">O usá &quot;Generar aviso con IA&quot; para un texto publicitario más completo.</p>
-        </div>
-
-        {canManage && (
-          <div className="flex items-center justify-end gap-4 pt-4 border-t border-white/10">
-            {feedback && (
-              <span className={`text-sm ${feedback.type === 'success' ? 'text-emerald-400' : 'text-red-400'}`}>
-                {feedback.text}
-              </span>
-            )}
-            <button
-              type="submit"
-              disabled={isSaving}
-              className="inline-flex items-center justify-center rounded-xl bg-cyan-500 px-4 py-2 text-sm font-bold text-slate-900 transition hover:bg-cyan-400 disabled:opacity-50"
-            >
-              {isSaving ? 'Guardando...' : 'Guardar enlaces'}
-            </button>
-          </div>
-        )}
+        <fieldset disabled={!canManage || isSaving}><legend>Estado y notas</legend><div className={styles.publicationGrid}>
+          <div><p className={styles.fieldLabel}>Estado de publicación</p><SelectField name="publication_status" label="Estado de publicación" value={status} onChange={setStatus} options={options.some(option => option.value === status) ? options : [...options, { value: status, label: status, detail: 'Valor registrado' }]} placeholder="Seleccionar…" icon={<GlobeHemisphereWest size={18} weight="duotone" />} /></div>
+          <div><label htmlFor="property-publication-notes">Notas de publicación</label><input id="property-publication-notes" name="publication_notes" type="text" value={notes} onChange={e => setNotes(e.target.value)} placeholder="Ej. Falta renovar cartel" /></div>
+        </div></fieldset>
+        <fieldset disabled={!canManage || isSaving}><legend>Enlaces de publicación</legend><div className={styles.publicationGrid}>{portals.map(portal => <div key={portal.key}><label htmlFor={`property-portal-${portal.key}`}>{portal.label}</label><div className={styles.portalInput}><input id={`property-portal-${portal.key}`} name={`publication_url_${portal.key}`} type="url" value={portal.value} onChange={e => portal.set(e.target.value)} placeholder="https://…" /></div></div>)}</div></fieldset>
+        <div className={styles.portalLinks}>{portals.filter(portal => portal.value).map(portal => <a key={portal.key} href={portal.value} target="_blank" rel="noopener noreferrer">Abrir {portal.label}<ExternalLink size={16} aria-hidden="true" /></a>)}</div>
+        {feedback && <p role={feedback.type === 'error' ? 'alert' : 'status'} className={feedback.type === 'error' ? styles.error : styles.note}>{feedback.text}</p>}
+        {canManage ? <div className={styles.formActions}><AppButton className={styles.primary} type="submit" disabled={isSaving}>{isSaving ? 'Guardando…' : 'Guardar enlaces'}<ArrowRight size={18} strokeWidth={1.7} aria-hidden="true" /></AppButton></div> : <p className={styles.note}>Solo lectura: no podés modificar el registro de publicación.</p>}
       </form>
-    </div>
-  );
+    </section>
+  </>;
 }

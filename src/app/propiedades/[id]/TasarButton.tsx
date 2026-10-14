@@ -1,5 +1,10 @@
 'use client';
 
+import { ArrowRight } from 'lucide-react';
+import { MagicWand } from '@phosphor-icons/react';
+import { AppButton } from '@/components/ui/AppButton';
+import styles from './PropertyDetail.module.css';
+
 import { useState, useTransition } from 'react';
 import { Calculator, X, Copy, Check } from 'lucide-react';
 import { tasarPropiedadConIA } from '../actions';
@@ -93,15 +98,11 @@ export function TasarButton({ propertyId }: { propertyId: string }) {
           </div>
         </div>
       )}
-      <button
-        onClick={handleTasar}
-        disabled={isPending}
-        className="group relative inline-flex w-full justify-center items-center gap-2 overflow-hidden rounded-xl bg-gradient-to-r from-cyan-600 to-violet-600 px-5 py-3 text-sm font-bold text-white shadow-lg transition-all hover:scale-105 hover:shadow-cyan-500/25 disabled:pointer-events-none disabled:opacity-70"
-      >
-        <div className="absolute inset-0 bg-white/20 opacity-0 transition-opacity group-hover:opacity-100"></div>
-        <Calculator className={`h-4 w-4 ${isPending ? 'animate-pulse' : ''}`} />
-        <span>{isPending ? 'Tasando...' : '🧮 Tasar con IA'}</span>
-      </button>
+      <AppButton onClick={handleTasar} disabled={isPending} className={styles.primary}>
+        <MagicWand size={18} weight="duotone" aria-hidden="true" />
+        {isPending ? 'Tasando…' : 'Preparar estimación con IA'}
+        <ArrowRight size={18} strokeWidth={1.7} aria-hidden="true" />
+      </AppButton>
     </div>
   );
 }

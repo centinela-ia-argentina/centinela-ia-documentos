@@ -1,86 +1,62 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
+import { ArrowRight, CalendarDots } from '@phosphor-icons/react/ssr';
 import { getUserProfile } from '@/lib/auth/getUserProfile';
 import { createClient } from '@/lib/supabase/server';
 import { AppShell } from '@/components/layout/AppShell';
-import { MetricCard } from '@/components/dashboard/MetricCard';
-import { Reveal } from '@/components/ui/Reveal';
-import { MotionCard } from '@/components/ui/MotionCard';
 import { normalizeIndustryType } from '@/lib/industries/documentTypes';
 import {
-  getDashboardCards,
+  getCaseStatusLabel,
   isCaseActive,
-  type DashboardCardKey,
 } from '@/lib/industries/caseConfig';
-import { getIndustryTerms, type IndustryTerms } from '@/lib/industries/uiLabels';
+import { getIndustryTerms } from '@/lib/industries/uiLabels';
 import { isUserRole } from '@/lib/permissions/roles';
-import { getDocumentExpiryStatus } from '@/lib/documents/expiry';
-import { sensitivityLabel, isSensitiveDocument } from '@/lib/documents/sensitivity';
 import { PrimerosPasos } from '@/components/dashboard/PrimerosPasos';
+import {
+  LocalDateLabel,
+  TimeAwareGreeting,
+} from '@/components/dashboard/TimeAwareGreeting';
 
 interface DashboardDocument {
   id: string;
-  file_name: string;
-  file_mime_type?: string | null;
-  document_type?: string | null;
-  sensitivity_level: string;
-  created_at?: string | null;
-  expires_at?: string | null;
 }
 
+interface DashboardCase {
+  id: string;
+  title: string | null;
+  client_name: string | null;
+  case_type: string | null;
+  status: string | null;
+  metadata: Record<string, unknown> | null;
+  created_at: string | null;
+}
 
+function firstName(fullName?: string | null) {
+  return fullName?.trim().split(/\s+/)[0] || 'equipo';
+}
 
-function buildMetricCard(
-  card: DashboardCardKey,
-  values: {
-    activeCases: number;
-    loadedDocuments: number;
-    pendingAnalysis: number;
-    sensitiveDocuments: number;
-    expiringDocuments: number;
-    proximosPlazos?: number;
-  },
-  terms: IndustryTerms
-) {
-  switch (card) {
-    case 'expedientes_activos': {
-      const isFem = terms.expedientePlural.toLowerCase() === 'operaciones';
-      return {
-        label: `${terms.expedientePlural} ${isFem ? 'activas' : 'activos'}`,
-        value: String(values.activeCases),
-        helper: terms.dashboardActivesHelper,
-      };
-    }
-    case 'proximos_plazos':
-      return {
-        label: 'Próximos plazos',
-        value: String(values.proximosPlazos ?? 0),
-        helper: terms.dashboardPlazosHelper,
-        href: '/observaciones',
-      };
-    case 'documentos_cargados':
-      return {
-        label: 'Documentos cargados totales',
-        value: String(values.loadedDocuments),
-        helper: 'Bóveda total (incluye archivados)',
-      };
+function formatRelevantDate(value?: string) {
+  if (!value) return 'Sin fecha definida';
+  const date = new Date(`${value}T12:00:00`);
+  if (Number.isNaN(date.getTime())) return 'Fecha por revisar';
+  return new Intl.DateTimeFormat('es-AR', { day: '2-digit', month: 'short' }).format(date);
+}
 
-    case 'documentos_sensibles':
-      return {
-        label: 'Documentos sensibles',
-        value: String(values.sensitiveDocuments),
-        helper: 'Alta o crítica',
-      };
-    case 'documentos_por_vencer':
-      return {
-        label: 'Documentos por vencer',
-        value: String(values.expiringDocuments),
-        helper: 'Por vencer o vencidos',
-      };
+function operationValue(item: DashboardCase) {
+  const amount = String(item.metadata?.valor_operacion ?? '').trim();
+  const rawCurrency = String(item.metadata?.moneda_operacion ?? '').trim();
+  const currency = (rawCurrency || 'USD').toUpperCase();
+  if (!amount) return null;
 
-    default:
-      return null;
-  }
+  const numericAmount = Number(amount);
+  const formattedAmount = Number.isFinite(numericAmount)
+    ? new Intl.NumberFormat('es-AR', { maximumFractionDigits: 2 }).format(numericAmount)
+    : amount;
+
+  const currencyLabel =
+    currency === 'USD' ? 'US$' : currency === 'ARS' ? 'AR$' : currency;
+
+  return `${currencyLabel} ${formattedAmount}`;
 }
 
 export default async function DashboardPage() {
@@ -90,225 +66,282 @@ export default async function DashboardPage() {
   if (!profile) redirect('/onboarding');
 
   const role = isUserRole(profile.role) ? profile.role : null;
-
   const supabase = await createClient();
 
-  const [
-    organizationResult,
-    casesResult,
-    documentsResult,
-    aiOutputsResult,
-  ] = await Promise.all([
-    supabase
-      .from('organizations')
-      .select('industry_type')
-      .eq('id', profile.organization_id)
-      .maybeSingle(),
-
-    supabase
-      .from('cases')
-      .select('id, status, metadata')
-      .eq('organization_id', profile.organization_id)
-      .neq('status', 'archived')
-      .neq('status', 'Archivado'),
-
-    supabase
-      .from('documents')
-      .select('id, file_name, file_mime_type, document_type, sensitivity_level, created_at, expires_at')
-      .eq('organization_id', profile.organization_id)
-      .order('created_at', { ascending: false }),
-
-    supabase
-      .from('ai_outputs')
-      .select('document_id')
-      .eq('organization_id', profile.organization_id)
-      .eq('output_type', 'document_analysis'),
-  ]);
+  const [organizationResult, casesResult, documentsResult, aiOutputsResult, memberResult] =
+    await Promise.all([
+      supabase
+        .from('organizations')
+        .select('name, industry_type')
+        .eq('id', profile.organization_id)
+        .maybeSingle(),
+      supabase
+        .from('cases')
+        .select('id, title, client_name, case_type, status, metadata, created_at')
+        .eq('organization_id', profile.organization_id)
+        .neq('status', 'archived')
+        .neq('status', 'Archivado')
+        .order('created_at', { ascending: false }),
+      supabase
+        .from('documents')
+        .select('id')
+        .eq('organization_id', profile.organization_id)
+        .order('created_at', { ascending: false }),
+      supabase
+        .from('ai_outputs')
+        .select('document_id')
+        .eq('organization_id', profile.organization_id)
+        .eq('output_type', 'document_analysis'),
+      supabase
+        .from('profiles')
+        .select('id', { count: 'exact', head: true })
+        .eq('organization_id', profile.organization_id),
+    ]);
 
   const industry = normalizeIndustryType(organizationResult.data?.industry_type);
   const terms = getIndustryTerms(industry);
-  const dashboardCards = getDashboardCards(industry);
-  const cases = (casesResult.data ?? []) as any[];
+  const cases = (casesResult.data ?? []) as DashboardCase[];
   const documents = (documentsResult.data ?? []) as DashboardDocument[];
   const aiOutputs = aiOutputsResult.data ?? [];
+  const isRealEstate = industry === 'inmobiliaria';
+  const profileName = profile.full_name?.trim();
+  const greetingName =
+    profileName && !/^inmobiliaria$/i.test(profileName)
+      ? firstName(profileName)
+      : organizationResult.data?.name?.trim() || firstName(profileName);
+  const operationBasePath = isRealEstate ? '/operaciones' : '/expedientes';
 
-  const activeCasesCount = cases.filter((c) => isCaseActive(c.status)).length;
-  const proximosPlazos = cases.filter((c) => {
-    const fecha = ((c.metadata as Record<string, unknown> | null)?.fecha_relevante as string | undefined)?.trim();
-    if (!fecha) return false;
-    const status = getDocumentExpiryStatus(fecha);
-    return status === 'por_vencer' || status === 'vencido';
-  }).length;
+  const activeCases = cases.filter((item) => isCaseActive(item.status));
 
-  const analysisCountByDocument = new Map<string, number>();
-
-  for (const item of aiOutputs) {
-    const documentId = String(item.document_id || '');
-    if (!documentId) continue;
-
-    analysisCountByDocument.set(
-      documentId,
-      (analysisCountByDocument.get(documentId) ?? 0) + 1
-    );
-  }
-
-  const analyzedDocuments = documents.filter(
-    (document) => (analysisCountByDocument.get(document.id) ?? 0) > 0
+  const analyzedDocumentIds = new Set(
+    aiOutputs.map((item) => String(item.document_id || '')).filter(Boolean)
   );
-
-  const pendingDocuments = documents.filter(
-    (document) => (analysisCountByDocument.get(document.id) ?? 0) === 0
-  );
-
-
-
-  const coverage =
-    documents.length > 0
-      ? Math.round((analyzedDocuments.length / documents.length) * 100)
-      : 0;
-
-
-  const sensitiveDocuments = documents.filter((document) =>
-    isSensitiveDocument(document.sensitivity_level)
-  );
-
-  const expiringDocuments = documents.filter((document) => {
-    if (!document.expires_at) return false;
-    const status = getDocumentExpiryStatus(document.expires_at);
-    return status === 'por_vencer' || status === 'vencido';
-  }).length;
-
-  const metricCards = dashboardCards
-    .map((card) =>
-      buildMetricCard(card, {
-        activeCases: activeCasesCount,
-        loadedDocuments: documents.length,
-        pendingAnalysis: pendingDocuments.length,
-        sensitiveDocuments: sensitiveDocuments.length,
-        expiringDocuments,
-        proximosPlazos,
-      }, terms)
-    )
-    .filter((card): card is NonNullable<typeof card> => Boolean(card));
-
-
-
-
-  // Primeros pasos (home guiado)
-  const { count: memberCount } = await supabase
-    .from('profiles')
-    .select('id', { count: 'exact', head: true })
-    .eq('organization_id', profile.organization_id);
+  const coverage = documents.length
+    ? Math.round((analyzedDocumentIds.size / documents.length) * 100)
+    : 0;
+  const memberCount = memberResult.count ?? 0;
 
   const hasCase = cases.length > 0;
   const hasDocument = documents.length > 0;
-  const hasTeam = (memberCount ?? 0) > 1;
-  const isAdmin = role === 'admin';
   const showGettingStarted = !hasCase || !hasDocument;
+
+  const metrics = [
+    {
+      label: `${terms.expedientePlural} ${terms.adjetivoActivos}`,
+      value: String(activeCases.length).padStart(2, '0'),
+      helper: activeCases.length === 1 ? '1 abierta en este momento' : `${activeCases.length} abiertas en este momento`,
+    },
+    {
+      label: 'Documentos',
+      value: String(documents.length).padStart(2, '0'),
+      helper: documents.length === 1 ? '1 documento en la bóveda' : `${documents.length} documentos en la bóveda`,
+    },
+    {
+      label: 'Cobertura de análisis',
+      value: `${coverage}%`,
+      helper: documents.length ? `${analyzedDocumentIds.size} de ${documents.length} con análisis disponible` : 'Todavía no hay documentos',
+    },
+    {
+      label: 'Equipo',
+      value: String(memberCount).padStart(2, '0'),
+      helper: memberCount === 1 ? '1 integrante con acceso' : `${memberCount} integrantes con acceso`,
+    },
+  ];
+
+  const workspaces = [
+    {
+      title: 'Agenda',
+      detail: 'Calendario, vencimientos, firmas y alertas.',
+      href: '/agenda',
+    },
+    {
+      title: 'Documentos',
+      detail: 'Bóveda, vigencias y análisis documental.',
+      href: '/documentos',
+    },
+    {
+      title: 'Observaciones',
+      detail: 'Excepciones y datos que requieren revisión.',
+      href: '/observaciones',
+    },
+  ];
 
   return (
     <AppShell>
-      <MotionCard className="mb-8" index={0}>
-        <p className="text-xs font-semibold uppercase tracking-widest text-cyan-400/80">INICIO</p>
-        <h1
-          data-testid="dashboard-title"
-          className="mt-2 font-display text-3xl font-semibold tracking-tight text-white"
+      <section className="relative overflow-hidden border-b border-[#85E4D4]/15 pb-10 pt-3 sm:pb-12 sm:pt-6">
+        <span
+          className="pointer-events-none absolute -right-4 -top-16 select-none font-display text-[clamp(7rem,18vw,17rem)] font-black leading-none tracking-[-0.075em] text-white/[0.025] [-webkit-text-stroke:1px_rgba(243,248,245,0.04)]"
+          aria-hidden="true"
         >
-          Bienvenido, <span className="text-gradient">{profile.full_name}</span>
-        </h1>
-        <p className="mt-2 text-sm text-slate-400">
-          {terms.dashboardSubtitulo}
-        </p>
-
-        <div className="mt-5 flex flex-wrap gap-3">
-          <Link href="/expedientes/nuevo" className="quick-action">＋ {terms.nuevoCta}</Link>
-          <Link href="/documentos/subir" className="quick-action">⬆ Subir documento</Link>
-          <Link href="/buscar" className="quick-action">🔍 Buscar</Link>
+          ANULUS
+        </span>
+        <div className="relative max-w-4xl">
+          <p className="font-ui text-sm font-semibold tracking-[-0.02em] text-[#85E4D4]">
+            <LocalDateLabel />
+          </p>
+          <h1
+            data-testid="dashboard-title"
+            className="mt-3 font-display text-[clamp(2.45rem,5vw,4.75rem)] font-medium leading-[0.98] tracking-[-0.06em] text-[#F3F8F5]"
+          >
+            <TimeAwareGreeting name={greetingName} />
+          </h1>
+          <p
+            className="mt-5 max-w-2xl font-ui text-base font-medium leading-7 sm:text-lg"
+            style={{ color: '#B8C6C1' }}
+          >
+            Controlá operaciones, documentos y próximos pasos desde un mismo lugar.
+          </p>
         </div>
-      </MotionCard>
+      </section>
 
-      {showGettingStarted && (
-        <PrimerosPasos
-          hasCase={hasCase}
-          hasDocument={hasDocument}
-          hasTeam={hasTeam}
-          isAdmin={isAdmin}
-          userName={profile.full_name}
-          industry={industry}
-        />
-      )}
+      {showGettingStarted ? (
+        <div className="mt-6">
+          <PrimerosPasos
+            hasCase={hasCase}
+            hasDocument={hasDocument}
+            hasTeam={(memberResult.count ?? 0) > 1}
+            isAdmin={role === 'admin'}
+            userName={profile.full_name}
+            industry={industry}
+          />
+        </div>
+      ) : null}
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {metricCards.map((metric, i) => (
-          <MetricCard key={metric.label} index={i} label={metric.label} value={metric.value} helper={metric.helper} href={metric.href} />
+      <section
+        aria-label="Indicadores operativos"
+        className="grid border-b border-[#85E4D4]/15 sm:grid-cols-2 xl:grid-cols-4"
+      >
+        {metrics.map((metric, index) => (
+          <article
+            key={metric.label}
+            className={`px-5 py-6 sm:px-6 ${index > 0 ? 'border-t border-[#85E4D4]/15 sm:border-l sm:border-t-0' : ''} ${index === 2 ? 'sm:border-t xl:border-t-0' : ''}`}
+          >
+            <p className="font-ui text-[13px] font-semibold tracking-[-0.025em] text-[#B8C6C1]">
+              {metric.label}
+            </p>
+            <p className="mt-1.5 font-display text-[2rem] font-semibold leading-none tracking-[-0.055em] text-[#F3F8F5]">
+              {metric.value}
+            </p>
+            <p className="mt-2 font-ui text-[11px] font-medium text-[#71857F]">
+              {metric.helper}
+            </p>
+          </article>
         ))}
-      </div>
+      </section>
 
-      <div className="mt-8 grid items-start gap-6 xl:grid-cols-[1fr_0.8fr]">
-        <MotionCard index={1} className="flex flex-col gap-6">
-          <div>
-            <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
+      <section className="mt-8 overflow-hidden rounded-[30px] border border-white/10 bg-[#081A22] shadow-[0_26px_80px_rgba(0,0,0,0.22)]">
+        <div className="flex flex-col gap-6 px-6 py-7 sm:px-8 lg:flex-row lg:items-end lg:justify-between lg:px-10 lg:py-9">
+          <div className="max-w-2xl">
+            <p className="font-ui text-xs font-semibold text-[#85E4D4]">Seguimiento operativo</p>
+            <h2 className="mt-2 font-display text-3xl font-medium tracking-[-0.05em] text-[#F3F8F5] sm:text-4xl">
+              {isRealEstate ? 'Operaciones en curso' : `${terms.expedientePlural} en curso`}
+            </h2>
+            <p className="mt-3 font-ui text-sm leading-6 text-[#9FB0AB]">
+              Estado, actividad reciente y próximo hito de cada registro activo.
+            </p>
+            <div className="mt-5 flex flex-wrap gap-2">
+              <span className="rounded-full border border-white/15 px-3 py-1.5 text-xs font-semibold text-[#D7E2DE]">
+                {activeCases.length} activas
+              </span>
+              <span className="rounded-full border border-white/15 px-3 py-1.5 text-xs font-semibold text-[#D7E2DE]">
+                {documents.length} documentos
+              </span>
+            </div>
+          </div>
+          <Link
+            href={operationBasePath}
+            className="group inline-flex min-h-12 w-fit items-center gap-3 rounded-full bg-[#F3F8F5] px-5 font-ui text-sm font-bold text-[#071110] transition-[transform,box-shadow] duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] hover:-translate-y-0.5 hover:shadow-[0_0_0_1px_rgba(200,255,98,0.3),0_0_26px_rgba(200,255,98,0.24)] active:translate-y-0 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C8FF62]"
+          >
+            Ver todas las operaciones
+            <ArrowRight size={17} weight="bold" className="transition-transform duration-150 group-hover:translate-x-0.5" />
+          </Link>
+        </div>
+
+        <div className="grid border-t border-white/10 lg:grid-cols-2">
+          <article
+            aria-label="Listado de operaciones en curso"
+            className="px-5 py-3 sm:px-8 lg:py-5"
+          >
+            {activeCases.length ? (
+              <div className="divide-y divide-white/10">
+                {activeCases.slice(0, 5).map((item) => {
+                  const date = String(item.metadata?.fecha_relevante ?? '').trim();
+                  return (
+                    <Link
+                      key={item.id}
+                      href={`${operationBasePath}/${item.id}`}
+                      className="group grid gap-3 py-5 transition-colors duration-150 hover:text-white sm:grid-cols-[minmax(0,1fr)_142px_104px] sm:items-center sm:gap-3"
+                    >
+                      <span className="min-w-0">
+                        <span className="line-clamp-2 font-ui text-sm font-bold leading-5 text-[#EDF4F1] group-hover:text-white">
+                          {item.title || terms.itemSinTitulo}
+                        </span>
+                        <span className="mt-1 block truncate font-ui text-[11px] text-[#80948D]">
+                          {item.case_type || 'General'}{item.client_name ? ` · ${item.client_name}` : ''}
+                        </span>
+                      </span>
+                      <span className="inline-flex min-h-8 w-[142px] items-center justify-start gap-2 rounded-lg border border-[#85E4D4]/25 bg-[linear-gradient(135deg,rgba(133,228,212,0.11),rgba(133,228,212,0.035))] px-3 font-ui text-[9px] font-bold tracking-[-0.01em] text-[#9AF0E2] shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+                        <span className="h-1.5 w-1.5 shrink-0 rotate-45 bg-[#85E4D4]" aria-hidden="true" />
+                        <span className="whitespace-nowrap">{getCaseStatusLabel(item.status, industry)}</span>
+                      </span>
+                      <span className="font-display text-left text-sm font-semibold tabular-nums tracking-[-0.025em] text-[#F3F8F5] sm:text-right">
+                        {operationValue(item) || (date ? formatRelevantDate(date) : 'Ver detalle')}
+                      </span>
+                    </Link>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="py-14 text-center">
+                <p className="font-ui text-sm font-semibold text-[#D7E2DE]">{terms.vacioSinDatos}</p>
+                <Link
+                  href={`${operationBasePath}/nuevo`}
+                  className="mt-3 inline-flex items-center gap-1 font-ui text-sm font-bold text-[#C8FF62]"
+                >
+                  {terms.nuevoCta} <ArrowRight size={16} weight="bold" />
+                </Link>
+              </div>
+            )}
+          </article>
+
+          <aside className="border-t border-white/10 p-5 sm:p-7 lg:border-l lg:border-t-0 lg:p-8">
+            <div className="flex items-start justify-between gap-3">
               <div>
-                <div className="flex items-center gap-2.5">
-                  <span className="h-6 w-1 rounded-full bg-gradient-to-b from-accent to-brandviolet" />
-                  <h2 className="font-display text-lg font-semibold text-white">IA documental</h2>
-                </div>
-                <h3 className="mt-2 font-display text-2xl font-semibold text-white">
-                  Cobertura de análisis
+                <p className="font-ui text-xs font-semibold text-[#85E4D4]">Navegación operativa</p>
+                <h3 className="mt-1 font-display text-2xl font-medium tracking-[-0.04em] text-[#F3F8F5]">
+                  Accesos de trabajo
                 </h3>
-
-                <p className="mt-2 text-sm text-slate-400">
-                  Documentos analizados por IA y pendientes de análisis.
+                <p className="mt-2 font-ui text-xs leading-5 text-[#91A39F]">
+                  Abrí la herramienta adecuada para cada tarea.
                 </p>
               </div>
-
-              <Link
-                href="/observaciones#analisis-ia-pendientes"
-                className="quick-action"
-              >
-                Ver pendientes
-              </Link>
+              <CalendarDots size={20} weight="light" className="mt-1 shrink-0 text-[#85E4D4]" />
             </div>
 
-            <div className="mt-6">
-              <div className="mb-2 flex justify-between text-sm">
-                <span className="font-semibold text-slate-400">
-                  Cobertura IA
-                </span>
-                <span className="font-bold text-white">{coverage}%</span>
-              </div>
-
-              <div className="h-3 overflow-hidden rounded-full bg-white/10">
-                <div
-                  className="h-full rounded-full bg-cyan-400 shadow-[0_0_10px_rgba(34,211,238,0.5)]"
-                  style={{ width: `${coverage}%` }}
-                />
-              </div>
+            <div className="mt-5 divide-y divide-white/10 border-t border-white/10">
+              {workspaces.map((workspace, index) => (
+                <Link
+                  key={workspace.href}
+                  href={workspace.href}
+                  className="group grid grid-cols-[24px_1fr] gap-3 py-4"
+                >
+                  <span className="pt-0.5 font-ui text-[10px] font-bold text-[#85E4D4]">
+                    {String(index + 1).padStart(2, '0')}
+                  </span>
+                  <span>
+                    <span className="block font-ui text-xs font-bold text-[#E5EEEA] group-hover:text-white">
+                      {workspace.title}
+                    </span>
+                    <span className="mt-1 block font-ui text-[10px] text-[#7F938D]">
+                      {workspace.detail}
+                    </span>
+                  </span>
+                </Link>
+              ))}
             </div>
-          </div>
-
-          <div className="mt-6 grid gap-4 sm:grid-cols-3">
-            <div className="rounded-2xl border border-white/5 bg-white/[0.02] p-4">
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                {industry === 'legal' ? 'Analizados' : 'Procesados'}
-              </p>
-              <p className="mt-2 text-2xl font-bold text-white">
-                {analyzedDocuments.length}
-              </p>
-            </div>
-
-            <div className="rounded-2xl border border-white/5 bg-white/[0.02] p-4">
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                Pendientes
-              </p>
-              <p className="mt-2 text-2xl font-bold text-white">
-                {pendingDocuments.length}
-              </p>
-            </div>
-          </div>
-        </MotionCard>
-      </div>
-
+          </aside>
+        </div>
+      </section>
     </AppShell>
   );
 }

@@ -12,6 +12,7 @@ import type { RentalContract } from '@/types/rental';
 import { getIndexTypeLabel, getRentalStatusLabel, calcularProximoAjuste } from '@/lib/rentals/labels';
 import { calcularAjuste, periodoDeFecha } from '@/lib/rentals/calcularAjuste';
 import { AplicarAjusteButton } from './AplicarAjusteButton';
+import { formatRentalDate, parseRentalDate } from '@/lib/rentals/calendar';
 
 export default async function RentalDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -289,7 +290,7 @@ export default async function RentalDetailPage({ params }: { params: Promise<{ i
                   <li className="flex items-center gap-3">
                     <CalendarClock className="h-5 w-5 text-cyan-400" />
                     <span className="font-medium text-white">
-                      Inicio: {new Date(record.start_date).toLocaleDateString('es-AR')}
+                      Inicio: {formatRentalDate(parseRentalDate(record.start_date))}
                     </span>
                   </li>
                 )}
@@ -338,7 +339,7 @@ export default async function RentalDetailPage({ params }: { params: Promise<{ i
             {proxAjuste ? (
               <>
                 <div className="text-2xl font-bold text-cyan-400 mb-2">
-                  {proxAjuste.toLocaleDateString('es-AR')}
+                  {formatRentalDate(proxAjuste)}
                 </div>
                 {resAjuste ? (
                   resAjuste.ok ? (

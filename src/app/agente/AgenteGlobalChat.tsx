@@ -1,27 +1,34 @@
 'use client';
 
-import { useState, useRef, useEffect, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
+import {
+  ArrowRight,
+  Buildings,
+  LockKey,
+  LockSimple,
+  PaperPlaneTilt,
+  Sparkle,
+  Waves,
+} from '@phosphor-icons/react';
 import { preguntarAgenteGlobal } from './actions';
 import { getIndustryTerms } from '@/lib/industries/uiLabels';
 import type { IndustryType } from '@/lib/industries/documentTypes';
 import type { MensajeChat, AccionPropuesta } from '@/lib/ai/agente';
-import { MaquinaEscribir } from '@/components/MaquinaEscribir';
 import { AiDisclaimer } from '@/lib/industries/disclaimers';
+import { AnulusAgentAvatar } from '@/components/agent/AnulusAgentAvatar';
 
 type MensajeUI = MensajeChat & { acciones?: AccionPropuesta[] };
 
-
-
 function renderInline(text: string, keyPrefix: string): ReactNode[] {
-  return text.split(/(\*\*[^*]+\*\*)/g).map((p, i) => {
-    if (p.startsWith('**') && p.endsWith('**')) {
+  return text.split(/(\*\*[^*]+\*\*)/g).map((part, index) => {
+    if (part.startsWith('**') && part.endsWith('**')) {
       return (
-        <strong key={`${keyPrefix}-b-${i}`} className="font-semibold text-white">
-          {p.slice(2, -2)}
+        <strong key={`${keyPrefix}-b-${index}`} className="font-semibold text-white">
+          {part.slice(2, -2)}
         </strong>
       );
     }
-    return <span key={`${keyPrefix}-t-${i}`}>{p}</span>;
+    return <span key={`${keyPrefix}-t-${index}`}>{part}</span>;
   });
 }
 
@@ -32,36 +39,35 @@ function MensajeTexto({ texto }: { texto: string }) {
   let key = 0;
 
   const flushLista = () => {
-    if (lista.length) {
-      const items = [...lista];
-      bloques.push(
-        <ul key={`ul-${key++}`} className="my-1 space-y-1">
-          {items.map((item, i) => (
-            <li key={`li-${key}-${i}`} className="flex gap-2">
-              <span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-cyan-400" />
-              <span>{renderInline(item, `li-${key}-${i}`)}</span>
-            </li>
-          ))}
-        </ul>
-      );
-      lista = [];
-    }
+    if (!lista.length) return;
+    const items = [...lista];
+    bloques.push(
+      <ul key={`ul-${key++}`} className="my-2 space-y-1.5">
+        {items.map((item, index) => (
+          <li key={`li-${key}-${index}`} className="flex gap-2.5">
+            <span className="mt-2 h-1.5 w-1.5 shrink-0 rotate-45 bg-[#85E4D4]" />
+            <span>{renderInline(item, `li-${key}-${index}`)}</span>
+          </li>
+        ))}
+      </ul>
+    );
+    lista = [];
   };
 
   for (const linea of lineas) {
-    const t = linea.trim();
-    if (!t) {
+    const text = linea.trim();
+    if (!text) {
       flushLista();
       continue;
     }
-    const bullet = t.match(/^[-*•]\s+(.*)$/);
+    const bullet = text.match(/^[-*•]\s+(.*)$/);
     if (bullet) {
       lista.push(bullet[1]);
     } else {
       flushLista();
       bloques.push(
-        <p key={`p-${key++}`} className="my-1">
-          {renderInline(t, `p-${key}`)}
+        <p key={`p-${key++}`} className="my-1.5">
+          {renderInline(text, `p-${key}`)}
         </p>
       );
     }
@@ -72,38 +78,68 @@ function MensajeTexto({ texto }: { texto: string }) {
 
 type Props = { industry: string; puedeUsarIA: boolean };
 
+function agentTitle(industry: IndustryType) {
+  if (industry === 'inmobiliaria') return 'Agente Anulus inmobiliario';
+  if (industry === 'escribania') return 'Agente Anulus notarial';
+  if (industry === 'legal') return 'Agente Anulus jurídico';
+  return 'Agente Anulus';
+}
+
+function contextLabel(industry: IndustryType) {
+  if (industry === 'inmobiliaria') return 'Guía inmobiliaria';
+  if (industry === 'escribania') return 'Guía notarial';
+  if (industry === 'legal') return 'Guía jurídica';
+  return 'Guía de la plataforma';
+}
+
+function activationGreeting(industry: IndustryType) {
+  if (industry === 'inmobiliaria') return 'Hola. ¿Qué función necesitás encontrar?';
+  if (industry === 'escribania') return 'Hola. ¿Qué herramienta necesitás?';
+  if (industry === 'legal') return 'Hola. ¿Dónde necesitás orientación?';
+  return 'Hola. ¿Cómo te guío?';
+}
+
 export function AgenteGlobalChat({ industry, puedeUsarIA }: Props) {
-  const terms = getIndustryTerms(industry as IndustryType);
+  const normalizedIndustry = industry as IndustryType;
+  const terms = getIndustryTerms(normalizedIndustry);
   const saludo = terms.agenteSaludoGlobal;
   const preguntas = terms.agentePreguntasGlobales;
   const [mensajes, setMensajes] = useState<MensajeUI[]>([]);
   const [input, setInput] = useState('');
   const [cargando, setCargando] = useState(false);
+  const [inputFocused, setInputFocused] = useState(false);
+  const [avatarGreeting, setAvatarGreeting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
+  const inputRef = useRef<HTMLTextAreaElement | null>(null);
+  const greetingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    const el = scrollRef.current;
-    if (el) el.scrollTop = el.scrollHeight;
+    const element = scrollRef.current;
+    if (element) element.scrollTop = element.scrollHeight;
   }, [mensajes, cargando]);
+
+  useEffect(() => () => {
+    if (greetingTimer.current) clearTimeout(greetingTimer.current);
+  }, []);
 
   async function enviar(texto: string) {
     const pregunta = texto.trim();
     if (!pregunta || cargando) return;
     setError(null);
-    const historialPrevio = mensajes.map((m) => ({ rol: m.rol, texto: m.texto }));
-    setMensajes((prev) => [...prev, { rol: 'user', texto: pregunta }]);
+    const historialPrevio = mensajes.map((message) => ({ rol: message.rol, texto: message.texto }));
+    setMensajes((previous) => [...previous, { rol: 'user', texto: pregunta }]);
     setInput('');
     setCargando(true);
     try {
-      const res = await preguntarAgenteGlobal({ historial: historialPrevio, pregunta });
-      if (res.ok) {
-        setMensajes((prev) => [
-          ...prev,
-          { rol: 'model', texto: res.respuesta, acciones: res.acciones },
+      const response = await preguntarAgenteGlobal({ historial: historialPrevio, pregunta });
+      if (response.ok) {
+        setMensajes((previous) => [
+          ...previous,
+          { rol: 'model', texto: response.respuesta, acciones: response.acciones },
         ]);
       } else {
-        setError(res.motivo);
+        setError(response.motivo);
       }
     } catch {
       setError('Hubo un error de conexión. Probá de nuevo.');
@@ -112,156 +148,182 @@ export function AgenteGlobalChat({ industry, puedeUsarIA }: Props) {
     }
   }
 
+  function activateAgent() {
+    setAvatarGreeting(true);
+    inputRef.current?.focus();
+    if (greetingTimer.current) clearTimeout(greetingTimer.current);
+    greetingTimer.current = setTimeout(() => setAvatarGreeting(false), 2600);
+  }
+
   if (!puedeUsarIA) return null;
 
   const iniciado = mensajes.length > 0;
+  const visualState = cargando
+    ? 'thinking'
+    : inputFocused
+      ? 'listening'
+      : iniciado
+        ? 'attentive'
+        : 'idle';
 
   return (
-    <div className="rounded-2xl border border-cyan-500/30 bg-slate-900/50 p-4">
-      <style>{`
-        @keyframes botFlota { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
-        @keyframes botAura { 0%,100% { transform: scale(1); opacity: .5; } 50% { transform: scale(1.18); opacity: .12; } }
-        @keyframes botParpadeo { 0%,92%,100% { transform: scaleY(1); } 96% { transform: scaleY(0.1); } }
-        @keyframes botAntena { 0%,100% { opacity: .4; box-shadow: 0 0 4px rgba(34,211,238,.6); } 50% { opacity: 1; box-shadow: 0 0 12px rgba(34,211,238,1); } }
-        @keyframes botOnda { 0%,100% { transform: scaleY(0.4); } 50% { transform: scaleY(1); } }
-        .bot-flota { animation: botFlota 3.5s ease-in-out infinite; }
-        .bot-aura { animation: botAura 3.5s ease-in-out infinite; }
-        .bot-ojo { animation: botParpadeo 4s ease-in-out infinite; transform-origin: center; }
-        .bot-antena { animation: botAntena 2s ease-in-out infinite; }
-        .bot-onda { animation: botOnda 1s ease-in-out infinite; }
-      `}</style>
-
-      {/* Avatar animado + saludo */}
-      <div className="flex flex-col items-center text-center">
-        <div className="relative mb-3 h-24 w-24">
-          <div className="bot-aura absolute inset-0 rounded-full bg-gradient-to-br from-cyan-500 to-violet-600" />
-          <div className="bot-flota relative flex h-24 w-24 items-center justify-center">
-            <span className="bot-antena absolute -top-1 h-2 w-2 rounded-full bg-cyan-400" />
-            <span className="absolute top-1 h-3 w-0.5 bg-slate-500" />
-            <div className="relative flex h-16 w-[4.5rem] items-center justify-center gap-2 rounded-2xl border border-cyan-400/50 bg-gradient-to-br from-slate-800 to-slate-900 shadow-lg shadow-cyan-900/40">
-              <span className="bot-ojo h-3.5 w-3.5 rounded-full bg-cyan-400 shadow-[0_0_8px_rgba(34,211,238,0.9)]" />
-              <span
-                className="bot-ojo h-3.5 w-3.5 rounded-full bg-cyan-400 shadow-[0_0_8px_rgba(34,211,238,0.9)]"
-                style={{ animationDelay: '0.15s' }}
-              />
+    <section className="overflow-hidden rounded-[30px] border border-white/10 bg-[#081A22] shadow-[0_28px_90px_rgba(0,0,0,0.28)]">
+      <div className={`grid items-center gap-6 px-5 py-6 sm:px-8 lg:px-10 ${iniciado ? 'lg:grid-cols-[170px_minmax(0,1fr)]' : 'lg:grid-cols-[280px_minmax(0,1fr)] lg:gap-10 lg:py-9'}`}>
+        <div className="relative flex min-h-[190px] items-center justify-center overflow-visible rounded-[26px] border border-white/[0.07] bg-[radial-gradient(circle_at_50%_35%,rgba(133,228,212,0.11),transparent_62%)] pb-7">
+          <AnulusAgentAvatar
+            industry={normalizedIndustry}
+            state={visualState}
+            compact={iniciado}
+            onActivate={activateAgent}
+            showHint={!avatarGreeting}
+          />
+          {avatarGreeting ? (
+            <div role="status" className="absolute bottom-2 left-1/2 z-20 w-max max-w-[88%] -translate-x-1/2 rounded-[5px] border border-white/40 bg-[#F3F8F5] px-3 py-1.5 font-ui text-[11px] font-bold text-[#071110] shadow-[0_10px_30px_rgba(0,0,0,0.3)]">
+              {activationGreeting(normalizedIndustry)}
             </div>
+          ) : null}
+        </div>
+
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2.5">
+            <span className="font-ui text-xs font-semibold text-[#85E4D4]">Guía general de Anulus</span>
+            <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.065),rgba(255,255,255,0.025))] px-2.5 py-1 font-ui text-[10px] font-semibold text-[#C5D2CE] shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_6px_18px_rgba(0,0,0,0.12)]">
+              <span className="relative flex h-2.5 w-2.5 items-center justify-center">
+                <span className="absolute h-full w-full animate-ping rounded-full bg-[#C8FF62]/25 motion-reduce:animate-none" />
+                <span className="relative h-1.5 w-1.5 rounded-full bg-[#C8FF62] shadow-[0_0_8px_rgba(200,255,98,0.8)]" />
+              </span>
+              En línea
+            </span>
           </div>
-        </div>
-        <div className="flex flex-wrap items-center justify-center gap-2">
-          <h2 className="text-lg font-bold text-white">Agente IA general</h2>
-          <span className="inline-flex items-center gap-1 rounded-full bg-cyan-500/15 px-2.5 py-0.5 text-xs font-medium text-cyan-300 border border-cyan-500/20">
-            🌐 Contexto: panorama {industry === 'inmobiliaria' ? 'de la inmobiliaria' : industry === 'escribania' ? 'de la escribanía' : industry === 'legal' ? 'del estudio' : 'general'}
-          </span>
-          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2 py-0.5 text-xs font-medium text-emerald-300">
-            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400" /> En línea
-          </span>
-        </div>
-        <p className="mt-1.5 max-w-lg text-sm text-slate-300">
-          Consultá el panorama general de tu organización: {terms.expedientePlural.toLowerCase()} recientes, plazos, vencimientos y alertas.
-        </p>
-        <div className="mt-3 flex flex-col items-center gap-1.5 text-xs text-slate-400 max-w-lg">
-          <p className="rounded-lg bg-slate-950/50 border border-slate-800 px-3 py-2 text-slate-300 w-full text-center">
-            ℹ️ Para trabajar sobre documentos o ejecutar acciones, abrí {terms.unExpediente} y usá su Agente IA.
+          <h1 className="mt-2 font-display text-3xl font-medium tracking-[-0.05em] text-[#F3F8F5] sm:text-4xl">
+            {agentTitle(normalizedIndustry)}
+          </h1>
+          <p
+            className="mt-3 max-w-2xl font-ui text-sm leading-6 sm:text-base"
+            style={{ color: '#AAB9B4' }}
+          >
+            {saludo}
           </p>
-          <p className="text-slate-500">
-            ⌛ Por privacidad, esta conversación no se guarda en Anulus AI y se reinicia al salir o recargar.
-          </p>
+
+          <div className="mt-5 flex flex-wrap gap-2.5">
+            <span className="inline-flex min-h-10 items-center gap-2.5 rounded-md border border-white/15 bg-white/[0.025] pl-2 pr-3 font-ui text-xs font-semibold text-[#E4ECE9] shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+              <span className="grid h-7 w-7 place-items-center rounded-[5px] bg-[#85E4D4]/10 text-[#85E4D4]">
+                <Buildings size={15} weight="regular" />
+              </span>
+              {contextLabel(normalizedIndustry)}
+            </span>
+            <span className="inline-flex min-h-10 items-center gap-2.5 rounded-md border border-white/15 bg-white/[0.025] pl-2 pr-3 font-ui text-xs font-semibold text-[#E4ECE9] shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+              <span className="grid h-7 w-7 place-items-center rounded-[5px] bg-[#85E4D4]/10 text-[#85E4D4]">
+                <LockKey size={15} weight="regular" />
+              </span>
+              Conversación temporal
+            </span>
+          </div>
+
+          {!iniciado ? (
+            <>
+              <div className="mt-6 flex items-start gap-3 border-y border-white/10 py-4">
+                <span className="grid h-8 w-8 shrink-0 place-items-center rounded-md border border-[#C8FF62]/25 bg-[#C8FF62]/[0.07] text-[#C8FF62]">
+                  <Sparkle size={16} weight="fill" />
+                </span>
+                <div>
+                  <p className="font-ui text-sm font-semibold text-[#F0F6F3]">¿En qué parte de Anulus te ayudo?</p>
+                  <p className="mt-1 font-ui text-xs leading-5 text-[#869A94]">
+                    Puedo mostrarte dónde está cada función y cómo recorrer la plataforma. Para analizar un caso concreto, abrí {terms.unExpediente} y usá su agente contextual.
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-4 grid gap-2 sm:grid-cols-3">
+                {preguntas.map((question: string) => (
+                  <button
+                    key={question}
+                    type="button"
+                    onClick={() => enviar(question)}
+                    className="group/question flex min-h-14 items-center justify-between gap-3 rounded-md border border-white/15 bg-transparent px-3.5 py-2.5 text-left font-ui text-xs font-semibold leading-4 text-[#D3DEDA] transition-[border-color,background-color,color,box-shadow,transform] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] hover:-translate-y-0.5 hover:border-[#85E4D4]/35 hover:bg-white/[0.045] hover:text-white hover:shadow-[0_10px_24px_rgba(0,0,0,0.18)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C8FF62]"
+                  >
+                    <span>{question}</span>
+                    <ArrowRight size={15} weight="bold" className="shrink-0 text-[#85E4D4] transition-transform duration-150 group-hover/question:translate-x-0.5" />
+                  </button>
+                ))}
+              </div>
+            </>
+          ) : null}
         </div>
       </div>
 
-      {/* Saludo conversacional: el agente inicia la charla */}
-      {!iniciado && (
-        <div className="mt-4 rounded-2xl border border-cyan-500/20 bg-slate-800/40 px-4 py-3 text-sm leading-relaxed text-slate-200">
-          <p className="font-semibold text-cyan-300">
-            👋 <MaquinaEscribir texto="¡Hola! ¿Cómo estás? ¿Qué tal tu día?" />
-          </p>
-          <p className="mt-1">
-            Estoy acá para ayudarte con el panorama de tu organización, sus vencimientos y prioridades. ¿En qué te doy una mano?
-          </p>
-        </div>
-      )}
-
-      {/* Preguntas sugeridas (solo antes de empezar) */}
-      {!iniciado && (
-        <div className="mt-4 flex flex-wrap justify-center gap-2">
-          {preguntas.map((q: string, i: number) => (
-            <button
-              key={i}
-              onClick={() => enviar(q)}
-              className="rounded-full border border-slate-700 bg-slate-800/50 px-3 py-1.5 text-xs text-slate-300 transition hover:border-cyan-500/60 hover:text-cyan-300"
-            >
-              {q}
-            </button>
-          ))}
-        </div>
-      )}
-
-      {/* Conversación */}
-      {iniciado && (
-        <div ref={scrollRef} className="mt-4 max-h-96 space-y-3 overflow-y-auto pr-1">
-          {mensajes.map((m, i) => (
-            <div key={i} className={m.rol === 'user' ? 'flex justify-end' : 'flex justify-start'}>
-              {m.rol === 'user' ? (
-                <div className="max-w-[85%] rounded-2xl rounded-br-sm bg-cyan-600/20 px-3 py-2 text-sm text-cyan-50">
-                  {m.texto}
+      {iniciado ? (
+        <div ref={scrollRef} aria-live="polite" className="max-h-[440px] space-y-4 overflow-y-auto border-t border-white/10 px-5 py-6 sm:px-8 lg:px-10">
+          {mensajes.map((message, index) => (
+            <div key={`${message.rol}-${index}`} className={message.rol === 'user' ? 'flex justify-end' : 'flex justify-start'}>
+              {message.rol === 'user' ? (
+                <div className="max-w-[85%] rounded-2xl rounded-br-md border border-[#C8FF62]/15 bg-[#C8FF62]/[0.09] px-4 py-3 font-ui text-sm leading-6 text-[#F0F7F3]">
+                  {message.texto}
                 </div>
               ) : (
-                <div className="max-w-[90%]">
-                  <div className="rounded-2xl rounded-bl-sm bg-slate-800/60 px-3 py-2 text-sm text-slate-200">
-                    <MensajeTexto texto={m.texto} />
-                  </div>
+                <div className="max-w-[92%] rounded-2xl rounded-bl-md border border-[#85E4D4]/15 bg-[#10211E] px-4 py-3 font-ui text-sm leading-6 text-[#D4DFDB]">
+                  <MensajeTexto texto={message.texto} />
                 </div>
               )}
             </div>
           ))}
-          {cargando && (
-            <div className="flex items-center gap-1.5 text-slate-400">
-              <span className="bot-onda inline-block h-3 w-1 rounded-full bg-cyan-400" />
-              <span
-                className="bot-onda inline-block h-3 w-1 rounded-full bg-cyan-400"
-                style={{ animationDelay: '0.15s' }}
-              />
-              <span
-                className="bot-onda inline-block h-3 w-1 rounded-full bg-cyan-400"
-                style={{ animationDelay: '0.3s' }}
-              />
-              <span className="ml-1 text-xs">Pensando…</span>
+          {cargando ? (
+            <div className="flex items-center gap-2 font-ui text-xs text-[#8EA19B]">
+              <Waves size={17} weight="regular" className="animate-pulse text-[#85E4D4]" />
+              Analizando el panorama…
             </div>
-          )}
+          ) : null}
         </div>
-      )}
+      ) : null}
 
-      {error && <p className="mt-2 text-xs text-rose-400">{error}</p>}
+      {error ? <p role="alert" className="border-t border-rose-400/15 bg-rose-400/[0.05] px-5 py-3 font-ui text-xs text-rose-300 sm:px-8 lg:px-10">{error}</p> : null}
 
       <form
-        onSubmit={(e) => {
-          e.preventDefault();
+        onSubmit={(event) => {
+          event.preventDefault();
           enviar(input);
         }}
-        className="mt-3 flex items-end gap-2"
+        className="border-t border-white/10 bg-[#061311]/70 px-4 py-4 sm:px-6"
       >
-        <textarea
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' && !e.shiftKey) {
-              e.preventDefault();
-              enviar(input);
-            }
-          }}
-          rows={1}
-          placeholder="Escribile a tu agente…"
-          className="flex-1 resize-none rounded-lg border border-slate-700 bg-slate-950/60 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:border-cyan-500 focus:outline-none"
+        <div className="rounded-xl border border-white/10 bg-[#050D0C] p-2 transition-colors focus-within:border-[#85E4D4]/35">
+          <div className="flex items-center gap-2">
+            <textarea
+              ref={inputRef}
+              value={input}
+              onChange={(event) => setInput(event.target.value)}
+              onFocus={() => setInputFocused(true)}
+              onBlur={() => setInputFocused(false)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' && !event.shiftKey) {
+                  event.preventDefault();
+                  enviar(input);
+                }
+              }}
+              rows={1}
+              aria-label="Escribir una consulta para el Agente Anulus"
+              placeholder="Escribí tu consulta…"
+              className="min-h-11 min-w-0 flex-1 resize-none bg-transparent px-3 py-2.5 font-ui text-sm leading-6 text-[#F1F6F4] outline-none placeholder:text-[#63756F]"
+            />
+            <button
+              type="submit"
+              aria-label="Enviar consulta"
+              disabled={cargando || !input.trim()}
+              className="group/send inline-flex h-11 shrink-0 items-center justify-center gap-2 self-center rounded-[5px] border border-white/60 bg-[#F3F8F5] px-4 font-ui text-xs font-bold text-[#071110] shadow-[0_8px_22px_rgba(0,0,0,0.18)] transition-[transform,box-shadow,background-color,color,opacity] duration-150 hover:-translate-y-0.5 hover:bg-white hover:shadow-[0_0_0_1px_rgba(200,255,98,0.24),0_0_24px_rgba(200,255,98,0.2)] active:translate-y-0 active:scale-[0.98] disabled:cursor-not-allowed disabled:border-white/25 disabled:bg-[#D9E2DE] disabled:text-[#53625D] disabled:opacity-75 disabled:shadow-none disabled:hover:translate-y-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C8FF62]"
+            >
+              <span className="hidden sm:inline">Enviar</span>
+              <PaperPlaneTilt size={16} weight="fill" className="transition-transform duration-150 group-hover/send:translate-x-0.5 group-hover/send:-translate-y-0.5" />
+            </button>
+          </div>
+          <p className="mt-1 flex items-center gap-1.5 px-3 pb-1 font-ui text-[10px] text-[#60736D]">
+            <LockSimple size={12} weight="regular" />
+            Sesión temporal: el historial se borra al salir.
+          </p>
+        </div>
+        <AiDisclaimer
+          industry={industry}
+          context="agent"
         />
-        <button
-          type="submit"
-          disabled={cargando || !input.trim()}
-          className="rounded-lg bg-gradient-to-r from-cyan-500 to-violet-600 px-4 py-2 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-50"
-        >
-          Enviar
-        </button>
       </form>
-      <AiDisclaimer industry={industry} className="mt-3" />
-    </div>
+    </section>
   );
 }

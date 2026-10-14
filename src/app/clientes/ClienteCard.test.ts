@@ -1,0 +1,26 @@
+/** @vitest-environment jsdom */
+import React from 'react';
+import { afterEach, describe, expect, it } from 'vitest';
+import { cleanup, render, screen } from '@testing-library/react';
+import type { ClientRecord } from '@/types/client';
+import { ClienteCard } from './ClienteCard';
+const fixture = { id:'fixture-client', name:'Lucía Fernández', client_type:'comprador', status:'activo', operation_interest:'compra', desired_property_type:'departamento', zone:'Palermo, CABA', budget_max:145000, currency:'USD', min_rooms:3, phone:'+54 11 5555-0101', email:'lucia@example.com' } as ClientRecord;
+afterEach(cleanup);
+function card(overrides: Partial<ClientRecord> = {}) { return render(React.createElement(ClienteCard,{client:{...fixture,...overrides}})); }
+describe('ClienteCard approved presentation',()=>{
+ it('uses one real destination, explicit Ver ficha and exact decorative arrow',()=>{const {container}=card();expect(screen.getByRole('link',{name:'Ver ficha: Lucía Fernández'}).getAttribute('href')).toBe('/clientes/fixture-client');expect(screen.getAllByRole('link')).toHaveLength(1);expect(screen.queryByRole('button')).toBeNull();expect(screen.getByText('Ver ficha')).toBeTruthy();expect(container.querySelector('svg.lucide-arrow-right')?.getAttribute('stroke-width')).toBe('1.7');for(const svg of container.querySelectorAll('svg'))expect(svg.getAttribute('aria-hidden')).toBe('true');});
+ it.each([['activo','Activo'],['en_seguimiento','En seguimiento'],['cerrado','Cerrado'],['descartado','Descartado'],['custom','custom'],[null,'Sin definir']])('preserves status %s', (status,label)=>{card({status});expect(screen.getByText(label!)).toBeTruthy();});
+ it.each([['comprador','Comprador'],['inquilino','Inquilino'],['vendedor','Vendedor'],['propietario','Propietario'],['otro','Otro'],['custom','custom'],[null,'Sin definir']])('preserves client type %s',(client_type,label)=>{card({client_type});expect(screen.getByText(label!)).toBeTruthy();});
+ it.each([['USD','u$s 145.000'],['ARS','$ 145.000'],['EUR','EUR 145.000'],[null,'145.000 · moneda sin definir'],['XTS','XTS 145.000']])('does not infer currency for %s',(currency,label)=>{card({currency});expect(screen.getByText(label!)).toBeTruthy();});
+ it('shows zero budget and rooms rather than missing',()=>{card({budget_max:0,min_rooms:0,currency:'ARS'});expect(screen.getByText('$ 0')).toBeTruthy();expect(screen.getByText('0 (registrado)')).toBeTruthy();expect(screen.queryByText('Sin definir')).toBeNull();});
+ it('labels missing budget/rooms/contact explicitly',()=>{card({budget_max:null,min_rooms:null,phone:null,email:null});expect(screen.getAllByText('Sin definir')).toHaveLength(2);expect(screen.getByText('Sin contacto registrado')).toBeTruthy();});
+ it('does not render nonfinite numbers as valid criteria',()=>{card({budget_max:NaN,min_rooms:Infinity});expect(screen.getAllByText('Sin definir')).toHaveLength(2);expect(screen.queryByText(/NaN|Infinity/)).toBeNull();});
+ it('separates criteria, zone, max budget, rooms and contacts',()=>{card();for(const text of ['Compra · Departamento','Palermo, CABA','Presupuesto máximo','u$s 145.000','Ambientes mín.','3+ ambientes','+54 11 5555-0101','lucia@example.com'])expect(screen.getByText(text)).toBeTruthy();});
+ it('does not invent search criteria for sellers/owners',()=>{card({client_type:'propietario',operation_interest:null,desired_property_type:null,zone:null});expect(screen.getByText('Sin criterios de búsqueda específicos')).toBeTruthy();expect(screen.queryByText('Compra · Departamento')).toBeNull();});
+ it('does not substitute desired geography or expose private/additional fields',()=>{card({operation_interest:null,desired_property_type:null,zone:null,desired_city:'Private city fixture',desired_subzone:'Private zone fixture',budget_min:23456,notes:'Private notes fixture'});expect(screen.getByText('Sin criterios de búsqueda específicos')).toBeTruthy();expect(screen.queryByText(/Private .* fixture/)).toBeNull();expect(screen.queryByText(/23.456/)).toBeNull();});
+ it('supports zone alone without inventing property or interest',()=>{card({operation_interest:null,desired_property_type:null});expect(screen.getByText('Palermo, CABA')).toBeTruthy();expect(screen.queryByText('Compra · Departamento')).toBeNull();});
+ it('shows missing zone independently',()=>{card({zone:null});expect(screen.getByText('Compra · Departamento')).toBeTruthy();expect(screen.getByText('Zona sin definir')).toBeTruthy();});
+ it('retains arbitrary long literal data without HTML injection',()=>{const name='<img src=x onerror=alert(1)> '+'Nombre largo '.repeat(30);const email='cliente.muy.largo.'.repeat(15)+'@example.com';const {container}=card({name,email});expect(screen.getByRole('heading').textContent).toBe(name);expect(screen.getByText(email)).toBeTruthy();expect(container.querySelector('img')).toBeNull();});
+ it('uses missing-name fallback without changing route',()=>{card({name:''});expect(screen.getByRole('link',{name:'Ver ficha: Cliente sin nombre'}).getAttribute('href')).toBe('/clientes/fixture-client');});
+ it.each([{phone:null},{email:null},{phone:null,email:null}])('keeps optional contacts without adding send links %j',overrides=>{const {container}=card(overrides);expect(container.querySelector('a[href^="mailto:"],a[href^="tel:"]')).toBeNull();expect(screen.getAllByRole('link')).toHaveLength(1);});
+});

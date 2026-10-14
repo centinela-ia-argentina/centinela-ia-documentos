@@ -1,4 +1,5 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page, type Request, type Response, type Frame, type ConsoleMessage } from '@playwright/test';
+import { expectDashboardGreeting } from './helpers';
 import { randomUUID } from 'crypto';
 import { createClient } from '@supabase/supabase-js';
 
@@ -7,6 +8,69 @@ const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 const serviceClient = createClient(supabaseUrl, supabaseServiceKey, {
   auth: { autoRefreshToken: false, persistSession: false },
 });
+
+function recordChecklistNavigation(page: Page) {
+  const startedAt = Date.now();
+  const events: Record<string, unknown>[] = [];
+  const ids = new WeakMap<Request, number>();
+  let nextId = 0;
+  let phase = 'start';
+  const record = (event: Record<string, unknown>) => {
+    if (events.length < 200) events.push({ elapsedMs: Date.now() - startedAt, phase, ...event });
+  };
+  const target = (rawUrl: string) => {
+    const url = new URL(rawUrl);
+    if (!url.pathname.startsWith('/expedientes/')) return null;
+    return {
+      path: '/expedientes/:id',
+      queryKeys: ['tab', 'checklist_document', '_rsc'].filter((key) => url.searchParams.has(key)),
+      loopback: ['127.0.0.1', 'localhost', '[::1]'].includes(url.hostname),
+    };
+  };
+  const details = (request: Request) => {
+    const destination = target(request.url());
+    if (!destination) return null;
+    if (!ids.has(request)) ids.set(request, ++nextId);
+    return { requestId: ids.get(request), method: request.method(), resourceType: request.resourceType(), navigation: request.isNavigationRequest(), ...destination };
+  };
+  const onRequest = (request: Request) => { const data = details(request); if (data) record({ kind: 'request', ...data }); };
+  const onResponse = (response: Response) => { const data = details(response.request()); if (data) record({ kind: 'response', status: response.status(), ...data }); };
+  const onFinished = (request: Request) => { const data = details(request); if (data) record({ kind: 'finished', ...data }); };
+  const onFailed = (request: Request) => {
+    const data = details(request);
+    if (data) record({ kind: 'failed', category: /ABORT|interrupt/i.test(request.failure()?.errorText ?? '') ? 'navigation-aborted' : 'request-failed', ...data });
+  };
+  const onFrame = (frame: Frame) => { if (frame === page.mainFrame()) { const data = target(frame.url()); if (data) record({ kind: 'main-frame-navigation', ...data }); } };
+  const onConsole = (message: ConsoleMessage) => {
+    if (message.text().includes('Failed to fetch RSC payload')) record({ kind: 'rsc-fallback', consoleType: message.type() });
+  };
+  page.on('request', onRequest);
+  page.on('response', onResponse);
+  page.on('requestfinished', onFinished);
+  page.on('requestfailed', onFailed);
+  page.on('framenavigated', onFrame);
+  page.on('console', onConsole);
+  return {
+    mark(label: string) { phase = label; record({ kind: 'checkpoint' }); },
+    stop() {
+      page.off('request', onRequest);
+      page.off('response', onResponse);
+      page.off('requestfinished', onFinished);
+      page.off('requestfailed', onFailed);
+      page.off('framenavigated', onFrame);
+      page.off('console', onConsole);
+      return events;
+    },
+  };
+}
+
+async function expectSavedAgendaEvent(page: Page, title: string, hour: string) {
+  // A time elsewhere on the page is not evidence that this save completed.
+  await expect(page.getByTestId('agenda-titulo')).toHaveCount(0);
+  const savedEvent = page.getByRole('button').filter({ hasText: title }).filter({ hasText: hour });
+  await expect(savedEvent).toHaveCount(1);
+  await expect(savedEvent).toBeVisible();
+}
 
 test.describe.serial('Anulus AI - Flujo Jurídico E2E Obligatorio', () => {
   let caseUrl = '';
@@ -65,9 +129,7 @@ test.describe.serial('Anulus AI - Flujo Jurídico E2E Obligatorio', () => {
   test('02. roles y auditoría (verificaciones básicas de sesión)', async ({ browser }) => {
     // Current user is admin.legal@test.com
     await expect(page).toHaveURL(/\/dashboard/);
-    const dashboardTitle = page.locator('[data-testid="dashboard-title"]');
-    await expect(dashboardTitle).toBeVisible({ timeout: 15000 });
-    await expect(dashboardTitle).toContainText('Bienvenido');
+    await expectDashboardGreeting(page);
     await gotoStable('/usuarios');
     await expect(page).toHaveURL(/\/usuarios/);
     const usersPageTitle = page.locator('[data-testid="users-page-title"]');
@@ -297,48 +359,62 @@ test.describe.serial('Anulus AI - Flujo Jurídico E2E Obligatorio', () => {
   });
 
   test('10.5. checklist document link', async () => {
-    await gotoStable(`${caseUrl}?tab=checklist`);
-    const linkToggle = page.locator('[data-testid="checklist-link-toggle-0"]').first();
-    await expect(linkToggle).toContainText('Vincular documento');
-    await linkToggle.click();
+    const diagnostic = recordChecklistNavigation(page);
+    try {
+      await gotoStable(`${caseUrl}?tab=checklist`);
+      const linkToggle = page.locator('[data-testid="checklist-link-toggle-0"]').first();
+      await expect(linkToggle).toContainText('Vincular documento');
+      await linkToggle.click();
 
-    const form = linkToggle.locator('..'); // The details element
-    const select = form.locator('select[name="document_id"]').first();
-    
-    // El select debe tener mas de 1 opcion por los documentos previos
-    const options = select.locator('option');
-    await expect.poll(async () => options.count()).toBeGreaterThan(1);
-    
-    const firstDocumentOption = select.locator('option:not([value=""])').first();
-    const firstDocumentValue = await firstDocumentOption.getAttribute('value');
-    expect(firstDocumentValue).toBeTruthy();
-    
-    await select.selectOption(firstDocumentValue!);
-    
-    const saveBtn = form.locator('button', { hasText: 'Guardar' }).first();
-    await saveBtn.click();
+      const form = linkToggle.locator('..'); // The details element
+      const select = form.locator('select[name="document_id"]').first();
 
-    await expect(page).toHaveURL(/checklist_document=linked/);
-    await expect(page.locator('[data-testid="checklist-document-feedback"]')).toContainText('Documento vinculado correctamente');
-    await expect(linkToggle).toContainText('Cambiar documento vinculado');
-    await expect(page.locator('p:has-text("Vinculado:")').first()).toBeVisible();
+      // El select debe tener mas de 1 opcion por los documentos previos
+      const options = select.locator('option');
+      await expect.poll(async () => options.count()).toBeGreaterThan(1);
 
-    await page.reload();
-    await expect(linkToggle).toContainText('Cambiar documento vinculado');
-    await expect(page.locator('p:has-text("Vinculado:")').first()).toBeVisible();
+      const firstDocumentOption = select.locator('option:not([value=""])').first();
+      const firstDocumentValue = await firstDocumentOption.getAttribute('value');
+      expect(firstDocumentValue).toBeTruthy();
 
-    await linkToggle.click();
-    await select.selectOption({ value: '' });
-    await saveBtn.click();
+      await select.selectOption(firstDocumentValue!);
 
-    await expect(page).toHaveURL(/checklist_document=unlinked/);
-    await expect(page.locator('[data-testid="checklist-document-feedback"]')).toContainText('Documento desvinculado correctamente');
-    await expect(linkToggle).toContainText('Vincular documento');
-    await expect(page.locator('p:has-text("Vinculado:")')).toBeHidden();
-    
-    await page.reload();
-    await expect(linkToggle).toContainText('Vincular documento');
-    await expect(page.locator('p:has-text("Vinculado:")')).toBeHidden();
+      const saveBtn = form.locator('button', { hasText: 'Guardar' }).first();
+      diagnostic.mark('link-save');
+      await saveBtn.click();
+
+      await expect(page).toHaveURL(/checklist_document=linked/);
+      await expect(page.locator('[data-testid="checklist-document-feedback"]')).toContainText('Documento vinculado correctamente');
+      await expect(linkToggle).toContainText('Cambiar documento vinculado');
+      await expect(page.locator('p:has-text("Vinculado:")').first()).toBeVisible();
+
+      diagnostic.mark('link-reload-start');
+      await page.reload();
+      diagnostic.mark('link-reload-complete');
+      await expect(linkToggle).toContainText('Cambiar documento vinculado');
+      await expect(page.locator('p:has-text("Vinculado:")').first()).toBeVisible();
+
+      await linkToggle.click();
+      await select.selectOption({ value: '' });
+      diagnostic.mark('unlink-save');
+      await saveBtn.click();
+
+      await expect(page).toHaveURL(/checklist_document=unlinked/);
+      await expect(page.locator('[data-testid="checklist-document-feedback"]')).toContainText('Documento desvinculado correctamente');
+      await expect(linkToggle).toContainText('Vincular documento');
+      await expect(page.locator('p:has-text("Vinculado:")')).toBeHidden();
+
+      diagnostic.mark('unlink-reload-start');
+      await page.reload();
+      diagnostic.mark('unlink-reload-complete');
+      await expect(linkToggle).toContainText('Vincular documento');
+      await expect(page.locator('p:has-text("Vinculado:")')).toBeHidden();
+    } finally {
+      await test.info().attach('checklist-navigation-sanitized', {
+        body: Buffer.from(JSON.stringify(diagnostic.stop(), null, 2)),
+        contentType: 'application/json',
+      });
+    }
   });
 
   test('11. Agenda 09:30 y otro horario', async () => {
@@ -350,29 +426,33 @@ test.describe.serial('Anulus AI - Flujo Jurídico E2E Obligatorio', () => {
     });
     const todayStr = formatter.format(new Date());
     
+    const audienciaTitle = 'Audiencia E2E ' + randomUUID();
+    const reunionTitle = 'Reunión E2E ' + randomUUID();
+
     await gotoStable('/agenda');
+    await page.getByRole('button', { name: 'hoy', exact: true }).click();
     await page.getByRole('button', { name: 'Nuevo evento' }).click();
     await expect(page.locator('[data-testid="agenda-titulo"]')).toBeVisible();
 
-    await page.fill('[data-testid="agenda-titulo"]', 'Audiencia E2E ' + Date.now());
+    await page.fill('[data-testid="agenda-titulo"]', audienciaTitle);
     await page.fill('[data-testid="agenda-fecha"]', todayStr);
     await page.fill('[data-testid="agenda-hora"]', '09:30');
     await page.selectOption('[data-testid="agenda-categoria"]', 'turno');
     await page.click('[data-testid="agenda-submit"]');
 
-    await expect(page.locator('body')).toContainText('09:30');
+    await expectSavedAgendaEvent(page, audienciaTitle, '09:30');
 
     // Otro horario
     await page.getByRole('button', { name: 'Nuevo evento' }).click();
     await expect(page.locator('[data-testid="agenda-titulo"]')).toBeVisible();
 
-    await page.fill('[data-testid="agenda-titulo"]', 'Reunión E2E ' + Date.now());
+    await page.fill('[data-testid="agenda-titulo"]', reunionTitle);
     await page.fill('[data-testid="agenda-fecha"]', todayStr);
     await page.fill('[data-testid="agenda-hora"]', '14:15');
     await page.selectOption('[data-testid="agenda-categoria"]', 'evento');
     await page.click('[data-testid="agenda-submit"]');
 
-    await expect(page.locator('body')).toContainText('14:15');
+    await expectSavedAgendaEvent(page, reunionTitle, '14:15');
   });
 
   test('12. duplicado de Agenda', async () => {
