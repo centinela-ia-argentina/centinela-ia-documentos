@@ -347,32 +347,51 @@ test.describe.serial('Anulus AI - Inmobiliaria E2E', () => {
       await expect(page.locator('text=Cartera de propiedades')).toBeVisible();
 
       await page.goto('/propiedades/nueva');
-      await expect(page.locator('text=Alta de ficha técnica')).toBeVisible();
+      await expect(page.getByRole('heading', { name: 'Nueva propiedad', level: 1, exact: true })).toBeVisible();
 
-      const nameInput = page.locator('input[name="name"]');
+      const nameInput = page.getByLabel('Nombre de la propiedad *', { exact: true });
+      const totalInput = page.getByLabel('Superficie total (m²)', { exact: true });
+      const roomsInput = page.getByLabel('Ambientes', { exact: true });
       await expect(nameInput).toBeVisible();
-      const currencySelect = page.locator('select[name="currency"]');
-      await expect(currencySelect).toBeVisible();
+      await expect(totalInput).toBeVisible();
+      await expect(roomsInput).toBeVisible();
 
-      const currencyOptions = await currencySelect.locator('option').evaluateAll(
-        opts => opts.map(o => (o as HTMLOptionElement).value)
-      );
-      expect(currencyOptions).toContain('USD');
-      expect(currencyOptions).toContain('ARS');
+      // SelectField exposes an accessible button/listbox and one submitted value,
+      // not a native select. Exercise both currencies without submitting a fixture.
+      const currencyTrigger = page.getByRole('button', { name: 'Moneda', exact: true });
+      const currencyValue = page.locator('input[type="hidden"][name="currency"]');
+      await expect(currencyTrigger).toBeVisible();
+      await expect(currencyValue).toHaveCount(1);
+      await expect(currencyValue).toHaveValue('USD');
+      await currencyTrigger.click();
+      const currencyOptions = page.getByRole('listbox', { name: 'Moneda', exact: true });
+      await expect(currencyOptions.getByRole('option')).toHaveCount(2);
+      await expect(currencyOptions.getByRole('option', { name: /^USD/ })).toBeVisible();
+      await expect(currencyOptions.getByRole('option', { name: /^ARS/ })).toBeVisible();
+      await currencyOptions.getByRole('option', { name: /^ARS/ }).click();
+      await expect(currencyValue).toHaveValue('ARS');
+      await expect(currencyTrigger).toContainText('ARS');
+      await expect(currencyTrigger).toBeFocused();
+      await selectWizardOption(page, 'Moneda', /^USD/);
+      await expect(currencyValue).toHaveValue('USD');
+      await expect(currencyTrigger).toContainText('USD');
 
-      await expect(page.locator('input[name="surface_total_m2"]')).toBeVisible();
-      await expect(page.locator('input[name="rooms"]')).toBeVisible();
-
-      // Validación de conducta de entrada en campos técnicos
+      // Keep the original input assertions and cover decimal entry as well.
       await nameInput.fill('Propiedad QA Test');
-      await currencySelect.selectOption('USD');
-      await page.locator('input[name="surface_total_m2"]').fill('120');
-      await page.locator('input[name="rooms"]').fill('3');
-
-      expect(await nameInput.inputValue()).toBe('Propiedad QA Test');
-      expect(await currencySelect.inputValue()).toBe('USD');
-      expect(await page.locator('input[name="surface_total_m2"]').inputValue()).toBe('120');
-      expect(await page.locator('input[name="rooms"]').inputValue()).toBe('3');
+      await totalInput.fill('120.50');
+      await roomsInput.fill('3');
+      await expect(nameInput).toHaveValue('Propiedad QA Test');
+      await expect(totalInput).toHaveValue('120.50');
+      await expect(roomsInput).toHaveValue('3');
+      const form = page.locator('form').filter({ has: nameInput });
+      const submittedValues = await form.evaluate(element => {
+        const data = new FormData(element as HTMLFormElement);
+        return ['name', 'currency', 'surface_total_m2', 'rooms'].map(key => [key, data.getAll(key)]);
+      });
+      expect(submittedValues).toEqual([
+        ['name', ['Propiedad QA Test']], ['currency', ['USD']],
+        ['surface_total_m2', ['120.50']], ['rooms', ['3']],
+      ]);
     } finally {
       await page.close();
       await context.close();
