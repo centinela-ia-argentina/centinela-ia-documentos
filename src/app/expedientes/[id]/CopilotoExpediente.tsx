@@ -73,12 +73,15 @@ export function CopilotoExpediente({
           {resumen.estado_actual && (
             <p className="text-sm text-slate-200"><span className="font-medium text-slate-400">Estado: </span>{resumen.estado_actual}</p>
           )}
-          <div className="grid gap-4 md:grid-cols-2">
+          <details className="mt-4">
+            <summary className="flex min-h-11 cursor-pointer items-center text-sm font-medium text-slate-300 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-500">Ver detalle del resumen</summary>
+            <div className="mt-3 grid gap-4">
             {resumen.partes.length > 0 && <Bloque titulo={terms.partes} items={resumen.partes} />}
             {resumen.puntos_clave.length > 0 && <Bloque titulo="Puntos clave" items={resumen.puntos_clave} />}
             {resumen.riesgos_alertas.length > 0 && <Bloque titulo="⚠️ Riesgos y alertas" items={resumen.riesgos_alertas} tono="amber" />}
             {resumen.proximas_acciones.length > 0 && <Bloque titulo="Próximas acciones" items={resumen.proximas_acciones} tono="emerald" />}
-          </div>
+            </div>
+          </details>
           {generadoEl && (
             <p className="text-xs text-slate-500">Generado el {new Date(generadoEl).toLocaleString('es-AR')} · Borrador orientativo, revisá antes de usar.</p>
           )}

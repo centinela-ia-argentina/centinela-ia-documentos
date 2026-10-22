@@ -52,6 +52,8 @@ import { MapPin } from 'lucide-react';
 import { DeleteCaseButton } from './DeleteCaseButton';
 import { CopilotoExpediente } from './CopilotoExpediente';
 import { AgenteChat } from './AgenteChat';
+import { CaseAgentDisclosure } from '@/components/approved/CaseAgentDisclosure';
+import { CaseSummaryLayout } from '@/components/approved/CaseSummaryLayout';
 import { BotonAlChecklist } from './BotonAlChecklist';
 import { CotejoExpediente } from './CotejoExpediente';
 import { RedactarEscrituraButton } from './RedactarEscrituraButton';
@@ -704,9 +706,220 @@ export default async function CaseDetailPage({ params, searchParams }: CaseDetai
             id: 'resumen',
             label: '📊 Resumen',
             content: (
-              <div className="space-y-6">
-                <AgenteChat caseId={caseRecord.id} caseTitle={displayText(caseRecord.title, terms.itemSinTitulo)} industry={industry} puedeUsarIA={puedeUsarIA} historialInicial={historialAgente} modeloUrl={modeloSugerido ? `/modelos?modelo=${modeloSugerido}&expediente=${caseRecord.id}` : '/modelos'} />
-                {(industry === 'escribania' || industry === 'legal' || industry === 'inmobiliaria') && (
+              <CaseSummaryLayout
+                facts={<>
+<MotionCard index={industry === 'inmobiliaria' ? 1 : 0}>
+          <h3 className="font-display text-lg font-semibold text-white">
+            {terms.datosTitulo}
+          </h3>
+
+          <div className="mt-5 grid gap-4 sm:grid-cols-2">
+            <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Tipo
+              </p>
+
+              <p className="mt-2 font-bold text-white">
+                {getCaseTypeLabel(caseRecord.case_type)}
+              </p>
+            </div>
+
+            <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Estado
+              </p>
+
+              <p className="mt-2 font-bold text-white">
+                {getCaseStatusLabel(caseRecord.status, industry)}
+              </p>
+            </div>
+
+            {visibleMetadataFields.map((field) => {
+              const value = getMetadataValue(caseRecord.metadata, field.key);
+              if (field.key === 'fecha_relevante' && value) {
+                const status = getDocumentExpiryStatus(value);
+                const days = getDaysUntilExpiry(value) ?? 0;
+                return (
+                  <div key={field.key} className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                      {field.label}
+                    </p>
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                      <p className="font-bold text-white">
+                        {formatPlazoDate(value)}
+                      </p>
+                      <Badge tone={status === 'vencido' ? 'danger' : status === 'por_vencer' ? 'warning' : 'neutral'}>
+                        {expiryStatusLabel(status)}
+                      </Badge>
+                      <span className="text-xs font-medium text-slate-500">
+                        {days >= 0 ? `(faltan ${days} días)` : `(vencido hace ${Math.abs(days)} días)`}
+                      </span>
+                    </div>
+                  </div>
+                );
+              }
+              const displayValue = field.key === 'moneda_operacion' && !value ? 'Sin definir' : value;
+              return (
+                <div key={field.key} className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    {field.label}
+                  </p>
+                  <p className="mt-2 font-bold text-white">
+                    {displayValue}
+                  </p>
+                </div>
+              );
+            })}
+          </div>
+
+          <details open={visibleMetadataFields.length === 0} className="mt-6 group">
+            <summary className="list-none cursor-pointer text-sm font-bold text-sky-600 hover:text-sky-700 flex items-center gap-2 select-none outline-none">
+              <span>✏️ {terms.editarDatos}</span>
+              <span className="transition-transform group-open:rotate-90">▸</span>
+            </summary>
+            <form action={updateCaseStatus} className="mt-4 grid gap-4">
+              <input type="hidden" name="case_id" value={caseRecord.id} />
+
+              <div>
+                <label className="text-sm font-semibold text-slate-400">
+                  Estado
+                </label>
+                <select
+                  name="status"
+                  defaultValue={caseRecord.status}
+                  className="mt-2 w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-white placeholder:text-slate-500 outline-none focus:ring-2 focus:ring-sky-400"
+                >
+                  {statusOptions.map((status) => (
+                    <option
+                      key={status.value}
+                      value={status.value}
+                      className="bg-[#0C2340] text-white"
+                      style={darkOptionStyle}
+                    >
+                      {status.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {caseFields.length > 0 ? (
+                <div className="grid gap-4 sm:grid-cols-2">
+                  {caseFields.map((field) => (
+                    <div key={field.key}>
+                      <label className="text-sm font-semibold text-slate-400">
+                        {field.label}
+                      </label>
+
+                      {field.type === 'select' ? (
+                        <select
+                          name={`case_metadata.${field.key}`}
+                          defaultValue={getMetadataValue(caseRecord.metadata, field.key)}
+                          className="mt-2 w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-white placeholder:text-slate-500 outline-none focus:ring-2 focus:ring-sky-400"
+                        >
+                          <option
+                            value=""
+                            className="bg-[#0C2340] text-white"
+                            style={darkOptionStyle}
+                          >
+                            Sin definir
+                          </option>
+                          {(field.options ?? []).map((option) => (
+                            <option
+                              key={option}
+                              value={option}
+                              className="bg-[#0C2340] text-white"
+                              style={darkOptionStyle}
+                            >
+                              {option}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        <input
+                          name={`case_metadata.${field.key}`}
+                          type={field.type}
+                          defaultValue={getMetadataValue(caseRecord.metadata, field.key)}
+                          className="mt-2 w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-white placeholder:text-slate-500 outline-none focus:ring-2 focus:ring-sky-400"
+                        />
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ) : null}
+
+              <button className="rounded-2xl bg-slate-900 px-5 py-3 text-sm font-bold text-white transition-all hover:bg-slate-800">
+                {terms.actualizarCta}
+              </button>
+              </form>
+          </details>
+        </MotionCard>
+{industry === 'inmobiliaria' && (
+                  <MotionCard index={0} className="mb-6">
+                    <h3 className="font-display text-lg font-semibold text-white flex items-center gap-2">
+                      🏘️ Propiedad asociada
+                    </h3>
+                    <div className="mt-4">
+                      {propertyRecord ? (
+                        <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-5">
+                          <div className="flex items-start justify-between">
+                            <div>
+                              <h4 className="text-lg font-bold text-white">{propertyRecord.name}</h4>
+                              <p className="mt-1 text-sm text-slate-400 flex items-center gap-1">
+                                <MapPin className="h-4 w-4" /> {propertyRecord.address || 'Sin dirección'}
+                              </p>
+                              <div className="mt-3 flex gap-2">
+                                <Badge tone={propertyRecord.status === 'disponible' ? 'success' : propertyRecord.status === 'reservada' ? 'warning' : 'neutral'}>
+                                  {getPropertyStatusLabel(propertyRecord.status)}
+                                </Badge>
+                                <span className="rounded-full bg-white/5 px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-slate-400">
+                                  {getPropertyTypeLabel(propertyRecord.property_type)}
+                                </span>
+                              </div>
+                            </div>
+                            <Link href={`/propiedades/${propertyRecord.id}`} className="shrink-0 rounded-xl bg-cyan-500/10 px-4 py-2 text-sm font-bold text-cyan-400 transition hover:bg-cyan-500/20">
+                              Ver ficha
+                            </Link>
+                          </div>
+                        </div>
+                      ) : (
+                        <p className="text-sm text-slate-400">Sin propiedad asociada.</p>
+                      )}
+
+                      {canUpdateCase(profile.role) && (
+                        <form action={vincularPropiedadOperacion} className="mt-4 border-t border-white/10 pt-4">
+                          <input type="hidden" name="case_id" value={caseRecord.id} />
+                          <div className="flex flex-col sm:flex-row gap-3">
+                            <select
+                              name="property_id"
+                              defaultValue={propertyRecord?.id || ''}
+                              className="flex-1 rounded-xl border border-white/10 bg-[#0C2340] px-4 py-2.5 text-sm text-white outline-none focus:ring-2 focus:ring-cyan-400"
+                            >
+                              <option value="">Sin propiedad asociada (desvincular)</option>
+                              {allProperties.map(p => (
+                                <option key={p.id} value={p.id}>
+                                  {p.name} {p.address ? `— ${p.address}` : ''}
+                                </option>
+                              ))}
+                            </select>
+                            <FormSubmitButton label="Guardar propiedad" loadingLabel="Guardando..." />
+                          </div>
+                        </form>
+                      )}
+                    </div>
+                  </MotionCard>
+                )}
+{industry === 'inmobiliaria' && (
+                    <WhatsAppIntentBuilder
+                      phone={(caseRecord.metadata as any)?.phone || (caseRecord.metadata as any)?.telefono || null}
+                      context="operation"
+                      resourceId={caseRecord.id}
+                      defaultMessage={generateOperationMessage(caseRecord)}
+                    />
+                  )}
+
+                </>}
+                summary={<>
+{(industry === 'escribania' || industry === 'legal' || industry === 'inmobiliaria') && (
                     <CopilotoExpediente
                       caseId={caseRecord.id}
                       resumen={(resumenData?.result_json as any) ?? null}
@@ -716,15 +929,22 @@ export default async function CaseDetailPage({ params, searchParams }: CaseDetai
                       terms={terms}
                     />
                   )}
-                  {industry === 'inmobiliaria' && (
-                    <WhatsAppIntentBuilder
-                      phone={(caseRecord.metadata as any)?.phone || (caseRecord.metadata as any)?.telefono || null}
-                      context="operation"
-                      resourceId={caseRecord.id}
-                      defaultMessage={generateOperationMessage(caseRecord)}
-                    />
-                  )}
-                {industry === 'legal' && liquidacion && (
+
+                </>}
+                dates={
+<RadarPlazos
+                  items={cronologia}
+                  caseId={caseRecord.id}
+                  titulo={terms.radarTitulo}
+                  subtitulo={terms.radarSubtitulo}
+                  industry={industry}
+                />
+                }
+                agent={<CaseAgentDisclosure key={caseRecord.id} canUseAi={puedeUsarIA}>
+<AgenteChat caseId={caseRecord.id} caseTitle={displayText(caseRecord.title, terms.itemSinTitulo)} industry={industry} puedeUsarIA={puedeUsarIA} historialInicial={historialAgente} modeloUrl={modeloSugerido ? `/modelos?modelo=${modeloSugerido}&expediente=${caseRecord.id}` : '/modelos'} />
+                </CaseAgentDisclosure>}
+              >
+{industry === 'legal' && liquidacion && (
                   <section className="mt-6 rounded-2xl border border-cyan-500/20 bg-slate-900/40 p-6">
                     <div className="mb-4 flex items-center gap-2">
                       <span className="text-xl">💰</span>
@@ -1062,13 +1282,7 @@ export default async function CaseDetailPage({ params, searchParams }: CaseDetai
                     )}
                   </div>
                 )}
-                <RadarPlazos
-                  items={cronologia}
-                  caseId={caseRecord.id}
-                  titulo={terms.radarTitulo}
-                  subtitulo={terms.radarSubtitulo}
-                  industry={industry}
-                />
+
                 {industry === 'escribania' && (
                   <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-5">
                     <div className="flex flex-wrap items-center justify-between gap-4">
@@ -1111,61 +1325,7 @@ export default async function CaseDetailPage({ params, searchParams }: CaseDetai
                   </div>
                 )}
 
-                {industry === 'inmobiliaria' && (
-                  <MotionCard index={0} className="mb-6">
-                    <h3 className="font-display text-lg font-semibold text-white flex items-center gap-2">
-                      🏘️ Propiedad asociada
-                    </h3>
-                    <div className="mt-4">
-                      {propertyRecord ? (
-                        <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-5">
-                          <div className="flex items-start justify-between">
-                            <div>
-                              <h4 className="text-lg font-bold text-white">{propertyRecord.name}</h4>
-                              <p className="mt-1 text-sm text-slate-400 flex items-center gap-1">
-                                <MapPin className="h-4 w-4" /> {propertyRecord.address || 'Sin dirección'}
-                              </p>
-                              <div className="mt-3 flex gap-2">
-                                <Badge tone={propertyRecord.status === 'disponible' ? 'success' : propertyRecord.status === 'reservada' ? 'warning' : 'neutral'}>
-                                  {getPropertyStatusLabel(propertyRecord.status)}
-                                </Badge>
-                                <span className="rounded-full bg-white/5 px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-slate-400">
-                                  {getPropertyTypeLabel(propertyRecord.property_type)}
-                                </span>
-                              </div>
-                            </div>
-                            <Link href={`/propiedades/${propertyRecord.id}`} className="shrink-0 rounded-xl bg-cyan-500/10 px-4 py-2 text-sm font-bold text-cyan-400 transition hover:bg-cyan-500/20">
-                              Ver ficha
-                            </Link>
-                          </div>
-                        </div>
-                      ) : (
-                        <p className="text-sm text-slate-400">Sin propiedad asociada.</p>
-                      )}
 
-                      {canUpdateCase(profile.role) && (
-                        <form action={vincularPropiedadOperacion} className="mt-4 border-t border-white/10 pt-4">
-                          <input type="hidden" name="case_id" value={caseRecord.id} />
-                          <div className="flex flex-col sm:flex-row gap-3">
-                            <select
-                              name="property_id"
-                              defaultValue={propertyRecord?.id || ''}
-                              className="flex-1 rounded-xl border border-white/10 bg-[#0C2340] px-4 py-2.5 text-sm text-white outline-none focus:ring-2 focus:ring-cyan-400"
-                            >
-                              <option value="">Sin propiedad asociada (desvincular)</option>
-                              {allProperties.map(p => (
-                                <option key={p.id} value={p.id}>
-                                  {p.name} {p.address ? `— ${p.address}` : ''}
-                                </option>
-                              ))}
-                            </select>
-                            <FormSubmitButton label="Guardar propiedad" loadingLabel="Guardando..." />
-                          </div>
-                        </form>
-                      )}
-                    </div>
-                  </MotionCard>
-                )}
 
                 {industry === 'inmobiliaria' && (
                   <div className="mb-6 rounded-3xl border border-white/10 bg-white/[0.02] p-6">
@@ -1255,153 +1415,7 @@ export default async function CaseDetailPage({ params, searchParams }: CaseDetai
                 {industry === 'inmobiliaria' && isDerivacionEscribaniaCompatible(caseRecord.case_type) && (
                   <DerivarEscribania caseId={caseRecord.id} />
                 )}
-
-                <MotionCard index={industry === 'inmobiliaria' ? 1 : 0}>
-          <h3 className="font-display text-lg font-semibold text-white">
-            {terms.datosTitulo}
-          </h3>
-
-          <div className="mt-5 grid gap-4 sm:grid-cols-2">
-            <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                Tipo
-              </p>
-
-              <p className="mt-2 font-bold text-white">
-                {getCaseTypeLabel(caseRecord.case_type)}
-              </p>
-            </div>
-
-            <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                Estado
-              </p>
-
-              <p className="mt-2 font-bold text-white">
-                {getCaseStatusLabel(caseRecord.status, industry)}
-              </p>
-            </div>
-
-            {visibleMetadataFields.map((field) => {
-              const value = getMetadataValue(caseRecord.metadata, field.key);
-              if (field.key === 'fecha_relevante' && value) {
-                const status = getDocumentExpiryStatus(value);
-                const days = getDaysUntilExpiry(value) ?? 0;
-                return (
-                  <div key={field.key} className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                      {field.label}
-                    </p>
-                    <div className="mt-2 flex flex-wrap items-center gap-2">
-                      <p className="font-bold text-white">
-                        {formatPlazoDate(value)}
-                      </p>
-                      <Badge tone={status === 'vencido' ? 'danger' : status === 'por_vencer' ? 'warning' : 'neutral'}>
-                        {expiryStatusLabel(status)}
-                      </Badge>
-                      <span className="text-xs font-medium text-slate-500">
-                        {days >= 0 ? `(faltan ${days} días)` : `(vencido hace ${Math.abs(days)} días)`}
-                      </span>
-                    </div>
-                  </div>
-                );
-              }
-              const displayValue = field.key === 'moneda_operacion' && !value ? 'Sin definir' : value;
-              return (
-                <div key={field.key} className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                    {field.label}
-                  </p>
-                  <p className="mt-2 font-bold text-white">
-                    {displayValue}
-                  </p>
-                </div>
-              );
-            })}
-          </div>
-
-          <details open={visibleMetadataFields.length === 0} className="mt-6 group">
-            <summary className="list-none cursor-pointer text-sm font-bold text-sky-600 hover:text-sky-700 flex items-center gap-2 select-none outline-none">
-              <span>✏️ {terms.editarDatos}</span>
-              <span className="transition-transform group-open:rotate-90">▸</span>
-            </summary>
-            <form action={updateCaseStatus} className="mt-4 grid gap-4">
-              <input type="hidden" name="case_id" value={caseRecord.id} />
-
-              <div>
-                <label className="text-sm font-semibold text-slate-400">
-                  Estado
-                </label>
-                <select
-                  name="status"
-                  defaultValue={caseRecord.status}
-                  className="mt-2 w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-white placeholder:text-slate-500 outline-none focus:ring-2 focus:ring-sky-400"
-                >
-                  {statusOptions.map((status) => (
-                    <option
-                      key={status.value}
-                      value={status.value}
-                      className="bg-[#0C2340] text-white"
-                      style={darkOptionStyle}
-                    >
-                      {status.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {caseFields.length > 0 ? (
-                <div className="grid gap-4 sm:grid-cols-2">
-                  {caseFields.map((field) => (
-                    <div key={field.key}>
-                      <label className="text-sm font-semibold text-slate-400">
-                        {field.label}
-                      </label>
-
-                      {field.type === 'select' ? (
-                        <select
-                          name={`case_metadata.${field.key}`}
-                          defaultValue={getMetadataValue(caseRecord.metadata, field.key)}
-                          className="mt-2 w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-white placeholder:text-slate-500 outline-none focus:ring-2 focus:ring-sky-400"
-                        >
-                          <option
-                            value=""
-                            className="bg-[#0C2340] text-white"
-                            style={darkOptionStyle}
-                          >
-                            Sin definir
-                          </option>
-                          {(field.options ?? []).map((option) => (
-                            <option
-                              key={option}
-                              value={option}
-                              className="bg-[#0C2340] text-white"
-                              style={darkOptionStyle}
-                            >
-                              {option}
-                            </option>
-                          ))}
-                        </select>
-                      ) : (
-                        <input
-                          name={`case_metadata.${field.key}`}
-                          type={field.type}
-                          defaultValue={getMetadataValue(caseRecord.metadata, field.key)}
-                          className="mt-2 w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-white placeholder:text-slate-500 outline-none focus:ring-2 focus:ring-sky-400"
-                        />
-                      )}
-                    </div>
-                  ))}
-                </div>
-              ) : null}
-
-              <button className="rounded-2xl bg-slate-900 px-5 py-3 text-sm font-bold text-white transition-all hover:bg-slate-800">
-                {terms.actualizarCta}
-              </button>
-              </form>
-          </details>
-        </MotionCard>
-              </div>
+              </CaseSummaryLayout>
             )
           },
           {

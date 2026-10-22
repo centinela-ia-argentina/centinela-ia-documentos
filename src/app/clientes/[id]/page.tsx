@@ -5,10 +5,12 @@ import { createClient } from '@/lib/supabase/server';
 import { getUserProfile } from '@/lib/auth/getUserProfile';
 import { canManageClient } from '@/lib/permissions/roles';
 import { updateClientRecord } from '../actions';
-import { ArrowLeft, User, Phone, Mail, FileText, Search, MapPin, DollarSign, Home } from 'lucide-react';
+import { ArrowLeft, User } from 'lucide-react';
+import { ClientDetailMode } from '@/components/approved/ClientDetailMode';
+import { ClientDetailReadView } from '@/components/approved/ClientDetailReadView';
+import styles from '@/components/approved/ApprovedDetail.module.css';
 import { FormSubmitButton } from '@/components/ui/FormSubmitButton';
-import { Badge } from '@/components/ui/Badge';
-import { getClientStatusLabel, getClientTypeLabel, getOperationInterestLabel, getDesiredPropertyTypeLabel } from '@/lib/clients/labels';
+import { getClientStatusLabel, getClientTypeLabel } from '@/lib/clients/labels';
 import type { ClientRecord } from '@/types/client';
 import type { PropertyRecord } from '@/types/property';
 import { evaluarMatch, ordenarPorMatch } from '@/lib/matching/match';
@@ -64,180 +66,11 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
 
   return (
     <AppShell>
-      <div className="mb-8">
-        <Link
-          href="/clientes"
-          className="inline-flex items-center gap-2 text-sm font-semibold text-cyan-400 hover:text-cyan-300"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Volver a clientes
-        </Link>
-        <div className="mt-4 flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
-          <div>
-            <h2 className="font-display text-3xl font-semibold tracking-tight text-white flex items-center gap-3">
-              {record.name}
-            </h2>
-            <div className="mt-2 flex gap-2 items-center">
-              <Badge tone={record.status === 'activo' ? 'success' : record.status === 'en_seguimiento' ? 'warning' : 'neutral'}>
-                {getClientStatusLabel(record.status)}
-              </Badge>
-              <span className="rounded-full bg-white/5 px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-slate-400">
-                {getClientTypeLabel(record.client_type)}
-              </span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="grid gap-6 lg:grid-cols-2">
-        <div className="rounded-3xl border border-white/5 bg-white/[0.02] p-8">
-          <h3 className="mb-6 font-display text-xl font-bold text-white flex items-center gap-2">
-            👤 Datos de contacto
-          </h3>
-          <ul className="space-y-4">
-            {record.phone && (
-              <li className="flex items-center gap-3">
-                <Phone className="h-5 w-5 text-cyan-400" />
-                <span className="font-medium text-white">{record.phone}</span>
-              </li>
-            )}
-            {record.email && (
-              <li className="flex items-center gap-3">
-                <Mail className="h-5 w-5 text-cyan-400" />
-                <span className="font-medium text-white">{record.email}</span>
-              </li>
-            )}
-            <li className="flex items-start gap-3 mt-4 pt-4 border-t border-white/5">
-              <FileText className="h-5 w-5 text-cyan-400 shrink-0" />
-              <div>
-                <p className="text-xs text-slate-500 mb-1">Notas</p>
-                <p className="text-sm text-white whitespace-pre-wrap">{record.notes || 'Sin observaciones'}</p>
-              </div>
-            </li>
-          </ul>
-
-          <div className="mt-6">
-            <WhatsAppIntentBuilder
-              phone={record.phone}
-              context="client"
-              resourceId={record.id}
-              defaultMessage={generateClientMessage(record)}
-            />
-          </div>
-        </div>
-
-        <div className="rounded-3xl border border-white/5 bg-white/[0.02] p-8">
-          <h3 className="mb-6 font-display text-xl font-bold text-white flex items-center gap-2">
-            🔎 Qué busca
-          </h3>
-          <ul className="space-y-4">
-            <li className="flex items-center gap-3">
-              <Search className="h-5 w-5 text-cyan-400" />
-              <span className="font-medium text-white">
-                Operación: {getOperationInterestLabel(record.operation_interest)}
-              </span>
-            </li>
-            <li className="flex items-center gap-3">
-              <Home className="h-5 w-5 text-cyan-400" />
-              <span className="font-medium text-white">
-                Tipo: {getDesiredPropertyTypeLabel(record.desired_property_type)}
-              </span>
-            </li>
-            <li className="flex items-center gap-3">
-              <MapPin className="h-5 w-5 text-cyan-400" />
-              <span className="font-medium text-white">
-                Zona: {[record.desired_neighborhood, record.desired_city, record.zone].filter(Boolean).join(', ') || 'Cualquiera'}
-              </span>
-            </li>
-            <li className="flex items-center gap-3">
-              <DollarSign className="h-5 w-5 text-cyan-400" />
-              <span className="font-medium text-white">
-                Presupuesto: {record.budget_min ? `${record.currency === 'USD' ? 'u$s' : '$'}${record.budget_min.toLocaleString('es-AR')}` : '0'} 
-                {record.budget_max ? ` - ${record.currency === 'USD' ? 'u$s' : '$'}${record.budget_max.toLocaleString('es-AR')}` : ' sin límite'}
-              </span>
-            </li>
-            {record.min_rooms && (
-              <li className="flex items-center gap-3">
-                <span className="text-cyan-400 font-bold px-1.5">{record.min_rooms}+</span>
-                <span className="font-medium text-white">
-                  Ambientes mínimos
-                </span>
-              </li>
-            )}
-          </ul>
-        </div>
-      </div>
-
-      <div className="mt-8 rounded-3xl border border-white/5 bg-white/[0.02] p-8">
-        <h3 className="mb-6 font-display text-xl font-bold text-white flex items-center gap-2">
-          🏠 Propiedades que encajan con su búsqueda
-        </h3>
-
-        {canUseAi(profile.role) && sortedMatches.length > 0 && (
-          <ClientMatchAiButton clientId={id} />
-        )}
-
-        
-        {sortedMatches.length > 0 ? (
-          <ul className="space-y-4">
-            {sortedMatches.map(({ item: p, match }) => (
-              <li key={p.id}>
-                <Link
-                  href={`/propiedades/${p.id}`}
-                  className="group block rounded-2xl border border-white/10 bg-[#0C2340] p-5 transition hover:border-cyan-500/50 hover:bg-cyan-500/10 outline-none"
-                >
-                  <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                    <div>
-                      <h4 className="font-display text-lg font-bold text-white group-hover:text-cyan-400 transition-colors">
-                        {p.name}
-                      </h4>
-                      <p className="mt-1 text-sm font-medium text-slate-300">
-                        {p.price != null ? `${p.currency === 'USD' ? 'u$s' : '$'}${p.price.toLocaleString('es-AR')}` : 'Sin precio'}
-                        {p.surface_total_m2 ? ` · ${p.surface_total_m2} m²` : ''}
-                      </p>
-                    </div>
-                    <Badge tone={match.coincidencias === match.aplicables && match.aplicables > 0 ? 'success' : match.coincidencias > 0 ? 'warning' : 'neutral'}>
-                      {match.coincidencias}/{match.aplicables} criterios
-                    </Badge>
-                  </div>
-                  
-                  {match.aplicables > 0 && (
-                    <div className="mt-4 flex flex-wrap gap-2 pt-4 border-t border-white/5">
-                      {match.criterios.filter(c => c.aplica).map(c => (
-                        <span 
-                          key={c.key} 
-                          className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-semibold uppercase tracking-wider ${
-                            c.cumple 
-                              ? 'bg-green-500/10 text-green-400 border border-green-500/20' 
-                              : 'bg-white/5 text-slate-500 border border-white/10 line-through decoration-slate-500/50'
-                          }`}
-                        >
-                          {c.cumple ? '✓' : '✗'} {c.label}
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                </Link>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <div className="rounded-2xl border border-dashed border-white/10 p-8 text-center">
-            <p className="text-sm text-slate-400">
-              No hay propiedades disponibles para cruzar todavía.
-            </p>
-          </div>
-        )}
-      </div>
-
-      {canManage && (
-        <details className="mt-8 group">
-          <summary className="list-none cursor-pointer text-sm font-bold text-cyan-400 hover:text-cyan-300 flex items-center gap-2 select-none outline-none">
-            <span>✏️ Editar datos del cliente</span>
-            <span className="transition-transform group-open:rotate-90">▸</span>
-          </summary>
-          <div className="mt-6">
-            <form action={updateClientRecord} className="space-y-6">
+      <Link href="/clientes" className="mb-5 inline-flex min-h-11 items-center gap-2 text-sm text-slate-300 hover:text-white"><ArrowLeft size={16} aria-hidden="true" />Volver a clientes</Link>
+      <ClientDetailMode name={record.name} canManage={canManage}
+        identity={<div className={styles.identity}><span className={styles.avatar}><User size={32} aria-hidden="true" /></span><div><p className={styles.eyebrow}>Ficha de cliente</p><h1>{record.name}</h1><div className={styles.identityTags}><span>{getClientStatusLabel(record.status)}</span><span>{getClientTypeLabel(record.client_type)}</span></div></div></div>}
+        editForm={canManage ? (
+          <form action={updateClientRecord} className="space-y-6">
               <input type="hidden" name="client_id" value={record.id} />
               <div className="rounded-3xl border border-white/5 bg-white/[0.02] p-8">
                 <div className="grid gap-6 sm:grid-cols-2">
@@ -347,9 +180,13 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
                 <FormSubmitButton label="Guardar cambios" loadingLabel="Guardando..." />
               </div>
             </form>
-          </div>
-        </details>
-      )}
+        ) : null}
+      >
+        <ClientDetailReadView record={record} matches={sortedMatches}
+          aiAction={canUseAi(profile.role) && sortedMatches.length > 0 ? <ClientMatchAiButton clientId={id} /> : null}
+          contactMessage={<WhatsAppIntentBuilder compact phone={record.phone} context="client" resourceId={record.id} defaultMessage={generateClientMessage(record)} />}
+        />
+      </ClientDetailMode>
     </AppShell>
   );
 }
