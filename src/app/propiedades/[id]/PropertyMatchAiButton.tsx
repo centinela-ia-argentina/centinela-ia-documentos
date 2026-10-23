@@ -32,7 +32,7 @@ export function PropertyMatchAiButton({ propertyId }: { propertyId: string }) {
 
   if (result) {
     return (
-      <div className="mb-6 rounded-2xl border border-[#29C5FF]/30 bg-gradient-to-br from-[#1E9BF0]/10 to-[#0A1830] p-6 shadow-[0_0_20px_rgba(30,155,240,0.15)]">
+      <div className={`${styles.aiTool} mb-6 rounded-2xl border border-[#29C5FF]/30 bg-gradient-to-br from-[#1E9BF0]/10 to-[#0A1830] p-6 shadow-[0_0_20px_rgba(30,155,240,0.15)]`}>
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2 text-cyan-400">
             <Sparkles className="h-5 w-5" />
@@ -68,7 +68,7 @@ export function PropertyMatchAiButton({ propertyId }: { propertyId: string }) {
   }
 
   return (
-    <div className="mb-6">
+    <div className={`${styles.aiTool} mb-6`}>
       {error && <p className="mb-2 text-sm text-red-400">{error}</p>}
       <AppButton onClick={handleAnalyze} disabled={isPending} className={styles.primary}>
         <MagnifyingGlass size={18} weight="duotone" aria-hidden="true" />

@@ -1,0 +1,18 @@
+'use client';
+import {useState} from 'react';
+import Link from 'next/link';
+import {ArrowRight,Search,KeyRound} from 'lucide-react';
+import {User} from '@phosphor-icons/react';
+import {RentalCalendarIcon} from './RentalCalendarIcon';
+import type {RentalContract} from '@/types/rental';
+import {getIndexTypeLabel,getRentalStatusLabel} from '@/lib/rentals/labels';
+import {formatRentalDate} from '@/lib/rentals/calendar';
+import styles from './Rentals.module.css';
+export type PortfolioRental=RentalContract&{propertyName?:string|null;proxAjuste:Date|null;estado:{tipo:'vencido'|'proximo'|'al_dia'|'sin_dato';label:string}};
+export function RentalPortfolio({rentals,canManage}:{rentals:PortfolioRental[];canManage:boolean}) {
+ const [status,setStatus]=useState('vigente'),[search,setSearch]=useState('');
+ const filtered=rentals.filter(r=>(status==='otros'?!['vigente','finalizado'].includes(r.status??''):r.status===status)&&`${r.tenant_name??''} ${r.propertyName??''}`.toLocaleLowerCase().includes(search.trim().toLocaleLowerCase()));
+ return <section className={styles.rentPanel} aria-label="Cartera de alquileres"><div className={styles.panelToolbar}><label className={styles.searchField}><Search size={17} aria-hidden/><input type="search" aria-label="Buscar por inquilino o propiedad" placeholder="Buscar por inquilino o propiedad" value={search} onChange={e=>setSearch(e.target.value)}/></label><div className={styles.segment} aria-label="Estado del contrato">{[['vigente','Vigentes'],['finalizado','Finalizados'],...(rentals.some(r=>!['vigente','finalizado'].includes(r.status??''))?[['otros','Otros']]:[])].map(([value,label])=><button key={value} type="button" aria-pressed={status===value} onClick={()=>setStatus(value)}>{label}</button>)}</div></div>
+ {rentals.length===0?<div className={styles.emptyState}><KeyRound size={28} aria-hidden/><h2>No hay alquileres registrados</h2><p>Registrá el primer contrato para controlar montos, vencimientos y próximos ajustes.</p>{canManage&&<Link className={`${styles.btn} ${styles.primary}`} href="/alquileres/nuevo">Registrar primer alquiler</Link>}</div>:filtered.length===0?<p className={styles.finalizedEmpty}>{search?'No encontramos contratos para esta búsqueda.':status==='finalizado'?'No hay contratos finalizados.':'No hay contratos vigentes.'}</p>:<table className={styles.rentTable}><thead><tr>{['Contrato','Monto actual','Actualización','Próximo ajuste','Estado','Acciones'].map(label=><th key={label} scope="col">{label}</th>)}</tr></thead><tbody>{filtered.map(r=><tr key={r.id}><td><div className={styles.personCell}><span className={styles.avatar}><User size={26} aria-hidden/></span><div><strong>{r.tenant_name||'Contrato sin inquilino asignado'}</strong><span>{r.propertyName||getRentalStatusLabel(r.status)}</span></div></div></td><td className={styles.money}><strong>{r.currency==='USD'?'u$s':'$'}{r.current_amount?r.current_amount.toLocaleString('es-AR'):'0'}</strong><span>Canon mensual</span></td><td><strong>{getIndexTypeLabel(r.index_type)}</strong><span className={styles.subtle}>Cada {r.adjustment_period_months||'-'} meses</span></td><td className={styles.dateCell}>{r.proxAjuste?<><strong>{formatRentalDate(r.proxAjuste)}</strong><span>Fecha calculada</span></>:<span>Sin fecha calculable</span>}</td><td><span className={`${styles.status} ${r.estado.tipo==='vencido'?styles.danger:r.estado.tipo==='proximo'?styles.warn:''}`}><RentalCalendarIcon kind={r.estado.tipo}/>{r.estado.label||getRentalStatusLabel(r.status)}</span></td><td><Link className={styles.rowAction} href={`/alquileres/${r.id}`}>Ver contrato<ArrowRight size={16} aria-hidden/></Link></td></tr>)}</tbody></table>}
+ </section>;
+}

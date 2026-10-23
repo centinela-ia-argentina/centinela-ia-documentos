@@ -8,21 +8,19 @@ import { createAuditLog } from '@/lib/audit/createAuditLog';
 import { getDocumentTypeLabel, normalizeIndustryType } from '@/lib/industries/documentTypes';
 import { getIndustryTerms } from '@/lib/industries/uiLabels';
 import { formatFileSize } from '@/lib/format/fileSize';
-import { getDocumentExpiryStatus, expiryStatusLabel, getExpiryBadgeStyles } from '@/lib/documents/expiry';
+import { getDocumentExpiryStatus } from '@/lib/documents/expiry';
 import { esPlazoAccionable } from '@/lib/plazos/plazos';
 
 import { PlazosDetectados } from './PlazosDetectados';
+import styles from './Viewer.module.css';
+import { DocumentViewer } from './DocumentViewer';
 import { FileSignature, Archive, ArchiveRestore } from 'lucide-react';
 import { archiveDocument, unarchiveDocument, deleteDocument } from '../actions';
 import { canArchiveDocument, canDeleteDocument, isUserRole } from '@/lib/permissions/roles';
-import { DocumentDeleteButton } from './DocumentDeleteButton';
 import { sugerirModeloPorTipo, sugerirModeloNotarialPorTipo, sugerirModeloInmobiliarioPorTipo } from '@/lib/legal/modelos';
 import { getCaseBasePath } from '@/lib/industries/caseConfig';
-import { Badge } from '@/components/ui/Badge';
 import { AnalyzeDetailButtonClient } from './AnalyzeDetailButtonClient';
 import { AnalizarPoderButton } from './AnalizarPoderButton';
-import { MotionCard } from '@/components/ui/MotionCard';
-import { MotionButton } from '@/components/ui/MotionButton';
 import type { DocumentRecord } from '@/types/document';
 
 interface DocumentDetailPageProps {
@@ -82,16 +80,6 @@ function formatExpiryDate(value?: string | null) {
   if (!value) return 'Sin fecha de vencimiento';
   const [year, month, day] = value.split('-');
   return `${day}/${month}/${year}`;
-}
-
-function canPreview(mimeType?: string | null) {
-  if (!mimeType) return false;
-
-  return (
-    mimeType === 'application/pdf' ||
-    mimeType === 'image/jpeg' ||
-    mimeType === 'image/png'
-  );
 }
 
 function getErrorMessage(error?: string) {
@@ -327,34 +315,6 @@ function buildSecurityRecommendations(
   ];
 }
 
-function buildOperationalOpinion(
-  document: DocumentRecord,
-  aiResult?: AiAnalysisResult | null,
-  industry?: any
-) {
-  if (!aiResult) {
-    return 'El documento todavía no cuenta con análisis IA. Se recomienda ejecutar el análisis para generar una lectura operativa inicial.';
-  }
-
-  const terms = getIndustryTerms(industry ?? 'general');
-  const risk = getRiskAssessment(document, aiResult, industry);
-  const prefix = industry === 'inmobiliaria' ? 'Diagnóstico documental IA' : 'Dictamen IA';
-
-  if (risk.score >= 80) {
-    return `${prefix}: documento crítico. Requiere revisión prioritaria, control de acceso estricto y validación manual antes de compartir o cerrar ${terms.elExpediente}.`;
-  }
-
-  if (risk.score >= 60) {
-    return `${prefix}: documento sensible. Conviene revisar contenido, faltantes y permisos antes de considerarlo completo dentro de ${terms.elExpediente}.`;
-  }
-
-  if (risk.score >= 35) {
-    return `${prefix}: documento de riesgo medio. Puede continuar en circuito normal, pero se recomienda validar clasificación y documentación asociada.`;
-  }
-
-  return `${prefix}: documento de riesgo bajo. No se detectan señales críticas, aunque se recomienda mantener trazabilidad y clasificación correcta.`;
-}
-
 export default async function DocumentDetailPage({
   params,
   searchParams,
@@ -412,7 +372,7 @@ export default async function DocumentDetailPage({
   const canArchive = isUserRole(profile.role) && canArchiveDocument(profile.role);
   const canDelete  = isUserRole(profile.role) && canDeleteDocument(profile.role);
 
-  const { data: aiOutputs } = await supabase
+  const { data: aiOutputs, error: aiReadError } = await supabase
     .from('ai_outputs')
     .select('*')
     .eq('organization_id', profile.organization_id)
@@ -435,19 +395,17 @@ export default async function DocumentDetailPage({
     .limit(1)
     .maybeSingle();
 
-  const risk = getRiskAssessment(document, aiResult, industria);
   const checklist = buildSuggestedChecklist(document, aiResult, industria);
   const missingDocuments = buildMissingDocuments(document, aiResult);
   const securityRecommendations = buildSecurityRecommendations(document, aiResult, industria);
-  const operationalOpinion = buildOperationalOpinion(document, aiResult, industria);
 
   const errorMessage = getErrorMessage(query.error);
   const analyzeButtonLabel = aiResult
     ? 'Reanalizar IA'
     : 'Analizar IA';
 
-  const aiStatus = getDocumentAiStatus(aiHistory.length);
-  
+  const aiStatus = aiReadError ? 'Estado IA no disponible' : getDocumentAiStatus(aiHistory.length);
+
   const PATRONES_FECHA_EMISION = [
     /\bemisio[nó]\b/i,
     /\bexpedici[oó]n\b/i,
@@ -470,288 +428,38 @@ export default async function DocumentDetailPage({
   }
 
   const expiryStatus = getDocumentExpiryStatus(effectiveExpiry);
-  const expiryBadge = getExpiryBadgeStyles(expiryStatus);
 
-  return (
-    <AppShell>
-      <div className="mb-8 flex flex-col justify-between gap-4 xl:flex-row xl:items-end">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-cyan-400/80">
-            Visor documental
-          </p>
-
-          <h2 className="mt-2 font-display text-3xl font-semibold tracking-tight text-gradient">
-            {document.file_name}
-          </h2>
-
-          <div className="mt-3 flex flex-wrap gap-2 text-xs font-bold">
-            <span className="rounded-full bg-white/10 px-3 py-1 text-slate-400">
-              {document.file_mime_type ?? 'Formato desconocido'}
-            </span>
-
-            <span className="rounded-full bg-white/10 px-3 py-1 text-slate-400">
-              {formatFileSize(document.file_size)}
-            </span>
-
-            <span className="rounded-full bg-cyan-500/10 px-3 py-1 text-cyan-400">
-              IA: {aiStatus}
-            </span>
-
-            <span className={`rounded-full border px-3 py-1 ${risk.className}`}>
-              Riesgo: {risk.label}
-            </span>
-          </div>
-
-          <p className="mt-3 text-sm text-slate-400">
-            Archivo privado con acceso temporal seguro.
-          </p>
-        </div>
-
-        <div className="flex flex-col gap-3 sm:flex-row">
-          {puedeUsarIA && <AnalyzeDetailButtonClient documentId={document.id} label={analyzeButtonLabel} />}
-
-          {document.case_id ? (
-            <Link
-              href={`${getCaseBasePath(industria)}/${document.case_id}?tab=documentos`}
-              className="rounded-2xl border border-white/10 px-5 py-3 text-center text-sm font-bold text-slate-300 hover:border-cyan-400 hover:text-cyan-400 transition-colors"
-            >
-              Volver a {industria === 'inmobiliaria' ? 'la operación' : industria === 'escribania' ? 'el legajo' : 'el expediente'}
-            </Link>
-          ) : (
-            <Link
-              href="/documentos"
-              className="rounded-2xl border border-white/10 px-5 py-3 text-center text-sm font-bold text-slate-300 hover:border-cyan-400 hover:text-cyan-400 transition-colors"
-            >
-              Volver a documentos
-            </Link>
-          )}
-        </div>
-      </div>
-
-      {errorMessage ? (
-        <div className="mb-6 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">
-          {errorMessage}
-        </div>
-      ) : null}
-
-{query.analysis === 'beta' ? (
-  <div className="mb-6 rounded-2xl border border-sky-200 bg-sky-50 p-4 text-sm text-sky-800">
-    Análisis IA generado y guardado correctamente.
-  </div>
-) : null}
-
-      <div className="grid gap-6 xl:grid-cols-[0.78fr_1.22fr]">
-        <section className="space-y-6">
-          <MotionCard index={0}>
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <h3 className="font-display text-lg font-semibold text-white">
-                  Datos del documento
-                </h3>
-                <p className="mt-1 text-sm text-slate-400">
-                  Estado operativo y clasificación manual del archivo.
-                </p>
-              </div>
-
-              <span className="rounded-full bg-cyan-500/10 px-3 py-1 text-xs font-bold text-cyan-400">
-                {aiStatus}
-              </span>
-            </div>
-
-            <div className="mt-5 grid gap-4 text-sm sm:grid-cols-2">
-              <div className="rounded-2xl border border-white/5 bg-white/[0.02] p-4">
-                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                  Tipo documental
-                </p>
-                <p className="mt-2 font-bold text-white">
-{getDocumentTypeLabel(document.document_type)}
-                </p>
-              </div>
-
-              <div className="rounded-2xl border border-white/5 bg-white/[0.02] p-4">
-                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                  Sensibilidad
-                </p>
-                <p className="mt-2 font-bold text-white">
-                  {sensitivityLabel(document.sensitivity_level)}
-                </p>
-              </div>
-
-              <div className="rounded-2xl border border-white/5 bg-white/[0.02] p-4">
-                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                  Tamaño
-                </p>
-                <p className="mt-2 font-bold text-white">
-                  {formatFileSize(document.file_size)}
-                </p>
-              </div>
-
-              <div className="rounded-2xl border border-white/5 bg-white/[0.02] p-4">
-                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                  MIME
-                </p>
-                <p className="mt-2 break-all font-bold text-white">
-                  {document.file_mime_type ?? '-'}
-                </p>
-              </div>
-              
-              <div className="rounded-2xl border border-white/5 bg-white/[0.02] p-4 sm:col-span-2">
-                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                  Vencimiento
-                </p>
-                <div className="mt-2 flex items-center gap-2">
-                  <span className={`rounded-full border px-3 py-1 font-bold ${expiryBadge.className}`}>
-                    {formatExpiryDate(effectiveExpiry)}
-                  </span>
-                  {effectiveExpiry && (
-                    <span className="text-xs font-semibold text-slate-400">
-                      ({expiryStatus === 'vigente' ? 'Vigente' : expiryStatus === 'por_vencer' ? 'Por vencer' : 'Vencido'})
-                    </span>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            <div className="mt-6 flex flex-col gap-3">
-              {signedUrl ? (
-                <a
-                  href={signedUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="quick-action justify-center border-white/20 bg-white/10 hover:border-cyan-400 hover:bg-cyan-500/20"
-                >
-                  Abrir enlace temporal
-                </a>
-              ) : null}
-            </div>
-          </MotionCard>
-
-          {aiResult && (
-            <MotionCard index={1} className={risk.className}>
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <p className="text-xs font-bold uppercase tracking-[0.2em]">
-                  {industria === 'inmobiliaria' ? 'Diagnóstico documental IA' : 'Dictamen IA documental'}
-                </p>
-
-                <h3 className="mt-2 text-2xl font-bold">
-                  Riesgo documental: {risk.label}
-                </h3>
-              </div>
-
-              <span className="rounded-full bg-white/70 px-3 py-1 text-xs font-bold">
-                {risk.score}/100
-              </span>
-            </div>
-
-            <div className="mt-5">
-              <div className="mb-2 flex justify-between text-xs font-bold">
-                <span>Índice operativo de riesgo</span>
-                <span>{risk.score}%</span>
-              </div>
-
-              <div className="h-3 overflow-hidden rounded-full bg-white/70">
-                <div
-                  className={`h-full rounded-full ${risk.barClassName}`}
-                  style={{ width: `${risk.score}%` }}
-                />
-              </div>
-            </div>
-
-            <p className="mt-5 text-sm font-semibold leading-6">
-              {operationalOpinion}
-            </p>
-
-            <p className="mt-3 text-sm leading-6">
-              {risk.description}
-            </p>
-          </MotionCard>
-          )}
-
-          <MotionCard index={2}>
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-cyan-400/80">
-              Control documental sugerido
-            </p>
-
-            <h3 className="mt-2 font-display text-xl font-semibold text-white">
-              Checklist operativo
-            </h3>
-
-            <div className="mt-5 space-y-3">
-              {checklist.map((item) => (
-                <div
-                  key={item}
-                  className="flex gap-3 rounded-2xl border border-white/5 bg-white/[0.02] p-4 text-sm text-slate-300"
-                >
-                  <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-cyan-500/20 text-xs font-bold text-cyan-400">
-                    ✓
-                  </span>
-                  <span>{item}</span>
-                </div>
-              ))}
-            </div>
-          </MotionCard>
-
-          <div className="rounded-3xl border border-white/5 bg-white/[0.02] p-6 shadow-sm">
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-amber-500">
-              Revisión manual recomendada
-            </p>
-
-            <h3 className="mt-2 font-display text-xl font-bold text-white">
-              Posibles faltantes o respaldos
-            </h3>
-
-            <ul className="mt-5 space-y-3 text-sm text-slate-300">
-              {missingDocuments.map((item) => (
-                <li key={item} className="rounded-2xl border border-white/5 bg-white/[0.02] p-4">
-                  {item}
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          <div className="rounded-3xl border border-white/5 bg-white/[0.02] p-6 shadow-sm">
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
-              Seguridad documental
-            </p>
-
-            <h3 className="mt-2 font-display text-xl font-bold text-white">
-              Recomendaciones de acceso
-            </h3>
-
-            <ul className="mt-5 space-y-3 text-sm text-slate-300">
-              {securityRecommendations.map((item) => (
-                <li key={item} className="rounded-2xl border border-white/5 bg-white/[0.02] p-4">
-                  {item}
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          {aiResult ? (
-            <div className="rounded-3xl border border-white/10 bg-slate-900/50 p-6 shadow-sm">
-              <div className="flex items-start justify-between gap-4">
+  const backHref = document.case_id ? `${getCaseBasePath(industria)}/${document.case_id}?tab=documentos` : '/documentos';
+  return <AppShell><DocumentViewer documentId={document.id} fileName={document.file_name} mime={document.file_mime_type ?? ''} size={formatFileSize(document.file_size)} signedUrl={signedUrl} backHref={backHref} backLabel={document.case_id ? 'Documentos de la ficha' : 'Documentos'} canDelete={canDelete} initialAnalysis={Boolean(query.error || query.analysis === 'beta')}
+    notice={<>{errorMessage && <p role="alert" className={styles.viewerNotice}>{errorMessage}</p>}{query.analysis === 'beta' && <p role="status" className={styles.viewerNotice}>Análisis IA generado y guardado correctamente.</p>}</>}
+    administration={canArchive ? <form action={document.archived_at ? unarchiveDocument : archiveDocument}><input type="hidden" name="document_id" value={document.id}/><button type="submit">{document.archived_at ? <ArchiveRestore aria-hidden="true"/> : <Archive aria-hidden="true"/>}{document.archived_at ? 'Desarchivar' : 'Archivar'}</button></form> : undefined}
+    details={<><section className={styles.railSection}><p className={styles.eyebrow}>CLASIFICACIÓN</p><h2>Datos del documento</h2>{document.archived_at && <p>Archivado</p>}<dl className={styles.detailList}>
+      <div><dt>Tipo documental</dt><dd>{getDocumentTypeLabel(document.document_type)}</dd></div><div><dt>Sensibilidad manual</dt><dd>{sensitivityLabel(document.sensitivity_level)}</dd></div><div><dt>Tamaño</dt><dd>{formatFileSize(document.file_size)}</dd></div><div><dt>MIME</dt><dd>{document.file_mime_type ?? '-'}</dd></div><div><dt>Vencimiento</dt><dd>{formatExpiryDate(effectiveExpiry)}{effectiveExpiry && ` · ${expiryStatus === 'vigente' ? 'Vigente' : expiryStatus === 'por_vencer' ? 'Por vencer' : 'Vencido'}`}</dd></div><div><dt>Estado IA</dt><dd>{aiStatus}</dd></div>
+    </dl></section><section className={styles.railSection}><p className={styles.eyebrow}>VINCULACIÓN</p><h2>{industria === 'inmobiliaria' ? 'Operación' : industria === 'escribania' ? 'Legajo' : 'Expediente'}</h2>{document.case_id ? <Link href={backHref}>Ver ficha vinculada ↗</Link> : <p>Sin ficha asociada.</p>}</section><section className={styles.railSection}><h2>Almacenamiento privado</h2><p>El acceso original utiliza un enlace temporal. Si vence, volvé a abrir esta página.</p></section></>}
+    analysis={aiReadError ? <section className={styles.railSection} role="alert"><h2>Estado de análisis no disponible</h2><p>No se pudo consultar el historial. No se presume que falten análisis. Volvé a abrir esta página para reintentar.</p></section> : <section className={styles.railSection}><h2>Lectura documental</h2><p>Resultado orientativo. No certifica validez ni reemplaza revisión profesional.</p>{puedeUsarIA && <AnalyzeDetailButtonClient documentId={document.id} label={analyzeButtonLabel}/>}          {aiResult ? (
+            <div >
+              <div >
                 <div>
-                  <p className="text-xs font-semibold uppercase tracking-wide text-sky-400">
+                  <p >
                     Último análisis IA
                   </p>
 
-                  <p className="mt-2 text-xs font-semibold text-slate-500">
+                  <p >
                     Modelo: {latestAiOutput?.model_name ?? 'analisis-documental-beta-v1'} ·{' '}
                     {formatDate(latestAiOutput?.created_at)}
                   </p>
                 </div>
 
-                <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-bold text-sky-400">
+                <span >
                   Última versión
                 </span>
               </div>
 
-              <p className="mt-4 text-sm font-semibold leading-6 text-white">
+              <p >
                 {aiResult.resumen}
               </p>
 
-              <div className="mt-5 space-y-4 text-sm text-slate-300">
+              <div >
                 <p>
                   <strong>Modo:</strong> {aiResult.modo ?? 'análisis documental'}
                 </p>
@@ -774,7 +482,7 @@ export default async function DocumentDetailPage({
                 {aiResult.datos_relevantes?.length ? (
                   <div>
                     <strong>Datos relevantes:</strong>
-                    <ul className="mt-2 list-disc space-y-1 pl-5">
+                    <ul >
                       {aiResult.datos_relevantes.map((item) => (
                         <li key={toText(item)}>{toText(item)}</li>
                       ))}
@@ -785,7 +493,7 @@ export default async function DocumentDetailPage({
                 {aiResult.alertas?.length ? (
                   <div>
                     <strong>Alertas:</strong>
-                    <ul className="mt-2 list-disc space-y-1 pl-5">
+                    <ul >
                       {aiResult.alertas.map((item) => (
                         <li key={toText(item)}>{toText(item)}</li>
                       ))}
@@ -796,7 +504,7 @@ export default async function DocumentDetailPage({
                 {aiResult.proximas_acciones?.length ? (
                   <div>
                     <strong>Próximas acciones:</strong>
-                    <ul className="mt-2 list-disc space-y-1 pl-5">
+                    <ul >
                       {aiResult.proximas_acciones.map((item) => (
                         <li key={toText(item)}>{toText(item)}</li>
                       ))}
@@ -828,11 +536,11 @@ export default async function DocumentDetailPage({
                    document.document_type?.toLowerCase().includes('estatuto') ||
                    aiResult?.tipo_documental_detectado?.toLowerCase().includes('poder') ||
                    aiResult?.tipo_documental_detectado?.toLowerCase().includes('estatuto')) && (
-                  <div id="poder" className="scroll-mt-6 rounded-3xl border border-white/10 bg-white/[0.02] p-6 mb-4">
-                    <div className="flex items-start justify-between gap-4">
+                  <div id="poder" >
+                    <div >
                       <div>
-                        <h2 className="text-lg font-semibold text-white">⚖️ Análisis de poder / estatuto</h2>
-                        <p className="mt-1 text-sm text-slate-400">
+                        <h2 >⚖️ Análisis de poder / estatuto</h2>
+                        <p >
                           Revisión notarial del instrumento: facultades, vigencia y representación.
                         </p>
                       </div>
@@ -844,25 +552,25 @@ export default async function DocumentDetailPage({
                         const p = poderData.result_json as any;
                         const renderBloque = (titulo: string, items: unknown) =>
                           Array.isArray(items) && items.length > 0 ? (
-                            <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
-                              <p className="text-sm font-semibold text-white">{titulo}</p>
-                              <ul className="mt-2 space-y-1">
+                            <div >
+                              <p >{titulo}</p>
+                              <ul >
                                 {items.map((it: unknown, i: number) => (
-                                  <li key={i} className="text-sm text-slate-300">• {String(it)}</li>
+                                  <li key={i} >• {String(it)}</li>
                                 ))}
                               </ul>
                             </div>
                           ) : null;
                         return (
-                          <div className="mt-4 space-y-3">
-                            <div className="flex flex-wrap gap-2 text-sm text-slate-200">
+                          <div >
+                            <div >
                               {p.tipo_instrumento && (
-                                <span className="rounded-lg border border-violet-500/25 bg-violet-500/10 px-3 py-1 text-violet-200">
+                                <span >
                                   {p.tipo_instrumento}
                                 </span>
                               )}
                               {p.otorgante && (
-                                <span className="rounded-lg border border-white/10 bg-white/[0.04] px-3 py-1">
+                                <span >
                                   Otorgante: {p.otorgante}
                                 </span>
                               )}
@@ -871,21 +579,21 @@ export default async function DocumentDetailPage({
                             {renderBloque('✅ Facultades', p.facultades)}
                             {renderBloque('🚫 Límites / Exclusiones', p.limites_exclusiones)}
                             {p.vigencia && (
-                              <div className="rounded-2xl border border-amber-400/25 bg-amber-400/[0.06] p-4">
-                                <p className="text-sm font-semibold text-white">⏳ Vigencia</p>
-                                <p className="mt-1 text-sm text-slate-300">{p.vigencia}</p>
+                              <div >
+                                <p >⏳ Vigencia</p>
+                                <p >{p.vigencia}</p>
                               </div>
                             )}
                             {p.representacion && (
-                              <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
-                                <p className="text-sm font-semibold text-white">🏛️ Representación</p>
-                                <p className="mt-1 text-sm text-slate-300">{p.representacion}</p>
+                              <div >
+                                <p >🏛️ Representación</p>
+                                <p >{p.representacion}</p>
                               </div>
                             )}
                             {renderBloque('⚠️ Alertas', p.alertas)}
                             {renderBloque('📌 Apto para', p.apto_para)}
                             {poderData.created_at && (
-                              <p className="text-xs text-slate-500">
+                              <p >
                                 Analizado el {new Date(poderData.created_at).toLocaleString('es-AR')} · Borrador orientativo, revisá antes de otorgar.
                               </p>
                             )}
@@ -893,7 +601,7 @@ export default async function DocumentDetailPage({
                         );
                       })()
                     ) : (
-                      <p className="mt-4 text-sm text-slate-400">
+                      <p >
                         Si este documento es un poder o un estatuto, tocá “Analizar poder/estatuto con IA” para extraer facultades, vigencia y representación.
                       </p>
                     )}
@@ -922,12 +630,12 @@ export default async function DocumentDetailPage({
                       ? 'Redactar este instrumento'
                       : 'Redactar este escrito';
                   return (
-                    <div className="mt-4 rounded-2xl border border-violet-500/20 bg-violet-900/20 p-4">
-                      <div className="flex items-center gap-2 text-sm font-semibold text-violet-200">
-                        <FileSignature className="h-4 w-4" />
+                    <div >
+                      <div >
+                        <FileSignature  />
                         {cardTitle}
                       </div>
-                      <p className="mt-1 text-sm text-violet-300">
+                      <p >
                         Según el tipo detectado
                         {aiResult?.tipo_documental_detectado
                           ? ` (${aiResult.tipo_documental_detectado})`
@@ -936,9 +644,9 @@ export default async function DocumentDetailPage({
                       </p>
                       <Link
                         href={`/modelos?modelo=${modeloSugerido.id}`}
-                        className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-violet-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-violet-700"
+
                       >
-                        <FileSignature className="h-4 w-4" />
+                        <FileSignature  />
                         {ctaTitle}
                       </Link>
                     </div>
@@ -946,11 +654,11 @@ export default async function DocumentDetailPage({
                 })()}
 
                 {aiResult.texto_extraido_preview ? (
-                  <details className="rounded-2xl border border-white/5 bg-white/[0.02] p-4">
-                    <summary className="cursor-pointer font-bold">
+                  <details >
+                    <summary >
                       Ver texto extraído parcial
                     </summary>
-                    <p className="mt-3 text-xs leading-6 text-slate-400">
+                    <p >
                       {aiResult.texto_extraido_preview}
                     </p>
                   </details>
@@ -958,44 +666,44 @@ export default async function DocumentDetailPage({
               </div>
             </div>
           ) : (
-            <div className="rounded-3xl border border-white/5 bg-white/[0.02] p-6 shadow-sm">
-              <p className="font-bold text-white">
+            <div >
+              <p >
                 Este documento todavía no tiene análisis IA.
               </p>
-              <p className="mt-2 text-sm text-slate-400">
+              <p >
                 Ejecutá el análisis IA para generar una primera lectura documental.
               </p>
             </div>
           )}
 
-          <div className="rounded-3xl border border-white/5 bg-white/[0.02] p-6 shadow-sm">
-            <h3 className="text-lg font-bold text-white">
+          <div >
+            <h3 >
               Historial de análisis IA
             </h3>
 
-            <p className="mt-2 text-sm text-slate-400">
+            <p >
               Cada reanálisis queda guardado como una nueva versión.
             </p>
 
-            <div className="mt-5 space-y-3">
+            <div >
               {latestAiOutput ? (
-                <div className="rounded-2xl border border-sky-500/20 bg-sky-900/10 p-4">
-                  <div className="flex items-start justify-between gap-4">
+                <div >
+                  <div >
                     <div>
-                      <p className="font-bold text-white">
+                      <p >
                         Última versión · Análisis #{aiHistory.length}
                       </p>
-                      <p className="mt-1 text-xs text-slate-500">
+                      <p >
                         {formatDate(latestAiOutput.created_at)}
                       </p>
                     </div>
 
-                    <span className="rounded-full bg-sky-500/10 px-3 py-1 text-xs font-bold text-sky-400">
+                    <span >
                       {latestAiOutput.model_name ?? 'analisis-documental-beta-v1'}
                     </span>
                   </div>
 
-                  <p className="mt-3 text-sm leading-6 text-slate-300">
+                  <p >
                     {latestAiOutput.result_json?.resumen ??
                       'Análisis guardado sin resumen disponible.'}
                   </p>
@@ -1003,33 +711,33 @@ export default async function DocumentDetailPage({
               ) : null}
 
               {previousAiOutputs.length > 0 ? (
-                <div className="pt-2">
-                  <p className="mb-3 text-xs font-bold uppercase tracking-wide text-slate-500">
+                <div >
+                  <p >
                     Versiones anteriores
                   </p>
 
-                  <div className="space-y-3">
+                  <div >
                     {previousAiOutputs.map((item, index) => (
                       <div
                         key={item.id}
-                        className="rounded-2xl border border-white/5 bg-white/[0.02] p-4"
+
                       >
-                        <div className="flex items-start justify-between gap-4">
+                        <div >
                           <div>
-                            <p className="font-bold text-slate-200">
+                            <p >
                               Análisis #{previousAiOutputs.length - index}
                             </p>
-                            <p className="mt-1 text-xs text-slate-500">
+                            <p >
                               {formatDate(item.created_at)}
                             </p>
                           </div>
 
-                          <span className="rounded-full bg-white/5 px-3 py-1 text-xs font-bold text-slate-400">
+                          <span >
                             {item.model_name ?? 'analisis-documental-beta-v1'}
                           </span>
                         </div>
 
-                        <p className="mt-3 text-sm leading-6 text-slate-400">
+                        <p >
                           {item.result_json?.resumen ??
                             'Análisis guardado sin resumen disponible.'}
                         </p>
@@ -1040,114 +748,13 @@ export default async function DocumentDetailPage({
               ) : null}
 
               {aiHistory.length === 0 ? (
-                <div className="rounded-2xl border border-white/5 bg-white/[0.02] p-4 text-sm text-slate-400">
+                <div >
                   Todavía no hay análisis guardados para este documento.
                 </div>
               ) : null}
             </div>
 
-            {(canArchive || canDelete) && (
-              <div className="mt-8 rounded-3xl border border-white/5 bg-white/[0.02] p-8">
-                <div className="mb-6">
-                  <h3 className="font-display text-xl font-semibold text-white">Zona de administración</h3>
-                  <p className="mt-2 text-sm text-slate-400">Acciones reservadas para administradores y personal autorizado.</p>
-                </div>
-                
-                <div className="space-y-4">
-                  {canArchive && (
-                    <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/[0.02] p-4">
-                      <div>
-                        <p className="font-bold text-white">Estado del documento</p>
-                        <p className="text-sm text-slate-400">
-                          {document.archived_at ? 'Actualmente archivado y oculto por defecto.' : 'Actualmente activo y visible.'}
-                        </p>
-                      </div>
-                      
-                      {document.archived_at ? (
-                        <form action={unarchiveDocument}>
-                          <input type="hidden" name="document_id" value={document.id} />
-                          <button
-                            type="submit"
-                            className="flex items-center gap-2 rounded-2xl border border-sky-500/20 bg-sky-500/10 px-4 py-2 text-sm font-bold text-sky-400 transition-all hover:bg-sky-500/20"
-                          >
-                            <ArchiveRestore className="h-4 w-4" /> Desarchivar
-                          </button>
-                        </form>
-                      ) : (
-                        <form action={archiveDocument}>
-                          <input type="hidden" name="document_id" value={document.id} />
-                          <button
-                            type="submit"
-                            className="flex items-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-bold text-slate-300 transition-all hover:bg-white/10"
-                          >
-                            <Archive className="h-4 w-4" /> Archivar
-                          </button>
-                        </form>
-                      )}
-                    </div>
-                  )}
-
-                  {canDelete && (
-                    <div className="flex items-center justify-between rounded-2xl border border-red-500/20 bg-red-500/5 p-4">
-                      <div>
-                        <p className="font-bold text-red-500">Borrar definitivamente</p>
-                        <p className="text-sm text-slate-400">Elimina el documento, sus análisis y archivos asociados.</p>
-                      </div>
-                      <form action={deleteDocument}>
-                        <input type="hidden" name="document_id" value={document.id} />
-                        <DocumentDeleteButton />
-                      </form>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
           </div>
-        </section>
-
-        <MotionCard index={3} className="min-h-[520px] xl:sticky xl:top-6 xl:h-[calc(100vh-3rem)]">
-          <div className="mb-3 flex items-center justify-between gap-3">
-            <div>
-              <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
-                Vista previa
-              </p>
-              <p className="text-sm font-bold text-white">
-                {document.file_name}
-              </p>
-            </div>
-
-            {signedUrl ? (
-              <a
-                href={signedUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="rounded-full border border-white/10 px-3 py-1.5 text-xs font-bold text-cyan-400 hover:bg-cyan-500/10"
-              >
-                Abrir en pestaña nueva
-              </a>
-            ) : null}
-          </div>
-
-          {signedUrl && canPreview(document.file_mime_type) ? (
-            <iframe
-              title={document.file_name}
-              src={signedUrl}
-              className="h-[calc(100vh-9rem)] min-h-[520px] w-full rounded-2xl border border-slate-200"
-            />
-          ) : (
-            <div className="flex h-[520px] items-center justify-center rounded-2xl border border-white/10 bg-white/[0.02] p-8 text-center">
-              <div>
-                <p className="font-bold text-white">
-                  Vista previa no disponible.
-                </p>
-                <p className="mt-2 text-sm text-slate-400">
-                  Este formato puede abrirse mediante el enlace temporal.
-                </p>
-              </div>
-            </div>
-          )}
-        </MotionCard>
-      </div>
-    </AppShell>
-  );
+<details><summary>Orientaciones de control manual</summary><h3>Checklist operativo sugerido</h3><ul>{checklist.map(item=><li key={item}>{item}</li>)}</ul><h3>Posibles faltantes o respaldos</h3><ul>{missingDocuments.map(item=><li key={item}>{item}</li>)}</ul><h3>Recomendaciones de acceso</h3><ul>{securityRecommendations.map(item=><li key={item}>{item}</li>)}</ul><p>Orientaciones por tipo y sensibilidad; no son una validación del archivo.</p></details></section>}
+  /></AppShell>;
 }

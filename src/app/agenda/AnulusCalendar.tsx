@@ -7,6 +7,7 @@ import { FERIADOS_NACIONALES_2026 } from '@/lib/legal/config';
 import type { AgendaLabels, IndustryTerms } from '@/lib/industries/uiLabels';
 import type { AgendaEvento } from './AgendaClient';
 import { getAgendaEventMeta } from './agendaPresentation';
+import styles from './Agenda.module.css';
 
 export type CalendarView = 'hoy' | 'semana' | 'mes';
 
@@ -78,116 +79,56 @@ export function AnulusCalendar({ eventos, vista, agendaLabels, terms, onSelect }
   }
 
   const motionProps = {
-    initial: reduceMotion ? false : { opacity: 0, y: 6 },
-    animate: { opacity: 1, y: 0 },
-    exit: reduceMotion ? undefined : { opacity: 0, y: -4 },
+    initial: reduceMotion ? false : { opacity: 0 },
+    animate: { opacity: 1 },
+    exit: reduceMotion ? undefined : { opacity: 0 },
     transition: { duration: reduceMotion ? 0 : 0.18, ease: [0.22, 1, 0.36, 1] as [number, number, number, number] },
   };
 
-  return (
-    <div className="overflow-hidden rounded-xl border border-white/[0.08] bg-[#091411] p-4 shadow-[0_24px_70px_rgba(0,0,0,0.18)] sm:p-6">
-      <div className="mb-5 flex items-start justify-between gap-3">
-        <div>
-          <p className="font-ui text-xs font-semibold text-[#85E4D4]">Vista {vista}</p>
-          <h2 className="mt-1 font-display text-2xl font-medium tracking-[-0.04em] text-[#F3F8F5]">
-            {vista === 'hoy' ? new Intl.DateTimeFormat('es-AR', { weekday: 'long', day: 'numeric', month: 'long' }).format(now) : vista === 'semana' ? 'Esta semana' : `${MONTHS[cursor.getMonth()]} ${cursor.getFullYear()}`}
-          </h2>
-          {vista === 'mes' ? <span className="mt-2 inline-flex items-center gap-1.5 font-ui text-[10px] font-semibold text-amber-200/75"><CalendarX size={12} /> Feriado nacional</span> : null}
-        </div>
-        {vista === 'mes' ? (
-          <div className="inline-flex overflow-hidden rounded-lg border border-white/12 bg-white/[0.018]">
-            <button type="button" onClick={() => changeMonth(-1)} aria-label="Mes anterior" className="grid h-10 w-10 place-items-center text-[#8FA19B] transition hover:bg-white/[0.05] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#C8FF62]"><CaretLeft size={16} /></button>
-            <button type="button" onClick={() => { setCursor(new Date(now.getFullYear(), now.getMonth(), 1)); setSelectedDate(today); }} className="h-10 border-x border-white/10 px-3.5 font-ui text-xs font-bold text-[#D7E2DE] transition hover:bg-white/[0.05] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#C8FF62]">Hoy</button>
-            <button type="button" onClick={() => changeMonth(1)} aria-label="Mes siguiente" className="grid h-10 w-10 place-items-center text-[#8FA19B] transition hover:bg-white/[0.05] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#C8FF62]"><CaretRight size={16} /></button>
-          </div>
-        ) : null}
-      </div>
-
-      <AnimatePresence mode="wait" initial={false}>
-        {vista === 'mes' ? (
-          <motion.div key={`month-${cursor.getFullYear()}-${cursor.getMonth()}`} {...motionProps}>
-            <div className="hidden sm:block">
-              <div className="grid grid-cols-7 px-1 pb-2 text-center font-ui text-[10px] font-bold uppercase tracking-[0.1em] text-[#71857F]">
-                {DAYS.map((day) => <span key={day}>{day}</span>)}
-              </div>
-              <div className="grid grid-cols-7 gap-1 rounded-xl bg-[#07110F] p-1.5">
-                {monthCells.map((value) => {
-                  const date = fromIso(value);
-                  const dayEvents = eventsByDay.get(value) ?? [];
-                  const holiday = HOLIDAYS.has(value);
-                  const isToday = value === today;
-                  const selected = value === selectedDate;
-                  const currentMonth = date.getMonth() === cursor.getMonth();
-                  return (
-                    <div key={value} className={`min-h-[108px] rounded-lg p-2 transition-colors ${selected ? 'bg-[#85E4D4]/[0.075] ring-1 ring-inset ring-[#85E4D4]/25' : holiday ? 'bg-amber-300/[0.035]' : 'bg-white/[0.014] hover:bg-white/[0.03]'} ${currentMonth ? '' : 'opacity-35'}`}>
-                      <div className="flex items-center justify-between gap-1">
-                        <button type="button" onClick={() => chooseDay(value)} aria-pressed={selected} aria-label={`${date.getDate()} de ${MONTHS[date.getMonth()]}${holiday ? ', feriado nacional' : ''}${dayEvents.length ? `, ${dayEvents.length} eventos` : ', sin eventos'}`} className={`grid h-7 min-w-7 place-items-center rounded-md font-ui text-[11px] font-bold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C8FF62] ${isToday ? 'bg-[#C8FF62] text-[#071110]' : selected ? 'bg-[#85E4D4]/12 text-[#DFFAF4]' : 'text-[#8FA19B] hover:bg-white/[0.06] hover:text-white'}`}>{date.getDate()}</button>
-                        {holiday ? <span title="Feriado nacional" className="inline-flex h-6 w-6 items-center justify-center text-amber-200/80"><CalendarX size={13} /></span> : null}
-                      </div>
-                      <div className="mt-1.5 space-y-0.5">
-                        {dayEvents.slice(0, 2).map((event) => {
-                          const meta = getAgendaEventMeta(event.tipo, agendaLabels.plazoLabel, terms);
-                          return <button key={event.id} type="button" onClick={() => onSelect(event)} title={`${meta.label}: ${event.titulo}`} className="grid min-h-7 w-full grid-cols-[3px_minmax(0,1fr)] items-center gap-1.5 rounded-md px-1.5 text-left transition hover:bg-white/[0.055] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#C8FF62]"><span className="h-4 rounded-full" style={{ background: meta.color }} /><span className="truncate font-ui text-[10px] font-semibold text-[#D6E1DD]">{event.titulo}</span></button>;
-                        })}
-                        {dayEvents.length > 2 ? <button type="button" onClick={() => chooseDay(value)} className="block min-h-6 w-full px-1 text-left font-ui text-[9px] font-semibold text-[#71857F] hover:text-[#BFD0CA]">+{dayEvents.length - 2} más</button> : null}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
-            <div className="sm:hidden">
-              <div className="grid grid-cols-7 px-1 pb-2 text-center font-ui text-[9px] font-bold uppercase text-[#71857F]">{DAYS.map((day) => <span key={day}>{day[0]}</span>)}</div>
-              <div className="grid grid-cols-7 gap-1 rounded-xl bg-[#07110F] p-1.5">
-                {monthCells.map((value) => {
-                  const date = fromIso(value);
-                  const dayEvents = eventsByDay.get(value) ?? [];
-                  const holiday = HOLIDAYS.has(value);
-                  const isToday = value === today;
-                  const selected = value === selectedDate;
-                  const currentMonth = date.getMonth() === cursor.getMonth();
-                  return (
-                    <button key={value} type="button" onClick={() => chooseDay(value)} aria-pressed={selected} aria-label={`${date.getDate()} de ${MONTHS[date.getMonth()]}, ${dayEvents.length} eventos`} className={`relative flex aspect-square min-h-11 flex-col items-center justify-center gap-1 rounded-lg font-ui text-[10px] font-bold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C8FF62] ${selected ? 'bg-[#85E4D4]/12 text-white ring-1 ring-inset ring-[#85E4D4]/30' : holiday ? 'bg-amber-300/[0.045] text-[#B9C6C1]' : 'text-[#8FA19B] hover:bg-white/[0.04]'} ${currentMonth ? '' : 'opacity-30'}`}>
-                      <span className={isToday ? 'grid h-6 w-6 place-items-center rounded-full bg-[#C8FF62] text-[#071110]' : ''}>{date.getDate()}</span>
-                      <span className="flex h-1 items-center gap-0.5" aria-hidden="true">{dayEvents.slice(0, 3).map((event) => { const meta = getAgendaEventMeta(event.tipo, agendaLabels.plazoLabel, terms); return <span key={event.id} className="h-1 w-1 rounded-full" style={{ background: meta.color }} />; })}</span>
-                      {holiday ? <span className="absolute right-1 top-1 h-1 w-1 rounded-full bg-amber-200" /> : null}
-                    </button>
-                  );
-                })}
-              </div>
-              <div className="mt-4 rounded-xl bg-white/[0.022] p-3.5">
-                <div className="flex items-center justify-between gap-3"><p className="font-ui text-xs font-bold capitalize text-[#DCE8E3]">{selectedLabel}</p><span className="font-ui text-[10px] text-[#71857F]">{selectedEvents.length} {selectedEvents.length === 1 ? 'evento' : 'eventos'}</span></div>
-                <div className="mt-3 space-y-1">
-                  {selectedEvents.map((event) => { const meta = getAgendaEventMeta(event.tipo, agendaLabels.plazoLabel, terms); return <button key={event.id} type="button" onClick={() => onSelect(event)} className="grid min-h-11 w-full grid-cols-[3px_minmax(0,1fr)_auto] items-center gap-3 rounded-lg px-2 py-2 text-left transition hover:bg-white/[0.04] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C8FF62]"><span className="h-full min-h-7 rounded-full" style={{ background: meta.color }} /><span className="min-w-0"><span className="block truncate font-ui text-xs font-bold text-[#E7EFEC]">{event.titulo}</span><span className="mt-0.5 block truncate font-ui text-[10px] text-[#71857F]">{event.hora ? `${event.hora} · ` : ''}{meta.label}</span></span><ArrowRight size={15} className="text-[#85E4D4]" /></button>; })}
-                  {!selectedEvents.length ? <p className="py-4 text-center font-ui text-xs text-[#60736D]">Sin eventos para esta fecha.</p> : null}
-                </div>
-              </div>
-            </div>
-          </motion.div>
-        ) : null}
-
-        {vista === 'semana' ? (
-          <motion.div key="week" {...motionProps} className="grid gap-1 sm:grid-cols-7">
-            {weekDays.map((day) => { const value = iso(day); const dayEvents = eventsByDay.get(value) ?? []; const isToday = value === today; return (
-              <section key={value} className={`min-h-36 rounded-xl p-3 ${isToday ? 'bg-[#C8FF62]/[0.055] ring-1 ring-inset ring-[#C8FF62]/25' : 'bg-white/[0.018]'}`} aria-label={`${DAYS[(day.getDay() + 6) % 7]} ${day.getDate()}`}>
-                <div className="flex items-center justify-between sm:block"><p className="font-ui text-[10px] font-bold uppercase tracking-[0.08em] text-[#71857F]">{DAYS[(day.getDay() + 6) % 7]}</p><p className={`mt-1 font-display text-2xl font-semibold ${isToday ? 'text-[#C8FF62]' : 'text-[#F3F8F5]'}`}>{day.getDate()}</p></div>
-                <div className="mt-3 space-y-1">{dayEvents.map((event) => { const meta = getAgendaEventMeta(event.tipo, agendaLabels.plazoLabel, terms); return <button key={event.id} type="button" onClick={() => onSelect(event)} className="grid min-h-9 w-full grid-cols-[3px_minmax(0,1fr)] items-start gap-2 rounded-md px-1.5 py-2 text-left transition hover:bg-white/[0.045] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#C8FF62]"><span className="h-full min-h-5 rounded-full" style={{ background: meta.color }} /><span className="min-w-0 font-ui text-[10px] leading-4 text-[#C9D5D1]"><span className="text-[#71857F]">{event.hora || 'Todo el día'}</span><br />{event.titulo}</span></button>; })}{!dayEvents.length ? <span className="block py-3 font-ui text-[10px] text-[#536760]">Sin eventos</span> : null}</div>
-              </section>
-            ); })}
-          </motion.div>
-        ) : null}
-
-        {vista === 'hoy' ? (
-          <motion.div key="today" {...motionProps} className="relative">
-            {todayEvents.length ? <span className="absolute bottom-5 left-[61px] top-5 w-px bg-white/[0.08]" aria-hidden="true" /> : null}
-            <div className="space-y-1">
-              {todayEvents.map((event) => { const meta = getAgendaEventMeta(event.tipo, agendaLabels.plazoLabel, terms); return <button key={event.id} type="button" onClick={() => onSelect(event)} className="group relative grid min-h-16 w-full grid-cols-[48px_10px_minmax(0,1fr)_auto] items-center gap-2 rounded-lg px-1 py-2 text-left transition hover:bg-white/[0.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C8FF62]"><span className="font-ui text-[10px] font-semibold text-[#71857F]">{event.hora || 'Todo el día'}</span><span className="z-10 h-2.5 w-2.5 rounded-full ring-4 ring-[#091411]" style={{ background: meta.color }} /><span className="min-w-0 pl-2"><span className="block truncate font-ui text-sm font-bold text-[#E7EFEC]">{event.titulo}</span><span className="mt-1 block truncate font-ui text-xs text-[#71857F]">{meta.label}{event.expedienteNombre ? ` · ${event.expedienteNombre}` : ''}</span></span><ArrowRight size={17} className="text-[#85E4D4] transition-transform group-hover:translate-x-0.5" /></button>; })}
-              {!todayEvents.length ? <div className="rounded-xl bg-white/[0.018] px-5 py-14 text-center"><p className="font-display text-lg font-medium text-[#CAD7D2]">Día despejado</p><p className="mt-2 font-ui text-xs text-[#71857F]">No hay eventos para hoy con este filtro.</p></div> : null}
-            </div>
-          </motion.div>
-        ) : null}
-      </AnimatePresence>
-    </div>
-  );
+  function renderEventList(items: AgendaEvento[]) {
+    return <div className={styles.dayList}>{items.map(event => {const meta=getAgendaEventMeta(event.tipo,agendaLabels.plazoLabel,terms); return <button key={event.id}
+      type="button" className={styles.agendaEvent} onClick={() => onSelect(event)}><span>{event.hora || 'Todo el día'}</span>
+      <span><strong>{event.titulo}</strong><small>{meta.label}{event.expedienteNombre ? ` · ${event.expedienteNombre}` : ''}</small></span><ArrowRight size={16} aria-hidden="true" /></button>;})}
+      {!items.length ? <p className={styles.empty}>Sin eventos para esta fecha.</p> : null}</div>;
+  }
+  return <section className={styles.calendar} aria-label="Calendario">
+    <header className={styles.calendarHead}><div><p className={styles.eyebrow}>Vista {vista}</p>
+      <h2>{vista === 'hoy' ? new Intl.DateTimeFormat('es-AR',{weekday:'long',day:'numeric',month:'long'}).format(now) : vista === 'semana' ? 'Esta semana' : `${MONTHS[cursor.getMonth()]} ${cursor.getFullYear()}`}</h2></div>
+      {vista === 'mes' ? <div className={styles.monthControls}>
+        <button type="button" aria-label="Mes anterior" onClick={() => changeMonth(-1)}><CaretLeft size={16} aria-hidden="true" /></button>
+        <button type="button" onClick={() => {setCursor(new Date(now.getFullYear(),now.getMonth(),1));setSelectedDate(today);}}>Hoy</button>
+        <button type="button" aria-label="Mes siguiente" onClick={() => changeMonth(1)}><CaretRight size={16} aria-hidden="true" /></button>
+      </div> : null}
+    </header>
+    <AnimatePresence mode="wait" initial={false}>
+      {vista === 'mes' ? <motion.div key={`month-${cursor.getFullYear()}-${cursor.getMonth()}`} {...motionProps}>
+        <div className={styles.weekLabels} aria-hidden="true">{DAYS.map(day => <span key={day}>{day}</span>)}</div>
+        <div className={styles.month}>{monthCells.map(value => {
+          const date=fromIso(value); const dayEvents=eventsByDay.get(value) ?? [];const holiday=HOLIDAYS.has(value);const selected=value===selectedDate;
+          const currentMonth=date.getMonth()===cursor.getMonth();
+          return <div key={value} className={`${styles.day} ${!currentMonth ? styles.outside : ''} ${selected ? styles.chosen : ''} ${value === today ? styles.current : ''}`}>
+            <button type="button" className={styles.dayNumber} onClick={() => chooseDay(value)} aria-pressed={selected}
+              aria-label={`${date.getDate()} de ${MONTHS[date.getMonth()]}${holiday ? ', feriado nacional' : ''}, ${dayEvents.length} eventos`}>{date.getDate()}</button>
+            {holiday ? <span title="Feriado nacional" className={styles.holidayIcon}><CalendarX size={12} aria-hidden="true" /></span> : null}
+            <div className={styles.cellEvents}>{dayEvents.slice(0,2).map(event => {const meta=getAgendaEventMeta(event.tipo,agendaLabels.plazoLabel,terms);return <button key={event.id} type="button"
+              className={styles.event} onClick={() => onSelect(event)} title={`${meta.label}: ${event.titulo}`}>{event.titulo}</button>;})}
+              {dayEvents.length > 2 ? <button type="button" className={styles.more} onClick={() => chooseDay(value)}>+{dayEvents.length-2} más</button> : null}</div>
+            <span className={styles.mobileDots} aria-hidden="true">{dayEvents.slice(0,3).map(event => <span key={event.id} className={styles.dot} />)}</span>
+          </div>;
+        })}</div>
+        <div className={styles.calendarLegend}><CalendarX size={13} aria-hidden="true" /> Feriado nacional<span>Seleccioná una fecha para ver sus eventos.</span></div>
+        <div className={styles.selectedDay}><h3>{selectedLabel}</h3>{renderEventList(selectedEvents)}</div>
+      </motion.div> : null}
+      {vista === 'semana' ? <motion.div key="week" {...motionProps} className={styles.weekly}>
+        {weekDays.map(day => {const value=iso(day);const dayEvents=eventsByDay.get(value) ?? [];return <section key={value} className={styles.weekDay}
+          aria-label={`${DAYS[(day.getDay()+6)%7]} ${day.getDate()}`}><h3>{DAYS[(day.getDay()+6)%7]} {day.getDate()}{value === today ? ' · Hoy' : ''}</h3>
+          {dayEvents.map(event => {const meta=getAgendaEventMeta(event.tipo,agendaLabels.plazoLabel,terms);return <button key={event.id} type="button" onClick={() => onSelect(event)}>
+            <small>{event.hora || 'Todo el día'} · {meta.label}</small><br />{event.titulo}</button>;})}
+          {!dayEvents.length ? <p className={styles.empty}>Sin eventos</p> : null}</section>;})}
+      </motion.div> : null}
+      {vista === 'hoy' ? <motion.div key="today" {...motionProps}>
+        {todayEvents.length ? renderEventList(todayEvents) : <div className={styles.empty}><h3>Día despejado</h3><p>No hay eventos para hoy con este filtro.</p></div>}
+      </motion.div> : null}
+    </AnimatePresence>
+  </section>;
 }

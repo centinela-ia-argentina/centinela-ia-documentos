@@ -1,5 +1,6 @@
 'use client';
 
+import styles from './IndustryTools.module.css';
 import { useFormStatus } from 'react-dom';
 import { redactarEscrituraExpediente } from '../actions';
 
@@ -9,9 +10,9 @@ function SubmitButton({ yaGenerada }: { yaGenerada: boolean }) {
     <button
       type="submit"
       disabled={pending}
-      className="inline-flex items-center gap-2 rounded-lg bg-amber-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-amber-500 disabled:opacity-60"
+      className={styles.action}
     >
-      {pending ? 'Redactando borrador…' : yaGenerada ? '✍️ Regenerar borrador' : '✍️ Redactar borrador de escritura (IA)'}
+      {pending ? 'Redactando borrador…' : yaGenerada ? 'Regenerar borrador' : 'Redactar borrador de escritura (IA)'}
     </button>
   );
 }

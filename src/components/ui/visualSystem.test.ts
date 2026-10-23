@@ -17,8 +17,8 @@ describe('Reconstructed visual primitives', () => {
     const button = screen.getByRole('button');
     expect(button.getAttribute('type')).toBe('button');
     expect(button.hasAttribute('disabled')).toBe(true);
-    expect(button.className).toContain('min-h-12');
-    expect(button.className).toContain('focus-visible:ring-2');
+    expect(button.className).toContain('button');
+    expect(button.className).toContain(variant);
   });
   it('preserves explicit submit and handlers', () => {
     const onClick = vi.fn();
@@ -31,8 +31,8 @@ describe('Reconstructed visual primitives', () => {
     render(h(AppButtonLink, { href: '/operaciones', variant: 'secondary', appearance: 'navigation' }, 'Volver'));
     const link = screen.getByRole('link');
     expect(link.getAttribute('href')).toBe('/operaciones');
-    expect(link.className).toContain('w-fit');
-    expect(link.className).toContain('bg-white/[0.045]');
+    expect(link.className).toContain('navigation');
+    expect(link.className).toContain('secondary');
   });
   it.each(['panel', 'secondary', 'row', 'interactive', 'callout'] as SurfaceFamily[])('supports the %s surface family', (family) => {
     render(h(Surface, { family, 'data-testid': 'surface', className: 'mt-6' }, 'Contenido'));

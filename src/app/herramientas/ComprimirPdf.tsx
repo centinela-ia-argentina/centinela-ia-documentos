@@ -20,7 +20,7 @@ function formatoTamano(bytes: number): string {
 	return `${(bytes / 1024 / 1024).toFixed(2)} MB`;
 }
 
-export function ComprimirPdf() {
+export function ComprimirPdf({ canSave = true }: { canSave?: boolean }) {
 	const [file, setFile] = useState<File | null>(null);
 	const [nivel, setNivel] = useState<Nivel>('media');
 	const [procesando, setProcesando] = useState(false);
@@ -119,6 +119,7 @@ export function ComprimirPdf() {
 	};
 
 	const guardarEnDocumentos = async () => {
+    if (!canSave) return;
 		if (!resultado) return;
 		setGuardando(true);
 		setError(null);
@@ -145,7 +146,7 @@ export function ComprimirPdf() {
 				<input
 					type="file"
 					accept="application/pdf"
-					className="hidden"
+					className="sr-only"
 					onChange={(e) => {
 						elegir(e.target.files);
 						e.target.value = '';
@@ -174,6 +175,7 @@ export function ComprimirPdf() {
 								<button
 									key={k}
 									onClick={() => setNivel(k)}
+                                    aria-pressed={nivel === k}
 									className={`rounded-lg border px-3 py-2 text-left text-sm transition ${
 										nivel === k
 											? 'border-sky-600 bg-sky-50 text-sky-700'
@@ -223,14 +225,14 @@ export function ComprimirPdf() {
 									<Download className="h-4 w-4" />
 									Descargar
 								</button>
-								<button
+								{canSave && (<button
 									onClick={guardarEnDocumentos}
 									disabled={guardando}
 									className="inline-flex items-center gap-2 rounded-lg border border-sky-600 px-4 py-2 text-sm font-semibold text-sky-700 hover:bg-sky-50 disabled:opacity-50"
 								>
 									{guardando ? <Loader2 className="h-4 w-4 animate-spin" /> : <FolderPlus className="h-4 w-4" />}
 									{guardando ? 'Guardando…' : 'Guardar en Documentos'}
-								</button>
+								</button>)}
 							</div>
 						</div>
 					)}

@@ -43,7 +43,7 @@ export function TasarButton({ propertyId }: { propertyId: string }) {
 
   if (result) {
     return (
-      <div className="mb-6 rounded-2xl border border-white/10 bg-white/5 p-6">
+      <div className={`${styles.aiTool} mb-6 rounded-2xl border border-white/10 bg-white/5 p-6`}>
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2 text-cyan-400">
             <Calculator className="h-5 w-5" />
@@ -86,7 +86,7 @@ export function TasarButton({ propertyId }: { propertyId: string }) {
   }
 
   return (
-    <div className="mb-6">
+    <div className={`${styles.aiTool} mb-6`}>
       {error && (
         <div className="mb-4 rounded-xl border border-red-500/20 bg-red-500/10 p-4">
           <div className="flex items-start gap-3">

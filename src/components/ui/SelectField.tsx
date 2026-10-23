@@ -2,6 +2,7 @@
 
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { CaretDown, Check } from '@phosphor-icons/react';
+import styles from './SharedControls.module.css';
 
 export type SelectOption = {
   value: string;
@@ -102,26 +103,14 @@ export function SelectField({
             openMenu(event.key === 'ArrowUp');
           }
         }}
-        className={`group flex min-h-12 w-full items-center gap-3 rounded-lg border px-3.5 text-left transition-[border-color,background-color,box-shadow] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C8FF62] ${
-          open
-            ? 'border-[#85E4D4]/45 bg-[#0B1815] shadow-[0_0_0_3px_rgba(133,228,212,0.08)]'
-            : 'border-white/[0.11] bg-[#07110F] hover:border-white/[0.22] hover:bg-white/[0.025]'
-        }`}
+        className={styles.selectTrigger}
       >
-        {icon ? (
-          <span className="grid h-8 w-8 shrink-0 place-items-center rounded-md border border-white/[0.07] bg-white/[0.035] text-[#85E4D4]">
-            {icon}
-          </span>
-        ) : null}
-        <span className="min-w-0 flex-1">
-          <span className={`block truncate font-display text-sm font-medium tracking-[-0.015em] ${selected ? 'text-[#E1EAE7]' : 'text-[#71857F]'}`}>
-            {selected?.label ?? placeholder}
-          </span>
-          {selected?.detail ? <span className="mt-0.5 block truncate font-ui text-[10px] text-[#61736D]">{selected.detail}</span> : null}
+        {icon ? <span className={styles.selectIcon}>{icon}</span> : null}
+        <span className={styles.selectValue}>
+          <span className={`${styles.selectLabel}${selected ? '' : ` ${styles.selectPlaceholder}`}`}>{selected?.label ?? placeholder}</span>
+          {selected?.detail ? <span className={styles.selectDetail}>{selected.detail}</span> : null}
         </span>
-        <span className={`grid h-7 w-7 shrink-0 place-items-center rounded-md border border-white/[0.08] text-[#8FA19B] transition-transform ${open ? 'rotate-180 bg-white/[0.05] text-white' : 'group-hover:text-white'}`}>
-          <CaretDown size={13} weight="bold" />
-        </span>
+        <span className={styles.caret} aria-hidden="true"><CaretDown size={16} weight="regular" /></span>
       </button>
 
       {open ? (
@@ -129,7 +118,7 @@ export function SelectField({
           id={listId}
           aria-label={label}
           role="listbox"
-          className="absolute left-0 right-0 top-[calc(100%+8px)] z-40 max-h-64 overflow-y-auto rounded-xl border border-[#85E4D4]/18 bg-[#0A1613]/98 p-1.5 shadow-[0_24px_64px_rgba(0,0,0,0.48)] backdrop-blur-xl"
+          className={styles.popup}
         >
           {options.map((option, index) => {
             const active = option.value === currentValue;
@@ -155,16 +144,13 @@ export function SelectField({
                 }}
                 aria-selected={active}
                 onClick={() => choose(option.value)}
-                className={`flex min-h-11 w-full items-center gap-3 rounded-lg px-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#C8FF62] ${
-                  active ? 'bg-[#85E4D4]/[0.09]' : 'hover:bg-white/[0.045]'
-                }`}
+                className={styles.option}
               >
-                <span className={`h-5 w-[3px] rounded-full ${active ? 'bg-[#C8FF62]' : 'bg-transparent'}`} />
-                <span className="min-w-0 flex-1">
-                  <span className={`block truncate font-ui text-xs font-bold ${active ? 'text-[#E8F0ED]' : 'text-[#B8C6C1]'}`}>{option.label}</span>
-                  {option.detail ? <span className="mt-0.5 block truncate font-ui text-[10px] text-[#61736D]">{option.detail}</span> : null}
+                <span className={styles.selectValue}>
+                  <span className={styles.selectLabel}>{option.label}</span>
+                  {option.detail ? <span className={styles.selectDetail}>{option.detail}</span> : null}
                 </span>
-                {active ? <Check size={14} weight="bold" className="shrink-0 text-[#C8FF62]" /> : null}
+                {active ? <Check size={14} weight="regular" aria-hidden="true" /> : null}
               </button>
             );
           })}

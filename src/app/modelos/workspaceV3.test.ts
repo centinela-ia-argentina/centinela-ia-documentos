@@ -1,0 +1,22 @@
+/** @vitest-environment jsdom */
+import React from 'react';
+import {render,screen,fireEvent,cleanup,within} from '@testing-library/react';
+import {afterEach,it,expect,vi} from 'vitest';
+import {ModelosClient} from './ModelosClient';
+import {MODELOS} from '@/lib/legal/modelos';
+import {extraerDatosParaModelo,redactarEscritoIA} from './actions';
+vi.mock('server-only',()=>({}));
+vi.mock('./actions',()=>({extraerDatosParaModelo:vi.fn().mockResolvedValue({}),redactarEscritoIA:vi.fn().mockResolvedValue({ok:true,texto:'Borrador simulado'})}));
+afterEach(()=>{cleanup();vi.clearAllMocks();});
+function mount(industria:'legal'|'escribania'|'inmobiliaria'='legal',extra={}){return render(React.createElement(ModelosClient,{expedientes:[],industria,...extra}));}
+const active=(industry:string)=>MODELOS.find(m=>(m.industries??['legal']).includes(industry as any)&&!['outdated','retired'].includes(m.reviewStatus??''))!;
+for(const industry of ['legal','escribania','inmobiliaria'] as const){
+ it('catálogo sectorial sin llamadas automáticas '+industry,()=>{mount(industry);const catalog=screen.getByRole('complementary',{name:'Catálogo de modelos'});expect(catalog.textContent).toContain(active(industry).titulo);expect(extraerDatosParaModelo).not.toHaveBeenCalled();expect(redactarEscritoIA).not.toHaveBeenCalled();});
+ it('pasos preservan valores y catálogo '+industry,()=>{mount(industry,{modeloInicialId:active(industry).id});const fields=screen.queryAllByPlaceholderText(/^Completar /);if(fields[0])fireEvent.change(fields[0],{target:{value:'Dato conservado'}});fireEvent.click(screen.getByRole('tab',{name:'2. Revisar borrador'}));expect(screen.getByRole('complementary',{name:'Catálogo de modelos'})).toBeTruthy();expect(screen.getByRole('tabpanel').textContent).toContain('Vista previa');if(fields[0])expect(screen.getByRole('tabpanel').textContent).toContain('Dato conservado');fireEvent.click(screen.getByRole('tab',{name:'1. Completar datos'}));if(fields[0])expect((fields[0] as HTMLInputElement).value).toBe('Dato conservado');});
+}
+it('busca sin desmontar la selección',()=>{mount('legal',{modeloInicialId:active('legal').id});fireEvent.change(screen.getByRole('textbox',{name:'Buscar modelo'}),{target:{value:'zzzzsinresultado'}});expect(screen.getByText(/No encontramos modelos/)).toBeTruthy();expect(screen.getByRole('tab',{name:'1. Completar datos'})).toBeTruthy();});
+it('teclado desplaza foco y selección de los pasos',()=>{mount('legal',{modeloInicialId:active('legal').id});fireEvent.keyDown(screen.getByRole('tab',{name:'1. Completar datos'}),{key:'ArrowRight'});expect(document.activeElement).toBe(screen.getByRole('tab',{name:'2. Revisar borrador'}));expect(document.activeElement?.getAttribute('aria-selected')).toBe('true');});
+it('auditor conserva borrador manual y no ve revisión IA aunque se pase el slot',()=>{mount('legal',{modeloInicialId:active('legal').id,puedeIA:false,review:React.createElement('p',{},'Revisión privada')});expect(screen.queryByText('Revisión privada')).toBeNull();expect(screen.queryByTestId('btn-redactar-ia')).toBeNull();fireEvent.click(screen.getByRole('tab',{name:'2. Revisar borrador'}));expect(screen.getByTestId('btn-descargar-docx').hasAttribute('disabled')).toBe(false);});
+it('revisión opcional permanece separada del flujo manual',()=>{mount('legal',{review:React.createElement('textarea',{'aria-label':'Escrito propio'})});const detail=document.querySelector('details')!;expect(detail.open).toBe(false);expect(within(detail).getByRole('textbox',{hidden:true})).toBeTruthy();expect(redactarEscritoIA).not.toHaveBeenCalled();});
+for(const status of ['outdated','retired'])it('histórico '+status+' bloquea exportación y no ofrece edición',()=>{const m=MODELOS.find(m=>m.reviewStatus===status);if(!m)return;mount((m.industries?.[0]??'legal') as any,{modeloInicialId:m.id});expect(screen.getByTestId('ficha-historica-outdated')).toBeTruthy();expect(screen.queryByTestId('btn-redactar-ia')).toBeNull();fireEvent.click(screen.getByRole('tab',{name:'2. Revisar borrador'}));for(const id of ['btn-descargar-docx','btn-descargar-txt','btn-copiar-modelo'])expect(screen.getByTestId(id).hasAttribute('disabled')).toBe(true);});
+it('filtro de jurisdicción sigue explícito y exclusivo',()=>{mount();fireEvent.click(screen.getByRole('button',{name:'Corrientes'}));expect(screen.getByRole('button',{name:'Corrientes'}).getAttribute('aria-pressed')).toBe('true');expect(screen.getByRole('button',{name:'Todas'}).getAttribute('aria-pressed')).toBe('false');});

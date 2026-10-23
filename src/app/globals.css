@@ -215,9 +215,9 @@ body {
 }
 
 /* ===== Fondo con atmósfera: capa FIJA, cubre todo, no ocupa layout ===== */
-.internal-shell { color-scheme: dark; }
+.internal-shell:not([data-visual-system="v3"]) { color-scheme: dark; }
 
-.internal-shell::before {
+.internal-shell:not([data-visual-system="v3"])::before {
   content: '';
   position: fixed;
   inset: 0;
@@ -229,7 +229,7 @@ body {
     radial-gradient(ellipse 58% 42% at 18% 8%, rgba(200, 255, 98, 0.055), transparent 62%);
 }
 
-.internal-shell::after {
+.internal-shell:not([data-visual-system="v3"])::after {
   content: '';
   position: fixed;
   inset: 0;
@@ -243,10 +243,10 @@ body {
   mask-image: radial-gradient(ellipse 100% 80% at 50% 0%, black, transparent 78%);
 }
 
-.internal-shell h1,
-.internal-shell h2,
-.internal-shell h3,
-.internal-shell h4 {
+.internal-shell:not([data-visual-system="v3"]) h1,
+.internal-shell:not([data-visual-system="v3"]) h2,
+.internal-shell:not([data-visual-system="v3"]) h3,
+.internal-shell:not([data-visual-system="v3"]) h4 {
   font-family: var(--font-display), ui-sans-serif, system-ui, sans-serif;
   letter-spacing: -0.01em;
 }
@@ -259,25 +259,25 @@ body {
   color: transparent;
 }
 
-.internal-shell .bg-white,
-.internal-shell .bg-white\/95,
-.internal-shell .bg-white\/90,
-.internal-shell .bg-white\/80,
-.internal-shell .bg-white\/70,
-.internal-shell .bg-white\/60,
-.internal-shell .bg-white\/50 {
+.internal-shell:not([data-visual-system="v3"]) .bg-white,
+.internal-shell:not([data-visual-system="v3"]) .bg-white\/95,
+.internal-shell:not([data-visual-system="v3"]) .bg-white\/90,
+.internal-shell:not([data-visual-system="v3"]) .bg-white\/80,
+.internal-shell:not([data-visual-system="v3"]) .bg-white\/70,
+.internal-shell:not([data-visual-system="v3"]) .bg-white\/60,
+.internal-shell:not([data-visual-system="v3"]) .bg-white\/50 {
   background-color: rgba(255, 255, 255, 0.055) !important;
 }
 
-.internal-shell .bg-slate-50,
-.internal-shell .bg-slate-100 {
+.internal-shell:not([data-visual-system="v3"]) .bg-slate-50,
+.internal-shell:not([data-visual-system="v3"]) .bg-slate-100 {
   background-color: rgba(255, 255, 255, 0.045) !important;
 }
 
-.internal-shell a.bg-slate-950,
-.internal-shell button.bg-slate-950,
-.internal-shell a.bg-slate-900,
-.internal-shell button.bg-slate-900 {
+.internal-shell:not([data-visual-system="v3"]) a.bg-slate-950,
+.internal-shell:not([data-visual-system="v3"]) button.bg-slate-950,
+.internal-shell:not([data-visual-system="v3"]) a.bg-slate-900,
+.internal-shell:not([data-visual-system="v3"]) button.bg-slate-900 {
   background-image: linear-gradient(135deg, #c8ff62 0%, #b7f14e 100%) !important;
   background-color: transparent !important;
   color: #071110 !important;
@@ -285,170 +285,170 @@ body {
   box-shadow: 0 10px 30px rgba(200, 255, 98, 0.14) !important;
 }
 
-.internal-shell a.bg-slate-950:hover,
-.internal-shell button.bg-slate-950:hover,
-.internal-shell a.bg-slate-900:hover,
-.internal-shell button.bg-slate-900:hover {
+.internal-shell:not([data-visual-system="v3"]) a.bg-slate-950:hover,
+.internal-shell:not([data-visual-system="v3"]) button.bg-slate-950:hover,
+.internal-shell:not([data-visual-system="v3"]) a.bg-slate-900:hover,
+.internal-shell:not([data-visual-system="v3"]) button.bg-slate-900:hover {
   background-image: linear-gradient(135deg, #d5ff87 0%, #c8ff62 100%) !important;
   box-shadow: 0 14px 36px rgba(200, 255, 98, 0.2) !important;
   transform: translateY(-1px);
 }
 
-.internal-shell .hover\:bg-slate-50:hover,
-.internal-shell .hover\:bg-slate-100:hover,
-.internal-shell .hover\:bg-white:hover,
-.internal-shell tr.hover\:bg-slate-50:hover {
+.internal-shell:not([data-visual-system="v3"]) .hover\:bg-slate-50:hover,
+.internal-shell:not([data-visual-system="v3"]) .hover\:bg-slate-100:hover,
+.internal-shell:not([data-visual-system="v3"]) .hover\:bg-white:hover,
+.internal-shell:not([data-visual-system="v3"]) tr.hover\:bg-slate-50:hover {
   background-color: rgba(133, 228, 212, 0.08) !important;
 }
 
-.internal-shell .border-slate-100,
-.internal-shell .border-slate-200,
-.internal-shell .border-sky-100,
-.internal-shell .border-sky-200,
-.internal-shell .border-emerald-200,
-.internal-shell .border-amber-200,
-.internal-shell .border-rose-200,
-.internal-shell .border-red-200,
-.internal-shell .border-yellow-200 {
+.internal-shell:not([data-visual-system="v3"]) .border-slate-100,
+.internal-shell:not([data-visual-system="v3"]) .border-slate-200,
+.internal-shell:not([data-visual-system="v3"]) .border-sky-100,
+.internal-shell:not([data-visual-system="v3"]) .border-sky-200,
+.internal-shell:not([data-visual-system="v3"]) .border-emerald-200,
+.internal-shell:not([data-visual-system="v3"]) .border-amber-200,
+.internal-shell:not([data-visual-system="v3"]) .border-rose-200,
+.internal-shell:not([data-visual-system="v3"]) .border-red-200,
+.internal-shell:not([data-visual-system="v3"]) .border-yellow-200 {
   border-color: rgba(255, 255, 255, 0.1) !important;
 }
 
-.internal-shell .border-white\/60,
-.internal-shell .border-white\/50,
-.internal-shell .border-white\/40 {
+.internal-shell:not([data-visual-system="v3"]) .border-white\/60,
+.internal-shell:not([data-visual-system="v3"]) .border-white\/50,
+.internal-shell:not([data-visual-system="v3"]) .border-white\/40 {
   border-color: rgba(255, 255, 255, 0.1) !important;
 }
 
-.internal-shell .divide-slate-100 > :not([hidden]) ~ :not([hidden]),
-.internal-shell .divide-slate-200 > :not([hidden]) ~ :not([hidden]) {
+.internal-shell:not([data-visual-system="v3"]) .divide-slate-100 > :not([hidden]) ~ :not([hidden]),
+.internal-shell:not([data-visual-system="v3"]) .divide-slate-200 > :not([hidden]) ~ :not([hidden]) {
   border-color: rgba(255, 255, 255, 0.1) !important;
 }
 
-.internal-shell .text-slate-950,
-.internal-shell .text-slate-900,
-.internal-shell .text-slate-800,
-.internal-shell .text-slate-700 {
+.internal-shell:not([data-visual-system="v3"]) .text-slate-950,
+.internal-shell:not([data-visual-system="v3"]) .text-slate-900,
+.internal-shell:not([data-visual-system="v3"]) .text-slate-800,
+.internal-shell:not([data-visual-system="v3"]) .text-slate-700 {
   color: #ffffff !important;
 }
 
-.internal-shell .text-slate-600,
-.internal-shell .text-slate-500,
-.internal-shell .text-slate-400 {
+.internal-shell:not([data-visual-system="v3"]) .text-slate-600,
+.internal-shell:not([data-visual-system="v3"]) .text-slate-500,
+.internal-shell:not([data-visual-system="v3"]) .text-slate-400 {
   color: #91a39f !important;
 }
 
-.internal-shell .text-sky-600,
-.internal-shell .text-sky-700,
-.internal-shell .text-sky-800,
-.internal-shell .text-sky-950 {
+.internal-shell:not([data-visual-system="v3"]) .text-sky-600,
+.internal-shell:not([data-visual-system="v3"]) .text-sky-700,
+.internal-shell:not([data-visual-system="v3"]) .text-sky-800,
+.internal-shell:not([data-visual-system="v3"]) .text-sky-950 {
   color: #85e4d4 !important;
 }
 
-.internal-shell .hover\:text-sky-700:hover,
-.internal-shell .hover\:text-slate-950:hover {
+.internal-shell:not([data-visual-system="v3"]) .hover\:text-sky-700:hover,
+.internal-shell:not([data-visual-system="v3"]) .hover\:text-slate-950:hover {
   color: #c8ff62 !important;
 }
 
-.internal-shell input,
-.internal-shell textarea,
-.internal-shell select {
+.internal-shell:not([data-visual-system="v3"]) input,
+.internal-shell:not([data-visual-system="v3"]) textarea,
+.internal-shell:not([data-visual-system="v3"]) select {
   background-color: rgba(7, 17, 16, 0.88) !important;
   border-color: rgba(133, 228, 212, 0.16) !important;
   color: #ffffff !important;
 }
 
-.internal-shell input::placeholder,
-.internal-shell textarea::placeholder {
+.internal-shell:not([data-visual-system="v3"]) input::placeholder,
+.internal-shell:not([data-visual-system="v3"]) textarea::placeholder {
   color: rgba(145, 163, 159, 0.66) !important;
 }
 
-.internal-shell table {
+.internal-shell:not([data-visual-system="v3"]) table {
   color: #91a39f;
 }
 
-.internal-shell thead,
-.internal-shell .bg-slate-50 {
+.internal-shell:not([data-visual-system="v3"]) thead,
+.internal-shell:not([data-visual-system="v3"]) .bg-slate-50 {
   background-color: rgba(11, 25, 24, 0.86) !important;
 }
 
-.internal-shell tbody tr {
+.internal-shell:not([data-visual-system="v3"]) tbody tr {
   border-color: rgba(255, 255, 255, 0.1);
 }
 
-.internal-shell .shadow-sm,
-.internal-shell .shadow-lg {
+.internal-shell:not([data-visual-system="v3"]) .shadow-sm,
+.internal-shell:not([data-visual-system="v3"]) .shadow-lg {
   box-shadow: 0 18px 45px rgba(0, 0, 0, 0.18) !important;
 }
 
-.internal-shell .bg-amber-50,
-.internal-shell .bg-amber-100 {
+.internal-shell:not([data-visual-system="v3"]) .bg-amber-50,
+.internal-shell:not([data-visual-system="v3"]) .bg-amber-100 {
   background-color: rgba(245, 158, 11, 0.11) !important;
   color: #fde68a !important;
 }
 
-.internal-shell .text-amber-950,
-.internal-shell .text-amber-800,
-.internal-shell .text-amber-700 {
+.internal-shell:not([data-visual-system="v3"]) .text-amber-950,
+.internal-shell:not([data-visual-system="v3"]) .text-amber-800,
+.internal-shell:not([data-visual-system="v3"]) .text-amber-700 {
   color: #fde68a !important;
 }
 
-.internal-shell .text-emerald-950,
-.internal-shell .text-emerald-800,
-.internal-shell .text-emerald-700 {
+.internal-shell:not([data-visual-system="v3"]) .text-emerald-950,
+.internal-shell:not([data-visual-system="v3"]) .text-emerald-800,
+.internal-shell:not([data-visual-system="v3"]) .text-emerald-700 {
   color: #a7f3d0 !important;
 }
 
-.internal-shell .text-rose-950,
-.internal-shell .text-rose-800,
-.internal-shell .text-rose-700,
-.internal-shell .text-red-950,
-.internal-shell .text-red-800,
-.internal-shell .text-red-700 {
+.internal-shell:not([data-visual-system="v3"]) .text-rose-950,
+.internal-shell:not([data-visual-system="v3"]) .text-rose-800,
+.internal-shell:not([data-visual-system="v3"]) .text-rose-700,
+.internal-shell:not([data-visual-system="v3"]) .text-red-950,
+.internal-shell:not([data-visual-system="v3"]) .text-red-800,
+.internal-shell:not([data-visual-system="v3"]) .text-red-700 {
   color: #fecdd3 !important;
 }
 
-.internal-shell .bg-sky-50,
-.internal-shell .bg-sky-100 {
+.internal-shell:not([data-visual-system="v3"]) .bg-sky-50,
+.internal-shell:not([data-visual-system="v3"]) .bg-sky-100 {
   background-color: rgba(34, 211, 238, 0.12) !important;
   color: #c8ff62 !important;
 }
 
-.internal-shell .bg-emerald-50,
-.internal-shell .bg-emerald-100 {
+.internal-shell:not([data-visual-system="v3"]) .bg-emerald-50,
+.internal-shell:not([data-visual-system="v3"]) .bg-emerald-100 {
   background-color: rgba(16, 185, 129, 0.12) !important;
   color: #a7f3d0 !important;
 }
 
-.internal-shell .bg-rose-50,
-.internal-shell .bg-rose-100,
-.internal-shell .bg-red-50,
-.internal-shell .bg-red-100 {
+.internal-shell:not([data-visual-system="v3"]) .bg-rose-50,
+.internal-shell:not([data-visual-system="v3"]) .bg-rose-100,
+.internal-shell:not([data-visual-system="v3"]) .bg-red-50,
+.internal-shell:not([data-visual-system="v3"]) .bg-red-100 {
   background-color: rgba(244, 63, 94, 0.12) !important;
   color: #fecdd3 !important;
 }
 
-.internal-shell .bg-yellow-50,
-.internal-shell .bg-yellow-100 {
+.internal-shell:not([data-visual-system="v3"]) .bg-yellow-50,
+.internal-shell:not([data-visual-system="v3"]) .bg-yellow-100 {
   background-color: rgba(234, 179, 8, 0.12) !important;
   color: #fef3c7 !important;
 }
 
-.internal-shell button,
-.internal-shell a[href] {
+.internal-shell:not([data-visual-system="v3"]) button,
+.internal-shell:not([data-visual-system="v3"]) a[href] {
   transition: color 180ms ease, background-color 180ms ease, border-color 180ms ease, transform 180ms ease, box-shadow 180ms ease;
 }
 
-.internal-shell button:hover,
-.internal-shell a[href]:hover {
+.internal-shell:not([data-visual-system="v3"]) button:hover,
+.internal-shell:not([data-visual-system="v3"]) a[href]:hover {
   transform: translateY(-1px);
 }
 
-.internal-shell .rounded-3xl,
-.internal-shell .rounded-2xl {
+.internal-shell:not([data-visual-system="v3"]) .rounded-3xl,
+.internal-shell:not([data-visual-system="v3"]) .rounded-2xl {
   backdrop-filter: blur(10px);
 }
 
-.internal-shell .quick-action {
+.internal-shell:not([data-visual-system="v3"]) .quick-action {
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
@@ -462,7 +462,7 @@ body {
   transition: all 0.2s ease-out;
 }
 
-.internal-shell .quick-action:hover {
+.internal-shell:not([data-visual-system="v3"]) .quick-action:hover {
   border-color: rgba(133, 228, 212, 0.34);
   background: linear-gradient(135deg, rgba(133, 228, 212, 0.12), rgba(200, 255, 98, 0.08));
   transform: translateY(-2px);
@@ -545,4 +545,22 @@ select option {
   .account-menu {
     animation: none;
   }
+}
+
+/* Approved internal V3 only. Public/landing/auth colours are not migrated. */
+body:has(.internal-shell[data-visual-system="v3"]) { background: #ededec; }
+.internal-shell[data-visual-system="v3"] select:not([multiple]):not([size]) {
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 256 256' fill='none' stroke='%2362676d' stroke-width='16' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m48 96 80 80 80-80'/%3E%3C/svg%3E");
+  background-position: right 14px center;
+  background-size: 16px 16px;
+  background-repeat: no-repeat;
+  padding-right: 44px;
+  padding-left: 14px;
+}
+.internal-shell[data-visual-system="v3"] select option { background: #fff; color: #25272a; }
+.internal-shell[data-visual-system="v3"] :is(input, select, textarea):focus-visible { outline: 2px solid #3d526c; outline-offset: 2px; }
+@media (forced-colors: active) {
+  .internal-shell[data-visual-system="v3"] select:not([multiple]):not([size]) { appearance: auto; -webkit-appearance: auto; background-image: none; }
 }

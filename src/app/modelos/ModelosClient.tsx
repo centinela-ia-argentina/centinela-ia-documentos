@@ -1,11 +1,10 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, useId, type ReactNode } from 'react';
+import styles from './ModelosWorkspace.module.css';
 import { Document, Packer, Paragraph, TextRun } from 'docx';
 import { ArrowLeft, Copy, Check, Download, FileSignature, Search, FolderKanban, FileDown, Sparkles, Loader2 } from 'lucide-react';
 import { MODELOS, type ModeloEscrito } from '@/lib/legal/modelos';
-import { Reveal } from '@/components/ui/Reveal';
-import { MotionCard } from '@/components/ui/MotionCard';
 import { MotionButton } from '@/components/ui/MotionButton';
 import { Badge } from '@/components/ui/Badge';
 import { redactarEscritoIA, extraerDatosParaModelo } from './actions';
@@ -87,12 +86,14 @@ export function ModelosClient({
   expedienteInicialId = null,
   industria = 'legal',
   puedeIA = true,
+  review,
 }: {
   expedientes: ExpedienteLite[];
   modeloInicialId?: string | null;
   expedienteInicialId?: string | null;
   industria?: IndustryType;
   puedeIA?: boolean;
+  review?: ReactNode;
 }) {
   const expInicial = expedientes.find((e) => e.id === expedienteInicialId) ?? null;
   const idInicial =
@@ -105,6 +106,8 @@ export function ModelosClient({
       ? modeloInicialId
       : null;
   const [seleccionadoId, setSeleccionadoId] = useState<string | null>(idInicial);
+  const [step, setStep] = useState<'datos' | 'borrador'>('datos');
+  const stepId = useId();
   const [busqueda, setBusqueda] = useState('');
   const [provincia, setProvincia] = useState<ProvinciaFiltro>('todas');
   const [valores, setValores] = useState<Record<string, string>>(expInicial ? datosDeExpediente(expInicial) : {});
@@ -346,189 +349,95 @@ export function ModelosClient({
     URL.revokeObjectURL(url);
   };
 
-  return (
-    <div className="space-y-6">
-      <MotionCard index={0} className="p-6">
-        <p className="text-xs font-semibold uppercase tracking-wide text-cyan-400">
-          {industria === 'escribania' ? 'Herramientas notariales' : industria === 'inmobiliaria' ? 'Herramientas inmobiliarias' : 'Herramientas jurídicas'}
-        </p>
-        <h1 className="mt-1 text-2xl font-semibold text-white">
-          {industria === 'escribania' ? 'Modelos notariales' : industria === 'inmobiliaria' ? 'Modelos inmobiliarios' : 'Modelos de escritos'}
-        </h1>
-        <p className="mt-1 text-sm text-slate-400">Elegí un modelo, completá los datos y copialo o descargalo.</p>
-      </MotionCard>
-
-      {!seleccionado && (
-        <>
-          <div className="relative max-w-md">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
-            <input
-              value={busqueda}
-              onChange={(e) => setBusqueda(e.target.value)}
-              placeholder="Buscar modelo…"
-              className="w-full rounded-xl border border-white/10 bg-white/[0.02] py-2 pl-9 pr-3 text-sm text-white placeholder-slate-500 outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400"
-            />
-          </div>
-
-          {industria === 'legal' && (
-            <div className="mt-3 flex flex-wrap gap-2">
-              {([
-                { id: 'todas', label: 'Todas' },
-                { id: 'Nacional', label: 'Nacional' },
-                { id: 'Corrientes', label: 'Corrientes' },
-                { id: 'Buenos Aires', label: 'Buenos Aires' },
-              ] as { id: ProvinciaFiltro; label: string }[]).map((p) => (
-                <button
-                  key={p.id}
-                  onClick={() => setProvincia(p.id)}
-                  className={`rounded-full px-3 py-1.5 text-xs font-medium transition ${
-                    provincia === p.id
-                      ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/20'
-                      : 'border border-white/10 bg-white/[0.02] text-slate-400 hover:bg-white/[0.04]'
-                  }`}
-                >
-                  {p.label}
-                </button>
-              ))}
-            </div>
-          )}
-
-          {categorias.length === 0 && <p className="text-sm text-slate-500">No encontramos modelos para “{busqueda}”.</p>}
-
-          <div className="space-y-6">
-            {categorias.map(([categoria, modelos], idx) => (
-              <Reveal key={categoria} delay={idx * 0.1}>
-                <div>
-                  <h2 className="mb-3 text-[11px] font-semibold uppercase tracking-wide text-slate-500">{categoria}</h2>
-                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                    {modelos.map((m, i) => (
-                      <MotionCard key={m.id} index={i} className="group p-0 overflow-hidden hover:border-accent/40 hover:bg-white/[0.05]">
-                        <button
-                          type="button"
-                          onClick={() => abrir(m)}
-                          className="flex h-full w-full flex-col items-start p-5 text-left transition-all"
-                        >
-                          <div className="mb-3 flex w-full items-center justify-between">
-                            <div className="inline-flex rounded-xl border border-accent/20 bg-accent/[0.08] p-2 text-accent-soft">
-                              <FileSignature className="h-5 w-5" />
-                            </div>
-                            {m.reviewStatus === 'outdated' ? (
-                              <Badge tone="danger">Desactualizado</Badge>
-                            ) : m.reviewStatus === 'verified' ? (
-                              <Badge tone="success">Modelo auditado con fuente oficial</Badge>
-                            ) : (
-                              <Badge tone="warning">Modelo orientativo editable</Badge>
-                            )}
-                          </div>
-                          <span className="text-sm font-semibold text-white">{m.titulo}</span>
-                          <span className="mt-1 text-xs text-slate-400">{m.descripcion}</span>
-                          <div className="mt-2.5 flex flex-wrap items-center gap-2 text-[11px] text-slate-400">
-                            <span className="rounded bg-white/5 px-1.5 py-0.5 font-medium">{m.jurisdiction ?? 'Nacional'}</span>
-                            <span>•</span>
-                            <span>v{m.version ?? '1.0'}</span>
-                            <span>•</span>
-                            <span className="text-amber-400/90 font-medium">Requiere revisión profesional</span>
-                          </div>
-                        </button>
-                      </MotionCard>
-                    ))}
-                  </div>
-                </div>
-              </Reveal>
-            ))}
-          </div>
-        </>
-      )}
-
-      {seleccionado && (
-        <div className="space-y-4">
-          <button
-            type="button"
-            onClick={volver}
-            className="inline-flex items-center gap-1 text-sm font-semibold text-slate-400 hover:text-white"
-          >
-            <ArrowLeft className="h-4 w-4" /> Volver al catálogo
-          </button>
-
-          <div className="grid gap-4 lg:grid-cols-2">
-            <MotionCard index={1} className="flex flex-col gap-4">
-              <h2 className="text-base font-semibold text-white">{seleccionado.titulo}</h2>
+  return <div className={styles.root}>
+    <header className={styles.modelsHead}><div><p className={styles.eyebrow}>{industria === 'escribania' ? 'Herramientas notariales' : industria === 'inmobiliaria' ? 'Herramientas inmobiliarias' : 'Herramientas jurídicas'}</p><h1>{industria === 'escribania' ? 'Modelos notariales' : industria === 'inmobiliaria' ? 'Modelos inmobiliarios' : 'Modelos de escritos'}</h1><p>Elegí un modelo, completá los datos y revisá el borrador antes de usarlo.</p></div><aside className={styles.orientationNote}>Modelos orientativos. No sustituyen la revisión profesional ni garantizan adecuación a tu caso.</aside></header>
+    <div className={styles.modelsLayout}>
+      <aside className={styles.modelCatalog} aria-label="Catálogo de modelos"><div className={styles.catalogTop}><h2>Biblioteca de modelos</h2><label className={styles.searchField}><Search size={18} aria-hidden/><input value={busqueda} onChange={e=>setBusqueda(e.target.value)} placeholder="Buscar modelo…" aria-label="Buscar modelo"/></label>
+      {industria==='legal'&&<div className={styles.filterChips} aria-label="Jurisdicción">{(['todas','Nacional','Corrientes','Buenos Aires'] as ProvinciaFiltro[]).map(p=><button key={p} type="button" aria-pressed={provincia===p} onClick={()=>setProvincia(p)}>{p==='todas'?'Todas':p}</button>)}</div>}</div>
+      <div className={styles.catalogList}>{categorias.length===0&&<p className={styles.noResults}>No encontramos modelos para “{busqueda}”.</p>}{categorias.map(([categoria,modelos])=><div key={categoria}><h3 className={styles.categoryLabel}>{categoria}</h3>{modelos.map(m=><button key={m.id} type="button" className={styles.modelItem} aria-current={seleccionadoId===m.id?'true':undefined} onClick={()=>{abrir(m);setStep('datos');}}><FileSignature size={19} aria-hidden/><span><strong>{m.titulo}</strong><small>{m.descripcion}</small><small>{m.jurisdiction??'Nacional'} · v{m.version??'1.0'} · {m.reviewStatus==='verified'?'Modelo auditado con fuente oficial':'Modelo orientativo editable'}</small><small>Requiere revisión profesional</small></span><span aria-hidden>›</span></button>)}</div>)}</div></aside>
+      <div className={styles.modelWorkspace}>
+      {!seleccionado?<div className={styles.emptyWorkspace}><FileSignature size={36} aria-hidden/><h2>Un modelo, tu próximo borrador.</h2><p>Seleccioná un modelo de la biblioteca para completar los datos y revisar el resultado.</p></div>:<>
+      <header className={styles.workspaceHeader}><p className={styles.eyebrow}>MODELO SELECCIONADO</p><button type="button" onClick={volver}><ArrowLeft size={16} aria-hidden/> Volver al catálogo</button></header>
+      <div className={styles.stepTabs} role="tablist" aria-label="Pasos del modelo">{(['datos','borrador'] as const).map((tab,index)=><button key={tab} id={`${stepId}-${tab}`} role="tab" type="button" aria-selected={step===tab} tabIndex={step===tab?0:-1} aria-controls={`${stepId}-${tab}-panel`} onClick={()=>setStep(tab)} onKeyDown={e=>{if(['ArrowLeft','ArrowRight','Home','End'].includes(e.key)){e.preventDefault();const next=e.key==='Home'?'datos':e.key==='End'?'borrador':tab==='datos'?'borrador':'datos';setStep(next);document.getElementById(`${stepId}-${next}`)?.focus();}}}>{index+1}. {tab==='datos'?'Completar datos':'Revisar borrador'}</button>)}</div>
+      <div className={styles.workspaceBody}>
+      <div id={`${stepId}-datos-panel`} role="tabpanel" aria-labelledby={`${stepId}-datos`} hidden={step!=='datos'}><section className={styles.editor}>
+              <h2>{seleccionado.titulo}</h2>
               {isOutdatedOrRetired ? (
-                <div className="space-y-4" data-testid="ficha-historica-outdated">
-                  <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-4">
-                    <div className="flex items-center gap-2">
+                <div data-testid="ficha-historica-outdated">
+                  <div>
+                    <div>
                       <Badge tone="danger">Modelo fuera de uso productivo</Badge>
-                      <span className="text-xs text-red-300 font-semibold uppercase tracking-wide">
+                      <span>
                         {seleccionado.reviewStatus === 'outdated' ? 'Desactualizado' : 'Retirado'}
                       </span>
                     </div>
-                    <p className="mt-2 text-xs leading-relaxed text-red-200">
+                    <p>
                       {seleccionado.professionalDisclaimer ||
                         'La Ley 27.742 derogó el régimen sancionatorio de la Ley 24.013 y del art. 80 LCT. Este modelo se conserva en la biblioteca exclusivamente con fines históricos y de trazabilidad.'}
                     </p>
                   </div>
 
-                  <div className="rounded-xl border border-white/10 bg-white/[0.02] p-4 text-xs space-y-2.5 text-slate-300">
-                    <div className="flex justify-between border-b border-white/5 pb-2">
-                      <span className="text-slate-400">Jurisdicción:</span>
-                      <span className="font-semibold text-white">{seleccionado.jurisdiction ?? 'Nacional'}</span>
+                  <div>
+                    <div>
+                      <span>Jurisdicción:</span>
+                      <span>{seleccionado.jurisdiction ?? 'Nacional'}</span>
                     </div>
-                    <div className="flex justify-between border-b border-white/5 pb-2">
-                      <span className="text-slate-400">Estado normativo:</span>
-                      <span className="font-semibold text-red-400">Bloqueado para uso productivo</span>
+                    <div>
+                      <span>Estado normativo:</span>
+                      <span>Bloqueado para uso productivo</span>
                     </div>
-                    <div className="flex justify-between border-b border-white/5 pb-2">
-                      <span className="text-slate-400">Versión de catálogo:</span>
-                      <span className="font-semibold text-white">v{seleccionado.version ?? '1.0'}</span>
+                    <div>
+                      <span>Versión de catálogo:</span>
+                      <span>v{seleccionado.version ?? '1.0'}</span>
                     </div>
-                    <div className="flex justify-between">
-                      <span className="text-slate-400">Última revisión:</span>
-                      <span className="font-semibold text-white">{seleccionado.lastVerifiedAt ?? 'No registrada'}</span>
+                    <div>
+                      <span>Última revisión:</span>
+                      <span>{seleccionado.lastVerifiedAt ?? 'No registrada'}</span>
                     </div>
                   </div>
 
-                  <div className="rounded-xl border border-amber-500/20 bg-amber-500/10 p-3.5 text-xs text-amber-200 leading-relaxed">
+                  <div>
                     🔒 <strong>Ficha histórica restringida:</strong> No se admite edición manual, carga de variables, prellenado desde legajo, redacción asistida con IA ni exportación (TXT / Word). Este escrito se mantiene exclusivamente para fines de consulta histórica.
                   </div>
                 </div>
               ) : (
-                <div className="mt-4 space-y-3">
-                  <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3 text-xs space-y-2 text-slate-300">
-                    <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/5 pb-2">
-                      <span className="text-slate-400">Estado normativo:</span>
+                <div>
+                  <div>
+                    <div>
+                      <span>Estado normativo:</span>
                       {seleccionado.reviewStatus === 'verified' ? (
-                        <span className="font-semibold text-emerald-400">Modelo auditado con fuente oficial</span>
+                        <span>Modelo auditado con fuente oficial</span>
                       ) : (
-                        <span className="font-semibold text-amber-400">Modelo orientativo editable</span>
+                        <span>Modelo orientativo editable</span>
                       )}
                     </div>
-                    <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/5 pb-2">
-                      <span className="text-slate-400">Jurisdicción:</span>
-                      <span className="font-semibold text-white">{seleccionado.jurisdiction ?? 'Nacional'}</span>
+                    <div>
+                      <span>Jurisdicción:</span>
+                      <span>{seleccionado.jurisdiction ?? 'Nacional'}</span>
                     </div>
-                    <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/5 pb-2">
-                      <span className="text-slate-400">Versión / Revisión:</span>
-                      <span className="text-slate-300">
+                    <div>
+                      <span>Versión / Revisión:</span>
+                      <span>
                         v{seleccionado.version ?? '1.0'} • {seleccionado.lastReviewedAt ?? seleccionado.lastVerifiedAt ?? 'Fecha de revisión normativa no registrada'}
                       </span>
                     </div>
-                    <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/5 pb-2">
-                      <span className="text-slate-400">Fuentes oficiales:</span>
-                      <span className="text-slate-300">
+                    <div>
+                      <span>Fuentes oficiales:</span>
+                      <span>
                         {seleccionado.officialSources && seleccionado.officialSources.length > 0
                           ? seleccionado.officialSources.join(', ')
                           : 'Fuente oficial no registrada'}
                       </span>
                     </div>
-                    <div className="pt-1 text-[11px] text-amber-300 font-medium">
+                    <div>
                       ⚠️ Requiere revisión profesional antes de su utilización judicial o firma.
                     </div>
                   </div>
 
                   {expedientes.length > 0 && (
-                    <div className="mb-4 rounded-xl border border-cyan-500/20 bg-cyan-500/10 p-3">
-                      <label className="flex items-center gap-2 text-xs font-semibold text-cyan-400">
-                        <FolderKanban className="h-3.5 w-3.5" />
+                    <div>
+                      <label>
+                        <FolderKanban />
                         Prellenar desde {industria === 'inmobiliaria' ? 'una operación' : industria === 'escribania' ? 'un legajo' : 'un expediente'}
                       </label>
                       <select
@@ -537,11 +446,11 @@ export function ModelosClient({
                         disabled={cargandoPrellenado}
                         aria-busy={cargandoPrellenado}
                         data-testid="modelos-expediente-select"
-                        className="mt-2 w-full rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2 text-sm text-white outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400 disabled:cursor-wait disabled:opacity-60"
+
                       >
-                        <option value="" className="text-slate-900">— Sin selección (completar a mano) —</option>
+                        <option value="">— Sin selección (completar a mano) —</option>
                         {expedientes.map((exp) => (
-                          <option key={exp.id} value={exp.id} className="text-slate-900">
+                          <option key={exp.id} value={exp.id}>
                             {exp.title || 'Sin título'}{exp.client_name ? ` — ${exp.client_name}` : ''}
                           </option>
                         ))}
@@ -549,22 +458,22 @@ export function ModelosClient({
                       {expedienteId ? (
                         cargandoPrellenado ? (
                           <div
-                            className="mt-2 flex items-center gap-2 text-[11px] text-cyan-300"
+
                             role="status"
                             aria-live="polite"
                           >
-                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            <Loader2 />
                             <span>
                               Analizando los documentos y preparando el modelo… Esto puede demorar unos segundos.
                             </span>
                           </div>
                         ) : errorPrellenado ? (
-                          <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-amber-400">
+                          <div>
                             <span>{errorPrellenado}</span>
                             <button
                               type="button"
                               onClick={() => aplicarExpediente(expedienteId)}
-                              className="font-semibold underline hover:text-amber-300"
+
                             >
                               Reintentar
                             </button>
@@ -576,7 +485,7 @@ export function ModelosClient({
 
                           if (filledCount === 0) {
                             return (
-                              <p className="mt-1.5 text-[11px] text-amber-400">
+                              <p>
                                 No encontramos datos suficientes para prellenar este modelo. Podés completarlo manualmente.
                               </p>
                             );
@@ -584,56 +493,56 @@ export function ModelosClient({
 
                           if (filledCount < variables.length) {
                             return (
-                              <p className="mt-1.5 text-[11px] text-emerald-400">
+                              <p>
                                 Se completaron los datos disponibles. Revisá y completá los campos pendientes.
                               </p>
                             );
                           }
 
                           return (
-                            <p className="mt-1.5 text-[11px] text-emerald-400">
+                            <p>
                               Se completaron todos los campos requeridos con éxito.
                             </p>
                           );
                         })()
                       ) : (
-                        <p className="mt-1.5 text-[11px] text-slate-400">
+                        <p>
                           Completa carátula, parte y datos disponibles automáticamente. Podés editar todo abajo.
                         </p>
                       )}
                     </div>
                   )}
-                  {variables.length === 0 && <p className="text-sm text-slate-500">Este modelo no tiene campos para completar.</p>}
-                  {variables.map((key) => {
+                  {variables.length === 0 && <p>Este modelo no tiene campos para completar.</p>}
+                  <div className={styles.fieldGrid}>{variables.map((key) => {
                     const datosBase = expedienteId ? expedientes.find(e => e.id === expedienteId) : null;
                     const extracted = datosBase ? datosDeExpediente(datosBase) : {};
                     const isPreloaded = !!extracted[key];
                     const hasValue = !!valores[key];
 
                     return (
-                      <label key={key} className="block relative">
-                        <div className="flex justify-between items-end mb-1">
-                          <span className="block text-xs font-semibold text-slate-400">{humanize(key)}</span>
+                      <label key={key}>
+                        <div>
+                          <span>{humanize(key)}</span>
                           {isPreloaded ? (
-                            <span className="text-[10px] font-medium text-emerald-400 bg-emerald-400/10 px-1.5 py-0.5 rounded">Precargado</span>
+                            <span>Precargado</span>
                           ) : !hasValue ? (
-                            <span className="text-[10px] font-medium text-amber-400 bg-amber-400/10 px-1.5 py-0.5 rounded">Faltante</span>
+                            <span>Faltante</span>
                           ) : null}
                         </div>
                         <input
                           value={valores[key] ?? ''}
                           onChange={(e) => setValores((prev) => ({ ...prev, [key]: e.target.value }))}
                           placeholder={`Completar ${humanize(key).toLowerCase()}`}
-                          className="w-full rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2 text-sm text-white outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400"
+
                         />
                       </label>
                     );
-                  })}
+                  })}</div>
 
                   {puedeIA && (
-                    <div className="mt-4 rounded-xl border border-brandviolet/20 bg-brandviolet/10 p-3">
-                      <label className="flex items-center gap-2 text-xs font-semibold text-brandviolet">
-                        <Sparkles className="h-3.5 w-3.5" />
+                    <div>
+                      <label>
+                        <Sparkles />
                         Redactar con IA (opcional)
                       </label>
                       <textarea
@@ -641,24 +550,24 @@ export function ModelosClient({
                         onChange={(e) => setInstruccion(e.target.value)}
                         rows={3}
                         placeholder={placeholderIA}
-                        className="mt-2 w-full rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2 text-sm text-white placeholder-slate-500 outline-none focus:border-brandviolet focus:ring-1 focus:ring-brandviolet"
+
                       />
                       <MotionButton
                         type="button"
                         onClick={redactarIA}
                         disabled={redactando}
                         data-testid="btn-redactar-ia"
-                        className="mt-2 inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-accent to-brandviolet px-3 py-1.5 text-xs font-semibold text-white transition disabled:opacity-60"
+
                       >
-                        {redactando ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+                        {redactando ? <Loader2 /> : <Sparkles />}
                         {redactando ? 'Redactando…' : 'Redactar con IA'}
                       </MotionButton>
-                      {avisoIA && <p className="mt-2 text-[11px] text-amber-500">{avisoIA}</p>}
+                      {avisoIA && <p>{avisoIA}</p>}
                       {textoIA && (
-                        <div className="mt-2 space-y-2">
-                          <div className="flex items-center justify-between gap-2">
-                            <span className="text-[11px] font-medium text-brandviolet">✨ Borrador generado con IA — {esEscribania ? 'revisalo antes de otorgar o firmar.' : esInmobiliaria ? 'revisalo antes de utilizarlo.' : 'revisalo antes de presentar.'}</span>
-                            <button type="button" onClick={() => setTextoIA(null)} className="shrink-0 text-[11px] font-semibold text-slate-400 hover:text-white underline">
+                        <div>
+                          <div>
+                            <span>✨ Borrador generado con IA — {esEscribania ? 'revisalo antes de otorgar o firmar.' : esInmobiliaria ? 'revisalo antes de utilizarlo.' : 'revisalo antes de presentar.'}</span>
+                            <button type="button" onClick={() => setTextoIA(null)}>
                               Volver al relleno manual
                             </button>
                           </div>
@@ -669,25 +578,20 @@ export function ModelosClient({
                   )}
                 </div>
               )}
-            </MotionCard>
-
-            <MotionCard index={2} className="flex flex-col">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <h2 className="text-base font-semibold text-white">Vista previa</h2>
-                <div className="flex flex-wrap gap-2">
+            </section><div className={styles.actionRow}><button type="button" onClick={()=>setStep('borrador')}>Revisar borrador →</button></div></div>
+      <div id={`${stepId}-borrador-panel`} role="tabpanel" aria-labelledby={`${stepId}-borrador`} hidden={step!=='borrador'}><section className={styles.previewPane}>
+              <div>
+                <h2>Vista previa</h2>
+                <div>
                   <button
                     type="button"
                     onClick={copiar}
                     disabled={isOutdatedOrRetired}
                     data-testid="btn-copiar-modelo"
                     title={isOutdatedOrRetired ? 'Bloqueado para uso productivo' : 'Copiar'}
-                    className={`inline-flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-semibold transition ${
-                      isOutdatedOrRetired
-                        ? 'border-white/5 bg-white/[0.01] text-slate-500 cursor-not-allowed opacity-50'
-                        : 'border-white/10 bg-white/[0.02] text-slate-300 hover:bg-white/[0.04]'
-                    }`}
+
                   >
-                    {copiado ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <Copy className="h-3.5 w-3.5" />}
+                    {copiado ? <Check /> : <Copy />}
                     {copiado ? 'Copiado' : 'Copiar'}
                   </button>
                   <button
@@ -696,13 +600,9 @@ export function ModelosClient({
                     disabled={isOutdatedOrRetired}
                     data-testid="btn-descargar-txt"
                     title={isOutdatedOrRetired ? 'Bloqueado para uso productivo' : 'Descargar .txt'}
-                    className={`inline-flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-semibold transition ${
-                      isOutdatedOrRetired
-                        ? 'border-white/5 bg-white/[0.01] text-slate-500 cursor-not-allowed opacity-50'
-                        : 'border-white/10 bg-white/[0.02] text-slate-300 hover:bg-white/[0.04]'
-                    }`}
+
                   >
-                    <Download className="h-3.5 w-3.5" /> Descargar .txt
+                    <Download /> Descargar .txt
                   </button>
                   <MotionButton
                     type="button"
@@ -710,28 +610,19 @@ export function ModelosClient({
                     disabled={isOutdatedOrRetired}
                     data-testid="btn-descargar-docx"
                     title={isOutdatedOrRetired ? 'Bloqueado para uso productivo' : 'Descargar Word'}
-                    className={`inline-flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-semibold transition ${
-                      isOutdatedOrRetired
-                        ? 'border-white/5 bg-white/[0.01] text-slate-500 cursor-not-allowed opacity-50'
-                        : 'bg-cyan-500/10 border-cyan-500/20 text-cyan-400 hover:bg-cyan-500/20'
-                    }`}
+
                   >
-                    <FileDown className="h-3.5 w-3.5" />
+                    <FileDown />
                     Word (.docx)
                   </MotionButton>
                 </div>
               </div>
-              <pre className="mt-4 max-h-[520px] flex-1 overflow-auto whitespace-pre-wrap rounded-xl border border-white/10 bg-white/[0.01] p-4 font-sans text-sm leading-relaxed text-slate-300">{textoParaMostrar}</pre>
-            </MotionCard>
-          </div>
-
-          <div className="rounded-xl border border-amber-500/20 bg-amber-500/10 p-4">
-            <p className="text-xs text-amber-200 leading-relaxed">
-              ⚠️ <strong>Plantilla genérica elaborada con fines operativos</strong> a partir de normativa y fuentes públicas de la jurisdicción indicada. Debe ser revisada, completada y adaptada por la persona profesional antes de su presentación. Verificá competencia, procedimiento, plazos, hechos, prueba y normativa vigente aplicable al caso.
-            </p>
-          </div>
-        </div>
-      )}
-    </div>
-  );
+              <pre>{textoParaMostrar}</pre>
+            </section></div>
+      <div className={styles.warningBox}><strong>Plantilla genérica elaborada con fines operativos.</strong> Revisá competencia, procedimiento, plazos, hechos, prueba y normativa vigente aplicable al caso.</div>
+      </div></>}
+      {review&&puedeIA&&<details className={styles.secondaryReview}><summary>Revisión opcional con IA · Revisar un escrito propio</summary><div>{review}</div></details>}
+      </div>
+    </div><p className={styles.scope}>{textoDisclaimer}</p>
+  </div>;
 }

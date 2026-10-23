@@ -29,12 +29,12 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.useRealTimers(); vi.unstubAllGlobals(); });
 describe('rental list date adapter only', () => {
   it('shows the clamped date and BA today without layout changes', async () => {
-    render(await RentalsPage()); expect(screen.getByText('28/2/2026')).toBeTruthy(); expect(screen.getByText('⏰ Ajusta hoy')).toBeTruthy();
+    render(await RentalsPage()); expect(screen.getByText('28/2/2026')).toBeTruthy(); expect(screen.getByText('Ajusta hoy')).toBeTruthy();
     expect(scopes).toHaveBeenCalledWith('rental_contracts', 'organization_id', 'fixture-org'); expect(fetch).not.toHaveBeenCalled();
   });
   it('keeps the ISO registered day before BA midnight', async () => {
     records[0].start_date = '2026-01-31T00:00:00.000Z'; vi.setSystemTime(new Date('2026-02-28T02:59:59Z'));
-    render(await RentalsPage()); expect(screen.getByText('28/2/2026')).toBeTruthy(); expect(screen.getByText('⏰ Ajusta en 1 día(s)')).toBeTruthy();
+    render(await RentalsPage()); expect(screen.getByText('28/2/2026')).toBeTruthy(); expect(screen.getByText('Ajusta en 1 día(s)')).toBeTruthy();
   });
   it('does not display a guessed date for an ambiguous legacy offset', async () => {
     records[0].last_adjustment_date = '2026-01-31T23:30:00-03:00';

@@ -11,8 +11,9 @@ import {
   Trash,
   X,
 } from '@phosphor-icons/react';
-import { MotionCard } from '@/components/ui/MotionCard';
-import { MotionButton } from '@/components/ui/MotionButton';
+import { AppButton } from '@/components/ui/AppButton';
+import { AgendaDialog } from './AgendaDialog';
+import styles from './Agenda.module.css';
 import { guardarEventoManual, guardarTurno, eliminarEventoAgenda, editarEventoAgenda } from './actions';
 import type { IndustryType } from '@/lib/industries/documentTypes';
 import { getAgendaLabels, getIndustryTerms } from '@/lib/industries/uiLabels';
@@ -160,7 +161,7 @@ export function AgendaClient({ eventos, cases, industry, puedeGuardar = true }: 
   const SelectedIcon = selectedMeta?.Icon;
 
   return (
-    <div className="space-y-6">
+    <div className={styles.agendaClient}>
       <AgendaCommandCenter
         eventos={eventos}
         industry={industry}
@@ -172,17 +173,17 @@ export function AgendaClient({ eventos, cases, industry, puedeGuardar = true }: 
       />
 
       {showForm && (
-        <MotionCard index={0} className="p-5 max-w-lg">
+        <section className={styles.formPanel}>
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-base font-semibold text-white">Cargar evento manual</h2>
-            <button type="button" onClick={() => setShowForm(false)} className="text-slate-400 hover:text-white">
+            <h2 className="text-base font-semibold text-[#252a2d]">Cargar evento manual</h2>
+            <button type="button" onClick={() => setShowForm(false)} aria-label="Cerrar formulario" className="text-[#626b73] hover:text-[#252a2d]">
               <X className="h-5 w-5" />
             </button>
           </div>
           <div className="space-y-4">
             <label className="block">
-              <span className="mb-1 block text-xs font-semibold text-slate-400">Categoría</span>
-              <select value={nuevoTipo} onChange={(e) => setNuevoTipo(e.target.value as any)} className="w-full rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2 text-sm text-white outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400" data-testid="agenda-categoria">
+              <span className="mb-1 block text-xs font-semibold text-[#626b73]">Categoría</span>
+              <select value={nuevoTipo} onChange={(e) => setNuevoTipo(e.target.value as any)} className="w-full rounded-md border border-[#d9dddd] bg-white px-3 py-2 text-sm text-[#252a2d] focus:ring-1" data-testid="agenda-categoria">
                 <option value="plazo">{agendaLabels.plazoLabel}</option>
                 <option value="evento">Recordatorio</option>
                 <option value="turno">Turno</option>
@@ -190,35 +191,36 @@ export function AgendaClient({ eventos, cases, industry, puedeGuardar = true }: 
               </select>
             </label>
             <label className="block">
-              <span className="mb-1 block text-xs font-semibold text-slate-400">Fecha</span>
-              <input type="date" value={nuevaFecha} onChange={(e) => setNuevaFecha(e.target.value)} className="w-full rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2 text-sm text-white outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400" data-testid="agenda-fecha" />
+              <span className="mb-1 block text-xs font-semibold text-[#626b73]">Fecha</span>
+              <input type="date" value={nuevaFecha} onChange={(e) => setNuevaFecha(e.target.value)} className="w-full rounded-md border border-[#d9dddd] bg-white px-3 py-2 text-sm text-[#252a2d] focus:ring-1" data-testid="agenda-fecha" />
             </label>
             <div>
-              <label className="mb-1 block text-xs font-semibold text-slate-400">Hora (opcional)</label>
+              <label htmlFor="agenda-create-time" className="mb-1 block text-xs font-semibold text-[#626b73]">Hora (opcional)</label>
               <input
                 type="time"
+                id="agenda-create-time"
                 value={nuevaHora}
                 onChange={(e) => setNuevaHora(e.target.value)}
-                className="w-full rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2 text-sm text-white outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400"
+                className="w-full rounded-md border border-[#d9dddd] bg-white px-3 py-2 text-sm text-[#252a2d] focus:ring-1"
                 data-testid="agenda-hora"
               />
-              <span className="mt-1 block text-[10px] text-slate-500">Se interpreta como America/Argentina/Buenos_Aires. Vacio = todo el día.</span>
+              <span className="mt-1 block text-[10px] text-[#626b73]">Se interpreta como America/Argentina/Buenos_Aires. Vacio = todo el día.</span>
             </div>
             <label className="block">
-              <span className="mb-1 block text-xs font-semibold text-slate-400">Título</span>
-              <input type="text" value={nuevoTitulo} onChange={(e) => setNuevoTitulo(e.target.value)} placeholder={industry === 'inmobiliaria' ? 'Ej: Firma de boleto - Martina López' : industry === 'escribania' ? 'Ej: Firma de escritura - López' : 'Ej: Presentar escrito - Pérez c/ García'} className="w-full rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2 text-sm text-white outline-none placeholder-slate-500 focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400" data-testid="agenda-titulo" />
+              <span className="mb-1 block text-xs font-semibold text-[#626b73]">Título</span>
+              <input type="text" value={nuevoTitulo} onChange={(e) => setNuevoTitulo(e.target.value)} placeholder={industry === 'inmobiliaria' ? 'Ej: Firma de boleto - Martina López' : industry === 'escribania' ? 'Ej: Firma de escritura - López' : 'Ej: Presentar escrito - Pérez c/ García'} className="w-full rounded-md border border-[#d9dddd] bg-white px-3 py-2 text-sm text-[#252a2d] placeholder-slate-500 focus:ring-1" data-testid="agenda-titulo" />
             </label>
             <label className="block">
-              <span className="mb-1 block text-xs font-semibold text-slate-400">Detalle (opcional)</span>
-              <input type="text" value={nuevoDetalle} onChange={(e) => setNuevoDetalle(e.target.value)} placeholder="Descripción adicional" className="w-full rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2 text-sm text-white outline-none placeholder-slate-500 focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400" />
+              <span className="mb-1 block text-xs font-semibold text-[#626b73]">Detalle (opcional)</span>
+              <input type="text" value={nuevoDetalle} onChange={(e) => setNuevoDetalle(e.target.value)} placeholder="Descripción adicional" className="w-full rounded-md border border-[#d9dddd] bg-white px-3 py-2 text-sm text-[#252a2d] placeholder-slate-500 focus:ring-1" />
             </label>
             <label className="block">
-              <span className="mb-1 block text-xs font-medium text-slate-400">{terms.expedienteSingular} (opcional)</span>
+              <span className="mb-1 block text-xs font-medium text-[#626b73]">{terms.expedienteSingular} (opcional)</span>
               <select
                 value={nuevoCaseId}
                 onChange={(e) => setNuevoCaseId(e.target.value)}
                 data-testid="agenda-case-select"
-                className="w-full rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2 text-sm text-white outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400"
+                className="w-full rounded-md border border-[#d9dddd] bg-white px-3 py-2 text-sm text-[#252a2d] focus:ring-1"
               >
                 <option value="">Sin {terms.expedienteSingular.toLowerCase()}</option>
                 {cases.map((c) => (
@@ -226,38 +228,37 @@ export function AgendaClient({ eventos, cases, industry, puedeGuardar = true }: 
                 ))}
               </select>
             </label>
-            <MotionButton
+            <AppButton
               type="button"
               onClick={crearEvento}
               disabled={guardando}
               data-testid="agenda-submit"
-              className="mt-2 inline-flex w-full items-center justify-center gap-1.5 rounded-xl bg-cyan-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-cyan-500 disabled:opacity-60"
+              className="mt-2 inline-flex w-full items-center justify-center gap-1.5 rounded-md bg-[#252a2d] px-3 py-2 text-sm font-semibold text-white transition hover:bg-[#414b51] disabled:opacity-60"
             >
               {guardando ? 'Guardando…' : 'Guardar'}
-            </MotionButton>
-            {aviso && <p className="text-center text-[11px] font-medium text-amber-500">{aviso}</p>}
+            </AppButton>
+            {aviso && <p className="text-center text-[11px] font-medium text-[#785820]">{aviso}</p>}
           </div>
-        </MotionCard>
+        </section>
       )}
 
       {eventoDetalle && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#020806]/80 p-4 backdrop-blur-md">
-          <div className="w-full max-w-lg overflow-hidden rounded-[24px] border border-[#85E4D4]/15 bg-[#0A1512] shadow-[0_32px_100px_rgba(0,0,0,0.55)]">
-            <div className="flex items-start justify-between gap-4 border-b border-white/10 px-5 py-5 sm:px-6">
+        <AgendaDialog onClose={() => {setEventoDetalle(null);setEditando(false);}}><div>
+            <div className="flex items-start justify-between gap-4 border-b border-[#d9dddd] px-5 py-5 sm:px-6">
               <div className="flex min-w-0 items-start gap-3">
                 {SelectedIcon && selectedMeta ? (
                   <span
-                    className="grid h-11 w-11 shrink-0 place-items-center rounded-xl border"
-                    style={{ color: selectedMeta.color, background: `${selectedMeta.color}12`, borderColor: `${selectedMeta.color}28` }}
+                    className="grid h-11 w-11 shrink-0 place-items-center rounded-md border"
+                    style={{ color: '#535e66', background: '#f0f2f1', borderColor: '#d9dddd' }}
                   >
-                    <SelectedIcon size={21} weight="fill" />
+                    <SelectedIcon size={21} weight="regular" />
                   </span>
                 ) : null}
                 <div className="min-w-0">
-                  <span className="font-ui text-[10px] font-bold uppercase tracking-[0.08em]" style={{ color: selectedMeta?.color }}>
+                  <span className="font-ui text-[10px] font-bold uppercase tracking-[0.08em]" style={{ color: '#626b73' }}>
                     {selectedMeta?.label}
                   </span>
-                  <h3 className="mt-1 font-display text-xl font-medium leading-tight tracking-[-0.035em] text-[#F3F8F5]">
+                  <h3 id="agenda-detail-title" className="mt-1 font-display text-xl font-medium leading-tight tracking-[-0.035em] text-[#252a2d]">
                   {editando ? 'Editar evento' : eventoDetalle.titulo}
                   </h3>
                 </div>
@@ -266,7 +267,7 @@ export function AgendaClient({ eventos, cases, industry, puedeGuardar = true }: 
                 type="button"
                 onClick={() => { setEventoDetalle(null); setEditando(false); }}
                 aria-label="Cerrar detalle"
-                className="grid h-10 w-10 shrink-0 place-items-center rounded-lg border border-white/10 text-[#8FA19B] transition hover:border-white/20 hover:bg-white/[0.05] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C8FF62]"
+                className="grid h-10 w-10 shrink-0 place-items-center rounded-md border border-[#d9dddd] text-[#626b73] transition hover:border-[#d9dddd] hover:bg-white hover:text-[#252a2d] focus-visible:ring-2"
               >
                 <X size={18} />
               </button>
@@ -275,11 +276,11 @@ export function AgendaClient({ eventos, cases, industry, puedeGuardar = true }: 
             {editando ? (
               <div className="space-y-3 px-5 py-5 sm:px-6">
                 <label className="block">
-                  <span className="mb-1 block text-xs font-semibold text-slate-400">Categoría</span>
+                  <span className="mb-1 block text-xs font-semibold text-[#626b73]">Categoría</span>
                   <select
                     value={editTipo}
                     onChange={(e) => setEditTipo(e.target.value as any)}
-                    className="w-full rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2 text-sm text-white outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400"
+                    className="w-full rounded-md border border-[#d9dddd] bg-white px-3 py-2 text-sm text-[#252a2d] focus:ring-1"
                     data-testid="agenda-edit-categoria"
                   >
                     <option value="plazo">{agendaLabels.plazoLabel}</option>
@@ -291,55 +292,55 @@ export function AgendaClient({ eventos, cases, industry, puedeGuardar = true }: 
 
                 <div className="grid grid-cols-2 gap-2">
                   <label className="block">
-                    <span className="mb-1 block text-xs font-semibold text-slate-400">Fecha</span>
+                    <span className="mb-1 block text-xs font-semibold text-[#626b73]">Fecha</span>
                     <input
                       type="date"
                       value={editFecha}
                       onChange={(e) => setEditFecha(e.target.value)}
-                      className="w-full rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2 text-sm text-white outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400"
+                      className="w-full rounded-md border border-[#d9dddd] bg-white px-3 py-2 text-sm text-[#252a2d] focus:ring-1"
                       data-testid="agenda-edit-fecha"
                     />
                   </label>
                   <label className="block">
-                    <span className="mb-1 block text-xs font-semibold text-slate-400">Hora</span>
+                    <span className="mb-1 block text-xs font-semibold text-[#626b73]">Hora</span>
                     <input
                       type="time"
                       value={editHora}
                       onChange={(e) => setEditHora(e.target.value)}
-                      className="w-full rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2 text-sm text-white outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400"
+                      className="w-full rounded-md border border-[#d9dddd] bg-white px-3 py-2 text-sm text-[#252a2d] focus:ring-1"
                       data-testid="agenda-edit-hora"
                     />
                   </label>
                 </div>
 
                 <label className="block">
-                  <span className="mb-1 block text-xs font-semibold text-slate-400">Título</span>
+                  <span className="mb-1 block text-xs font-semibold text-[#626b73]">Título</span>
                   <input
                     type="text"
                     value={editTitulo}
                     onChange={(e) => setEditTitulo(e.target.value)}
-                    className="w-full rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2 text-sm text-white outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400"
+                    className="w-full rounded-md border border-[#d9dddd] bg-white px-3 py-2 text-sm text-[#252a2d] focus:ring-1"
                     data-testid="agenda-edit-titulo"
                   />
                 </label>
 
                 <label className="block">
-                  <span className="mb-1 block text-xs font-semibold text-slate-400">Detalle (opcional)</span>
+                  <span className="mb-1 block text-xs font-semibold text-[#626b73]">Detalle (opcional)</span>
                   <input
                     type="text"
                     value={editDetalle}
                     onChange={(e) => setEditDetalle(e.target.value)}
-                    className="w-full rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2 text-sm text-white outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400"
+                    className="w-full rounded-md border border-[#d9dddd] bg-white px-3 py-2 text-sm text-[#252a2d] focus:ring-1"
                     data-testid="agenda-edit-detalle"
                   />
                 </label>
 
                 <label className="block">
-                  <span className="mb-1 block text-xs font-medium text-slate-400">{terms.expedienteSingular} (opcional)</span>
+                  <span className="mb-1 block text-xs font-medium text-[#626b73]">{terms.expedienteSingular} (opcional)</span>
                   <select
                     value={editCaseId}
                     onChange={(e) => setEditCaseId(e.target.value)}
-                    className="w-full rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2 text-sm text-white outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400"
+                    className="w-full rounded-md border border-[#d9dddd] bg-white px-3 py-2 text-sm text-[#252a2d] focus:ring-1"
                     data-testid="agenda-edit-case-select"
                   >
                     <option value="">Sin {terms.expedienteSingular.toLowerCase()}</option>
@@ -349,13 +350,13 @@ export function AgendaClient({ eventos, cases, industry, puedeGuardar = true }: 
                   </select>
                 </label>
 
-                {errorEdicion && <p className="text-xs text-amber-400">{errorEdicion}</p>}
+                {errorEdicion && <p className="text-xs text-[#785820]">{errorEdicion}</p>}
 
                 <div className="flex items-center justify-end gap-2 pt-2">
                   <button
                     type="button"
                     onClick={() => setEditando(false)}
-                    className="rounded-xl border border-white/10 px-3 py-1.5 text-xs font-semibold text-slate-300 hover:bg-white/5"
+                    className="rounded-md border border-[#d9dddd] px-3 py-1.5 text-xs font-semibold text-[#535e66] hover:bg-white"
                   >
                     Cancelar
                   </button>
@@ -364,7 +365,7 @@ export function AgendaClient({ eventos, cases, industry, puedeGuardar = true }: 
                     disabled={guardandoEdicion}
                     onClick={guardarEdicion}
                     data-testid="agenda-edit-submit"
-                    className="rounded-xl bg-cyan-600 px-4 py-1.5 text-xs font-semibold text-white transition hover:bg-cyan-500 disabled:opacity-50"
+                    className="rounded-md bg-[#252a2d] px-4 py-1.5 text-xs font-semibold text-white transition hover:bg-[#414b51] disabled:opacity-50"
                   >
                     {guardandoEdicion ? 'Guardando…' : 'Guardar cambios'}
                   </button>
@@ -374,49 +375,49 @@ export function AgendaClient({ eventos, cases, industry, puedeGuardar = true }: 
               <>
                 <div className="space-y-4 px-5 py-5 sm:px-6">
                   <div className="grid gap-3 sm:grid-cols-2">
-                    <div className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/[0.018] p-3.5">
-                      <span className="grid h-9 w-9 place-items-center rounded-lg bg-[#85E4D4]/10 text-[#85E4D4]">
+                    <div className="flex items-center gap-3 rounded-md border border-[#d9dddd] bg-white p-3.5">
+                      <span className="grid h-9 w-9 place-items-center rounded-md bg-white text-[#252a2d]">
                         <CalendarBlank size={18} weight="regular" />
                       </span>
                       <span>
-                        <span className="block font-ui text-[10px] font-semibold text-[#71857F]">Fecha</span>
-                        <span className="mt-0.5 block font-ui text-sm font-bold text-[#E7EFEC]">{eventoDetalle.fecha.split('-').reverse().join('/')}</span>
+                        <span className="block font-ui text-[10px] font-semibold text-[#626b73]">Fecha</span>
+                        <span className="mt-0.5 block font-ui text-sm font-bold text-[#252a2d]">{eventoDetalle.fecha.split('-').reverse().join('/')}</span>
                       </span>
                     </div>
-                    <div className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/[0.018] p-3.5">
-                      <span className="grid h-9 w-9 place-items-center rounded-lg bg-[#C8FF62]/[0.08] text-[#C8FF62]">
+                    <div className="flex items-center gap-3 rounded-md border border-[#d9dddd] bg-white p-3.5">
+                      <span className="grid h-9 w-9 place-items-center rounded-md bg-white text-[#252a2d]">
                         <Clock size={18} weight="regular" />
                       </span>
                       <span>
-                        <span className="block font-ui text-[10px] font-semibold text-[#71857F]">Horario</span>
-                        <span className="mt-0.5 block font-ui text-sm font-bold text-[#E7EFEC]">{eventoDetalle.hora ? `${eventoDetalle.hora} hs` : 'Todo el día'}</span>
+                        <span className="block font-ui text-[10px] font-semibold text-[#626b73]">Horario</span>
+                        <span className="mt-0.5 block font-ui text-sm font-bold text-[#252a2d]">{eventoDetalle.hora ? `${eventoDetalle.hora} hs` : 'Todo el día'}</span>
                       </span>
                     </div>
                   </div>
 
                   {eventoDetalle.detalle && (
-                    <div className="rounded-xl border border-white/10 bg-white/[0.018] p-4">
-                      <p className="font-ui text-[10px] font-semibold text-[#71857F]">Detalle</p>
-                      <p className="mt-2 whitespace-pre-wrap font-ui text-sm leading-6 text-[#C9D5D1]">{eventoDetalle.detalle}</p>
+                    <div className="rounded-md border border-[#d9dddd] bg-white p-4">
+                      <p className="font-ui text-[10px] font-semibold text-[#626b73]">Detalle</p>
+                      <p className="mt-2 whitespace-pre-wrap font-ui text-sm leading-6 text-[#252a2d]">{eventoDetalle.detalle}</p>
                     </div>
                   )}
                   {eventoDetalle.expedienteNombre && (
-                    <div className="rounded-xl border border-[#EAC26B]/20 bg-[#EAC26B]/[0.055] p-4">
-                      <p className="font-ui text-[10px] font-semibold text-[#B79B62]">{terms.expedienteSingular} asociado</p>
-                      <p className="mt-1 font-ui text-sm font-bold text-[#EEE5D2]">{eventoDetalle.expedienteNombre}</p>
+                    <div className="rounded-md border border-[#d9dddd] bg-white p-4">
+                      <p className="font-ui text-[10px] font-semibold text-[#626b73]">{terms.expedienteSingular} asociado</p>
+                      <p className="mt-1 font-ui text-sm font-bold text-[#252a2d]">{eventoDetalle.expedienteNombre}</p>
                     </div>
                   )}
-                  <p className="font-ui text-[10px] text-[#60736D]">America/Argentina/Buenos_Aires · UTC-3</p>
+                  <p className="font-ui text-[10px] text-[#626b73]">America/Argentina/Buenos_Aires · UTC-3</p>
                 </div>
 
-                <div className="flex flex-col-reverse gap-3 border-t border-white/10 bg-black/[0.08] px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+                <div className="flex flex-col-reverse gap-3 border-t border-[#d9dddd] bg-white px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
                   {eventoDetalle.href && eventoDetalle.href !== '/agenda' ? (
                     <Link
                       href={eventoDetalle.href}
-                      className="group inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-[#F3F8F5] px-4 font-ui text-sm font-bold text-[#071110] transition hover:-translate-y-px hover:shadow-[0_0_24px_rgba(200,255,98,0.18)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C8FF62]"
+                      className="group inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-white px-4 font-ui text-sm font-bold text-[#071110] transition focus-visible:ring-2"
                     >
                       {getAgendaEventActionLabel(eventoDetalle, terms)}
-                      <ArrowRight size={16} weight="bold" className="transition-transform group-hover:translate-x-0.5" />
+                      <ArrowRight size={16} weight="bold" className="transition-transform" />
                     </Link>
                   ) : <span />}
 
@@ -427,7 +428,7 @@ export function AgendaClient({ eventos, cases, industry, puedeGuardar = true }: 
                           type="button"
                           onClick={() => iniciarEdicion(eventoDetalle)}
                           data-testid="agenda-editar-btn"
-                          className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-[#85E4D4]/25 bg-[#85E4D4]/[0.06] px-3 font-ui text-xs font-bold text-[#9AF0E2] hover:bg-[#85E4D4]/10"
+                          className="inline-flex min-h-10 items-center gap-2 rounded-md border border-[#d9dddd] bg-white px-3 font-ui text-xs font-bold text-[#252a2d] hover:bg-white"
                         >
                           <PencilSimple size={14} /> Editar
                         </button>
@@ -435,7 +436,7 @@ export function AgendaClient({ eventos, cases, industry, puedeGuardar = true }: 
                           type="button"
                           disabled={eliminando}
                           onClick={() => eventoDetalle.rawId && eliminar(eventoDetalle.rawId)}
-                          className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-rose-400/20 bg-rose-400/[0.055] px-3 font-ui text-xs font-bold text-rose-300 hover:bg-rose-400/10 disabled:opacity-50"
+                          className="inline-flex min-h-10 items-center gap-2 rounded-md border border-rose-400/20 bg-rose-400/[0.055] px-3 font-ui text-xs font-bold text-[#8b3b35] hover:bg-rose-400/10 disabled:opacity-50"
                         >
                           <Trash size={14} /> {eliminando ? 'Borrando…' : 'Eliminar'}
                         </button>
@@ -444,7 +445,7 @@ export function AgendaClient({ eventos, cases, industry, puedeGuardar = true }: 
                     <button
                       type="button"
                       onClick={() => { setEventoDetalle(null); setEditando(false); }}
-                      className="min-h-10 rounded-lg border border-white/12 px-4 font-ui text-xs font-bold text-[#D7E2DE] hover:bg-white/[0.05]"
+                      className="min-h-10 rounded-md border border-[#d9dddd] px-4 font-ui text-xs font-bold text-[#252a2d] hover:bg-white"
                     >
                       Cerrar
                     </button>
@@ -453,7 +454,7 @@ export function AgendaClient({ eventos, cases, industry, puedeGuardar = true }: 
               </>
             )}
           </div>
-        </div>
+        </AgendaDialog>
       )}
     </div>
   );

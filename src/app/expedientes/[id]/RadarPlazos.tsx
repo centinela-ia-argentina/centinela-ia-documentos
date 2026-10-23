@@ -1,7 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { CalendarPlus, Check, Loader2 } from 'lucide-react';
+import { CalendarPlus, Check, CircleNotch, TrafficSignal } from '@phosphor-icons/react';
+import styles from '@/components/approved/SummaryPriority.module.css';
 import { guardarPlazoDetectado } from '@/app/agenda/actions';
 import { formatIsoToAr } from '@/lib/plazos/fechasCanonicas';
 import {
@@ -64,9 +65,9 @@ export function RadarPlazos({
 
   if (plazos.length === 0) {
     return (
-      <section data-testid="radar-plazos" className="rounded-2xl border border-white/10 bg-white/[0.03] p-5 shadow-sm">
-        <h2 className="text-base font-semibold text-white">🚦 {titulo}</h2>
-        <p className="mt-2 text-sm text-slate-300">
+      <section data-testid="radar-plazos" className={styles.radar} data-summary-priority="dates">
+        <h2><TrafficSignal size={18} aria-hidden="true" />{titulo}</h2>
+        <p className={styles.empty}>
           No hay plazos vencidos ni próximos (30 días). Aparecerán aquí los plazos que detecte la IA o que cargues manualmente.
         </p>
       </section>
@@ -78,55 +79,55 @@ export function RadarPlazos({
     .filter((c) => c.n > 0);
 
   return (
-    <section data-testid="radar-plazos" className="rounded-2xl border border-white/10 bg-white/[0.03] p-5 shadow-sm">
-      <div className="flex flex-wrap items-center gap-2">
-        <h2 className="text-base font-semibold text-white">🚦 {titulo}</h2>
+    <section data-testid="radar-plazos" className={styles.radar} data-summary-priority="dates">
+      <div className={styles.radarHeader}>
+        <h2><TrafficSignal size={18} aria-hidden="true" />{titulo}</h2>
         {conteo.map((c) => (
-          <span key={c.nivel.id} className={`rounded-full px-2 py-0.5 text-xs font-medium ${c.nivel.chip}`}>
-            {c.nivel.icon} {c.n} {c.nivel.label}
+          <span key={c.nivel.id} className={`${styles.chip} ${styles[c.nivel.id]}`}>
+            <span className={styles.dot} aria-hidden="true" />{c.n} {c.nivel.label}
           </span>
         ))}
       </div>
-      <p className="mt-1 text-sm text-slate-300">
+      <p className={styles.subtitle}>
         {subtitulo}
       </p>
 
-      <ul className="mt-4 space-y-2">
+      <ul className={styles.radarList}>
         {plazos.map((p, i) => {
           const key = `${p.item.fecha}-${i}`;
           const estado = estados[key] ?? 'idle';
           return (
-            <li key={key} className={`flex items-center gap-3 rounded-xl border border-white/10 border-l-4 bg-white/[0.03] p-3 ${p.nivel.border}`}>
-              <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${p.nivel.dot}`} />
-              <div className="min-w-0 flex-1">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${p.nivel.chip}`}>
+            <li key={key} className={`${styles.radarItem} ${styles[p.nivel.id]}`}>
+              <span className={styles.itemDot} aria-hidden="true" />
+              <div className={styles.radarContent}>
+                <div className={styles.origin}>
+                  <span className={styles.chip}>
                     {textoDias(p.dias)}
                   </span>
-                  <span className="text-xs text-slate-400">{p.item.etiquetaOrigen}</span>
+                  <span className={styles.source}>{p.item.etiquetaOrigen}</span>
                 </div>
-                <p className="mt-1 truncate text-sm font-medium text-white">
+                <p className={styles.deadlineTitle}>
                   {p.item.titulo.includes(formatIsoToAr(p.item.fecha))
                     ? p.item.titulo
                     : `${p.item.titulo} — ${formatIsoToAr(p.item.fecha)}`}
                 </p>
               </div>
               {estado === 'ok' ? (
-                <span className="flex shrink-0 items-center gap-1 text-xs font-medium text-emerald-600">
-                  <Check className="h-4 w-4" /> En agenda
+                <span className={styles.confirmed} role="status">
+                  <Check size={16} aria-hidden="true" /> En agenda
                 </span>
               ) : estado === 'existing' ? (
-                <span className="flex shrink-0 items-center gap-1 text-xs font-medium text-slate-400">
-                  <Check className="h-4 w-4" /> Ya en agenda
+                <span className={styles.existing} role="status">
+                  <Check size={16} aria-hidden="true" /> Ya en agenda
                 </span>
               ) : (
                 <button
                   type="button"
                   onClick={() => cargar(key, p)}
                   disabled={estado === 'loading'}
-                  className="flex shrink-0 items-center gap-1 rounded-lg bg-violet-600 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-violet-700 disabled:opacity-60"
+                  className={styles.action} aria-busy={estado === 'loading'}
                 >
-                  {estado === 'loading' ? <Loader2 className="h-4 w-4 animate-spin" /> : <CalendarPlus className="h-4 w-4" />}
+                  {estado === 'loading' ? <CircleNotch size={16} className={styles.spinner} aria-hidden="true" /> : <CalendarPlus size={16} aria-hidden="true" />}
                   {estado === 'loading' ? 'Cargando…' : estado === 'error' ? 'Reintentar' : 'Cargar a agenda'}
                 </button>
               )}

@@ -16,6 +16,7 @@ vi.mock('./ClientMatchAiButton', () => ({ ClientMatchAiButton: 'ai-fixture' }));
 vi.mock('@/components/WhatsAppIntentBuilder', () => ({ WhatsAppIntentBuilder: 'message-fixture' }));
 vi.mock('../actions', () => ({ updateClientRecord: vi.fn() }));
 import Page from './page';
+import {ClientRecordForm} from '@/components/approved/forms/ClientRecordForm';
 
 const record = { id: 'client-a', organization_id: 'org-a', name: 'Contacto ficticio', status: 'activo', client_type: 'comprador' };
 function query(data: unknown, error: unknown = null) {
@@ -89,17 +90,21 @@ describe('Acceso de la página real de cliente con Supabase simulado', () => {
     const tree = await load();
     const mode = findProps(tree, 'client-detail-mode');
     expect(mode?.canManage).toBe(true);
-    const form = findProps(mode?.editForm as React.ReactNode, 'form');
+    const element = mode?.editForm as React.ReactElement<Parameters<typeof ClientRecordForm>[0]>;
+    expect(element.type).toBe(ClientRecordForm);
+    const formTree = ClientRecordForm(element.props);
+    const form = findProps(formTree, 'form');
     expect(form?.action).toBeTypeOf('function');
     const inputs: Record<string, unknown>[] = [];
     function collect(node: React.ReactNode) {
       if (Array.isArray(node)) return node.forEach(collect);
       if (!React.isValidElement(node)) return;
       const props = node.props as Record<string, unknown>;
+      if (typeof node.type === 'function') { collect((node.type as (props: unknown) => React.ReactNode)(props)); return; }
       if (node.type === 'input') inputs.push(props);
       collect(props.children as React.ReactNode);
     }
-    collect(mode?.editForm as React.ReactNode);
+    collect(formTree);
     expect(inputs).toContainEqual(expect.objectContaining({ name: 'client_id', value: 'client-a', type: 'hidden' }));
     expect(inputs).toContainEqual(expect.objectContaining({ name: 'name', defaultValue: 'Contacto ficticio', required: true }));
   });

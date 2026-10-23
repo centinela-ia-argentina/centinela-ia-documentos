@@ -1,5 +1,7 @@
 'use client';
 
+import { MagnifyingGlass } from '@phosphor-icons/react';
+import styles from './IndustryTools.module.css';
 import { useFormStatus } from 'react-dom';
 import { cotejarExpediente } from '../actions';
 
@@ -17,7 +19,7 @@ function BotonCotejar({ tieneCotejo }: { tieneCotejo: boolean }) {
     <button
       type="submit"
       disabled={pending}
-      className="shrink-0 rounded-xl border border-cyan-500/20 bg-cyan-500/10 px-4 py-2 text-sm font-semibold text-cyan-300 transition hover:bg-cyan-500/20 disabled:opacity-50"
+      className={styles.action}
     >
       {pending ? 'Cotejando…' : tieneCotejo ? 'Volver a cotejar' : 'Cotejar documentos con IA'}
     </button>
@@ -34,18 +36,18 @@ function Bloque({
   tono?: 'slate' | 'amber' | 'rose' | 'emerald';
 }) {
   const tonos: Record<string, string> = {
-    slate: 'border-white/10 bg-white/[0.04]',
-    amber: 'border-amber-400/25 bg-amber-400/[0.06]',
-    rose: 'border-rose-400/25 bg-rose-400/[0.06]',
-    emerald: 'border-emerald-400/25 bg-emerald-400/[0.06]',
+    slate: styles.output,
+    amber: styles.notice,
+    rose: styles.alert,
+    emerald: styles.output,
   };
   if (items.length === 0) return null;
   return (
-    <div className={`rounded-2xl border p-4 ${tonos[tono]}`}>
-      <p className="text-sm font-semibold text-white">{titulo}</p>
-      <ul className="mt-2 space-y-1">
+    <div className={tonos[tono]}>
+      <p className={styles.title}>{titulo}</p>
+      <ul role="list" className={`${styles.list} ${styles.inlineBulletList}`}>
         {items.map((it, i) => (
-          <li key={i} className="text-sm text-slate-300">• {it}</li>
+          <li key={i} className={styles.description}>• {it}</li>
         ))}
       </ul>
     </div>
@@ -86,10 +88,10 @@ export function CotejoExpediente({
     ? 'Cruza los documentos de la operación (reserva, boleto, informe de dominio) y marca coincidencias, discrepancias, faltantes y vigencias.'
     : 'Cruza los documentos del legajo (boleto, título, certificados) y marca coincidencias, discrepancias, faltantes y vigencias.';
   
-  const rotuloCoincidencias = esLegal ? '✅ Hechos reconocidos' : '✅ Coincidencias';
-  const rotuloDiscrepancias = esLegal ? '⚠️ Puntos controvertidos' : '⚠️ Discrepancias';
-  const rotuloFaltantes = esLegal ? '📋 Prueba pendiente' : '📋 Faltantes';
-  const rotuloVigencias = esLegal ? '⏳ Alertas procesales' : '⏳ Vigencias';
+  const rotuloCoincidencias = esLegal ? 'Hechos reconocidos' : 'Coincidencias';
+  const rotuloDiscrepancias = esLegal ? 'Puntos controvertidos' : 'Discrepancias';
+  const rotuloFaltantes = esLegal ? 'Prueba pendiente' : 'Faltantes';
+  const rotuloVigencias = esLegal ? 'Alertas procesales' : 'Vigencias';
   const pieAccion = esLegal ? 'revisá antes de presentar' : esInmo ? 'revisá antes de firmar' : 'revisá antes de otorgar';
 
   const veredicto = esInmo && cotejo?.veredicto ? sanitizeTextoInmobiliario(cotejo.veredicto) : cotejo?.veredicto;
@@ -99,11 +101,11 @@ export function CotejoExpediente({
   const alertasVigencia = esInmo && cotejo?.alertas_vigencia ? cotejo.alertas_vigencia.map(sanitizeTextoInmobiliario) : cotejo?.alertas_vigencia ?? [];
 
   return (
-    <div data-testid="cotejo-expediente" className="rounded-3xl border border-white/10 bg-white/[0.02] p-6">
-      <div className="flex items-start justify-between gap-4">
+    <div data-testid="cotejo-expediente" className={styles.tool}>
+      <div className={styles.header}>
         <div>
-          <h2 className="text-lg font-semibold text-white">🔍 {titulo}</h2>
-          <p className="mt-1 text-sm text-slate-400">
+          <h2 className={styles.title}><MagnifyingGlass size={18} aria-hidden="true" /> {titulo}</h2>
+          <p className={styles.description}>
             {descripcion}
           </p>
         </div>
@@ -115,20 +117,20 @@ export function CotejoExpediente({
       </div>
 
       {documentosAnalizados < 1 && !cotejo && (
-        <p className="mt-4 text-sm text-slate-400">
+        <p className={styles.description}>
           Necesitás al menos 1 documento analizado en {terminoContenedor} para poder cotejarlo.
         </p>
       )}
 
       {documentosAnalizados >= 1 && !cotejo && (
-        <p className="mt-4 text-sm text-slate-400">
+        <p className={styles.description}>
           Hay {documentosAnalizados} documento{documentosAnalizados > 1 ? 's' : ''} analizado{documentosAnalizados > 1 ? 's' : ''}. Tocá “Cotejar documentos con IA” para cruzarlos.
         </p>
       )}
 
       {cotejo && (
-        <div className="mt-4 space-y-3">
-          <p className="text-sm text-slate-200">{veredicto}</p>
+        <div className={styles.result}>
+          <p className={styles.description}>{veredicto}</p>
           <Bloque titulo={rotuloCoincidencias} items={coincidencias} tono="emerald" />
           <div data-testid="cotejo-discrepancias">
             <Bloque titulo={rotuloDiscrepancias} items={discrepancias} tono="rose" />
@@ -138,7 +140,7 @@ export function CotejoExpediente({
             <Bloque titulo={rotuloVigencias} items={alertasVigencia} tono="amber" />
           </div>
           {generadoEl && (
-            <p className="text-xs text-slate-500">
+            <p className={styles.footnote}>
               Cotejo generado el {new Date(generadoEl).toLocaleString('es-AR')} · Borrador orientativo, {pieAccion}.
             </p>
           )}

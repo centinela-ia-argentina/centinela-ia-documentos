@@ -43,7 +43,7 @@ export function GenerarAvisoButton({ propertyId }: { propertyId: string }) {
 
   if (result) {
     return (
-      <div className="mb-6 rounded-2xl border border-white/10 bg-white/5 p-6">
+      <div className={`${styles.aiTool} mb-6 rounded-2xl border border-white/10 bg-white/5 p-6`}>
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2 text-cyan-400">
             <Sparkles className="h-5 w-5" />
@@ -96,7 +96,7 @@ export function GenerarAvisoButton({ propertyId }: { propertyId: string }) {
   }
 
   return (
-    <div className="mb-6">
+    <div className={`${styles.aiTool} mb-6`}>
       {error && <p className="mb-2 text-sm text-red-400">{error}</p>}
       <AppButton onClick={handleAnalyze} disabled={isPending} className={styles.primary}>
         <Sparkle size={18} weight="duotone" aria-hidden="true" />

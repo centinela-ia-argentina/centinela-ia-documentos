@@ -1,35 +1,38 @@
-.page { font-family:var(--font-ui),sans-serif; color:#eaf0ed; }
+.page { font-family:var(--font-ui),sans-serif; color:#60605d; }
 .page :is(button,input,textarea) { font:inherit; }
-.page :is(button,input,textarea):focus-visible { outline:2px solid #82d2c2; outline-offset:3px; }
+.page :is(button,input,textarea):focus-visible { outline:2px solid #415a71; outline-offset:3px; }
 .page .back { padding-left:0; padding-right:0; margin-bottom:22px; font-size:13px; font-weight:500; }
 .header { margin-bottom:28px; }
 .header h1 { font-family:var(--font-display),sans-serif; font-size:36px; line-height:1.2; font-weight:600; margin:12px 0; letter-spacing:-.025em; }
-.header > p:last-child { color:#b9c8bd; font-size:14px; line-height:1.55; margin:0; }
-.page .eyebrow { display:flex; align-items:center; gap:10px; color:#b5c8b9; font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:1.2px; margin:0; }
-.note { padding:14px 18px; border:1px solid #43574a; border-radius:10px; background:#1b2b20; color:#c2d0c6; font-size:14px; line-height:1.55; margin-bottom:24px; }
-.form { border:1px solid #485c4e; border-radius:16px; background:linear-gradient(135deg,#223127,#141f19); padding:28px; box-shadow:0 12px 30px #00000012; }
+.header > p:last-child { color:#60605d; font-size:14px; line-height:1.55; margin:0; }
+.page .eyebrow { display:flex; align-items:center; gap:10px; color:#60605d; font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:1.2px; margin:0; }
+.note { padding:14px 18px; border:1px solid #d5d5d2; border-radius:10px; background:#fff; color:#60605d; font-size:14px; line-height:1.55; margin-bottom:24px; }
+.form { border:1px solid #d5d5d2; border-radius:16px; background:#fff; padding:28px; box-shadow:none; }
 .form fieldset { min-width:0; border:0; padding:0; margin:0 0 28px; }
-.form legend { width:100%; display:flex; align-items:center; gap:12px; color:#e4ece7; font-size:14px; font-weight:600; padding:0; margin-bottom:24px; }
-.form legend::after { content:''; height:1px; background:#47594c; flex:1; margin-left:4px; }
+.form legend { width:100%; display:flex; align-items:center; gap:12px; color:#60605d; font-size:14px; font-weight:600; padding:0; margin-bottom:24px; }
+.form legend::after { content:''; height:1px; background:#fff; flex:1; margin-left:4px; }
 .form svg { flex-shrink:0; }
-.form label,.page .fieldLabel { display:block; color:#c4d0c7; font-size:12px; font-weight:500; line-height:1.5; margin:0 0 8px; }
+.form label,.page .fieldLabel { display:block; color:#60605d; font-size:12px; font-weight:500; line-height:1.5; margin:0 0 8px; }
 .formGrid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:18px; }
 .featureGrid { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:18px; }
 .wideField { grid-column:span 2; }
 .formGrid > div,.featureGrid > div { min-width:0; }
 .formGrid > div > div,.featureGrid > div > div { margin-top:0; }
-.form :is(input:not([type=hidden]),textarea) { width:100%; min-width:0; min-height:46px; padding:12px 13px; border:1px solid #5d7363; border-radius:9px; background:#101e16; color:#eff6f0; font-size:14px; line-height:1.5; }
-.form :is(input,textarea)::placeholder { color:#a7b9ac; opacity:1; }
+.form :is(input:not([type=hidden]),textarea) { width:100%; min-width:0; min-height:46px; padding:12px 13px; border:1px solid #d5d5d2; border-radius:9px; background:#fff; color:#60605d; font-size:14px; line-height:1.5; }
+.form :is(input,textarea)::placeholder { color:#60605d; opacity:1; }
 .form textarea { resize:vertical; min-height:86px; }
-.form input[aria-invalid=true] { border-color:#d2a18d; }
+.form input[aria-invalid=true] { border-color:#d5d5d2; }
 .form fieldset:disabled { opacity:.7; }
-.actions { display:flex; flex-wrap:wrap; align-items:center; justify-content:flex-end; gap:12px; padding-top:24px; border-top:1px solid #47594c; }
+.actions { display:flex; flex-wrap:wrap; align-items:center; justify-content:flex-end; gap:12px; padding-top:24px; border-top:1px solid #d5d5d2; }
 .page .actions button { min-height:48px; font-size:12px; font-weight:700; }
-.page .primary { border-radius:8px; padding:12px 16px; background:#f3f8f5; color:#071110; }
+.page .primary { border-radius:8px; padding:12px 16px; background:#fff; color:#303030; }
 .page button:disabled { opacity:.6; cursor:wait; transform:none; }
-.footer { color:#b2c5b7; font-size:12px; line-height:1.55; margin-top:22px; }
-.error { padding:16px; border:1px solid #be9473; border-radius:10px; background:#392a20; color:#f5e6d9; font-size:14px; line-height:1.55; margin-bottom:24px; }
+.footer { color:#60605d; font-size:12px; line-height:1.55; margin-top:22px; }
+.error { padding:16px; border:1px solid #d5d5d2; border-radius:10px; background:#fff; color:#60605d; font-size:14px; line-height:1.55; margin-bottom:24px; }
 @media(max-width:1100px) { .featureGrid { grid-template-columns:repeat(3,minmax(0,1fr)); } .formGrid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
 @media(max-width:800px) { .header h1 { font-size:28px; } .form { padding:22px; } .featureGrid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
 @media(max-width:500px) { .formGrid,.featureGrid { grid-template-columns:1fr; } .wideField { grid-column:auto; } .form { padding:20px; } .actions button { flex:1; } .header h1 { font-size:27px; } .form label,.page .fieldLabel { font-size:13px; } .note { font-size:12px; } }
 @media(prefers-reduced-motion:reduce) { .page *, .page *::before,.page *::after { transition:none!important; animation:none!important; } .page button:hover { transform:none; } }
+/* V3 interna aprobada: traslado de paleta/controles, composición y lógica conservadas. */
+
+.page{color:#2c2c2b}.header h1{font-size:32px}.page .back{color:#60605d}.page .note{background:#f5f5f4;color:#555;border-color:#d5d5d2}.page .form{background:#fff;border:1px solid #d5d5d2;border-radius:10px;box-shadow:none}.page .form legend{color:#2c2c2b}.page .form :is(input:not([type=hidden]),textarea){background:#fff;color:#2c2c2b;border-color:#92928f;border-radius:6px}.page .form :is(input,textarea)::placeholder{color:#70706d}.page .primary{background:#2c2c2b;color:#fff;border:1px solid #2c2c2b;border-radius:6px;min-height:44px}.page .primary:hover{background:#424242;color:#fff}.page .error{background:#fff4f2;color:#9e3e38;border-color:#e1bbb5}.page .form input[aria-invalid=true]{border-color:#9e3e38}.page :is(button,input,textarea):focus-visible{outline-color:#415a71}.page :is(h1,p){overflow-wrap:anywhere}@media(max-width:500px){.header h1{font-size:28px}}

@@ -29,7 +29,7 @@ export function ClientDetailMode({ name, identity, canManage, children, editForm
         </header>
         {children}
       </div>
-      {canManage && <div hidden={!editing} ref={editor} className={styles.editor}>
+      {canManage && <div hidden={!editing} ref={editor} className={styles.editorV3}>
         <button type="button" className={styles.action} onClick={closeEdit}><ArrowLeft size={16} aria-hidden="true" />Volver a la ficha</button>
         <p className={styles.eyebrow}>Ficha de cliente</p>
         <h1>Editar cliente</h1><p className={styles.muted}>{name} · Revisá el contacto y los criterios de búsqueda.</p>

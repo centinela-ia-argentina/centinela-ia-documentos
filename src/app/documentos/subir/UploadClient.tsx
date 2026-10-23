@@ -1,10 +1,12 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { uploadSingleDocumentAsync } from '../actions';
 import { UploadCloud, X, Loader2, FileIcon, CheckCircle2, AlertCircle } from 'lucide-react';
 
+import Link from 'next/link';
+import styles from './Upload.module.css';
 import { IndustryType } from '@/lib/industries/documentTypes';
 import { getIndustryTerms } from '@/lib/industries/uiLabels';
 
@@ -19,6 +21,8 @@ export function UploadClient({
   initialCaseId: string;
   industry?: IndustryType;
 }) {
+  const fileInput = useRef<HTMLInputElement>(null);
+  const [rejected, setRejected] = useState<string[]>([]);
   const router = useRouter();
   const terms = getIndustryTerms(industry);
   const MAX_FILE_SIZE_MB = 50;
@@ -44,11 +48,12 @@ export function UploadClient({
   const onDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     setIsDragging(false);
+    if (isUploading) return;
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
       handleFilesSelected(Array.from(e.dataTransfer.files));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [isUploading]);
 
   const handleFilesSelected = (selectedFiles: File[]) => {
     const validTypes = [
@@ -59,6 +64,7 @@ export function UploadClient({
       'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
     ];
 
+    setRejected(selectedFiles.filter(f => !validTypes.includes(f.type) || f.size > MAX_FILE_SIZE_MB * 1024 * 1024).map(f => `${f.name}: ${!validTypes.includes(f.type) ? 'formato no permitido' : 'supera 50 MB'}.`));
     const valid = selectedFiles.filter(f => validTypes.includes(f.type) && f.size <= MAX_FILE_SIZE_MB * 1024 * 1024);
 
     setFiles(prev => {
@@ -167,219 +173,61 @@ export function UploadClient({
   const duplicateCount = Object.values(uploadStatus).filter(s => s.status === 'duplicate').length;
 
   useEffect(() => {
-    // Eliminado el redireccionamiento automático para permitir que 
+    // Eliminado el redireccionamiento automático para permitir que
     // el usuario (y E2E) vea el resumen de estado y decida cuándo avanzar.
   }, [isUploading, totalFiles, successCount, errorCount, caseId, router]);
 
+  const destination = cases.find(item => item.id === caseId)?.title || 'Sin asociación';
   return (
-    <div className="space-y-6">
+    <div className={styles.root}>
       {totalFiles > 0 && (successCount > 0 || errorCount > 0 || duplicateCount > 0) && !isUploading && (
-        <div className="bg-slate-50 border border-slate-200 rounded-2xl p-6" data-testid="upload-summary">
-          <h3 className="font-semibold text-slate-800 mb-2">Resumen de Subida</h3>
-          <ul className="text-sm text-slate-600 space-y-1 mb-4">
-            <li>Total procesados: {totalFiles}</li>
-            <li className="text-emerald-600 font-medium" data-testid="upload-success-count">Completados con éxito: {successCount}</li>
-            {errorCount > 0 && <li className="text-rose-600 font-medium" data-testid="upload-error-count">Errores: {errorCount}</li>}
-            {duplicateCount > 0 && <li className="text-amber-600 font-medium" data-testid="upload-duplicate-count">Duplicados omitidos: {duplicateCount}</li>}
-          </ul>
-          {successCount > 0 && (
-            <div className="pt-2">
-              <button
-                onClick={(e) => {
-                  e.preventDefault();
-                  router.refresh();
-                  if (caseId) {
-                    const basePath = industry === 'inmobiliaria' ? '/operaciones' : '/expedientes';
-                    router.push(`${basePath}/${caseId}?tab=documentos`);
-                  } else {
-                    router.push('/documentos');
-                  }
-                }}
-                className="w-full sm:w-auto px-4 py-2 bg-slate-900 text-white rounded-lg text-sm font-medium hover:bg-slate-800 transition-colors"
-              >
-                {caseId ? `Ver en ${terms.elExpediente}` : 'Ver documentos'}
-              </button>
-            </div>
-          )}
-        </div>
+        <section className={styles.uploadResults} data-testid="upload-summary" aria-label="Resultado de la carga" role="status">
+          <h2>Resultado de la carga</h2><p>Revisá cada archivo antes de continuar.</p>
+          <dl><div><dt>Seleccionados</dt><dd>{totalFiles}</dd></div><div><dt>Cargados</dt><dd data-testid="upload-success-count">{successCount}</dd></div><div><dt>Errores</dt><dd data-testid="upload-error-count">{errorCount}</dd></div><div><dt>Duplicados omitidos</dt><dd data-testid="upload-duplicate-count">{duplicateCount}</dd></div></dl>
+          {successCount > 0 && <button type="button" onClick={() => {router.refresh(); router.push(caseId ? `${industry === 'inmobiliaria' ? '/operaciones' : '/expedientes'}/${caseId}?tab=documentos` : '/documentos');}}>{caseId ? `Ver en ${terms.elExpediente}` : 'Ver documentos'}</button>}
+        </section>
       )}
-
-    <form onSubmit={handleSubmit} className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-      <div className="grid gap-5">
-        <div>
-          <label className="text-sm font-semibold text-slate-700">{terms.expedienteSingular}</label>
-          <select
-            value={caseId}
-            data-testid="upload-case"
-            onChange={(e) => setCaseId(e.target.value)}
-            className="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none focus:ring-2 focus:ring-sky-400"
-            disabled={isUploading}
-          >
-            <option value="">
-              {industry === 'inmobiliaria'
-                ? 'Sin asociar a una operación'
-                : `Sin ${terms.expedienteSingular.toLowerCase()} / general`}
-            </option>
-            {cases.map((item) => (
-              <option key={item.id} value={item.id}>{item.title}</option>
-            ))}
-          </select>
-          {industry === 'inmobiliaria' && !caseId && (
-            <p className="mt-1.5 text-xs text-slate-500">
-              Podés subir documentos sin asociar y vincularlos a una operación más tarde desde la Bóveda.
-            </p>
-          )}
-        </div>
-
-        <div>
-          <label className="text-sm font-semibold text-slate-700">Tipo documental</label>
-          <select
-            value={documentType}
-            data-testid="upload-type"
-            onChange={(e) => setDocumentType(e.target.value)}
-            className="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none focus:ring-2 focus:ring-sky-400"
-            disabled={isUploading}
-          >
-            <option value="">Sin Clasificar</option>
-            {documentTypes.map((dt) => (
-              <option key={dt} value={dt}>{dt}</option>
-            ))}
-          </select>
-        </div>
-
-        <div>
-          <label className="text-sm font-semibold text-slate-700">Nivel de sensibilidad</label>
-          <select
-            value={sensitivityLevel}
-            data-testid="upload-sensitivity"
-            onChange={(e) => setSensitivityLevel(e.target.value)}
-            className="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none focus:ring-2 focus:ring-sky-400"
-            disabled={isUploading}
-          >
-            <option value="low">Bajo</option>
-            <option value="medium">Medio</option>
-            <option value="high">Alto</option>
-            <option value="critical">Crítico</option>
-          </select>
-        </div>
-
-        <div>
-          <label className="text-sm font-semibold text-slate-700">Fecha de vencimiento</label>
-          <input
-            type="date"
-            value={expiresAt}
-            onChange={(e) => setExpiresAt(e.target.value)}
-            className="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none focus:ring-2 focus:ring-sky-400"
-            disabled={isUploading}
-          />
-          <p className="mt-2 text-xs text-slate-500">Opcional. Si los documentos vencen, indicá la fecha. Se aplica a todos los seleccionados.</p>
-        </div>
-
-        <div>
-          <label className="text-sm font-semibold text-slate-700 mb-2 block">Archivos</label>
-
-          <div
-            onDragOver={onDragOver}
-            onDragLeave={onDragLeave}
-            onDrop={onDrop}
-            className={`relative flex flex-col items-center justify-center rounded-2xl border-2 border-dashed p-8 transition-colors ${
-              isDragging ? 'border-sky-500 bg-sky-50' : 'border-slate-300 bg-slate-50 hover:bg-slate-100'
-            } ${isUploading ? 'opacity-50 pointer-events-none' : ''}`}
-          >
-            <input
-              type="file"
-              multiple
-              data-testid="upload-file-input"
-              onChange={(e) => e.target.files && handleFilesSelected(Array.from(e.target.files))}
-              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-              accept=".pdf,.jpg,.jpeg,.png,.docx,.xlsx"
-              disabled={isUploading}
-            />
-            <UploadCloud className={`h-10 w-10 mb-3 ${isDragging ? 'text-sky-500' : 'text-slate-400'}`} />
-            <p className="text-sm font-semibold text-slate-700">Arrastrá tus archivos acá o hacé clic para seleccionar</p>
-            <p className="mt-1 text-xs text-slate-500">PDF, JPG, PNG, DOCX, XLSX. Máximo {MAX_FILE_SIZE_MB} MB por archivo.</p>
-          </div>
-
-          {files.length > 0 && (
-            <div className="mt-4 space-y-2">
-              {files.map((wf) => {
-                const status = uploadStatus[wf.id]?.status || 'pending';
-                return (
-                  <div key={wf.id} className="flex items-center justify-between p-3 bg-white border border-slate-200 rounded-xl">
-                    <div className="flex items-center gap-3 overflow-hidden">
-                      <FileIcon className="h-5 w-5 text-slate-400 shrink-0" />
-                      <div className="truncate text-sm font-medium text-slate-700">
-                        {wf.file.name}
-                        <div className="text-xs text-slate-400 font-normal">
-                          {wf.file.size < 1024 * 1024 
-                            ? `${(wf.file.size / 1024).toFixed(2)} KB` 
-                            : `${(wf.file.size / 1024 / 1024).toFixed(2)} MB`}
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-2 shrink-0">
-                      {status === 'uploading' && <Loader2 className="h-4 w-4 animate-spin text-sky-500" />}
-                      {status === 'success' && <CheckCircle2 className="h-5 w-5 text-emerald-500" />}
-                      {status === 'duplicate' && (
-                        <div className="flex items-center gap-1 text-amber-500 text-xs">
-                          <AlertCircle className="h-4 w-4" />
-                          <span className="hidden sm:inline">Duplicado</span>
-                          {uploadStatus[wf.id]?.duplicateId && (
-                            <a href={`/documentos/${uploadStatus[wf.id].duplicateId}`} target="_blank" rel="noreferrer" className="underline ml-1 hover:text-amber-600">
-                              Ver archivo
-                            </a>
-                          )}
-                        </div>
-                      )}
-                      {status === 'error' && (
-                        <div className="flex items-center gap-1 text-rose-500 text-xs">
-                          <AlertCircle className="h-4 w-4" />
-                          <span className="hidden sm:inline">{uploadStatus[wf.id]?.error || 'Error'}</span>
-                          <button
-                            type="button"
-                            onClick={(e) => { e.preventDefault(); retryUpload(wf.id, wf.file); }}
-                            className="ml-2 underline hover:text-rose-600"
-                          >
-                            Reintentar
-                          </button>
-                        </div>
-                      )}
-
-                      {(status === 'pending' || status === 'error') && !isUploading && (
-                        <button
-                          type="button"
-                          onClick={(e) => { e.preventDefault(); removeFile(wf.id); }}
-                          className="p-1 text-slate-400 hover:text-rose-500 transition-colors"
-                        >
-                          <X className="h-4 w-4" />
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
+      <div className={styles.uploadLayout}>
+      <form onSubmit={handleSubmit}>
+        <section><header className={styles.uploadSectionHead}><h2>Datos de la carga</h2><p>Se aplican a todos los archivos seleccionados.</p></header>
+          <div className={styles.uploadFields}>
+            <div className={`${styles.uploadField} ${styles.uploadFull}`}><label htmlFor="uploadCase">{terms.expedienteSingular}</label>
+              <select id="uploadCase" name="case_id" data-testid="upload-case" value={caseId} onChange={e => setCaseId(e.target.value)} disabled={isUploading} aria-describedby="uploadCaseHelp">
+                <option value="">{industry === 'inmobiliaria' ? 'Sin asociar a una operación' : `Sin ${terms.expedienteSingular.toLowerCase()} / general`}</option>
+                {cases.map(item => <option key={item.id} value={item.id}>{item.title}</option>)}
+              </select><p id="uploadCaseHelp">Podés cambiar el destino o cargar sin asociación. Los reintentos usan los datos actuales.</p>
             </div>
-          )}
-        </div>
+            <div className={styles.uploadField}><label htmlFor="uploadType">Tipo documental</label><select id="uploadType" name="document_type" data-testid="upload-type" value={documentType} onChange={e => setDocumentType(e.target.value)} disabled={isUploading}><option value="">Sin Clasificar</option>{documentTypes.map(dt => <option key={dt} value={dt}>{dt}</option>)}</select></div>
+            <div className={styles.uploadField}><label htmlFor="uploadSensitivity">Nivel de sensibilidad</label><select id="uploadSensitivity" name="sensitivity_level" data-testid="upload-sensitivity" value={sensitivityLevel} onChange={e => setSensitivityLevel(e.target.value)} disabled={isUploading}><option value="low">Bajo</option><option value="medium">Medio</option><option value="high">Alto</option><option value="critical">Crítico</option></select></div>
+            <div className={styles.uploadField}><label htmlFor="uploadExpiry">Fecha de vencimiento <span>· Opcional</span></label><input id="uploadExpiry" name="expires_at" type="date" value={expiresAt} onChange={e => setExpiresAt(e.target.value)} disabled={isUploading} aria-describedby="uploadExpiryHelp"/><p id="uploadExpiryHelp">Completala solo si los documentos vencen.</p></div>
+          </div>
+        </section>
+        <section className={styles.uploadFiles} aria-labelledby="uploadFilesTitle"><header className={`${styles.uploadSectionHead} ${styles.uploadFilesHead}`}><h2 id="uploadFilesTitle">Archivos</h2><span>{totalFiles} seleccionados</span></header>
+          <div onDragOver={onDragOver} onDragLeave={onDragLeave} onDrop={onDrop} className={`${styles.uploadDrop} ${isDragging ? styles.drag : ''}`}>
+            <UploadCloud aria-hidden="true"/><p>Arrastrá tus archivos acá</p><span>o</span>
+            <button type="button" onClick={() => fileInput.current?.click()} disabled={isUploading}>Seleccionar archivos</button>
+            <input ref={fileInput} id="uploadFileInput" type="file" multiple data-testid="upload-file-input" aria-label="Seleccionar archivos" aria-describedby="uploadFormats" className={styles.uploadFileInput} accept=".pdf,.jpg,.jpeg,.png,.docx,.xlsx" onChange={e => {if(e.target.files) handleFilesSelected(Array.from(e.target.files)); e.target.value = '';}} disabled={isUploading}/>
+            <p id="uploadFormats">PDF, JPG, PNG, DOCX y XLSX · Máximo 50 MB por archivo.</p>
+          </div>
+          <p className={styles.uploadPrivacy}>Los archivos se enviarán al almacenamiento privado de tu organización al confirmar la carga.</p>
+          {rejected.length > 0 && <div className={styles.uploadSelectionAlert} role="alert">{rejected.map((message,i) => <p key={i}>{message}</p>)}</div>}
+          {!files.length && <p className={styles.uploadEmpty}>Todavía no seleccionaste archivos.</p>}
+          <ul className={styles.uploadQueue} aria-label="Archivos seleccionados">{files.map(wf => {
+            const state = uploadStatus[wf.id]; const status = state?.status || 'pending';
+            const labels = {pending:'Preparado',uploading:'En curso',success:'Cargado',duplicate:'Duplicado',error:'Error'};
+            const Icon = status === 'uploading' ? Loader2 : status === 'success' ? CheckCircle2 : status === 'error' || status === 'duplicate' ? AlertCircle : FileIcon;
+            return <li className={styles.uploadFileRow} key={wf.id}><div className={styles.uploadFileName}><FileIcon aria-hidden="true"/><div><h3>{wf.file.name}</h3><p>{wf.file.size < 1024 * 1024 ? `${(wf.file.size / 1024).toFixed(2)} KB` : `${(wf.file.size / 1024 / 1024).toFixed(2)} MB`}</p>{status === 'error' && <p className={styles.uploadErrorText}>{state.error || 'Error al subir'}</p>}</div></div>
+              <div className={styles.uploadFileActions}><span className={styles.status} data-state={status}><Icon aria-hidden="true"/>{labels[status]}</span>
+                {status === 'duplicate' && state?.duplicateId && <Link href={`/documentos/${state.duplicateId}`} target="_blank" rel="noreferrer">Ver archivo</Link>}
+                {status === 'error' && <button type="button" disabled={isUploading} onClick={() => retryUpload(wf.id,wf.file)}>Reintentar</button>}
+                {(status === 'pending' || status === 'error') && !isUploading && <button type="button" aria-label={`Quitar ${wf.file.name} de la selección`} onClick={() => {removeFile(wf.id); fileInput.current?.focus();}}><X aria-hidden="true"/></button>}
+              </div></li>;
+          })}</ul>
+        </section>
+        <footer className={styles.uploadActions}><button type="submit" data-testid="upload-submit" disabled={isUploading || !files.length} className={styles.primary}>{isUploading ? 'Subiendo…' : `Subir ${files.length} documento${files.length !== 1 ? 's' : ''}`}</button><p>Subir no implica analizar ni confirmar validez documental.</p></footer>
+      </form>
+      <aside className={styles.uploadAside} aria-label="Antes de subir"><p className={styles.eyebrow}>ANTES DE SUBIR</p><h2>Un destino, los mismos datos</h2><section><h3>{terms.expedienteSingular} de destino</h3><p>{destination}</p></section><section><h3>Almacenamiento privado</h3><p>Los archivos quedan asociados a tu organización.</p></section><section><h3>Un archivo no equivale a una revisión</h3><p>Subir no confirma validez documental ni revisión profesional. El análisis IA es una acción separada.</p></section><p className={styles.uploadAsideNote}>Para usar tipos, sensibilidades o fechas diferentes, prepará cargas separadas.</p></aside>
       </div>
-
-      <button
-        type="submit"
-        data-testid="upload-submit"
-        disabled={isUploading || files.length === 0}
-        className="mt-6 flex w-full justify-center items-center gap-2 rounded-2xl bg-slate-950 px-5 py-3 text-sm font-bold text-white hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed"
-      >
-        {isUploading ? (
-          <>
-            <Loader2 className="h-4 w-4 animate-spin" />
-            Subiendo...
-          </>
-        ) : (
-          `Subir ${files.length} documento${files.length !== 1 ? 's' : ''}`
-        )}
-      </button>
-    </form>
     </div>
   );
 }

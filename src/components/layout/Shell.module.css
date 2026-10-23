@@ -1,0 +1,89 @@
+.shell {
+  --ui-text: #25272a;
+  --ui-muted: #62676d;
+  --ui-line: #e0e1e1;
+  --ui-control: #fff;
+  --ui-control-border: #cbd0d2;
+  --ui-focus: #3d526c;
+  --bg-base: #fafafa;
+  --bg-elevated: #fff;
+  --fg: #25272a;
+  --fg-muted: #62676d;
+  --line: #e0e1e1;
+  --accent: #363b40;
+  --accent-soft: #62676d;
+  --accent-strong: #25272a;
+  color-scheme: light;
+  font-family: var(--font-ui), sans-serif;
+  min-height: calc(100dvh - 32px);
+  margin: 16px;
+  border: 1px solid #d5d7d8;
+  border-radius: 10px;
+  background: #fafafa;
+  color: #25272a;
+  box-shadow: 0 12px 40px #1c232809;
+}
+.workspace { min-width: 0; margin-left: 226px; }
+.main { width: 100%; max-width: 1600px; margin: 0 auto; padding: 28px 30px; }
+.skip { position: fixed; left: 30px; top: -100px; z-index: 100; padding: 10px 14px; background: #fff; color: #25272a; border: 2px solid #3d526c; border-radius: 5px; }
+.skip:focus { top: 24px; }
+.sidebar { position: fixed; inset: 17px auto 17px 17px; z-index: 30; display: flex; flex-direction: column; width: 226px; border-right: 1px solid #e3e4e5; border-radius: 9px 0 0 9px; background: #fcfcfc; color: #25272a; }
+.brand { display: block; padding: 23px 21px 18px; border-bottom: 1px solid #ececed; }
+.brandName { font-family: var(--font-display), sans-serif; font-size: 19px; font-weight: 600; letter-spacing: -.7px; }
+.brandNote { display: block; margin-top: 4px; color: #777e84; font-size: 9px; letter-spacing: .06em; text-transform: uppercase; }
+.navScroll { min-height: 0; flex: 1; overflow-y: auto; padding: 19px 12px 14px; scrollbar-width: thin; }
+.navGroup { margin-bottom: 18px; }
+.navSummary { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 32px; padding: 3px 14px 8px 9px; cursor: pointer; list-style: none; color: #5e646a; font-size: 9px; font-weight: 700; letter-spacing: .065em; text-transform: uppercase; }
+.navSummary::-webkit-details-marker, .accountTrigger::-webkit-details-marker { display: none; }
+.navCaret { flex: 0 0 16px; width: 16px; height: 16px; transition: transform 130ms ease; }
+.navGroup:not([open]) > .navSummary .navCaret { transform: rotate(-90deg); }
+.navItem { display: flex; align-items: center; gap: 10px; min-height: 33px; margin: 1px 0; padding: 7px 9px; border: 1px solid transparent; border-radius: 5px; color: #50565d; font-size: 11px; font-weight: 500; line-height: 1.5; transition: background-color 130ms ease; }
+.navItem svg { flex-shrink: 0; color: #60666d; }
+.navItem[aria-current=page] { background: #eceeed; border-color: #e3e6e4; color: #252a2d; box-shadow: inset 0 1px 0 #ffffff9c; font-weight: 700; }
+.navItem:hover { background: #f0f1f0; color: #22272c; }
+.account { position: relative; border-top: 1px solid #e5e7e5; padding: 10px 12px; }
+.accountTrigger { display: flex; align-items: center; gap: 9px; min-height: 44px; padding: 4px 14px 4px 2px; cursor: pointer; list-style: none; }
+.avatar { display: grid; place-items: center; flex: 0 0 30px; height: 30px; border: 1px solid #d5d8d7; border-radius: 50%; background: #f0f2ef; color: #464d51; font-size: 9px; font-weight: 600; }
+.accountText { flex: 1; min-width: 0; font-size: 10px; color: #62676d; }
+.accountText strong { display: block; overflow-wrap: anywhere; color: #363d41; font-size: 11px; font-weight: 600; }
+.accountMenu { position: absolute; bottom: calc(100% + 4px); inset-inline: 10px; z-index: 45; padding: 5px; border: 1px solid #d2d8dd; border-radius: 6px; background: #fff; color: #25272a; box-shadow: 0 7px 20px #1b26341a; }
+.accountAction { display: flex; align-items: center; gap: 8px; min-height: 40px; width: 100%; padding: 8px 10px; border-radius: 3px; color: #50565d; text-align: left; font-size: 12px; }
+.accountAction:hover { background: #f1f3f4; }
+.topbar { position: sticky; top: 16px; z-index: 20; border-bottom: 1px solid #e6e7e7; border-radius: 0 9px 0 0; background: #fdfdfd; color: #62676d; }
+.barContent { display: flex; align-items: center; justify-content: space-between; gap: 14px; min-height: 57px; padding: 8px 30px; }
+.scope { display: flex; align-items: center; gap: 8px; min-width: 0; font-size: 11px; }
+.scopeText { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.barActions { display: flex; align-items: center; gap: 7px; flex-shrink: 0; }
+.iconAction { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 36px; min-width: 36px; padding: 7px 10px; border: 1px solid #cbd0d2; border-radius: 5px; background: #fff; color: #353b40; font-size: 11px; }
+.iconAction:hover { background: #f3f4f4; border-color: #adb5bb; }
+.mobileTrigger { display: none; }
+.drawer { position: fixed; margin: 12px auto 12px 12px; width: min(320px, calc(100vw - 24px)); max-height: calc(100dvh - 24px); padding: 0; border: 1px solid #d5dade; border-radius: 8px; background: #fcfcfc; color: #25272a; box-shadow: 0 12px 48px #17232b2b; }
+.drawer[open] { display: flex; flex-direction: column; }
+.drawer::backdrop { background: #1a232944; }
+.drawerHeader { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 14px; border-bottom: 1px solid #e0e4e7; }
+.drawerBody { display: flex; min-height: 0; flex-direction: column; overflow-y: auto; }
+.shell :is(a, button, summary):focus-visible { outline: 2px solid #3d526c; outline-offset: 3px; }
+@media(max-width: 1023px) {
+  .shell { margin: 12px; min-height: calc(100dvh - 24px); }
+  .sidebar { display: none; }
+  .workspace { margin-left: 0; }
+  .topbar { top: 12px; border-radius: 9px 9px 0 0; }
+  .barContent { padding-left: 60px; padding-right: 14px; min-height: 57px; }
+  .mobileTrigger { position: fixed; top: 24px; left: 26px; z-index: 25; display: inline-flex; }
+  .main { padding: 24px; }
+}
+@media(max-width: 600px) {
+  .main { padding: 22px 17px; }
+  .barContent { gap: 7px; }
+  .scope { font-size: 10px; }
+  .scope > svg { display: none; }
+  .actionLabel { display: none; }
+  .iconAction { min-height: 40px; min-width: 40px; }
+}
+@media(prefers-reduced-motion: reduce) { .navCaret, .navItem { transition: none; } }
+@media print {
+  .shell { margin: 0; border: 0; box-shadow: none; }
+  .workspace { margin: 0; }
+  .main { padding: 0; }
+  .mobileTrigger, .skip, .drawer { display: none; }
+}

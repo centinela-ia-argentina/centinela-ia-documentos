@@ -1,6 +1,7 @@
 'use client';
 
-import { FileText } from 'lucide-react';
+import { FileText } from '@phosphor-icons/react';
+import styles from './IndustryTools.module.css';
 import type { AnalisisUIF } from '@/lib/ai/uif';
 
 const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -95,9 +96,9 @@ export function RosDraftButton({
   return (
     <button
       onClick={exportar}
-      className="inline-flex items-center gap-1.5 rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2 text-sm font-medium text-white transition hover:bg-white/[0.06]"
+      className={styles.action}
     >
-      <FileText className="h-4 w-4" /> Borrador de ROS (PDF)
+      <FileText size={16} aria-hidden="true" /> Borrador de ROS (PDF)
     </button>
   );
 }

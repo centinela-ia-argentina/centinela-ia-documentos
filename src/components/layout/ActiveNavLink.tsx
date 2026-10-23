@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import styles from './Shell.module.css';
 
 interface ActiveNavLinkProps {
   href: string;
@@ -24,18 +25,9 @@ export function ActiveNavLink({
     <Link
       href={href}
       aria-current={isActive ? 'page' : undefined}
-      className={`group relative flex h-8 items-center gap-2.5 rounded-lg px-2.5 text-[12px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#85E4D4] ${
-        isActive
-          ? 'bg-white/[0.07] text-white'
-          : 'text-[#9BB0A9] hover:bg-white/[0.05] hover:text-white'
-      }`}
+      className={styles.navItem}
     >
-      <span
-        className={isActive ? 'text-[#C8FF62]' : 'text-[#9BB0A9]'}
-        aria-hidden="true"
-      >
-        {children}
-      </span>
+      <span aria-hidden="true">{children}</span>
       <span>{label}</span>
     </Link>
   );
