@@ -19,3 +19,12 @@ Fuente: informe Playwright adjunto por el usuario, ejecución 40034962898, SHA 4
 - No se modifican fuentes de aplicación, permisos, consultas, SQL, dependencias ni configuración de despliegue.
 - Playwright en CI agrega reporter `github` junto a HTML. Un próximo fallo dejará anotaciones con diagnóstico de tests en GitHub, además del artefacto HTML; no requiere instalar otra conexión ni cambiar permisos del repositorio. No se agregan tokens ni credenciales para este cambio de reporter.
 - El cierre solo se aprueba con la nueva ejecución autenticada y todos los gates sobre su nuevo SHA. PR #26 permanece Draft, Preview protegida, sin merge ni Production.
+
+## Corrección 2 — evidencia de la ejecución 40039901946
+
+Los gates de auditoría/lint/tipos/unitarias/build, seguridad/RLS/drift, rollback y Vercel aprobaron sobre 6e051b0d. E2E volvió a fallar; el reporter nuevo permitió leer el detalle mediante anotaciones públicas, sin otra sesión ni otro ZIP del usuario.
+
+- `inmobiliaria.spec.ts:522`: el selector CSS por texto de «Agregar movimiento» incluye el disparador visible y el submit del diálogo cerrado, y falla en los tres navegadores. Se usa el rol/nombre accesible exacto, que respeta la visibilidad del diálogo. No se elimina el formulario ni se usa un `first()` para ocultar la ambigüedad.
+- `juridico.spec.ts:566`: Firefox reportó `NS_BINDING_ABORTED` al recargar tras una vinculación. El estado Recibido/Manual puede preexistir y no demuestra que la nueva redirección terminó. Se exige URL `checklist_document=linked` y feedback de éxito antes de comprobar estado y recargar; se exige también URL/feedback de desvinculación. No se captura ni ignora el error y no se aumenta el timeout.
+
+Los cambios adicionales son únicamente dos tests y esta documentación. Las anotaciones no proporcionan el resumen agregado del informe, por lo que no se inventa un nuevo recuento de aprobadas/omitidas. El resultado final requiere otra ejecución completa sobre el nuevo SHA.

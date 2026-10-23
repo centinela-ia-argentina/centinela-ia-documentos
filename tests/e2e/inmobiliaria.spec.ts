@@ -519,7 +519,7 @@ test.describe.serial('Anulus AI - Inmobiliaria E2E', () => {
       // Pestaña Cronología debe tener botón adaptado para Inmobiliaria
       const cronTab = page.locator('button, a', { hasText: 'Cronología' }).first();
       await cronTab.click();
-      await expect(page.locator('button', { hasText: 'Agregar movimiento' })).toBeVisible();
+      await expect(page.getByRole('button', { name: 'Agregar movimiento', exact: true })).toBeVisible();
     } finally {
       await page.close();
       await context.close();

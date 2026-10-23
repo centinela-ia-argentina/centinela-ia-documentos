@@ -557,6 +557,8 @@ test.describe.serial('Anulus AI - Flujo Jurídico E2E Obligatorio', () => {
     await selectLink.selectOption(targetVal!);
     await page.getByTestId('btn-guardar-doc-0').click();
     await confirmChecklistReview(page, 'Revisar vínculo');
+    await expect(page).toHaveURL(/checklist_document=linked/);
+    await expect(page.getByTestId('checklist-document-feedback')).toContainText('Documento vinculado correctamente');
 
     // status cambia a RECIBIDO y badge cambia a Manual
     await expect(page.locator('[data-testid="checklist-status-badge-0"]')).toHaveText(/Recibido/i);
@@ -594,6 +596,8 @@ test.describe.serial('Anulus AI - Flujo Jurídico E2E Obligatorio', () => {
     await selectLink.selectOption('');
     await page.getByTestId('btn-guardar-doc-0').click();
     await confirmChecklistReview(page, 'Revisar vínculo');
+    await expect(page).toHaveURL(/checklist_document=unlinked/);
+    await expect(page.getByTestId('checklist-document-feedback')).toContainText('Documento desvinculado correctamente');
 
     // Desvincular quita solo la evidencia: el requisito conserva su estado RECIBIDO.
     await expect(page.locator('[data-testid="checklist-status-badge-0"]')).toHaveText(/Recibido/i);
