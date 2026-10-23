@@ -1,6 +1,6 @@
 import { test, expect, type Page } from '@playwright/test';
 import { createClient } from '@supabase/supabase-js';
-import { loginAs } from './helpers';
+import { loginAs, openChecklistManagement, confirmChecklistReview } from './helpers';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'http://127.0.0.1:54321';
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
@@ -405,7 +405,7 @@ test.describe.serial('Anulus AI - Inmobiliaria E2E', () => {
       await expect(page.locator('text=Clientes e interesados')).toBeVisible();
 
       await page.goto('/clientes/nuevo');
-      await expect(page.locator('text=Registrar contacto o interesado')).toBeVisible();
+      await expect(page.locator('text=Registrar nuevo cliente')).toBeVisible();
       await expect(page.locator('input[name="name"]')).toBeVisible();
       await expect(page.locator('select[name="client_type"]')).toBeVisible();
 
@@ -434,7 +434,7 @@ test.describe.serial('Anulus AI - Inmobiliaria E2E', () => {
     try {
       await page.goto('/alquileres');
       await expect(
-        page.getByRole('heading', { name: 'Radar de alquileres', exact: true })
+        page.getByRole('heading', { name: 'Alquileres', exact: true })
       ).toBeVisible();
     } finally {
       await page.close();
@@ -632,23 +632,20 @@ test.describe.serial('Anulus AI - Inmobiliaria E2E', () => {
 
       // 6. Navegar al checklist de la operación creada
       await page.goto(`/operaciones/${fixtCaseId}?tab=checklist`);
-      const linkToggle = page.locator('[data-testid="checklist-link-toggle-0"]').first();
-      await expect(linkToggle).toBeVisible({ timeout: 15000 });
-
-      await linkToggle.click();
-
-      const form = linkToggle.locator('..');
+      const row = await openChecklistManagement(page);
+      const form = row.locator('form').filter({ has: row.getByTestId('select-doc-0') });
       const docSelect = form.locator('select[name="document_id"]').first();
       await expect.poll(async () => docSelect.locator('option').count(), { timeout: 10000 }).toBeGreaterThan(1);
 
       // 7. Vincular manualmente al documento propio
       await docSelect.selectOption(fixtDocId);
-      const saveBtn = form.locator('button', { hasText: 'Guardar' }).first();
+      const saveBtn = form.getByRole('button', { name: 'Revisar vínculo', exact: true });
       await saveBtn.click();
+      await confirmChecklistReview(page, 'Revisar vínculo');
 
       await expect(page).toHaveURL(/checklist_document=linked/);
       await expect(page.locator('[data-testid="checklist-document-feedback"]')).toContainText('Documento vinculado correctamente');
-      await expect(page.locator('[data-testid="checklist-badge-manual-0"]')).toBeVisible();
+      await expect(page.getByTestId('checklist-linked-info-0').getByText('Manual', { exact: true })).toBeVisible();
 
       // 8. Verificar persistencia en DB: document_id, match_source=manual, status=received
       const { data: itemAfterLink } = await serviceClient
@@ -662,22 +659,22 @@ test.describe.serial('Anulus AI - Inmobiliaria E2E', () => {
 
       // 9. Persistencia en UI tras recarga
       await page.reload();
-      await expect(page.locator('[data-testid="checklist-badge-manual-0"]')).toBeVisible();
+      await expect(page.getByTestId('checklist-linked-info-0').getByText('Manual', { exact: true })).toBeVisible();
 
       // 10. Desvincular
-      const toggleAfterReload = page.locator('[data-testid="checklist-link-toggle-0"]').first();
-      await toggleAfterReload.click();
-      const formAfterReload = toggleAfterReload.locator('..');
+      const rowAfterReload = await openChecklistManagement(page);
+      const formAfterReload = rowAfterReload.locator('form').filter({ has: rowAfterReload.getByTestId('select-doc-0') });
       const selectAfterReload = formAfterReload.locator('select[name="document_id"]').first();
       await selectAfterReload.selectOption('');
-      const saveBtnUnlink = formAfterReload.locator('button', { hasText: 'Guardar' }).first();
+      const saveBtnUnlink = formAfterReload.getByRole('button', { name: 'Revisar vínculo', exact: true });
       await saveBtnUnlink.click();
+      await confirmChecklistReview(page, 'Revisar vínculo');
 
       await expect(page).toHaveURL(/checklist_document=unlinked/);
       await expect(page.locator('[data-testid="checklist-document-feedback"]')).toContainText('Documento desvinculado correctamente');
-      await expect(page.locator('[data-testid="checklist-badge-manual-0"]')).toBeHidden();
-      await expect(page.locator('[data-testid="checklist-toggle-0"]')).toHaveAttribute('aria-label', 'Marcar como pendiente');
-      await expect(page.getByText('Documentación completa', { exact: false })).toBeVisible();
+      await expect(page.getByTestId('checklist-linked-info-0').getByText('Manual', { exact: true })).toBeHidden();
+      await expect(page.getByTestId('checklist-status-badge-0')).toHaveText('Recibido');
+      await expect(page.getByRole('heading', { name: 'Requisitos completos por estado', exact: true })).toBeVisible();
 
       // 11. Verificar persistencia de desvinculación manual en DB, conservación del estado y protección frente al auto-match
       const { data: itemAfterUnlink } = await serviceClient
@@ -691,23 +688,23 @@ test.describe.serial('Anulus AI - Inmobiliaria E2E', () => {
 
       // 12. Persistencia de desvinculación en UI tras recarga
       await page.reload();
-      await expect(page.locator('[data-testid="checklist-badge-manual-0"]')).toBeHidden();
-      await expect(page.locator('[data-testid="checklist-toggle-0"]')).toHaveAttribute('aria-label', 'Marcar como pendiente');
-      await expect(page.getByText('Documentación completa', { exact: false })).toBeVisible();
+      await expect(page.getByTestId('checklist-linked-info-0').getByText('Manual', { exact: true })).toBeHidden();
+      await expect(page.getByTestId('checklist-status-badge-0')).toHaveText('Recibido');
+      await expect(page.getByRole('heading', { name: 'Requisitos completos por estado', exact: true })).toBeVisible();
 
       // 13. Verificar que checklist e ítem siguen existiendo (no se eliminaron)
       const { data: stillItem } = await serviceClient.from('checklist_items').select('id').eq('id', fixtItemId).single();
       expect(stillItem?.id).toBe(fixtItemId);
 
       // 14. Reversibilidad: volver a vincular
-      const toggleFinal = page.locator('[data-testid="checklist-link-toggle-0"]').first();
-      await toggleFinal.click();
-      const formFinal = toggleFinal.locator('..');
+      const rowFinal = await openChecklistManagement(page);
+      const formFinal = rowFinal.locator('form').filter({ has: rowFinal.getByTestId('select-doc-0') });
       const selectFinal = formFinal.locator('select[name="document_id"]').first();
       await selectFinal.selectOption(fixtDocId);
-      await formFinal.locator('button', { hasText: 'Guardar' }).first().click();
+      await formFinal.getByRole('button', { name: 'Revisar vínculo', exact: true }).click();
+      await confirmChecklistReview(page, 'Revisar vínculo');
       await expect(page).toHaveURL(/checklist_document=linked/);
-      await expect(page.locator('[data-testid="checklist-badge-manual-0"]')).toBeVisible();
+      await expect(page.getByTestId('checklist-linked-info-0').getByText('Manual', { exact: true })).toBeVisible();
     } finally {
       // Siempre se ejecuta: cierra browser y limpia todos los fixtures en orden correcto
       if (page) await page.close().catch(() => {});

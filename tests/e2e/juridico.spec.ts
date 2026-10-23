@@ -1,5 +1,5 @@
 import { test, expect, type Page, type Request, type Response, type Frame, type ConsoleMessage } from '@playwright/test';
-import { expectDashboardGreeting } from './helpers';
+import { expectDashboardGreeting, openChecklistManagement, confirmChecklistReview, closeChecklistReview, openDocumentQuestion } from './helpers';
 import { randomUUID } from 'crypto';
 import { createClient } from '@supabase/supabase-js';
 
@@ -340,34 +340,36 @@ test.describe.serial('Anulus AI - Flujo Jurídico E2E Obligatorio', () => {
 
   test('09. persistencia', async () => {
     await gotoStable('/documentos');
-    await expect(page.locator('table')).toContainText('bulk_');
+    await expect(page.getByRole('region', { name: 'Colección de documentos', exact: true }).getByRole('button').filter({ hasText: 'bulk_' }).first()).toBeVisible();
   });
 
   test('10. checklist binario pending -> received -> pending', async () => {
     await gotoStable(`${caseUrl}?tab=checklist`);
-    const toggleBtn = page.locator('[data-testid="checklist-toggle-0"]').first();
-
-    // Un clic confirma recepción.
+    await openChecklistManagement(page);
+    const toggleBtn = page.getByTestId('checklist-toggle-0');
+    await expect(toggleBtn).toHaveText('Marcar recibido');
     await toggleBtn.click();
-    await expect(page.locator('[data-testid="checklist-status-badge-0"]')).toHaveText(/Recibido/i);
-    await expect(toggleBtn).toHaveAttribute('aria-label', 'Marcar como pendiente');
-
-    // El siguiente clic vuelve directamente a Pendiente, sin un estado Revisado oculto.
+    await expect(page.getByTestId('checklist-status-badge-0')).toHaveText(/Pendiente/i);
+    await confirmChecklistReview(page, 'Marcar como recibido');
+    await expect(page.getByTestId('checklist-status-badge-0')).toHaveText(/Recibido/i);
+    await closeChecklistReview(page);
+    await openChecklistManagement(page);
+    await expect(toggleBtn).toHaveText('Marcar pendiente');
     await toggleBtn.click();
-    await expect(page.locator('[data-testid="checklist-status-badge-0"]')).toHaveText(/Pendiente/i);
-    await expect(toggleBtn).toHaveAttribute('aria-label', 'Marcar como recibido');
+    await confirmChecklistReview(page, 'Marcar como pendiente');
+    await expect(page.getByTestId('checklist-status-badge-0')).toHaveText(/Pendiente/i);
+    await closeChecklistReview(page);
+    await expect(toggleBtn).toHaveText('Marcar recibido');
   });
 
   test('10.5. checklist document link', async () => {
     const diagnostic = recordChecklistNavigation(page);
     try {
       await gotoStable(`${caseUrl}?tab=checklist`);
-      const linkToggle = page.locator('[data-testid="checklist-link-toggle-0"]').first();
-      await expect(linkToggle).toContainText('Vincular documento');
-      await linkToggle.click();
-
-      const form = linkToggle.locator('..'); // The details element
-      const select = form.locator('select[name="document_id"]').first();
+      const row = await openChecklistManagement(page);
+      const form = row.locator('form').filter({ has: row.getByTestId('select-doc-0') });
+      const select = row.getByTestId('select-doc-0');
+      await expect(select.locator('..')).toContainText('Vincular documento');
 
       // El select debe tener mas de 1 opcion por los documentos previos
       const options = select.locator('option');
@@ -379,36 +381,42 @@ test.describe.serial('Anulus AI - Flujo Jurídico E2E Obligatorio', () => {
 
       await select.selectOption(firstDocumentValue!);
 
-      const saveBtn = form.locator('button', { hasText: 'Guardar' }).first();
+      const saveBtn = form.getByRole('button', { name: 'Revisar vínculo', exact: true });
       diagnostic.mark('link-save');
       await saveBtn.click();
+      await confirmChecklistReview(page, 'Revisar vínculo');
 
       await expect(page).toHaveURL(/checklist_document=linked/);
       await expect(page.locator('[data-testid="checklist-document-feedback"]')).toContainText('Documento vinculado correctamente');
-      await expect(linkToggle).toContainText('Cambiar documento vinculado');
-      await expect(page.locator('p:has-text("Vinculado:")').first()).toBeVisible();
+      await openChecklistManagement(page);
+      await expect(select.locator('..')).toContainText('Cambiar documento vinculado');
+      await expect(page.getByTestId('checklist-linked-info-0')).toBeVisible();
 
       diagnostic.mark('link-reload-start');
       await page.reload();
       diagnostic.mark('link-reload-complete');
-      await expect(linkToggle).toContainText('Cambiar documento vinculado');
-      await expect(page.locator('p:has-text("Vinculado:")').first()).toBeVisible();
+      await openChecklistManagement(page);
+      await expect(select.locator('..')).toContainText('Cambiar documento vinculado');
+      await expect(page.getByTestId('checklist-linked-info-0')).toBeVisible();
 
-      await linkToggle.click();
+      await openChecklistManagement(page);
       await select.selectOption({ value: '' });
       diagnostic.mark('unlink-save');
       await saveBtn.click();
+      await confirmChecklistReview(page, 'Revisar vínculo');
 
       await expect(page).toHaveURL(/checklist_document=unlinked/);
       await expect(page.locator('[data-testid="checklist-document-feedback"]')).toContainText('Documento desvinculado correctamente');
-      await expect(linkToggle).toContainText('Vincular documento');
-      await expect(page.locator('p:has-text("Vinculado:")')).toBeHidden();
+      await openChecklistManagement(page);
+      await expect(select.locator('..')).toContainText('Vincular documento');
+      await expect(page.getByTestId('checklist-linked-info-0')).toHaveCount(0);
 
       diagnostic.mark('unlink-reload-start');
       await page.reload();
       diagnostic.mark('unlink-reload-complete');
-      await expect(linkToggle).toContainText('Vincular documento');
-      await expect(page.locator('p:has-text("Vinculado:")')).toBeHidden();
+      await openChecklistManagement(page);
+      await expect(select.locator('..')).toContainText('Vincular documento');
+      await expect(page.getByTestId('checklist-linked-info-0')).toHaveCount(0);
     } finally {
       await test.info().attach('checklist-navigation-sanitized', {
         body: Buffer.from(JSON.stringify(diagnostic.stop(), null, 2)),
@@ -430,7 +438,7 @@ test.describe.serial('Anulus AI - Flujo Jurídico E2E Obligatorio', () => {
     const reunionTitle = 'Reunión E2E ' + randomUUID();
 
     await gotoStable('/agenda');
-    await page.getByRole('button', { name: 'hoy', exact: true }).click();
+    await page.locator('button[aria-pressed]').filter({ hasText: /^Hoy$/ }).click();
     await page.getByRole('button', { name: 'Nuevo evento' }).click();
     await expect(page.locator('[data-testid="agenda-titulo"]')).toBeVisible();
 
@@ -520,7 +528,7 @@ test.describe.serial('Anulus AI - Flujo Jurídico E2E Obligatorio', () => {
 
   test('14. RAG y guardrails', async () => {
     await gotoStable(`${caseUrl}?tab=documentos`);
-    // Need to wait for RAG component to load
+    await openDocumentQuestion(page);
     const ragInput = page.locator('[data-testid="rag-input"]');
     await expect(ragInput).toBeVisible({ timeout: 15000 });
     await ragInput.fill('¿Qué dice el documento?');
@@ -536,9 +544,7 @@ test.describe.serial('Anulus AI - Flujo Jurídico E2E Obligatorio', () => {
     const checklistContainer = page.locator('[data-testid="checklist-items"]');
     await expect(checklistContainer).toBeVisible({ timeout: 15000 });
 
-    const toggleButton = page.locator('[data-testid="checklist-link-toggle-0"]');
-    await expect(toggleButton).toBeVisible();
-    await toggleButton.click();
+    await openChecklistManagement(page);
 
     const selectLink = page.locator('[data-testid="select-doc-0"]');
     await expect(selectLink).toBeVisible();
@@ -550,11 +556,12 @@ test.describe.serial('Anulus AI - Flujo Jurídico E2E Obligatorio', () => {
 
     // 1. Vincular manualmente
     await selectLink.selectOption(targetVal!);
-    await page.locator('[data-testid="btn-guardar-doc-0"]').click();
+    await page.getByTestId('btn-guardar-doc-0').click();
+    await confirmChecklistReview(page, 'Revisar vínculo');
 
     // status cambia a RECIBIDO y badge cambia a Manual
     await expect(page.locator('[data-testid="checklist-status-badge-0"]')).toHaveText(/Recibido/i);
-    await expect(page.locator('[data-testid="checklist-badge-manual-0"]')).toBeVisible();
+    await expect(page.getByTestId('checklist-linked-info-0').getByText('Manual', { exact: true })).toBeVisible();
 
     // 2. Recargar (reload)
     await page.reload();
@@ -562,34 +569,37 @@ test.describe.serial('Anulus AI - Flujo Jurídico E2E Obligatorio', () => {
 
     // 3. Comprobar que persiste: mismo documento, status RECIBIDO, badge Manual
     await expect(page.locator('[data-testid="checklist-status-badge-0"]')).toHaveText(/Recibido/i);
-    await expect(page.locator('[data-testid="checklist-badge-manual-0"]')).toBeVisible();
+    await expect(page.getByTestId('checklist-linked-info-0').getByText('Manual', { exact: true })).toBeVisible();
     if (!await selectLink.isVisible()) {
-      await page.locator('[data-testid="checklist-link-toggle-0"]').click();
+      await openChecklistManagement(page);
     }
     await expect(selectLink).toHaveValue(targetVal!);
 
     // 4. Disparar AutoMatch
     const autoMatchBtn = page.locator('[data-testid="btn-auto-match"]');
-    if (await autoMatchBtn.isVisible()) {
-      await autoMatchBtn.click();
-      await expect(checklistContainer).toBeVisible({ timeout: 15000 });
-    }
+    await expect(autoMatchBtn).toBeVisible();
+    await autoMatchBtn.click();
+    await confirmChecklistReview(page, 'Detectar documentos ya cargados');
+    await expect(page.getByRole('dialog').getByRole('button', { name: 'Confirmar', exact: true })).toBeEnabled();
+    await closeChecklistReview(page);
+    await expect(checklistContainer).toBeVisible({ timeout: 15000 });
 
     // 5. Comprobar que NO se revierte a Pendiente y NO se sobreescribe la vinculación manual
     await expect(page.locator('[data-testid="checklist-status-badge-0"]')).toHaveText(/Recibido/i);
-    await expect(page.locator('[data-testid="checklist-badge-manual-0"]')).toBeVisible();
+    await expect(page.getByTestId('checklist-linked-info-0').getByText('Manual', { exact: true })).toBeVisible();
 
     // 6. Desvincular manualmente
     if (!await selectLink.isVisible()) {
-      await page.locator('[data-testid="checklist-link-toggle-0"]').click();
+      await openChecklistManagement(page);
     }
     await selectLink.selectOption('');
-    await page.locator('[data-testid="btn-guardar-doc-0"]').click();
+    await page.getByTestId('btn-guardar-doc-0').click();
+    await confirmChecklistReview(page, 'Revisar vínculo');
 
     // Desvincular quita solo la evidencia: el requisito conserva su estado RECIBIDO.
     await expect(page.locator('[data-testid="checklist-status-badge-0"]')).toHaveText(/Recibido/i);
     if (!await selectLink.isVisible()) {
-      await page.locator('[data-testid="checklist-link-toggle-0"]').click();
+      await openChecklistManagement(page);
     }
     await expect(selectLink).toHaveValue('');
   });

@@ -24,7 +24,7 @@
     "lucide-react": "latest",
     "mammoth": "latest",
     "motion": "^12.42.2",
-    "next": "16.3.8",
+    "next": "16.4.3",
     "openai": "latest",
     "pdf-lib": "^1.17.1",
     "pdf-parse": "^1.1.1",
@@ -40,16 +40,16 @@
     "@types/node": "latest",
     "@types/react": "latest",
     "@types/react-dom": "latest",
-    "@vitest/ui": "^2.1.8",
+    "@vitest/ui": "4.1.12",
     "autoprefixer": "^10.5.0",
     "dotenv": "^17.4.2",
     "eslint": "latest",
-    "eslint-config-next": "latest",
+    "eslint-config-next": "16.4.3",
     "jsdom": "^25.0.1",
     "postcss": "^8.5.15",
     "tailwindcss": "^3.4.19",
     "typescript": "latest",
-    "vitest": "^2.1.8",
+    "vitest": "4.1.12",
     "wait-on": "^9.1.0"
   },
   "overrides": {
@@ -59,6 +59,10 @@
     },
     "mammoth": {
       "argparse": "2.0.1"
+    },
+    "tailwindcss": {
+      "postcss-selector-parser": "7.1.6",
+      "postcss-nested": "7.0.2"
     }
   }
 }
