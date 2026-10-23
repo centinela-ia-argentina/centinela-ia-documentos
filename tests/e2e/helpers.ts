@@ -45,7 +45,9 @@ export async function confirmChecklistReview(page: Page, title: string) {
       Boolean(response.request().headers()['next-action'])),
     dialog.getByRole('button', { name: 'Confirmar', exact: true }).click(),
   ]);
-  await response.finished();
+  // RSC streams can remain open after the action is committed. Callers assert
+  // persisted UI/URL state; do not wait for the whole document stream to end.
+  expect(response.status()).toBeLessThan(400);
 }
 export async function closeChecklistReview(page: Page) {
   // Void server actions revalidate without navigation; dismissal remains explicit.

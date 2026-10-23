@@ -367,7 +367,6 @@ test.describe.serial('Anulus AI - Flujo Jurídico E2E Obligatorio', () => {
     try {
       await gotoStable(`${caseUrl}?tab=checklist`);
       const row = await openChecklistManagement(page);
-      const form = row.locator('form').filter({ has: row.getByTestId('select-doc-0') });
       const select = row.getByTestId('select-doc-0');
       await expect(select.locator('..')).toContainText('Vincular documento');
 
@@ -381,7 +380,7 @@ test.describe.serial('Anulus AI - Flujo Jurídico E2E Obligatorio', () => {
 
       await select.selectOption(firstDocumentValue!);
 
-      const saveBtn = form.getByRole('button', { name: 'Revisar vínculo', exact: true });
+      const saveBtn = row.getByTestId('btn-guardar-doc-0');
       diagnostic.mark('link-save');
       await saveBtn.click();
       await confirmChecklistReview(page, 'Revisar vínculo');

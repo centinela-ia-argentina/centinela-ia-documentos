@@ -405,7 +405,7 @@ test.describe.serial('Anulus AI - Inmobiliaria E2E', () => {
       await expect(page.locator('text=Clientes e interesados')).toBeVisible();
 
       await page.goto('/clientes/nuevo');
-      await expect(page.locator('text=Registrar nuevo cliente')).toBeVisible();
+      await expect(page.getByRole('heading', { name: 'Registrar nuevo cliente', exact: true })).toBeVisible();
       await expect(page.locator('input[name="name"]')).toBeVisible();
       await expect(page.locator('select[name="client_type"]')).toBeVisible();
 
@@ -633,13 +633,12 @@ test.describe.serial('Anulus AI - Inmobiliaria E2E', () => {
       // 6. Navegar al checklist de la operación creada
       await page.goto(`/operaciones/${fixtCaseId}?tab=checklist`);
       const row = await openChecklistManagement(page);
-      const form = row.locator('form').filter({ has: row.getByTestId('select-doc-0') });
-      const docSelect = form.locator('select[name="document_id"]').first();
+      const docSelect = row.getByTestId('select-doc-0');
       await expect.poll(async () => docSelect.locator('option').count(), { timeout: 10000 }).toBeGreaterThan(1);
 
       // 7. Vincular manualmente al documento propio
       await docSelect.selectOption(fixtDocId);
-      const saveBtn = form.getByRole('button', { name: 'Revisar vínculo', exact: true });
+      const saveBtn = row.getByTestId('btn-guardar-doc-0');
       await saveBtn.click();
       await confirmChecklistReview(page, 'Revisar vínculo');
 
@@ -663,10 +662,9 @@ test.describe.serial('Anulus AI - Inmobiliaria E2E', () => {
 
       // 10. Desvincular
       const rowAfterReload = await openChecklistManagement(page);
-      const formAfterReload = rowAfterReload.locator('form').filter({ has: rowAfterReload.getByTestId('select-doc-0') });
-      const selectAfterReload = formAfterReload.locator('select[name="document_id"]').first();
+      const selectAfterReload = rowAfterReload.getByTestId('select-doc-0');
       await selectAfterReload.selectOption('');
-      const saveBtnUnlink = formAfterReload.getByRole('button', { name: 'Revisar vínculo', exact: true });
+      const saveBtnUnlink = rowAfterReload.getByTestId('btn-guardar-doc-0');
       await saveBtnUnlink.click();
       await confirmChecklistReview(page, 'Revisar vínculo');
 
@@ -698,10 +696,9 @@ test.describe.serial('Anulus AI - Inmobiliaria E2E', () => {
 
       // 14. Reversibilidad: volver a vincular
       const rowFinal = await openChecklistManagement(page);
-      const formFinal = rowFinal.locator('form').filter({ has: rowFinal.getByTestId('select-doc-0') });
-      const selectFinal = formFinal.locator('select[name="document_id"]').first();
+      const selectFinal = rowFinal.getByTestId('select-doc-0');
       await selectFinal.selectOption(fixtDocId);
-      await formFinal.getByRole('button', { name: 'Revisar vínculo', exact: true }).click();
+      await rowFinal.getByTestId('btn-guardar-doc-0').click();
       await confirmChecklistReview(page, 'Revisar vínculo');
       await expect(page).toHaveURL(/checklist_document=linked/);
       await expect(page.getByTestId('checklist-linked-info-0').getByText('Manual', { exact: true })).toBeVisible();

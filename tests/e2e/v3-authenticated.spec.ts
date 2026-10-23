@@ -20,13 +20,23 @@ for (const [email, label] of profiles) {
       const { context, page } = await loginAs(browser, email);
       try {
         await page.setViewportSize({ width, height: 900 });
+        const isClient = email.startsWith('client.');
         for (const route of ['/dashboard', '/documentos', '/agenda', '/expedientes']) {
-          await page.goto(route);
-          await expect(page).not.toHaveURL(/\/(login|acceso-denegado|onboarding)/);
-          await expect(page.locator('[data-visual-system="v3"]')).toBeVisible();
-          await expect(page.getByRole('main')).toBeVisible();
-          await expect(page.getByRole('main').getByRole('heading').first()).toBeVisible();
-          expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true);
+          await test.step(`${route}: ${isClient && route === '/agenda' ? 'acceso denegado por rol' : 'navegación permitida'}`, async () => {
+            await page.goto(route);
+            // Middleware intentionally restricts Agenda to operators/auditors.
+            // Assert the restriction, then continue testing the client's allowed routes.
+            if (isClient && route === '/agenda') {
+              await expect(page).toHaveURL(/\/acceso-denegado\?motivo=rol/);
+              await expect(page.getByRole('heading', { name: 'Permiso insuficiente', exact: true })).toBeVisible();
+              return;
+            }
+            await expect(page).not.toHaveURL(/\/(login|acceso-denegado|onboarding)/);
+            await expect(page.locator('[data-visual-system="v3"]')).toBeVisible();
+            await expect(page.getByRole('main')).toBeVisible();
+            await expect(page.getByRole('main').getByRole('heading').first()).toBeVisible();
+            expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true);
+          });
         }
         const trigger = page.getByRole('button', { name: 'Abrir navegación', exact: true });
         if (width === 390) {
