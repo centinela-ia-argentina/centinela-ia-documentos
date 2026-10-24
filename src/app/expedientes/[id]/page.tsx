@@ -1,4 +1,11 @@
+import { CaseDocumentsPanel } from './CaseDocumentsPanel';
+import { CaseIndustryTools } from './CaseIndustryTools';
 import Link from 'next/link';
+import { SquaresFour, FileText as FileTextIcon, ClockCounterClockwise, ListChecks } from '@phosphor-icons/react/dist/ssr';
+import { CaseDetailHeader } from '@/components/records/CaseDetailHeader';
+import { CaseAdministration } from '@/components/records/CaseAdministration';
+import { CaseFacts } from '@/components/records/CaseFacts';
+import { LinkedProperty } from '@/components/records/LinkedProperty';
 import { notFound, redirect } from 'next/navigation';
 import { AppShell } from '@/components/layout/AppShell';
 import { createClient } from '@/lib/supabase/server';
@@ -8,9 +15,6 @@ import {
   getCaseStatuses,
   getCaseStatusLabel,
   getCaseTypeLabel,
-  isEscrituraCompatibleCase,
-  isRentalCompatibleCaseType,
-  isDerivacionEscribaniaCompatible,
 } from '@/lib/industries/caseConfig';
 import {
   getDocumentTypeLabel,
@@ -18,15 +22,14 @@ import {
   getDocumentTypes,
 } from '@/lib/industries/documentTypes';
 import { sugerirModeloNotarialPorTipo } from '@/lib/legal/modelos';
-import { AiDisclaimer } from '@/lib/industries/disclaimers';
 import { getIndustryTerms } from '@/lib/industries/uiLabels';
 import { sanitizeTextoInmobiliario } from '@/lib/format/sanitizerInmobiliaria';
 import { summarizeChecklistStatuses } from '@/lib/checklist/progress';
-import { getDocumentExpiryStatus, expiryStatusLabel, getExpiryBadgeStyles, getDaysUntilExpiry } from '@/lib/documents/expiry';
+import { getDocumentExpiryStatus, expiryStatusLabel, getExpiryBadgeStyles } from '@/lib/documents/expiry';
 import { sensitivityLabel } from '@/lib/documents/sensitivity';
 import { formatPlazoDate } from '@/lib/format/date';
 import { esPlazoAccionable } from '@/lib/plazos/plazos';
-import { extraerFechaBoletoUif, extraerFechasOperativasLegajo } from '@/lib/plazos/fechasCanonicas';
+import { extraerFechasOperativasLegajo } from '@/lib/plazos/fechasCanonicas';
 import {
   linkChecklistItemDocument,
   toggleChecklistItem,
@@ -37,41 +40,28 @@ import {
   createCaseEvent,
   deleteCaseEvent,
   generarResumenExpediente,
-  archiveCase,
-  unarchiveCase,
-  deleteCase,
   vincularPropiedadOperacion,
   autoMarcarChecklist,
 } from '../actions';
-import { canUseAi, canArchiveCase, canDeleteCase, canUpdateCase } from '@/lib/permissions/roles';
-import { getPropertyStatusLabel, getPropertyTypeLabel } from '@/lib/properties/labels';
-import { FormSubmitButton } from '@/components/ui/FormSubmitButton';
+import { canUseAi, canUpdateCase } from '@/lib/permissions/roles';
 import { WhatsAppIntentBuilder } from '@/components/WhatsAppIntentBuilder';
 import { generateOperationMessage } from '@/lib/whatsapp';
-import { MapPin } from 'lucide-react';
-import { DeleteCaseButton } from './DeleteCaseButton';
 import { CopilotoExpediente } from './CopilotoExpediente';
 import { AgenteChat } from './AgenteChat';
+import { CaseAgentDisclosure } from '@/components/approved/CaseAgentDisclosure';
+import { CaseSummaryLayout } from '@/components/approved/CaseSummaryLayout';
 import { BotonAlChecklist } from './BotonAlChecklist';
-import { CotejoExpediente } from './CotejoExpediente';
-import { RedactarEscrituraButton } from './RedactarEscrituraButton';
-import { AnalizarUifButton } from './AnalizarUifButton';
-import { CalificarInquilinoButton } from './CalificarInquilinoButton';
-import { RosDraftButton } from './RosDraftButton';
 import type { AnalisisUIF } from '@/lib/ai/uif';
 import type { PreScoreInquilino } from '@/lib/ai/preScore';
 import { CronologiaExpediente } from './CronologiaExpediente';
 import { DerivarEscribania } from './DerivarEscribania';
 import { RadarPlazos } from './RadarPlazos';
-import { AutoMatchTrigger } from './AutoMatchTrigger';
+import { CaseChecklistPanel } from './CaseChecklistPanel';
 import { Tabs } from '@/components/ui/Tabs';
 import { Badge } from '@/components/ui/Badge';
 import { MotionCard } from '@/components/ui/MotionCard';
 import { MotionButton } from '@/components/ui/MotionButton';
 import type { CaseRecord } from '@/types/case';
-import { EliminarDocumentoButton } from './EliminarDocumentoButton';
-import { PreguntarDocumentos } from './PreguntarDocumentos';
-import { RedactarBorradorButton } from './RedactarBorradorButton';
 
 interface CaseDetailPageProps {
   params: Promise<{ id: string }>;
@@ -150,26 +140,7 @@ const CASE_EVENT_TYPE_LABELS: Record<string,string> = {
   otro: 'Otro movimiento',
 };
 
-function getEventTypeBadgeColor(type: string): "warning" | "success" | "accent" | "neutral" {
-  const tones: Record<string, "warning" | "success" | "accent" | "neutral"> = {
-    escrito: 'neutral',
-    audiencia: 'warning',
-    notificacion: 'accent',
-    resolucion: 'success',
-    prueba: 'accent',
-    visita: 'accent',
-    reserva_oferta: 'warning',
-    documentacion: 'neutral',
-    negociacion: 'accent',
-    firma: 'success',
-    ajuste: 'warning',
-    vencimiento: 'warning',
-    otro: 'neutral',
-  };
-  return tones[type] || 'neutral';
-}
 
-const darkOptionStyle = { backgroundColor: '#0C2340', color: '#FFFFFF' };
 
 function modeloSugeridoPorTipoLegajo(caseType?: string | null): string | null {
   return sugerirModeloNotarialPorTipo(caseType)?.id ?? null;
@@ -199,20 +170,6 @@ function getMetadataValue(metadata: CaseRecord['metadata'], key: string) {
   const value = metadata?.[key];
   return typeof value === 'string' ? value : '';
 }
-
-function checklistStatusLabel(status: string) {
-  const labels: Record<string, string> = {
-    pending: 'Pendiente',
-    received: 'Recibido',
-    reviewed: 'Revisado',
-    rejected: 'Rechazado',
-    not_required: 'No requerido',
-  };
-
-  return labels[status] ?? status;
-}
-
-
 
 export default async function CaseDetailPage({ params, searchParams }: CaseDetailPageProps) {
   const { id } = await params;
@@ -309,7 +266,7 @@ export default async function CaseDetailPage({ params, searchParams }: CaseDetai
     checklistItemsData = data || [];
   }
 
-  const { data: caseDocumentsData } = await supabase
+  const { data: caseDocumentsData, error: caseDocumentsError } = await supabase
     .from('documents')
     .select('id, file_name, document_type, sensitivity_level, created_at, contributed_by_organization_id, contributed_by_name')
     .eq('case_id', caseRecord.id)
@@ -374,9 +331,7 @@ export default async function CaseDetailPage({ params, searchParams }: CaseDetai
     
   const checklistStatuses = checklistItems.map((item) => item.status);
   const checklistProgress = summarizeChecklistStatuses(checklistStatuses);
-  const missingItems = checklistItems.filter(
-    (item) => item.status === 'pending' || item.status === 'rejected'
-  );
+
 
   const { data: rawResumenData } = await supabase
     .from('ai_outputs')
@@ -585,7 +540,7 @@ export default async function CaseDetailPage({ params, searchParams }: CaseDetai
 
   const cronologia: {
     fecha: string; titulo: string; detalle?: string | null;
-    origen: 'actuacion' | 'detectada' | 'documento' | 'agenda'; etiquetaOrigen: string; esFuturo: boolean;
+    origen: 'actuacion' | 'detectada' | 'documento' | 'agenda'; etiquetaOrigen: string; esFuturo: boolean; eventId?: string;
   }[] = [];
 
   // 1) Actuaciones (línea de tiempo manual)
@@ -597,6 +552,7 @@ export default async function CaseDetailPage({ params, searchParams }: CaseDetai
       titulo: ev.title,
       detalle: ev.description,
       origen: 'actuacion',
+      eventId: ev.id,
       etiquetaOrigen: CASE_EVENT_TYPE_LABELS[ev.event_type] || 'Actuación',
       esFuturo: esFuturo(f),
     });
@@ -677,36 +633,48 @@ export default async function CaseDetailPage({ params, searchParams }: CaseDetai
 
   return (
     <AppShell>
-      <div className="mb-8 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-cyan-400/80">
-            {terms.detalleEyebrow}
-          </p>
-
-          <h2
-            data-testid="case-detail-title"
-            className="mt-2 font-display text-3xl font-semibold tracking-tight text-gradient"
-          >
-            {displayText(caseRecord.title, terms.itemSinTitulo)}
-          </h2>
-
-          <p className="mt-2 text-sm text-slate-400">
-            Cliente: {displayText(caseRecord.client_name, 'Sin cliente asignado')} - Estado actual:{' '}
-            {getCaseStatusLabel(caseRecord.status, industry)}
-          </p>
-        </div>
-      </div>
+      <CaseDetailHeader
+        title={caseRecord.title}
+        clientName={caseRecord.client_name}
+        status={caseRecord.status}
+        caseType={caseRecord.case_type}
+        industry={industry}
+        administration={<CaseAdministration caseId={caseRecord.id} status={caseRecord.status} role={profile.role} industry={industry} />}
+      />
 
       <Tabs
         initial={tabActiva}
         tabs={[
           {
             id: 'resumen',
-            label: '📊 Resumen',
+            label: <><SquaresFour size={16} aria-hidden />Resumen</>,
             content: (
-              <div className="space-y-6">
-                <AgenteChat caseId={caseRecord.id} caseTitle={displayText(caseRecord.title, terms.itemSinTitulo)} industry={industry} puedeUsarIA={puedeUsarIA} historialInicial={historialAgente} modeloUrl={modeloSugerido ? `/modelos?modelo=${modeloSugerido}&expediente=${caseRecord.id}` : '/modelos'} />
-                {(industry === 'escribania' || industry === 'legal' || industry === 'inmobiliaria') && (
+              <CaseSummaryLayout
+                facts={<>
+<CaseFacts
+                  caseId={caseRecord.id} caseType={caseRecord.case_type} status={caseRecord.status}
+                  industry={industry} metadata={caseRecord.metadata}
+                  visibleFields={visibleMetadataFields} fields={caseFields} statusOptions={statusOptions}
+                  labels={{ title: terms.datosTitulo, edit: terms.editarDatos, update: terms.actualizarCta }}
+                  updateAction={updateCaseStatus}
+                />
+                {industry === 'inmobiliaria' && <LinkedProperty
+                  caseId={caseRecord.id} property={propertyRecord} properties={allProperties}
+                  canUpdate={canUpdateCase(profile.role)} linkAction={vincularPropiedadOperacion}
+                />}
+{industry === 'inmobiliaria' && (
+                    <WhatsAppIntentBuilder
+                      appearance="record"
+                      phone={(caseRecord.metadata as any)?.phone || (caseRecord.metadata as any)?.telefono || null}
+                      context="operation"
+                      resourceId={caseRecord.id}
+                      defaultMessage={generateOperationMessage(caseRecord)}
+                    />
+                  )}
+
+                </>}
+                summary={<>
+{(industry === 'escribania' || industry === 'legal' || industry === 'inmobiliaria') && (
                     <CopilotoExpediente
                       caseId={caseRecord.id}
                       resumen={(resumenData?.result_json as any) ?? null}
@@ -716,1164 +684,71 @@ export default async function CaseDetailPage({ params, searchParams }: CaseDetai
                       terms={terms}
                     />
                   )}
-                  {industry === 'inmobiliaria' && (
-                    <WhatsAppIntentBuilder
-                      phone={(caseRecord.metadata as any)?.phone || (caseRecord.metadata as any)?.telefono || null}
-                      context="operation"
-                      resourceId={caseRecord.id}
-                      defaultMessage={generateOperationMessage(caseRecord)}
-                    />
-                  )}
-                {industry === 'legal' && liquidacion && (
-                  <section className="mt-6 rounded-2xl border border-cyan-500/20 bg-slate-900/40 p-6">
-                    <div className="mb-4 flex items-center gap-2">
-                      <span className="text-xl">💰</span>
-                      <h2 className="text-lg font-semibold text-cyan-300">Liquidación estimada</h2>
-                    </div>
-                    <p className="mb-4 text-sm text-slate-400">
-                      Estimación orientativa calculada por el Agente IA a partir de los datos del expediente. No constituye una certeza legal definitiva.
-                    </p>
-                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                      <div className="rounded-xl bg-slate-800/60 p-4">
-                        <p className="text-xs uppercase tracking-wide text-slate-400">Capital estimado</p>
-                        <p className="text-2xl font-bold text-cyan-300">
-                          {new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(liquidacion.capital)}
-                        </p>
-                      </div>
-                      <div className="rounded-xl bg-slate-800/60 p-4">
-                        <p className="text-xs uppercase tracking-wide text-slate-400">Método</p>
-                        <p className="text-lg font-semibold text-violet-300">
-                          {liquidacion.metodo === 'vuoto' ? 'Vuoto' : 'Méndez'}
-                        </p>
-                      </div>
-                      <div className="rounded-xl bg-slate-800/60 p-4">
-                        <p className="text-xs uppercase tracking-wide text-slate-400">Años computables</p>
-                        <p className="text-lg font-semibold text-slate-100">{liquidacion.anios_computables}</p>
-                      </div>
-                      <div className="rounded-xl bg-slate-800/60 p-4">
-                        <p className="text-xs uppercase tracking-wide text-slate-400">Art. 730 y Honorarios</p>
-                        <p className="text-sm font-semibold text-slate-400 mt-2">
-                          El límite de responsabilidad (art. 730 CCyCN) y los honorarios no están calculados automáticamente.
-                        </p>
-                      </div>
-                      <div className="rounded-xl bg-slate-800/60 p-4 sm:col-span-2 ring-1 ring-amber-500/30">
-                        <p className="text-xs uppercase tracking-wide text-amber-400">Intereses no calculados</p>
-                        <p className="text-lg font-semibold text-slate-100 mt-1">
-                          {new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(liquidacion.capital)} <span className="text-sm font-normal text-slate-400">(Solo capital base)</span>
-                        </p>
-                        <p className="mt-2 text-xs text-slate-400">
-                          {liquidacion.intereses_motivo || 'Intereses históricos no calculados. Los valores de intereses guardados por versiones anteriores no se muestran porque no cuentan con una serie histórica y un criterio jurisdiccional verificados.'}
-                        </p>
-                      </div>
-                    </div>
-                    <p className="mt-4 text-xs text-slate-500">
-                      Base de cálculo: ingreso mensual {new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(liquidacion.ingreso_mensual)} · edad {liquidacion.edad} · incapacidad {liquidacion.incapacidad}% · tasa de descuento {(liquidacion.tasa_descuento * 100).toFixed(0)}%
-                    </p>
-                  </section>
-                )}
-                {industry === 'legal' && plazo && (
-                  <section className="mt-6 rounded-2xl border border-cyan-500/20 bg-slate-900/40 p-6">
-                    <div className="mb-4 flex items-center gap-2">
-                      <span className="text-xl">📅</span>
-                      <h2 className="text-lg font-semibold text-cyan-300">Vencimiento procesal</h2>
-                    </div>
-                    <p className="mb-2 text-sm font-medium text-slate-300">{plazo.titulo}</p>
-                    <p className="mb-4 text-sm text-slate-500">
-                      Cómputo orientativo sobre el calendario de la Justicia Nacional/Federal (fines de semana, feriados y feria judicial). Verificá los feriados provinciales que correspondan.
-                    </p>
-                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                      <div className="rounded-xl bg-slate-800/60 p-4">
-                        <p className="text-xs uppercase tracking-wide text-slate-400">Vence el</p>
-                        <p className="text-2xl font-bold text-cyan-300">
-                          {plazo.vencimiento.split('-').reverse().join('/')}
-                        </p>
-                      </div>
-                      <div className="rounded-xl bg-slate-800/60 p-4">
-                        <p className="text-xs uppercase tracking-wide text-slate-400">Notificación</p>
-                        <p className="text-lg font-semibold text-violet-300">
-                          {plazo.fecha_notificacion.split('-').reverse().join('/')}
-                        </p>
-                      </div>
-                      <div className="rounded-xl bg-slate-800/60 p-4">
-                        <p className="text-xs uppercase tracking-wide text-slate-400">Empieza a correr</p>
-                        <p className="text-lg font-semibold text-slate-100">
-                          {plazo.cuenta_desde.split('-').reverse().join('/')}
-                        </p>
-                      </div>
-                      <div className="rounded-xl bg-slate-800/60 p-4">
-                        <p className="text-xs uppercase tracking-wide text-slate-400">Plazo legal</p>
-                        <p className="text-lg font-semibold text-slate-100">
-                          {plazo.dias_habiles} días hábiles
-                        </p>
-                      </div>
-                      {plazo.dias_ampliacion > 0 && (
-                        <div className="rounded-xl bg-slate-800/60 p-4">
-                          <p className="text-xs uppercase tracking-wide text-slate-400">Ampliación (art. 158)</p>
-                          <p className="text-lg font-semibold text-amber-300">
-                            +{plazo.dias_ampliacion} día(s) por {plazo.km_distancia} km
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                    <div className="mt-4">
-                      <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">Cómo se calculó</p>
-                      <ul className="list-disc pl-5 text-xs text-slate-500 space-y-1">
-                        {plazo.pasos.map((paso, i) => (
-                          <li key={i}>{paso}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  </section>
-                )}
-                {industry === 'legal' && tasaJusticia && (
-                  <section className="mt-6 rounded-2xl border border-cyan-500/20 bg-slate-900/40 p-6">
-                    <div className="mb-4 flex items-center gap-2">
-                      <span className="text-xl">🏛️</span>
-                      <h2 className="text-lg font-semibold text-cyan-300">Tasa de justicia</h2>
-                    </div>
-                    <p className="mb-4 text-sm text-slate-400">{tasaJusticia.titulo}</p>
-                    <p className="mb-4 text-sm text-slate-500">
-                      Estimación orientativa de la tasa de justicia (Ley 23.898). Se abona al iniciar la demanda. Verificá exenciones, mínimos y la alícuota vigente en la jurisdicción.
-                    </p>
-                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                      <div className="rounded-xl bg-slate-800/60 p-4">
-                        <p className="text-xs uppercase tracking-wide text-slate-400">Tasa a abonar</p>
-                        <p className="text-2xl font-bold text-cyan-300">
-                          {new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(tasaJusticia.tasa)}
-                        </p>
-                      </div>
-                      <div className="rounded-xl bg-slate-800/60 p-4">
-                        <p className="text-xs uppercase tracking-wide text-slate-400">Monto del proceso</p>
-                        <p className="text-lg font-semibold text-violet-300">
-                          {new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(tasaJusticia.base)}
-                        </p>
-                      </div>
-                      <div className="rounded-xl bg-slate-800/60 p-4">
-                        <p className="text-xs uppercase tracking-wide text-slate-400">Alícuota</p>
-                        <p className="text-lg font-semibold text-slate-100">
-                          {tasaJusticia.porcentaje}%
-                        </p>
-                      </div>
-                    </div>
-                  </section>
-                )}
-                {(industry === 'escribania' || industry === 'legal' || industry === 'inmobiliaria') && (
-                  <CotejoExpediente
-                    caseId={caseRecord.id}
-                    industry={industry}
-                    cotejo={(cotejoData?.result_json as any) ?? null}
-                    generadoEl={cotejoData?.created_at ?? null}
-                    documentosAnalizados={documentosAnalizados}
-                    puedeUsarIA={puedeUsarIA}
-                  />
-                )}
 
-                {industry === 'escribania' && isEscrituraCompatibleCase(caseRecord.case_type) && (
-                  <section className="rounded-xl border border-white/10 bg-white/[0.02] p-5">
-                    <div className="flex items-center justify-between gap-3">
-                      <h3 className="text-sm font-semibold text-white">✍️ Borrador de escritura (IA)</h3>
-                      {documentosAnalizados > 0 ? (
-                        puedeUsarIA ? <RedactarEscrituraButton caseId={caseRecord.id} yaGenerada={!!borradorEscritura} /> : null
-                      ) : (
-                        <span className="text-xs text-white/40">Analizá al menos 1 documento para habilitarlo</span>
-                      )}
-                    </div>
-                    {borradorEscritura ? (
-                      <div className="mt-4 space-y-3">
-                        <p className="text-xs uppercase tracking-wide text-white/40">{borradorEscritura.titulo}</p>
-                        <pre className="whitespace-pre-wrap rounded-lg bg-black/30 p-4 text-sm leading-relaxed text-white/80">{borradorEscritura.cuerpo}</pre>
-                        {borradorEscritura.datos_faltantes.length > 0 && (
-                          <div>
-                            <p className="text-xs font-medium text-amber-300">Datos a completar</p>
-                            <ul className="mt-1 list-disc pl-5 text-sm text-white/70">
-                              {borradorEscritura.datos_faltantes.map((d, i) => <li key={i}>{d}</li>)}
-                            </ul>
-                          </div>
-                        )}
-                        {borradorEscritura.advertencias.length > 0 && (
-                          <div>
-                            <p className="text-xs font-medium text-red-300">Advertencias</p>
-                            <ul className="mt-1 list-disc pl-5 text-sm text-white/70">
-                              {borradorEscritura.advertencias.map((a, i) => <li key={i}>{a}</li>)}
-                            </ul>
-                          </div>
-                        )}
-                        <AiDisclaimer industry={industry} className="mt-4" />
-                        <p className="text-xs text-white/40">Borrador generado por IA. Revisalo y completalo antes de otorgar.</p>
-                      </div>
-                    ) : (
-                      <p className="mt-3 text-sm text-white/50">
-                        Generá un borrador de escritura a partir de los documentos analizados del legajo.
-                        {documentosAnalizados === 0 && ' Primero analizá al menos un documento con IA.'}
-                      </p>
-                    )}
-                  </section>
-                )}
-                {industry === 'escribania' && (
-                  <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-5">
-                    <div className="flex items-center justify-between gap-3">
-                      <h3 className="flex items-center gap-2 text-sm font-semibold text-white">🛡️ Análisis UIF / PLA (IA)</h3>
-                      <div className="flex flex-wrap items-center gap-2">
-                        {analisisUif && (() => {
-                          const dump = JSON.stringify((analisisData ?? []).map(a => a.result_json)) + JSON.stringify(resumenData?.result_json);
-                          const m1 = dump.match(/(?:precio|monto|valor|venta)[^\d]*(USD|ARS|\$)\s*([\d\.,]+)/i);
-                          const montoExtraido = m1 ? `${m1[1].replace('$', 'USD')} ${m1[2]}`.trim() : undefined;
-                          const fechaBoletoExtraida = extraerFechaBoletoUif(analisisData ?? [], resumenData, caseRecord);
-                          
-                          return (
-                            <RosDraftButton
-                              analisis={analisisUif}
-                              legajo={{
-                                titulo: caseRecord.title || '',
-                                comparecientes: ((caseRecord.metadata?.comparecientes as string) || caseRecord.client_name || '') + (extractedPartes ? ` | Extraídos de IA: ${extractedPartes}` : ''),
-                                tipoActo: (caseRecord.metadata?.tipo_acto as string) || caseRecord.case_type || '',
-                                fecha: (caseRecord.metadata?.fecha_otorgamiento as string) || '',
-                                resumen: extractedResumenes || '',
-                                monto: montoExtraido,
-                                fechaBoleto: fechaBoletoExtraida
-                              }}
-                            />
-                          );
-                        })()}
-                        {puedeUsarIA ? <AnalizarUifButton caseId={caseRecord.id} yaGenerada={!!analisisUif} /> : null}
-                      </div>
-                    </div>
-                    {analisisUif ? (
-                      <div className="mt-4 space-y-4">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-sm font-semibold ${
-                            analisisUif.nivel_riesgo === 'alto' ? 'bg-rose-500/15 text-rose-300'
-                            : analisisUif.nivel_riesgo === 'medio' ? 'bg-amber-500/15 text-amber-300'
-                            : 'bg-emerald-500/15 text-emerald-300'}`}>
-                            Riesgo {analisisUif.nivel_riesgo.toUpperCase()}
-                          </span>
-                          {analisisUif.requiere_ros && (
-                            <span className="rounded-full bg-rose-500/20 px-3 py-1 text-xs font-semibold text-rose-200">Evaluar ROS</span>
-                          )}
-                        </div>
-                        {analisisUif.fundamento && <p className="text-sm text-white/70">{analisisUif.fundamento}</p>}
-                        {analisisUif.factores_riesgo.length > 0 && (
-                          <div>
-                            <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-white/40">Factores de riesgo</p>
-                            <ul className="list-disc space-y-1 pl-5 text-sm text-white/70">
-                              {analisisUif.factores_riesgo.map((f, i) => <li key={i}>{f}</li>)}
-                            </ul>
-                          </div>
-                        )}
-                        {analisisUif.senales_alerta.length > 0 && (
-                          <div>
-                            <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-rose-300/70">Señales de alerta</p>
-                            <ul className="list-disc space-y-1 pl-5 text-sm text-rose-200/80">
-                              {analisisUif.senales_alerta.map((s, i) => <li key={i}>{s}</li>)}
-                            </ul>
-                          </div>
-                        )}
-                        {analisisUif.verificaciones_pendientes.length > 0 && (
-                          <div>
-                            <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-white/40">Verificaciones pendientes</p>
-                            <ul className="list-disc space-y-1 pl-5 text-sm text-white/70">
-                              {analisisUif.verificaciones_pendientes.map((v, i) => <li key={i}>{v}</li>)}
-                            </ul>
-                          </div>
-                        )}
-                        <AiDisclaimer industry={industry} className="mt-4" />
-                      </div>
-                    ) : (
-                      <p className="mt-3 text-sm text-white/50">Generá un análisis de riesgo PLA/FT del legajo con IA.</p>
-                    )}
-                  </div>
-                )}
-                {industry === 'inmobiliaria' && isRentalCompatibleCaseType(caseRecord.case_type) && (
-                  <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-5">
-                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                      <h3 className="flex items-center gap-2 text-sm font-semibold text-white">✨ Pre-Score de Inquilino y Garantía</h3>
-                      <CalificarInquilinoButton caseId={caseRecord.id} yaGenerada={!!prescore} />
-                    </div>
-                    {prescore ? (
-                      <div className="mt-4 space-y-4">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold ${
-                            prescore.nivel_calificacion === 'apto' ? 'bg-emerald-500/15 text-emerald-300'
-                            : prescore.nivel_calificacion === 'condicional' ? 'bg-amber-500/15 text-amber-300'
-                            : prescore.nivel_calificacion === 'no_apto' ? 'bg-rose-500/15 text-rose-300'
-                            : prescore.nivel_calificacion === 'indeterminado' ? 'bg-orange-500/15 text-orange-300 border border-orange-500/20'
-                            : 'bg-slate-500/15 text-slate-300'
-                          }`}>
-                            {prescore.nivel_calificacion === 'apto' ? 'Apto'
-                            : prescore.nivel_calificacion === 'condicional' ? 'Condicional'
-                            : prescore.nivel_calificacion === 'no_apto' ? 'No apto'
-                            : prescore.nivel_calificacion === 'indeterminado' ? 'Revisión manual'
-                            : 'Información insuficiente'}
-                          </span>
-                          {prescore.veces_alquiler != null && (
-                            <span className="rounded-full bg-white/5 px-3 py-1 text-xs font-semibold text-white/70">
-                              Cobertura: {prescore.veces_alquiler}× el alquiler
-                            </span>
-                          )}
-                        </div>
-                        <div className="text-sm text-white/70">
-                          <p>
-                            <span className="font-medium text-white">Ingreso estimado:</span> {
-                              prescore.ingreso_neto_mensual_estimado 
-                                ? new Intl.NumberFormat('es-AR', { style: 'currency', currency: prescore.moneda_ingreso || 'ARS' }).format(prescore.ingreso_neto_mensual_estimado)
-                                : 'No se pudo estimar'
-                            }
-                          </p>
-                          <p className="mt-1 text-xs text-white/40">Regla aplicada: {prescore.regla_recomendada}</p>
-                        </div>
-                        {prescore.fundamento && <p className="text-sm text-white/70">{prescore.fundamento}</p>}
-                        
-                        {prescore.garantias.length > 0 && (
-                          <div>
-                            <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-white/40">Garantías detectadas</p>
-                            <ul className="list-disc space-y-1 pl-5 text-sm text-white/70">
-                              {prescore.garantias.map((g, i) => <li key={i}>{g}</li>)}
-                            </ul>
-                          </div>
-                        )}
-                        {prescore.gravamenes_detectados.length > 0 && (
-                          <div>
-                            <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-amber-300/70">Gravámenes sobre garantía</p>
-                            <ul className="list-disc space-y-1 pl-5 text-sm text-amber-200/80">
-                              {prescore.gravamenes_detectados.map((g, i) => <li key={i}>{g}</li>)}
-                            </ul>
-                          </div>
-                        )}
-                        {prescore.senales_alerta.length > 0 && (
-                          <div>
-                            <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-rose-300/70">Señales de alerta</p>
-                            <ul className="list-disc space-y-1 pl-5 text-sm text-rose-200/80">
-                              {prescore.senales_alerta.map((s, i) => <li key={i}>{s}</li>)}
-                            </ul>
-                          </div>
-                        )}
-                        {prescore.verificaciones_pendientes.length > 0 && (
-                          <div>
-                            <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-white/40">Verificaciones pendientes</p>
-                            <ul className="list-disc space-y-1 pl-5 text-sm text-white/70">
-                              {prescore.verificaciones_pendientes.map((v, i) => <li key={i}>{v}</li>)}
-                            </ul>
-                          </div>
-                        )}
-                        <AiDisclaimer industry="inmobiliaria" className="mt-4" />
-                      </div>
-                    ) : (
-                      <p className="mt-3 text-sm text-white/50">Evaluá la solvencia del inquilino y solidez de garantías con IA.</p>
-                    )}
-                  </div>
-                )}
-                <RadarPlazos
+                </>}
+                dates={
+<RadarPlazos
                   items={cronologia}
                   caseId={caseRecord.id}
                   titulo={terms.radarTitulo}
                   subtitulo={terms.radarSubtitulo}
                   industry={industry}
                 />
-                {industry === 'escribania' && (
-                  <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-5">
-                    <div className="flex flex-wrap items-center justify-between gap-4">
-                      <div>
-                        <h3 className="flex items-center gap-2 text-sm font-semibold text-white">
-                          ✒️ Redactar documento notarial
-                        </h3>
-                        <p className="mt-1 text-sm text-slate-400">
-                          Abrí el modelo sugerido para este legajo y completá los datos, o elegí otro de la biblioteca.
-                        </p>
-                      </div>
-                      <Link
-                        href={modeloSugerido ? `/modelos?modelo=${modeloSugerido}&expediente=${caseRecord.id}` : `/modelos?expediente=${caseRecord.id}`}
-                        className="shrink-0 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-500 px-4 py-2 text-sm font-semibold text-white transition hover:opacity-90"
-                      >
-                        {modeloSugerido ? 'Redactar con el modelo sugerido' : 'Ir a Modelos'}
-                      </Link>
-                    </div>
-                  </div>
-                )}
-
-                {industry === 'inmobiliaria' && isRentalCompatibleCaseType(caseRecord.case_type) && (
-                  <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-5">
-                    <div className="flex flex-wrap items-center justify-between gap-4">
-                      <div>
-                        <h3 className="flex items-center gap-2 text-sm font-semibold text-white">
-                          📄 Contrato de locación
-                        </h3>
-                        <p className="mt-1 text-sm text-slate-400">
-                          Prepará el contrato de locación prellenando las partes, el inmueble y las condiciones de la operación.
-                        </p>
-                      </div>
-                      <Link
-                        href={`/modelos?modelo=contrato-locacion&operacion=${caseRecord.id}&expediente=${caseRecord.id}`}
-                        className="shrink-0 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-500 px-4 py-2 text-sm font-semibold text-white transition hover:opacity-90"
-                      >
-                        Preparar contrato de locación
-                      </Link>
-                    </div>
-                  </div>
-                )}
-
-                {industry === 'inmobiliaria' && (
-                  <MotionCard index={0} className="mb-6">
-                    <h3 className="font-display text-lg font-semibold text-white flex items-center gap-2">
-                      🏘️ Propiedad asociada
-                    </h3>
-                    <div className="mt-4">
-                      {propertyRecord ? (
-                        <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-5">
-                          <div className="flex items-start justify-between">
-                            <div>
-                              <h4 className="text-lg font-bold text-white">{propertyRecord.name}</h4>
-                              <p className="mt-1 text-sm text-slate-400 flex items-center gap-1">
-                                <MapPin className="h-4 w-4" /> {propertyRecord.address || 'Sin dirección'}
-                              </p>
-                              <div className="mt-3 flex gap-2">
-                                <Badge tone={propertyRecord.status === 'disponible' ? 'success' : propertyRecord.status === 'reservada' ? 'warning' : 'neutral'}>
-                                  {getPropertyStatusLabel(propertyRecord.status)}
-                                </Badge>
-                                <span className="rounded-full bg-white/5 px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-slate-400">
-                                  {getPropertyTypeLabel(propertyRecord.property_type)}
-                                </span>
-                              </div>
-                            </div>
-                            <Link href={`/propiedades/${propertyRecord.id}`} className="shrink-0 rounded-xl bg-cyan-500/10 px-4 py-2 text-sm font-bold text-cyan-400 transition hover:bg-cyan-500/20">
-                              Ver ficha
-                            </Link>
-                          </div>
-                        </div>
-                      ) : (
-                        <p className="text-sm text-slate-400">Sin propiedad asociada.</p>
-                      )}
-
-                      {canUpdateCase(profile.role) && (
-                        <form action={vincularPropiedadOperacion} className="mt-4 border-t border-white/10 pt-4">
-                          <input type="hidden" name="case_id" value={caseRecord.id} />
-                          <div className="flex flex-col sm:flex-row gap-3">
-                            <select
-                              name="property_id"
-                              defaultValue={propertyRecord?.id || ''}
-                              className="flex-1 rounded-xl border border-white/10 bg-[#0C2340] px-4 py-2.5 text-sm text-white outline-none focus:ring-2 focus:ring-cyan-400"
-                            >
-                              <option value="">Sin propiedad asociada (desvincular)</option>
-                              {allProperties.map(p => (
-                                <option key={p.id} value={p.id}>
-                                  {p.name} {p.address ? `— ${p.address}` : ''}
-                                </option>
-                              ))}
-                            </select>
-                            <FormSubmitButton label="Guardar propiedad" loadingLabel="Guardando..." />
-                          </div>
-                        </form>
-                      )}
-                    </div>
-                  </MotionCard>
-                )}
-
-                {industry === 'inmobiliaria' && (
-                  <div className="mb-6 rounded-3xl border border-white/10 bg-white/[0.02] p-6">
-                    <div className="flex items-start justify-between gap-4">
-                      <div>
-                        <h2 className="text-lg font-semibold text-white">✍️ Borrador de reserva/boleto con IA</h2>
-                        <p className="mt-1 text-sm text-slate-400">
-                          Redacta un borrador orientativo del documento basándose en la información de la operación.
-                        </p>
-                      </div>
-                      {canUseAi(profile.role) && (
-                        <RedactarBorradorButton caseId={caseRecord.id} yaGenerado={!!borradorInmoData} />
-                      )}
-                    </div>
-
-                    {borradorInmoData && (
-                      <div className="mt-6 space-y-4 border-t border-white/5 pt-6">
-                        <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
-                          <p className="text-sm font-semibold text-white">{borradorInmoData.titulo}</p>
-                          <div className="mt-2 whitespace-pre-wrap text-sm text-slate-300 font-mono bg-[#0A1830] p-4 rounded-xl border border-white/5 max-h-96 overflow-y-auto">
-                            {borradorInmoData.cuerpo}
-                          </div>
-                        </div>
-
-                        {(borradorInmoData.datos_faltantes.length > 0 || borradorInmoData.advertencias.length > 0) && (
-                          <div className="grid gap-4 sm:grid-cols-2">
-                            {borradorInmoData.datos_faltantes.length > 0 && (
-                              <div className="rounded-2xl border border-amber-400/25 bg-amber-400/[0.06] p-4">
-                                <p className="text-sm font-semibold text-white">📋 Datos a completar</p>
-                                <ul className="mt-2 space-y-1">
-                                  {borradorInmoData.datos_faltantes.map((it, i) => (
-                                    <li key={i} className="text-sm text-slate-300">• {it}</li>
-                                  ))}
-                                </ul>
-                              </div>
-                            )}
-                            {borradorInmoData.advertencias.length > 0 && (
-                              <div className="rounded-2xl border border-rose-400/25 bg-rose-400/[0.06] p-4">
-                                <p className="text-sm font-semibold text-white">⚠️ Advertencias</p>
-                                <ul className="mt-2 space-y-1">
-                                  {borradorInmoData.advertencias.map((it, i) => (
-                                    <li key={i} className="text-sm text-slate-300">• {it}</li>
-                                  ))}
-                                </ul>
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                )}
-                
-                {industry === 'inmobiliaria' && avisoComercial && (
-                  <div className="mb-6 rounded-2xl border border-cyan-500/20 bg-slate-900/40 p-5">
-                    <div className="mb-3 flex items-center gap-2">
-                      <span className="text-lg">📢</span>
-                      <h3 className="text-sm font-semibold text-slate-100">Aviso comercial (IA)</h3>
-                    </div>
-                    <p className="text-sm font-medium text-cyan-300">{avisoComercial.titulo}</p>
-                    <p className="mt-2 whitespace-pre-line text-sm leading-relaxed text-slate-200">{avisoComercial.aviso}</p>
-                    {avisoComercial.destacados.length > 0 && (
-                      <div className="mt-3">
-                        <p className="text-xs font-semibold text-slate-400">Destacados</p>
-                        <ul className="mt-1 list-disc pl-5 text-sm text-slate-200">
-                          {avisoComercial.destacados.map((d, i) => <li key={i}>{d}</li>)}
-                        </ul>
-                      </div>
-                    )}
-                    {avisoComercial.hashtags.length > 0 && (
-                      <p className="mt-3 text-xs text-cyan-400">
-                        {avisoComercial.hashtags.map((h) => `#${h}`).join(' ')}
-                      </p>
-                    )}
-                    {avisoComercial.datos_faltantes.length > 0 && (
-                      <div className="mt-3">
-                        <p className="text-xs font-semibold text-amber-400">Datos a sumar</p>
-                        <ul className="mt-1 list-disc pl-5 text-sm text-amber-200/80">
-                          {avisoComercial.datos_faltantes.map((d, i) => <li key={i}>{d}</li>)}
-                        </ul>
-                      </div>
-                    )}
-                    <p className="mt-3 text-xs text-slate-500">Aviso generado por IA a partir de los datos de la operación. Revisalo antes de publicar.</p>
-                  </div>
-                )}
-
-                {industry === 'inmobiliaria' && isDerivacionEscribaniaCompatible(caseRecord.case_type) && (
-                  <DerivarEscribania caseId={caseRecord.id} />
-                )}
-
-                <MotionCard index={industry === 'inmobiliaria' ? 1 : 0}>
-          <h3 className="font-display text-lg font-semibold text-white">
-            {terms.datosTitulo}
-          </h3>
-
-          <div className="mt-5 grid gap-4 sm:grid-cols-2">
-            <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                Tipo
-              </p>
-
-              <p className="mt-2 font-bold text-white">
-                {getCaseTypeLabel(caseRecord.case_type)}
-              </p>
-            </div>
-
-            <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                Estado
-              </p>
-
-              <p className="mt-2 font-bold text-white">
-                {getCaseStatusLabel(caseRecord.status, industry)}
-              </p>
-            </div>
-
-            {visibleMetadataFields.map((field) => {
-              const value = getMetadataValue(caseRecord.metadata, field.key);
-              if (field.key === 'fecha_relevante' && value) {
-                const status = getDocumentExpiryStatus(value);
-                const days = getDaysUntilExpiry(value) ?? 0;
-                return (
-                  <div key={field.key} className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                      {field.label}
-                    </p>
-                    <div className="mt-2 flex flex-wrap items-center gap-2">
-                      <p className="font-bold text-white">
-                        {formatPlazoDate(value)}
-                      </p>
-                      <Badge tone={status === 'vencido' ? 'danger' : status === 'por_vencer' ? 'warning' : 'neutral'}>
-                        {expiryStatusLabel(status)}
-                      </Badge>
-                      <span className="text-xs font-medium text-slate-500">
-                        {days >= 0 ? `(faltan ${days} días)` : `(vencido hace ${Math.abs(days)} días)`}
-                      </span>
-                    </div>
-                  </div>
-                );
-              }
-              const displayValue = field.key === 'moneda_operacion' && !value ? 'Sin definir' : value;
-              return (
-                <div key={field.key} className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                    {field.label}
-                  </p>
-                  <p className="mt-2 font-bold text-white">
-                    {displayValue}
-                  </p>
-                </div>
-              );
-            })}
-          </div>
-
-          <details open={visibleMetadataFields.length === 0} className="mt-6 group">
-            <summary className="list-none cursor-pointer text-sm font-bold text-sky-600 hover:text-sky-700 flex items-center gap-2 select-none outline-none">
-              <span>✏️ {terms.editarDatos}</span>
-              <span className="transition-transform group-open:rotate-90">▸</span>
-            </summary>
-            <form action={updateCaseStatus} className="mt-4 grid gap-4">
-              <input type="hidden" name="case_id" value={caseRecord.id} />
-
-              <div>
-                <label className="text-sm font-semibold text-slate-400">
-                  Estado
-                </label>
-                <select
-                  name="status"
-                  defaultValue={caseRecord.status}
-                  className="mt-2 w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-white placeholder:text-slate-500 outline-none focus:ring-2 focus:ring-sky-400"
-                >
-                  {statusOptions.map((status) => (
-                    <option
-                      key={status.value}
-                      value={status.value}
-                      className="bg-[#0C2340] text-white"
-                      style={darkOptionStyle}
-                    >
-                      {status.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {caseFields.length > 0 ? (
-                <div className="grid gap-4 sm:grid-cols-2">
-                  {caseFields.map((field) => (
-                    <div key={field.key}>
-                      <label className="text-sm font-semibold text-slate-400">
-                        {field.label}
-                      </label>
-
-                      {field.type === 'select' ? (
-                        <select
-                          name={`case_metadata.${field.key}`}
-                          defaultValue={getMetadataValue(caseRecord.metadata, field.key)}
-                          className="mt-2 w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-white placeholder:text-slate-500 outline-none focus:ring-2 focus:ring-sky-400"
-                        >
-                          <option
-                            value=""
-                            className="bg-[#0C2340] text-white"
-                            style={darkOptionStyle}
-                          >
-                            Sin definir
-                          </option>
-                          {(field.options ?? []).map((option) => (
-                            <option
-                              key={option}
-                              value={option}
-                              className="bg-[#0C2340] text-white"
-                              style={darkOptionStyle}
-                            >
-                              {option}
-                            </option>
-                          ))}
-                        </select>
-                      ) : (
-                        <input
-                          name={`case_metadata.${field.key}`}
-                          type={field.type}
-                          defaultValue={getMetadataValue(caseRecord.metadata, field.key)}
-                          className="mt-2 w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-white placeholder:text-slate-500 outline-none focus:ring-2 focus:ring-sky-400"
-                        />
-                      )}
-                    </div>
-                  ))}
-                </div>
-              ) : null}
-
-              <button className="rounded-2xl bg-slate-900 px-5 py-3 text-sm font-bold text-white transition-all hover:bg-slate-800">
-                {terms.actualizarCta}
-              </button>
-              </form>
-          </details>
-        </MotionCard>
-              </div>
+                }
+                agent={<CaseAgentDisclosure key={caseRecord.id} canUseAi={puedeUsarIA}>
+<AgenteChat caseId={caseRecord.id} caseTitle={displayText(caseRecord.title, terms.itemSinTitulo)} industry={industry} puedeUsarIA={puedeUsarIA} historialInicial={historialAgente} modeloUrl={modeloSugerido ? `/modelos?modelo=${modeloSugerido}&expediente=${caseRecord.id}` : '/modelos'} />
+                </CaseAgentDisclosure>}
+              >
+<CaseIndustryTools industry={industry} caseRecord={caseRecord} profile={profile} puedeUsarIA={puedeUsarIA}
+                liquidacion={liquidacion} plazo={plazo} tasaJusticia={tasaJusticia} borradorEscritura={borradorEscritura}
+                avisoComercial={avisoComercial} borradorInmoData={borradorInmoData} analisisUif={analisisUif} prescore={prescore}
+                cotejoData={cotejoData} documentosAnalizados={documentosAnalizados} analisisData={analisisData} resumenData={resumenData}
+                extractedPartes={extractedPartes} extractedResumenes={extractedResumenes} modeloSugerido={modeloSugerido}
+                derivation={<DerivarEscribania caseId={caseRecord.id} />} />
+              </CaseSummaryLayout>
             )
           },
           {
             id: 'documentos',
-            label: '📄 Documentos',
+            label: <><FileTextIcon size={16} aria-hidden />Documentos</>,
             content: (
-              <MotionCard index={0}>
-                <div className="mb-6">
-                  <PreguntarDocumentos caseId={caseRecord.id} puedeUsarIA={puedeUsarIA} industry={industry} />
-                </div>
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <h3 className="text-lg font-bold text-white">
-                  {terms.docsTitulo}
-                </h3>
-
-                <p className="mt-1 text-sm text-slate-400">
-                  {terms.docsSubtitulo}
-                </p>
-              </div>
-
-              <Link
-                href={`/documentos/subir?case=${caseRecord.id}`}
-                className="rounded-2xl bg-sky-500 px-5 py-3 text-sm font-bold text-white hover:bg-sky-600"
-              >
-                Subir documento
-              </Link>
-            </div>
-
-            {caseDocuments.length > 0 ? (
-              <div className="mt-5 space-y-3">
-                {caseDocuments.map((document) => (
-                  <div
-                    key={document.id}
-                    className="flex flex-col gap-3 rounded-2xl border border-white/10 bg-white/[0.04] p-4 sm:flex-row sm:items-center sm:justify-between"
-                  >
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-bold text-white">
-                        {document.file_name}
-                      </p>
-                      <p className="mt-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                        {getDocumentTypeLabel(document.document_type)}
-                      </p>
-                    </div>
-
-                    <div className="flex shrink-0 items-center gap-3">
-                      {document.contributed_by_organization_id && (
-                        <span className="rounded-full border border-cyan-400/30 bg-cyan-500/10 px-2 py-0.5 text-xs text-cyan-200">
-                          Aportado por {document.contributed_by_name || 'la escribanía'}
-                        </span>
-                      )}
-                      <Badge tone={sensitivityLabel(document.sensitivity_level) === 'Crítico' || sensitivityLabel(document.sensitivity_level) === 'Alto' ? 'danger' : 'neutral'}>
-                        {sensitivityLabel(document.sensitivity_level)}
-                      </Badge>
-                      <Link
-                        href={`/documentos/${document.id}`}
-                        className="text-sm font-bold text-accent-soft hover:text-white"
-                      >
-                        Ver documento
-                      </Link>
-                      <EliminarDocumentoButton documentId={document.id} caseId={caseRecord.id} fileName={document.file_name} />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="mt-5 rounded-2xl border border-dashed border-white/10 bg-white/[0.04] p-5 text-sm text-slate-400">
-                {terms.docsVacio}
-              </div>
-            )}
-
-            {observacionesEscribania.length > 0 && (
-              <div className="mt-6 rounded-2xl border border-white/10 bg-white/5 p-6">
-                <h3 className="text-lg font-semibold text-white">Observaciones de la escribanía</h3>
-                <p className="mt-1 text-sm text-slate-400">
-                  Notas que dejó la escribanía sobre este legajo.
-                </p>
-                <ul className="mt-4 space-y-3">
-                  {observacionesEscribania.map((o) => (
-                    <li key={o.id} className="rounded-xl border border-white/10 bg-white/5 p-4">
-                      <p className="text-sm text-white whitespace-pre-wrap">{o.body}</p>
-                      <p className="mt-2 text-xs text-slate-400">
-                        {o.author_org_name ?? 'Escribanía'} · {new Date(o.created_at).toLocaleString('es-AR')}
-                      </p>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-          </MotionCard>
+              <CaseDocumentsPanel caseId={caseRecord.id} industry={industry} role={profile.role} puedeUsarIA={puedeUsarIA} documents={caseDocuments} notes={observacionesEscribania} documentsFailed={Boolean(caseDocumentsError)} deleteFeedback={typeof sp.docdel === 'string' ? sp.docdel : undefined} />
             )
           },
           {
             id: 'cronologia',
-            label: '🕑 Cronología',
+            label: <><ClockCounterClockwise size={16} aria-hidden />Cronología</>,
             content: (
-              <div className="space-y-6">
-                <CronologiaExpediente
-                  items={cronologia}
-                  titulo={`🕒 Cronología ${terms.delExpediente}`}
-                  industry={industry}
-                />
-                <MotionCard index={0}>
-            <h3 className="font-display text-lg font-semibold text-white">Línea de tiempo {terms.delExpediente}</h3>
-            <p className="mt-1 text-sm text-slate-400">{terms.cronologiaSubtitulo}</p>
-            
-            <form action={async (formData: FormData) => {
-              'use server';
-              await createCaseEvent({
-                caseId: caseRecord.id,
-                eventDate: String(formData.get('eventDate')),
-                eventType: String(formData.get('eventType')),
-                title: String(formData.get('title')),
-                description: String(formData.get('description') || '')
-              });
-            }} className="mt-5 grid gap-4 rounded-2xl border border-white/10 bg-white/[0.04] p-5">
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div>
-                  <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">Fecha</label>
-                  <input type="date" name="eventDate" required className="mt-1 w-full rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-white placeholder:text-slate-500 outline-none focus:ring-2 focus:ring-sky-400" />
-                </div>
-                <div>
-                  <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">Tipo</label>
-                  <select name="eventType" defaultValue="otro" className="mt-1 w-full rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-white placeholder:text-slate-500 outline-none focus:ring-2 focus:ring-sky-400">
-                    {Object.entries(industry === 'inmobiliaria' ? INMOBILIARIA_EVENT_TYPES : CASE_EVENT_TYPE_LABELS).map(([val, label]) => (
-                      <option key={val} value={val} style={darkOptionStyle} className="bg-[#0C2340] text-white">{label}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-              <div>
-                <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">Título</label>
-                <input
-                  type="text"
-                  name="title"
-                  required
-                  placeholder={industry === 'inmobiliaria' ? 'Ej: Visita al inmueble / Reserva firmada' : 'Ej: Se presentó la demanda'}
-                  className="mt-1 w-full rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-white placeholder:text-slate-500 outline-none focus:ring-2 focus:ring-sky-400"
-                />
-              </div>
-              <div>
-                <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">Descripción (opcional)</label>
-                <textarea name="description" rows={2} className="mt-1 w-full rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-white placeholder:text-slate-500 outline-none focus:ring-2 focus:ring-sky-400" />
-              </div>
-              <button type="submit" className="justify-self-start rounded-xl bg-slate-900 px-4 py-2 text-sm font-bold text-white hover:bg-slate-800 transition-all">
-                {industry === 'inmobiliaria' ? 'Agregar movimiento' : 'Agregar actuación'}
-              </button>
-            </form>
-
-            <div className="mt-6 space-y-4 border-l-2 border-white/10 pl-4">
-              {eventos.length === 0 ? (
-                <div className="text-sm text-slate-400">
-                  {industry === 'inmobiliaria'
-                    ? 'Todavía no hay movimientos registrados en esta operación.'
-                    : `Todavía no hay actuaciones registradas en este ${terms.expedienteSingular.toLowerCase()}.`}
-                </div>
-              ) : (
-                eventos.map((item) => (
-                  <div key={item.id} className="relative mb-6 last:mb-0">
-                    <span className="absolute -left-[23px] top-1 flex h-3 w-3 items-center justify-center rounded-full bg-slate-300 ring-4 ring-[#0a1830]" />
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="text-xs font-bold text-slate-400">{formatPlazoDate(item.event_date)}</span>
-                      <Badge tone={getEventTypeBadgeColor(item.event_type)}>
-                        {CASE_EVENT_TYPE_LABELS[item.event_type] || CASE_EVENT_TYPE_LABELS.otro}
-                      </Badge>
-                    </div>
-                    <div className="mt-2 rounded-2xl border border-white/10 bg-white/[0.04] p-4">
-                      <div className="flex items-start justify-between gap-4">
-                        <div>
-                          <p className="font-bold text-white">{item.title}</p>
-                          {item.description && <p className="mt-1 text-sm text-slate-400">{item.description}</p>}
-                        </div>
-                        <form action={async () => {
-                          'use server';
-                          await deleteCaseEvent({ eventId: item.id, caseId: caseRecord.id });
-                        }}>
-                          <button type="submit" className="text-xs font-bold text-rose-500 hover:text-rose-400 transition-colors">Eliminar</button>
-                        </form>
-                      </div>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </MotionCard>
-              </div>
+              <CronologiaExpediente items={cronologia} titulo={`Cronología ${terms.delExpediente}`} industry={industry} manualEvents={eventos} canEdit={canUpdateCase(profile.role)} eventTypes={industry === 'inmobiliaria' ? INMOBILIARIA_EVENT_TYPES : CASE_EVENT_TYPE_LABELS}
+                createAction={async (formData: FormData) => {
+                  'use server';
+                  await createCaseEvent({
+                    caseId: caseRecord.id,
+                    eventDate: String(formData.get('eventDate')),
+                    eventType: String(formData.get('eventType')),
+                    title: String(formData.get('title')),
+                    description: String(formData.get('description') || '')
+                  });
+                }}
+                deleteAction={async (eventId: string) => {
+                  'use server';
+                  await deleteCaseEvent({ eventId, caseId: caseRecord.id });
+                }}
+              />
             )
           },
           {
             id: 'checklist',
-            label: '✅ Checklist',
+            label: <><ListChecks size={16} aria-hidden />Checklist</>,
             content: (
-          <MotionCard index={0}>
-            <h3 className="font-display text-lg font-semibold text-white">
-              Checklist documental
-              <AutoMatchTrigger caseId={caseRecord.id} isComplete={checklistProgress.isComplete} />
-            </h3>
-            <p className="mt-1 text-sm text-slate-400">
-              Lista sugerida. Marcá lo que no aplica o agregá lo que necesites.
-            </p>
-
-            {sp.checklist_document === 'linked' && (
-              <div role="status" aria-live="polite" data-testid="checklist-document-feedback" className="mt-3 rounded-xl bg-emerald-900/20 border border-emerald-500/30 px-3 py-2 text-sm text-emerald-400 font-medium">
-                Documento vinculado correctamente.
-              </div>
-            )}
-            {sp.checklist_document === 'unlinked' && (
-              <div role="status" aria-live="polite" data-testid="checklist-document-feedback" className="mt-3 rounded-xl bg-emerald-900/20 border border-emerald-500/30 px-3 py-2 text-sm text-emerald-400 font-medium">
-                Documento desvinculado correctamente.
-              </div>
-            )}
-
-            {checklistItems.length === 0 && (
-              <p className="mt-5 text-sm text-slate-400">
-                Aún no hay ítems en este checklist.
-              </p>
-            )}
-
-            {checklistItems.length > 0 ? (
-              <>
-                <div className="mt-5 rounded-2xl bg-[#0C2340] p-5 text-white shadow-sm">
-                  <div className="flex items-center justify-between">
-                    <p className="text-sm font-bold">
-                      {checklistProgress.isComplete ? (
-                        <span className="flex items-center gap-2 text-[#22C55E]">
-                          ✓ Documentación completa
-                        </span>
-                      ) : (
-                        <span>
-                          <span className="text-slate-600">{checklistProgress.total - checklistProgress.missing}</span> de {checklistProgress.total} documentos sugeridos
-                        </span>
-                      )}
-                    </p>
-                    <div className="flex items-center gap-4">
-                      {checklistItems.length > 0 && (
-                        <form action={autoMarcarChecklist}>
-                          <input type="hidden" name="case_id" value={caseRecord.id} />
-                          <button
-                            type="submit"
-                            data-testid="btn-auto-match"
-                            className="rounded-lg bg-gradient-to-r from-cyan-500 to-violet-500 px-3 py-1.5 text-sm font-medium text-white transition hover:opacity-90"
-                          >
-                            ✨ Detectar documentos ya cargados
-                          </button>
-                        </form>
-                      )}
-                      <span className="text-sm font-bold text-[#C2CCD9]">{checklistProgress.percent}%</span>
-                    </div>
-                  </div>
-                  
-                  <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-slate-700/50">
-                    <div
-                      className="h-full bg-[#22C55E] transition-all duration-500"
-                      style={{ width: `${checklistProgress.percent}%` }}
-                    />
-                  </div>
-
-                  {!checklistProgress.isComplete && missingItems.length > 0 && (
-                    <div className="mt-4 border-t border-slate-700/50 pt-4">
-                      <p className="text-xs font-semibold uppercase tracking-wide text-[#C2CCD9]">
-                        Sugeridos sin cargar:
-                      </p>
-                      <ul className="mt-3 space-y-2">
-                        {missingItems.map((item) => (
-                          <li key={`missing-${item.id}`} className="text-sm flex items-start gap-2">
-                            <span className="text-[#F59E0B] mt-0.5 font-bold">!</span>
-                            <span className="text-white">{item.title}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-                </div>
-
-                <div className="mt-5 space-y-3" data-testid="checklist-items">
-                  {checklistItems.map((item, idx) => {
-                    const isDone = item.status === 'received' || item.status === 'reviewed';
-                    const isMissing = item.status === 'pending' || item.status === 'rejected';
-                    const isNotRequired = item.status === 'not_required';
-
-                    return (
-                      <div key={item.id} data-testid={`checklist-item-${idx}`} className={`space-y-3 ${isNotRequired ? 'opacity-60' : ''}`}>
-                      <div className={`flex items-center gap-3 rounded-2xl border p-3 transition-colors ${
-                          isMissing
-                            ? 'border-[#F59E0B] bg-white/[0.04]'
-                            : isNotRequired
-                            ? 'border-white/10 bg-white/[0.02]'
-                            : 'border-white/10 bg-white/[0.05]'
-                        }`}>
-                        
-                        {!isNotRequired ? (
-                          <form action={toggleChecklistItem} className="shrink-0">
-                            <input type="hidden" name="case_id" value={caseRecord.id} />
-                            <input type="hidden" name="item_id" value={item.id} />
-                            <input type="hidden" name="current_status" value={item.status} />
-                            <button
-                              type="submit"
-                              data-testid={`checklist-toggle-${idx}`}
-                              aria-label={isDone ? 'Marcar como pendiente' : 'Marcar como recibido'}
-                              className={`flex h-5 w-5 items-center justify-center rounded-md border text-xs font-bold ${
-                                isDone
-                                  ? 'border-sky-500 bg-sky-500 text-white'
-                                  : 'border-white/20 bg-white/[0.02] text-transparent'
-                              }`}
-                            >
-                              ✓
-                            </button>
-                          </form>
-                        ) : (
-                          <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md border border-white/10 bg-white/[0.02] text-xs text-transparent">✓</div>
-                        )}
-
-                        <div className="min-w-0 flex-1">
-                          <p
-                            className={`text-sm font-semibold ${
-                              isDone || isNotRequired
-                                ? 'text-slate-500 line-through'
-                                : 'text-white'
-                            }`}
-                          >
-                            {item.title}
-                          </p>
-                          <div className="mt-1 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                            <Badge tone={isDone ? 'success' : isNotRequired ? 'neutral' : 'warning'} data-testid={`checklist-status-badge-${idx}`}>{checklistStatusLabel(item.status)}</Badge>
-                            <span>•</span>
-                            <form action={toggleChecklistItemNotRequired} className="inline-block">
-                              <input type="hidden" name="case_id" value={caseRecord.id} />
-                              <input type="hidden" name="item_id" value={item.id} />
-                              <input type="hidden" name="current_status" value={item.status} />
-                              <button type="submit" className="text-slate-500 hover:text-slate-700 underline decoration-slate-300 underline-offset-2">
-                                {isNotRequired ? 'Restaurar' : 'No aplica'}
-                              </button>
-                            </form>
-                            <span>•</span>
-                            <form action={removeChecklistItem} className="inline-block">
-                              <input type="hidden" name="case_id" value={caseRecord.id} />
-                              <input type="hidden" name="item_id" value={item.id} />
-                              <button type="submit" className="text-rose-400 hover:text-rose-600 underline decoration-rose-200 underline-offset-2">
-                                Quitar
-                              </button>
-                            </form>
-                          </div>
-                        </div>
-                      </div>
-
-                    {item.documents && !isNotRequired ? (
-                      <div className="flex items-center gap-2" data-testid={`checklist-linked-info-${idx}`}>
-                        <p className="rounded-xl bg-sky-50 px-3 py-2 text-xs font-semibold text-sky-700">
-                          Vinculado: {item.documents.file_name}
-                        </p>
-                        {item.match_source === 'manual' ? (
-                          <Badge tone="accent" data-testid={`checklist-badge-manual-${idx}`}>Manual</Badge>
-                        ) : item.match_source === 'automatic' ? (
-                          <Badge tone="neutral" data-testid={`checklist-badge-auto-${idx}`}>Auto (IA)</Badge>
-                        ) : (
-                          <Badge tone="neutral" data-testid={`checklist-badge-unspecified-${idx}`}>Sin origen registrado</Badge>
-                        )}
-                      </div>
-                    ) : null}
-
-                    {!isNotRequired && (
-                      <details className="group mt-2">
-                        <summary 
-                          className="list-none cursor-pointer inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold tracking-wide text-slate-600 transition-colors hover:bg-slate-100 hover:border-slate-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 select-none"
-                          data-testid={`checklist-link-toggle-${idx}`}
-                        >
-                          <span>📎</span>
-                          <span>{item.document_id ? 'Cambiar documento vinculado' : 'Vincular documento'}</span>
-                        </summary>
-                        <form
-                          action={linkChecklistItemDocument}
-                          className="mt-2 rounded-2xl border border-slate-200 bg-white p-3"
-                        >
-                          <input type="hidden" name="case_id" value={caseRecord.id} />
-                          <input type="hidden" name="item_id" value={item.id} />
-
-                          <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
-                            <select
-                              name="document_id"
-                              defaultValue={item.document_id ?? ''}
-                              data-testid={`select-doc-${idx}`}
-                              className="w-full rounded-xl border border-slate-200 bg-[#0C2340] px-3 py-2 text-sm text-white outline-none focus:ring-2 focus:ring-sky-400"
-                            >
-                              <option
-                                value=""
-                                className="bg-[#0C2340] text-white"
-                                style={darkOptionStyle}
-                              >
-                                -- sin vincular --
-                              </option>
-                              {availableDocuments.map((document) => (
-                                <option
-                                  key={document.id}
-                                  value={document.id}
-                                  className="bg-[#0C2340] text-white"
-                                  style={darkOptionStyle}
-                                >
-                                  {document.file_name}
-                                </option>
-                              ))}
-                            </select>
-
-                            <button
-                              type="submit"
-                              data-testid={`btn-guardar-doc-${idx}`}
-                              className="rounded-xl border border-white/10 px-3 py-2 text-sm font-bold text-slate-300 hover:border-sky-400 hover:text-sky-400"
-                            >
-                              Guardar
-                            </button>
-                          </div>
-                        </form>
-                      </details>
-                    )}
-                    </div>
-                  );
-                })}
-              </div>
-            </>
-            ) : null}
-            <form action={addChecklistItem} className="mt-5 flex items-center gap-2 rounded-2xl border border-white/10 bg-white/[0.04] p-2">
-              <input type="hidden" name="case_id" value={caseRecord.id} />
-              <input 
-                type="text" 
-                name="title" 
-                placeholder="Agregar documento al checklist…" 
-                required
-                className="min-w-0 flex-1 bg-transparent px-3 py-2 text-sm text-white outline-none placeholder:text-slate-500"
-              />
-              <button className="shrink-0 rounded-xl bg-slate-900 px-4 py-2 text-sm font-bold text-white transition-all hover:bg-slate-800">
-                Agregar
-              </button>
-            </form>
-          </MotionCard>
+          <>
+            <CaseChecklistPanel caseId={caseRecord.id} items={checklistItems} documents={availableDocuments} progress={checklistProgress} canEdit={canUpdateCase(profile.role)} feedback={typeof sp.checklist_document === 'string' ? sp.checklist_document : undefined} actions={{ toggle: toggleChecklistItem, exclude: toggleChecklistItemNotRequired, remove: removeChecklistItem, link: linkChecklistItemDocument, add: addChecklistItem, detect: autoMarcarChecklist }} />
+          </>
             )
           }
         ]}
       />
 
-      {/* Zona de administración */}
-      {(canArchiveCase(profile.role) || canDeleteCase(profile.role)) && (
-        <div className="mt-12 rounded-3xl border border-rose-500/10 bg-rose-500/5 p-6">
-          <h3 className="mb-4 text-sm font-semibold uppercase tracking-widest text-rose-400">
-            Zona de administración
-          </h3>
-          <div className="flex flex-wrap items-center gap-4">
-            {canArchiveCase(profile.role) && (
-              caseRecord.status !== 'archived' ? (
-                <form action={archiveCase}>
-                  <input type="hidden" name="case_id" value={caseRecord.id} />
-                  <button type="submit" className="rounded-2xl border border-white/10 bg-white/[0.05] px-4 py-2 text-sm font-bold text-white transition-all hover:bg-white/10">
-                    {terms.archivarCta}
-                  </button>
-                </form>
-              ) : (
-                <form action={unarchiveCase}>
-                  <input type="hidden" name="case_id" value={caseRecord.id} />
-                  <button type="submit" className="rounded-2xl border border-white/10 bg-white/[0.05] px-4 py-2 text-sm font-bold text-white transition-all hover:bg-white/10">
-                    Desarchivar
-                  </button>
-                </form>
-              )
-            )}
-            
-            {canDeleteCase(profile.role) && (
-              <form action={deleteCase}>
-                <input type="hidden" name="case_id" value={caseRecord.id} />
-                <DeleteCaseButton confirmText={`Vas a borrar este ${terms.expedienteSingular.toLowerCase()} y todo su contenido interno (checklist, cronología, análisis de IA y agenda). Los documentos quedan guardados en la Bóveda. Esta acción no se puede deshacer. ¿Continuar?`} />
-              </form>
-            )}
-          </div>
-        </div>
-      )}
     </AppShell>
   );
 }

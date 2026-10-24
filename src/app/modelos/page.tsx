@@ -49,8 +49,7 @@ export default async function ModelosPage({
   return (
     <AppShell>
       <div className="space-y-6">
-        <ModelosClient expedientes={expedientes} modeloInicialId={modeloInicialId} expedienteInicialId={expedienteInicialId} industria={industria} puedeIA={puedeIA} />
-        {puedeIA && <RevisarEscrito industria={industria} />}
+        <ModelosClient expedientes={expedientes} modeloInicialId={modeloInicialId} expedienteInicialId={expedienteInicialId} industria={industria} puedeIA={puedeIA} review={puedeIA ? <RevisarEscrito industria={industria} /> : undefined} />
       </div>
     </AppShell>
   );

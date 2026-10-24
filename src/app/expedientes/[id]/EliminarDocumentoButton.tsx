@@ -1,50 +1,31 @@
 'use client';
-
-import { useTransition } from 'react';
-import { Trash2, Loader2 } from 'lucide-react';
+import { useRef, useId, useTransition } from 'react';
+import { DotsThreeVertical, Trash, X } from '@phosphor-icons/react';
 import { deleteDocumentFromCase } from '@/app/documentos/actions';
-
-export function EliminarDocumentoButton({
-  documentId,
-  caseId,
-  fileName,
-}: {
-  documentId: string;
-  caseId: string;
-  fileName: string;
-}) {
-  const [isPending, startTransition] = useTransition();
-
-  const handleClick = () => {
-    if (
-      !window.confirm(
-        `Vas a borrar "${fileName}" de forma permanente:\n\n• Se elimina el archivo y sus análisis de IA\n• Se borran sus datos de búsqueda\n• Se libera el ítem del checklist que lo tuviera vinculado\n\nEsta acción no se puede deshacer. ¿Continuar?`
-      )
-    ) {
-      return;
-    }
+import styles from './CaseDocuments.module.css';
+export function EliminarDocumentoButton({documentId,caseId,fileName}:{documentId:string;caseId:string;fileName:string}) {
+ const [isPending,startTransition]=useTransition();
+ const dialog=useRef<HTMLDialogElement>(null);
+ const trigger=useRef<HTMLButtonElement>(null);
+ const cancel=useRef<HTMLButtonElement>(null);
+ const id=useId();
+ function close(){dialog.current?.close();trigger.current?.focus()}
+ const handleClick = () => {
     const formData = new FormData();
     formData.append('document_id', documentId);
     formData.append('case_id', caseId);
-    startTransition(() => {
-      deleteDocumentFromCase(formData);
+    startTransition(async () => {
+      await deleteDocumentFromCase(formData);
     });
-  };
-
-  return (
-    <button
-      type="button"
-      onClick={handleClick}
-      disabled={isPending}
-      title="Eliminar documento"
-      className="group inline-flex items-center gap-1.5 rounded-full border border-rose-500/30 bg-rose-500/10 px-3 py-1.5 text-xs font-medium text-rose-300 transition-all duration-200 hover:border-rose-400/60 hover:bg-rose-500/20 hover:text-rose-200 hover:shadow-[0_0_14px_rgba(244,63,94,0.25)] active:scale-95 disabled:opacity-60"
-    >
-      {isPending ? (
-        <Loader2 className="h-3.5 w-3.5 animate-spin" />
-      ) : (
-        <Trash2 className="h-3.5 w-3.5 transition-transform duration-200 group-hover:-rotate-12 group-hover:scale-110" />
-      )}
-      {isPending ? 'Eliminando…' : 'Eliminar'}
-    </button>
-  );
+ };
+ return <>
+  <button ref={trigger} type="button" className={styles.iconAction} aria-label={`Opciones de ${fileName}`} aria-haspopup="dialog" onClick={()=>{dialog.current?.showModal();cancel.current?.focus()}}><DotsThreeVertical size={18} aria-hidden="true"/></button>
+  <dialog ref={dialog} className={styles.dialog} aria-labelledby={id} aria-describedby={`${id}-warning`} onCancel={event=>{event.preventDefault();close()}}>
+   <header><h2 id={id}>Eliminar documento</h2><button type="button" className={styles.iconAction} aria-label="Cerrar confirmación" onClick={close}><X size={18} aria-hidden="true"/></button></header>
+   <p>Vas a borrar <span className={styles.filename}>{fileName}</span> de forma permanente:</p>
+   <ul><li>Se elimina el archivo y sus análisis de IA</li><li>Se borran sus datos de búsqueda</li><li>Se libera el ítem del checklist que lo tuviera vinculado</li></ul>
+   <p id={`${id}-warning`}>Esta acción no se puede deshacer. ¿Continuar?</p>
+   <footer><button ref={cancel} type="button" className={styles.secondary} onClick={close}>Cancelar</button><button type="button" className={styles.danger} onClick={handleClick} disabled={isPending}><Trash size={16} aria-hidden="true"/>{isPending?'Eliminando…':'Eliminar permanentemente'}</button></footer>
+  </dialog>
+ </>;
 }

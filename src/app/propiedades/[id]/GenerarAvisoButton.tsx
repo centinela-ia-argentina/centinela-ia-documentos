@@ -1,7 +1,12 @@
 'use client';
 
+import { ArrowRight } from 'lucide-react';
+import { Sparkle } from '@phosphor-icons/react';
+import { AppButton } from '@/components/ui/AppButton';
+import styles from './PropertyDetail.module.css';
+
 import { useState, useTransition } from 'react';
-import { Bot, Sparkles, X, Copy, Check } from 'lucide-react';
+import { Sparkles, X, Copy, Check } from 'lucide-react';
 import { generarAvisoPropiedadIA } from '../actions';
 import { AiDisclaimer } from '@/lib/industries/disclaimers';
 
@@ -38,7 +43,7 @@ export function GenerarAvisoButton({ propertyId }: { propertyId: string }) {
 
   if (result) {
     return (
-      <div className="mb-6 rounded-2xl border border-white/10 bg-white/5 p-6">
+      <div className={`${styles.aiTool} mb-6 rounded-2xl border border-white/10 bg-white/5 p-6`}>
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2 text-cyan-400">
             <Sparkles className="h-5 w-5" />
@@ -91,17 +96,13 @@ export function GenerarAvisoButton({ propertyId }: { propertyId: string }) {
   }
 
   return (
-    <div className="mb-6">
+    <div className={`${styles.aiTool} mb-6`}>
       {error && <p className="mb-2 text-sm text-red-400">{error}</p>}
-      <button
-        onClick={handleAnalyze}
-        disabled={isPending}
-        className="group relative inline-flex w-full justify-center items-center gap-2 overflow-hidden rounded-xl bg-gradient-to-r from-cyan-600 to-violet-600 px-5 py-3 text-sm font-bold text-white shadow-lg transition-all hover:scale-105 hover:shadow-cyan-500/25 disabled:pointer-events-none disabled:opacity-70"
-      >
-        <div className="absolute inset-0 bg-white/20 opacity-0 transition-opacity group-hover:opacity-100"></div>
-        <Sparkles className={`h-4 w-4 ${isPending ? 'animate-pulse' : ''}`} />
-        <span>{isPending ? 'Generando aviso...' : '✨ Generar aviso con IA'}</span>
-      </button>
+      <AppButton onClick={handleAnalyze} disabled={isPending} className={styles.primary}>
+        <Sparkle size={18} weight="duotone" aria-hidden="true" />
+        {isPending ? 'Generando aviso…' : 'Preparar aviso con IA'}
+        <ArrowRight size={18} strokeWidth={1.7} aria-hidden="true" />
+      </AppButton>
     </div>
   );
 }

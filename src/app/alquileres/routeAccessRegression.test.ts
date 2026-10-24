@@ -1,0 +1,33 @@
+/** @vitest-environment jsdom */
+import React from 'react';
+import {beforeEach,afterEach,describe,it,expect,vi} from 'vitest';
+import {render,screen,cleanup} from '@testing-library/react';
+vi.mock('server-only',()=>({}));
+vi.mock('next/navigation',()=>({redirect:(path:string)=>{throw Error('redirect:'+path)}}));
+vi.mock('@/lib/auth/getUserProfile',()=>({getUserProfile:vi.fn()}));
+vi.mock('@/lib/supabase/server',()=>({createClient:vi.fn()}));
+vi.mock('@/components/layout/AppShell',()=>({AppShell:({children}:any)=>React.createElement('div',null,children)}));
+vi.mock('@/components/ui/FormSubmitButton',()=>({FormSubmitButton:({label}:any)=>React.createElement('button',{type:'submit'},label)}));
+vi.mock('./actions',()=>({createRentalContract:vi.fn(),addIndexValue:vi.fn(),deleteIndexValue:vi.fn()}));
+vi.mock('@/app/clientes/actions',()=>({createClientRecord:vi.fn()}));
+import {getUserProfile} from '@/lib/auth/getUserProfile';
+import {createClient} from '@/lib/supabase/server';
+import RentalsPage from './page';
+import NewRentalPage from './nuevo/page';
+import IndicesPage from './indices/page';
+import NewClientPage from '@/app/clientes/nuevo/page';
+const scopes=vi.fn(),ids=vi.fn();let role='admin',industry='inmobiliaria';
+beforeEach(()=>{vi.clearAllMocks();role='admin';industry='inmobiliaria';vi.stubGlobal('fetch',vi.fn(()=>{throw Error('Network forbidden')}));vi.mocked(getUserProfile).mockImplementation(async()=>({user:{id:'fixture'},profile:{role,organization_id:'org-a'}} as any));vi.mocked(createClient).mockResolvedValue({from:(table:string)=>{const query:any={};for(const m of ['select','is','order'])query[m]=()=>query;query.eq=(k:string,v:any)=>{scopes(table,k,v);return query};query.in=(k:string,v:any)=>{ids(table,k,v);return query};query.single=async()=>({data:{industry_type:industry},error:null});query.then=(resolve:any)=>Promise.resolve({data:table==='rental_contracts'?[{id:'r1',property_id:'p1',status:'vigente',tenant_name:'Lucía',index_type:'ICL',start_date:null},{id:'r2',property_id:'p1',status:'finalizado',start_date:null}]:table==='properties'?[{id:'p1',name:'Plaza Moreno'}]:[],error:null}).then(resolve);return query}} as any)});
+afterEach(()=>{cleanup();vi.unstubAllGlobals()});
+describe('presentation preserves rental and client route gates',()=>{
+ it('scopes bulk property lookup to current organization and deduplicates ids',async()=>{render(await RentalsPage());expect(scopes).toHaveBeenCalledWith('properties','organization_id','org-a');expect(ids).toHaveBeenCalledWith('properties','id',['p1']);expect(screen.getByText('Plaza Moreno')).toBeTruthy();expect(fetch).not.toHaveBeenCalled()});
+ it('auditor list has no management links',async()=>{role='auditor';render(await RentalsPage());expect(screen.queryByRole('link',{name:'Nuevo contrato'})).toBeNull();expect(screen.queryByRole('link',{name:'Índices de ajuste'})).toBeNull()});
+ it('client role cannot open rental list',async()=>{role='client';await expect(RentalsPage()).rejects.toThrow('redirect:/acceso-denegado');expect(createClient).not.toHaveBeenCalled()});
+ it('non-real-estate list is redirected',async()=>{industry='legal';await expect(RentalsPage()).rejects.toThrow('redirect:/dashboard');expect(ids).not.toHaveBeenCalled()});
+ it('rental create preserves property scope',async()=>{render(await NewRentalPage());expect(scopes).toHaveBeenCalledWith('properties','organization_id','org-a');expect(screen.getByLabelText('Propiedad · opcional')).toBeTruthy();expect(fetch).not.toHaveBeenCalled()});
+ it('auditor cannot open create rental',async()=>{role='auditor';await expect(NewRentalPage()).rejects.toThrow('redirect:/acceso-denegado');expect(createClient).not.toHaveBeenCalled()});
+ it('auditor cannot open indices',async()=>{role='auditor';await expect(IndicesPage()).rejects.toThrow('redirect:/acceso-denegado');expect(createClient).not.toHaveBeenCalled()});
+ it('indices query and posted names remain organization scoped',async()=>{const {container}=render(await IndicesPage());expect(scopes).toHaveBeenCalledWith('rent_index_values','organization_id','org-a');expect([...container.querySelectorAll('[name]')].map(x=>x.getAttribute('name'))).toEqual(['index_type','period_month','period_year','value']);expect(screen.getByLabelText('Mes *')).toBeTruthy();expect(screen.getByLabelText('Año *')).toBeTruthy();expect(fetch).not.toHaveBeenCalled()});
+ it('auditor cannot create clients',async()=>{role='auditor';await expect(NewClientPage()).rejects.toThrow('redirect:/clientes');expect(createClient).not.toHaveBeenCalled()});
+ it('client form rendering never queries or writes services',async()=>{render(await NewClientPage());expect(screen.getByRole('heading',{name:'Registrar nuevo cliente'})).toBeTruthy();expect(createClient).not.toHaveBeenCalled();expect(fetch).not.toHaveBeenCalled()});
+});

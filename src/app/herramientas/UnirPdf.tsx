@@ -16,7 +16,7 @@ import { uploadDocument } from '@/app/documentos/actions';
 
 type PdfItem = { id: string; nombre: string; file: File };
 
-export function UnirPdf() {
+export function UnirPdf({ canSave = true }: { canSave?: boolean }) {
 	const [archivos, setArchivos] = useState<PdfItem[]>([]);
 	const [uniendo, setUniendo] = useState(false);
 	const [guardando, setGuardando] = useState(false);
@@ -79,6 +79,7 @@ export function UnirPdf() {
 	};
 
 	const guardarEnDocumentos = async () => {
+    if (!canSave) return;
 		if (archivos.length < 2) return;
 		setGuardando(true);
 		setError(null);
@@ -112,7 +113,7 @@ export function UnirPdf() {
 					type="file"
 					accept="application/pdf"
 					multiple
-					className="hidden"
+					className="sr-only"
 					onChange={(e) => {
 						agregar(e.target.files);
 						e.target.value = '';
@@ -192,7 +193,7 @@ export function UnirPdf() {
 							{uniendo ? 'Uniendo…' : 'Unir y descargar'}
 						</button>
 
-						<button
+						{canSave && (<button
 							onClick={guardarEnDocumentos}
 							disabled={archivos.length < 2 || guardando}
 							className="inline-flex items-center gap-2 rounded-lg border border-sky-600 px-4 py-2 text-sm font-semibold text-sky-700 hover:bg-sky-50 disabled:opacity-50"
@@ -203,7 +204,7 @@ export function UnirPdf() {
 								<FolderPlus className="h-4 w-4" />
 							)}
 							{guardando ? 'Guardando…' : 'Guardar en Documentos'}
-						</button>
+						</button>)}
 
 						{archivos.length < 2 && (
 							<span className="text-xs text-slate-400">

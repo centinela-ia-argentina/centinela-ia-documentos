@@ -119,7 +119,7 @@ export function ConversorImagenes() {
           type="file"
           accept="image/*"
           multiple
-          className="hidden"
+          className="sr-only"
           onChange={(e) => {
             agregar(e.target.files);
             e.target.value = '';

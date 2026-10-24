@@ -75,7 +75,9 @@ Landing, login, dashboard, expedientes, documentos, análisis beta, reportes, au
 ## 9. Lenguaje (UI)
 USAR: "beta operativa comercial", "análisis documental beta", "entorno controlado". EVITAR: "IA simulada", "simulado", "beta cerrada", "GitHub privado", "IA mágica". Cuidar acentos al editar config.
 
-## 10. Design tokens (navy premium)
+## 10. Design tokens (antecedente navy; V3 interna aprobada)
+
+Para la renovación interna autorizada, prevalecen V3 blanco/grafito y `docs/UI-V3-INTEGRACION.md`. Los valores navy de abajo son históricos; no aplicarlos a V3. No migrar landing/autenticación por este motivo. Opciones nativas conservan estilo oscuro fuera de V3 y claro dentro, con fallback de colores forzados.
 Azul base provisional #0B1E3B; Azul de acento provisional #1E9BF0 (hover #1485D6); Cian #29C5FF; Navy #0A1830 / sección #0C2340; subtexto #C2CCD9; éxito #22C55E; advertencia #F59E0B; error #EF4444. Tipografía Inter. Cards radius 14-16px, dark translúcido, borde ~10% blanco. Regla global en src/app/globals.css: select option { background-color:#0C2340; color:#ffffff; } (no quitar).
 
 ## 11. Skills de frontend, UI y UX

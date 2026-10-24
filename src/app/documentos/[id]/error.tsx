@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react';
 import Link from 'next/link';
+import styles from './Viewer.module.css';
 
 export default function DocumentError({
   error,
@@ -16,7 +17,7 @@ export default function DocumentError({
   }, [error]);
 
   return (
-    <div className="flex min-h-[50vh] flex-col items-center justify-center text-center">
+    <div className={styles.root}>
       <div className="mb-6 rounded-full bg-rose-500/10 p-4">
         <svg
           className="h-10 w-10 text-rose-500"
@@ -33,16 +34,16 @@ export default function DocumentError({
         </svg>
       </div>
 
-      <h2 className="mb-3 font-display text-2xl font-bold text-white">
+      <h2 className="mb-3 text-2xl font-semibold text-[#272b2e]">
         No se pudo cargar este documento
       </h2>
 
-      <p className="mb-8 max-w-md text-slate-400">
+      <p className="mb-8 max-w-md text-[#697580]">
         Ocurrió un error al intentar leer o procesar la información de este
         expediente o documento. Podés intentar recargar la información.
       </p>
 
-      <div className="flex items-center gap-4">
+      <div className={styles.panel}>
         <button
           onClick={() => reset()}
           className="rounded-xl bg-white px-5 py-2.5 text-sm font-bold text-slate-900 transition-colors hover:bg-slate-200"
@@ -52,7 +53,7 @@ export default function DocumentError({
         
         <Link
           href="/documentos"
-          className="rounded-xl border border-white/10 px-5 py-2.5 text-sm font-bold text-slate-300 transition-colors hover:bg-white/5 hover:text-white"
+          className="ml-3"
         >
           Volver a documentos
         </Link>

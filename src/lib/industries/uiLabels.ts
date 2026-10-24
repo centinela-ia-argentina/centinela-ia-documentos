@@ -25,14 +25,14 @@ export function getNavItemLabel(
 
 const navDescriptionOverrides: Partial<Record<IndustryType, Record<string, string>>> = {
   escribania: {
-    agenteSaludoGlobal: 'Soy tu Agente notarial. Vigilo certificados, vigencias y actos las 24 horas.',
+    agenteSaludoGlobal: 'Soy tu agente notarial para recorrer Anulus y encontrar dónde gestionar legajos.',
     '/expedientes': 'Gestión operativa de legajos vinculados.',
     '/buscar': 'Búsqueda avanzada de legajos y documentos.',
     '/calculadoras': 'Sellos, ITI, honorarios y aportes notariales.',
     '/modelos': 'Escrituras, poderes, actas y autorizaciones notariales.',
   },
   inmobiliaria: {
-    agenteSaludoGlobal: 'Soy tu Agente inmobiliario. Vigilo operaciones, contratos y vencimientos las 24 horas.',
+    agenteSaludoGlobal: 'Soy tu agente inmobiliario para recorrer Anulus y encontrar dónde gestionar operaciones.',
     '/modelos': 'Reservas, autorizaciones y boletos de compraventa.',
   },
 };
@@ -139,10 +139,10 @@ const defaultTerms: IndustryTerms = {
   adjetivoEspecifico: 'específico',
   adjetivoEncontrado: 'encontrado',
 
-  agenteSaludoGlobal: 'Soy tu Agente jurídico. Vigilo tus expedientes, plazos y riesgos las 24 horas.',
+  agenteSaludoGlobal: 'Soy tu agente jurídico para recorrer Anulus y encontrar dónde gestionar expedientes.',
 
   agenteEjemploPlazos: '¿Cuáles son los plazos o vencimientos críticos?',
-    agentePreguntasGlobales: ['¿Qué vencimientos y plazos tengo esta semana?', '¿Qué expedientes necesitan atención urgente?', '¿Qué me recomendás priorizar hoy?'],
+    agentePreguntasGlobales: ['¿Dónde consulto mis alertas y vencimientos?', '¿Cómo encuentro un expediente o documento?', '¿Cuándo debo usar el agente de un expediente?'],
     agenteSugerenciasLocales: ['¿Cuáles son los plazos o vencimientos críticos?', '¿Detectás alguna inconsistencia o riesgo procesal en los documentos?', '¿Qué próximos pasos me recomendás?'],
       expedienteSinTitulo: 'Expediente sin título',
     todosLosLegajosActivos: 'todos los expedientes activos',
@@ -211,11 +211,11 @@ const termsByIndustry: Partial<Record<IndustryType, Partial<IndustryTerms>>> = {
     adjetivoActivos: 'activos',
     adjetivoEspecifico: 'específico',
     adjetivoEncontrado: 'encontrado',
-    agenteSaludoGlobal: 'Soy tu Agente notarial. Vigilo certificados, vigencias y actos las 24 horas.',
+    agenteSaludoGlobal: 'Soy tu agente notarial para recorrer Anulus y encontrar dónde gestionar legajos.',
     agentePreguntasGlobales: [
-      '¿Qué vigencias y actos notariales tengo esta semana?',
-      '¿Qué legajos necesitan atención urgente?',
-      '¿Qué me recomendás priorizar hoy?'
+      '¿Dónde consulto vigencias, firmas y turnos?',
+      '¿Cómo encuentro un legajo o documento?',
+      '¿Cuándo debo usar el agente de un legajo?'
     ],
     agenteSugerenciasLocales: [
       '¿Cuáles son las vigencias o plazos críticos?',
@@ -287,12 +287,12 @@ const termsByIndustry: Partial<Record<IndustryType, Partial<IndustryTerms>>> = {
     adjetivoActivos: 'activas',
     adjetivoEspecifico: 'específica',
     adjetivoEncontrado: 'encontrada',
-    agenteSaludoGlobal: 'Soy tu Agente inmobiliario. Vigilo operaciones, contratos y vencimientos las 24 horas.',
+    agenteSaludoGlobal: 'Soy tu agente inmobiliario para recorrer Anulus y encontrar dónde gestionar operaciones.',
     agenteEjemploPlazos: '¿Cuáles son los vencimientos o plazos críticos de la operación?',
     agentePreguntasGlobales: [
-      '¿Qué vencimientos y firmas tengo esta semana?',
-      '¿Qué operaciones necesitan atención urgente?',
-      '¿Qué me recomendás priorizar hoy?'
+      '¿Dónde consulto vencimientos, firmas y turnos?',
+      '¿Cómo encuentro una operación o documento?',
+      '¿Cuándo debo usar el agente de una operación?'
     ],
     agenteSugerenciasLocales: [
       '¿Cuáles son los vencimientos o plazos contractuales críticos?',

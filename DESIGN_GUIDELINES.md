@@ -1,6 +1,8 @@
 # 🎨 DESIGN GUIDELINES — Anulus AI
 
-> Estado transitorio: esta guía documenta el sistema visual heredado que mantiene la aplicación estable mientras se define la identidad de Anulus AI.
+> Dirección vigente de la interna: V3 blanco/grafito aprobada por el usuario. Ver `docs/UI-V3-INTEGRACION.md` para alcance, referencias y estado real. La landing y autenticación quedan fuera de esta migración.
+>
+> Los apartados navy/degradés siguientes se conservan como antecedente histórico: NO deben expandirse ni reintroducirse en las pantallas internas V3. La marca definitiva continúa pendiente.
 > Antes de editar UI: preservá lógica, datos y server actions; reutilizá componentes existentes; y consultá `.agents/policy/USAGE.md`.
 > Los colores y efectos descritos abajo no son la dirección definitiva. No deben expandirse ni reemplazarse globalmente hasta aprobar la nueva propuesta visual.
 

@@ -1,3 +1,7 @@
+import Link from 'next/link';
+import styles from './Upload.module.css';
+import { canUploadDocument, isUserRole } from '@/lib/permissions/roles';
+import { getCaseBasePath } from '@/lib/industries/caseConfig';
 import { redirect } from 'next/navigation';
 import { AppShell } from '@/components/layout/AppShell';
 import { createClient } from '@/lib/supabase/server';
@@ -55,36 +59,13 @@ export default async function UploadDocumentPage({
     normalizeIndustryType(organization?.industry_type)
   );
 
-  return (
-    <AppShell>
-      <div className="mx-auto max-w-2xl">
-        <div className="mb-8">
-          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-sky-600">
-            Documentos
-          </p>
-
-          <h2 className="mt-2 text-3xl font-bold text-slate-950">
-            Subir documento
-          </h2>
-
-          <p className="mt-2 text-sm text-slate-600">
-            El archivo se guardará en storage privado y quedará asociado a tu organización.
-          </p>
-        </div>
-
-        {errorMessage ? (
-          <div className="mb-6 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">
-            {errorMessage}
-          </div>
-        ) : null}
-
-        <UploadClient
-          cases={cases ?? []}
-          documentTypes={documentTypes}
-          initialCaseId={selectedCaseId}
-          industry={normalizeIndustryType(organization?.industry_type)}
-        />
-      </div>
-    </AppShell>
-  );
+  const allowed = isUserRole(profile.role) && canUploadDocument(profile.role);
+  const industry = normalizeIndustryType(organization?.industry_type);
+  const back = selectedCaseId ? `${getCaseBasePath(industry)}/${selectedCaseId}?tab=documentos` : '/documentos';
+  return <AppShell><section className={styles.root} aria-labelledby="uploadTitle">
+    <nav className={styles.uploadCrumb} aria-label="Ubicación"><Link href={back}>← {selectedCaseId ? 'Documentos de la ficha' : 'Documentos'}</Link><span aria-hidden="true">›</span><span>Subir documento</span></nav>
+    <header className={styles.uploadHead}><p className={styles.eyebrow}>BÓVEDA · CARGA DE ARCHIVOS</p><h1 id="uploadTitle">Subir documento</h1><p>Seleccioná los archivos y revisá los datos que se aplicarán a la carga.</p></header>
+    {errorMessage && <div role="alert" className={styles.uploadSelectionAlert}>{errorMessage}</div>}
+    {allowed ? <UploadClient cases={cases ?? []} documentTypes={documentTypes} initialCaseId={selectedCaseId} industry={industry}/> : <section className={styles.uploadPermission}><h2>La carga no está disponible para este rol</h2><p>Administrador y Operador pueden subir documentos.</p><Link href={back}>Volver a los documentos</Link></section>}
+  </section></AppShell>;
 }

@@ -1,8 +1,9 @@
 'use client';
 
 import { useState, useTransition } from 'react';
-import { Bot, Sparkles, X } from 'lucide-react';
+import { Sparkles, X } from 'lucide-react';
 import { analizarMatchClienteIA } from '../actions';
+import approved from '@/components/approved/ApprovedDetail.module.css';
 
 export function ClientMatchAiButton({ clientId }: { clientId: string }) {
   const [isPending, startTransition] = useTransition();
@@ -27,33 +28,34 @@ export function ClientMatchAiButton({ clientId }: { clientId: string }) {
 
   if (result) {
     return (
-      <div className="mb-6 rounded-2xl border border-[#29C5FF]/30 bg-gradient-to-br from-[#1E9BF0]/10 to-[#0A1830] p-6 shadow-[0_0_20px_rgba(30,155,240,0.15)]">
+      <div data-client-analysis className={approved.aiResult}>
         <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2 text-cyan-400">
+          <div className="flex items-center gap-2">
             <Sparkles className="h-5 w-5" />
             <h4 className="font-display text-lg font-bold">Análisis de Opciones (IA)</h4>
           </div>
           <button 
             onClick={() => setResult(null)} 
-            className="text-slate-400 hover:text-white transition-colors"
+            className={approved.action}
             title="Ocultar análisis"
+            aria-label="Ocultar análisis"
           >
             <X className="h-5 w-5" />
           </button>
         </div>
         
-        <div className="text-sm text-slate-300 leading-relaxed whitespace-pre-wrap">
+        <div className="text-sm leading-relaxed whitespace-pre-wrap">
           {result}
         </div>
         
         <div className="mt-4 flex items-center justify-between border-t border-cyan-500/20 pt-4">
-          <p className="text-xs text-cyan-500/70 italic">
+          <p className="text-xs text-neutral-600">
             Sugerencia generada por IA — revisá antes de ofrecer.
           </p>
           <button
             onClick={handleAnalyze}
             disabled={isPending}
-            className="text-xs font-semibold text-cyan-400 hover:text-cyan-300 disabled:opacity-50"
+            className={approved.action}
           >
             {isPending ? 'Reanalizando...' : 'Volver a analizar'}
           </button>
@@ -63,15 +65,14 @@ export function ClientMatchAiButton({ clientId }: { clientId: string }) {
   }
 
   return (
-    <div className="mb-6">
-      {error && <p className="mb-2 text-sm text-red-400">{error}</p>}
+    <div>
+      {error && <p role="alert" className="mb-2 text-sm text-red-700">{error}</p>}
       <button
         onClick={handleAnalyze}
         disabled={isPending}
-        className="group relative inline-flex items-center gap-2 overflow-hidden rounded-xl bg-gradient-to-r from-cyan-600 to-[#1E9BF0] px-5 py-2.5 text-sm font-bold text-white shadow-lg transition-all hover:scale-105 hover:shadow-cyan-500/25 disabled:pointer-events-none disabled:opacity-70"
+        className={approved.action}
       >
-        <div className="absolute inset-0 bg-white/20 opacity-0 transition-opacity group-hover:opacity-100"></div>
-        <Bot className={`h-4 w-4 ${isPending ? 'animate-pulse' : ''}`} />
+        <Sparkles className="h-4 w-4" aria-hidden="true" />
         <span>{isPending ? 'Analizando matching...' : 'Analizar con IA'}</span>
       </button>
     </div>

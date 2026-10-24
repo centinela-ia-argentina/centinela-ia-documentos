@@ -1,5 +1,5 @@
 import { test, expect, type Browser } from '@playwright/test';
-import { loginAs } from './helpers';
+import { loginAs, openDocumentQuestion } from './helpers';
 
 const CASE_LEGAL_ID = 'cccc1111-1111-1111-1111-111111111111';
 const CASE_INM_ID = 'dddd2222-2222-2222-2222-222222222222';
@@ -34,6 +34,7 @@ async function assertDeterministicRag({
   const { context, page } = await loginAs(browser, email);
   try {
     await page.goto(`/expedientes/${caseId}?tab=documentos`);
+    await openDocumentQuestion(page);
     await expect(page.locator('[data-testid="rag-input"]')).toBeVisible();
     await page.fill('[data-testid="rag-input"]', question);
     await page.click('[data-testid="rag-submit"]');
@@ -111,7 +112,8 @@ test.describe('Anulus AI - RAG determinista, fuentes y aislamiento', () => {
     const { context, page } = await loginAs(browser, 'admin.legal@test.com');
     try {
       await page.goto(`/expedientes/${CASE_RAG_NO_EVIDENCE_ID}?tab=documentos`);
-      await expect(page.locator('[data-testid="rag-input"]')).toBeVisible();
+      await openDocumentQuestion(page);
+    await expect(page.locator('[data-testid="rag-input"]')).toBeVisible();
       await page.fill('[data-testid="rag-input"]', '¿Qué información contiene este documento?');
       await page.click('[data-testid="rag-submit"]');
 

@@ -1,4 +1,5 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page, type Request, type Response, type Frame, type ConsoleMessage } from '@playwright/test';
+import { expectDashboardGreeting, openChecklistManagement, confirmChecklistReview, closeChecklistReview, openDocumentQuestion } from './helpers';
 import { randomUUID } from 'crypto';
 import { createClient } from '@supabase/supabase-js';
 
@@ -7,6 +8,69 @@ const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 const serviceClient = createClient(supabaseUrl, supabaseServiceKey, {
   auth: { autoRefreshToken: false, persistSession: false },
 });
+
+function recordChecklistNavigation(page: Page) {
+  const startedAt = Date.now();
+  const events: Record<string, unknown>[] = [];
+  const ids = new WeakMap<Request, number>();
+  let nextId = 0;
+  let phase = 'start';
+  const record = (event: Record<string, unknown>) => {
+    if (events.length < 200) events.push({ elapsedMs: Date.now() - startedAt, phase, ...event });
+  };
+  const target = (rawUrl: string) => {
+    const url = new URL(rawUrl);
+    if (!url.pathname.startsWith('/expedientes/')) return null;
+    return {
+      path: '/expedientes/:id',
+      queryKeys: ['tab', 'checklist_document', '_rsc'].filter((key) => url.searchParams.has(key)),
+      loopback: ['127.0.0.1', 'localhost', '[::1]'].includes(url.hostname),
+    };
+  };
+  const details = (request: Request) => {
+    const destination = target(request.url());
+    if (!destination) return null;
+    if (!ids.has(request)) ids.set(request, ++nextId);
+    return { requestId: ids.get(request), method: request.method(), resourceType: request.resourceType(), navigation: request.isNavigationRequest(), ...destination };
+  };
+  const onRequest = (request: Request) => { const data = details(request); if (data) record({ kind: 'request', ...data }); };
+  const onResponse = (response: Response) => { const data = details(response.request()); if (data) record({ kind: 'response', status: response.status(), ...data }); };
+  const onFinished = (request: Request) => { const data = details(request); if (data) record({ kind: 'finished', ...data }); };
+  const onFailed = (request: Request) => {
+    const data = details(request);
+    if (data) record({ kind: 'failed', category: /ABORT|interrupt/i.test(request.failure()?.errorText ?? '') ? 'navigation-aborted' : 'request-failed', ...data });
+  };
+  const onFrame = (frame: Frame) => { if (frame === page.mainFrame()) { const data = target(frame.url()); if (data) record({ kind: 'main-frame-navigation', ...data }); } };
+  const onConsole = (message: ConsoleMessage) => {
+    if (message.text().includes('Failed to fetch RSC payload')) record({ kind: 'rsc-fallback', consoleType: message.type() });
+  };
+  page.on('request', onRequest);
+  page.on('response', onResponse);
+  page.on('requestfinished', onFinished);
+  page.on('requestfailed', onFailed);
+  page.on('framenavigated', onFrame);
+  page.on('console', onConsole);
+  return {
+    mark(label: string) { phase = label; record({ kind: 'checkpoint' }); },
+    stop() {
+      page.off('request', onRequest);
+      page.off('response', onResponse);
+      page.off('requestfinished', onFinished);
+      page.off('requestfailed', onFailed);
+      page.off('framenavigated', onFrame);
+      page.off('console', onConsole);
+      return events;
+    },
+  };
+}
+
+async function expectSavedAgendaEvent(page: Page, title: string, hour: string) {
+  // A time elsewhere on the page is not evidence that this save completed.
+  await expect(page.getByTestId('agenda-titulo')).toHaveCount(0);
+  const savedEvent = page.getByRole('button').filter({ hasText: title }).filter({ hasText: hour });
+  await expect(savedEvent).toHaveCount(1);
+  await expect(savedEvent).toBeVisible();
+}
 
 test.describe.serial('Anulus AI - Flujo Jurídico E2E Obligatorio', () => {
   let caseUrl = '';
@@ -65,9 +129,7 @@ test.describe.serial('Anulus AI - Flujo Jurídico E2E Obligatorio', () => {
   test('02. roles y auditoría (verificaciones básicas de sesión)', async ({ browser }) => {
     // Current user is admin.legal@test.com
     await expect(page).toHaveURL(/\/dashboard/);
-    const dashboardTitle = page.locator('[data-testid="dashboard-title"]');
-    await expect(dashboardTitle).toBeVisible({ timeout: 15000 });
-    await expect(dashboardTitle).toContainText('Bienvenido');
+    await expectDashboardGreeting(page);
     await gotoStable('/usuarios');
     await expect(page).toHaveURL(/\/usuarios/);
     const usersPageTitle = page.locator('[data-testid="users-page-title"]');
@@ -278,67 +340,88 @@ test.describe.serial('Anulus AI - Flujo Jurídico E2E Obligatorio', () => {
 
   test('09. persistencia', async () => {
     await gotoStable('/documentos');
-    await expect(page.locator('table')).toContainText('bulk_');
+    await expect(page.getByRole('region', { name: 'Colección de documentos', exact: true }).getByRole('button').filter({ hasText: 'bulk_' }).first()).toBeVisible();
   });
 
   test('10. checklist binario pending -> received -> pending', async () => {
     await gotoStable(`${caseUrl}?tab=checklist`);
-    const toggleBtn = page.locator('[data-testid="checklist-toggle-0"]').first();
-
-    // Un clic confirma recepción.
+    await openChecklistManagement(page);
+    const toggleBtn = page.getByTestId('checklist-toggle-0');
+    await expect(toggleBtn).toHaveText('Marcar recibido');
     await toggleBtn.click();
-    await expect(page.locator('[data-testid="checklist-status-badge-0"]')).toHaveText(/Recibido/i);
-    await expect(toggleBtn).toHaveAttribute('aria-label', 'Marcar como pendiente');
-
-    // El siguiente clic vuelve directamente a Pendiente, sin un estado Revisado oculto.
+    await expect(page.getByTestId('checklist-status-badge-0')).toHaveText(/Pendiente/i);
+    await confirmChecklistReview(page, 'Marcar como recibido');
+    await expect(page.getByTestId('checklist-status-badge-0')).toHaveText(/Recibido/i);
+    await closeChecklistReview(page);
+    await openChecklistManagement(page);
+    await expect(toggleBtn).toHaveText('Marcar pendiente');
     await toggleBtn.click();
-    await expect(page.locator('[data-testid="checklist-status-badge-0"]')).toHaveText(/Pendiente/i);
-    await expect(toggleBtn).toHaveAttribute('aria-label', 'Marcar como recibido');
+    await confirmChecklistReview(page, 'Marcar como pendiente');
+    await expect(page.getByTestId('checklist-status-badge-0')).toHaveText(/Pendiente/i);
+    await closeChecklistReview(page);
+    await expect(toggleBtn).toHaveText('Marcar recibido');
   });
 
   test('10.5. checklist document link', async () => {
-    await gotoStable(`${caseUrl}?tab=checklist`);
-    const linkToggle = page.locator('[data-testid="checklist-link-toggle-0"]').first();
-    await expect(linkToggle).toContainText('Vincular documento');
-    await linkToggle.click();
+    const diagnostic = recordChecklistNavigation(page);
+    try {
+      await gotoStable(`${caseUrl}?tab=checklist`);
+      const row = await openChecklistManagement(page);
+      const select = row.getByTestId('select-doc-0');
+      await expect(select.locator('..')).toContainText('Vincular documento');
 
-    const form = linkToggle.locator('..'); // The details element
-    const select = form.locator('select[name="document_id"]').first();
-    
-    // El select debe tener mas de 1 opcion por los documentos previos
-    const options = select.locator('option');
-    await expect.poll(async () => options.count()).toBeGreaterThan(1);
-    
-    const firstDocumentOption = select.locator('option:not([value=""])').first();
-    const firstDocumentValue = await firstDocumentOption.getAttribute('value');
-    expect(firstDocumentValue).toBeTruthy();
-    
-    await select.selectOption(firstDocumentValue!);
-    
-    const saveBtn = form.locator('button', { hasText: 'Guardar' }).first();
-    await saveBtn.click();
+      // El select debe tener mas de 1 opcion por los documentos previos
+      const options = select.locator('option');
+      await expect.poll(async () => options.count()).toBeGreaterThan(1);
 
-    await expect(page).toHaveURL(/checklist_document=linked/);
-    await expect(page.locator('[data-testid="checklist-document-feedback"]')).toContainText('Documento vinculado correctamente');
-    await expect(linkToggle).toContainText('Cambiar documento vinculado');
-    await expect(page.locator('p:has-text("Vinculado:")').first()).toBeVisible();
+      const firstDocumentOption = select.locator('option:not([value=""])').first();
+      const firstDocumentValue = await firstDocumentOption.getAttribute('value');
+      expect(firstDocumentValue).toBeTruthy();
 
-    await page.reload();
-    await expect(linkToggle).toContainText('Cambiar documento vinculado');
-    await expect(page.locator('p:has-text("Vinculado:")').first()).toBeVisible();
+      await select.selectOption(firstDocumentValue!);
 
-    await linkToggle.click();
-    await select.selectOption({ value: '' });
-    await saveBtn.click();
+      const saveBtn = row.getByTestId('btn-guardar-doc-0');
+      diagnostic.mark('link-save');
+      await saveBtn.click();
+      await confirmChecklistReview(page, 'Revisar vínculo');
 
-    await expect(page).toHaveURL(/checklist_document=unlinked/);
-    await expect(page.locator('[data-testid="checklist-document-feedback"]')).toContainText('Documento desvinculado correctamente');
-    await expect(linkToggle).toContainText('Vincular documento');
-    await expect(page.locator('p:has-text("Vinculado:")')).toBeHidden();
-    
-    await page.reload();
-    await expect(linkToggle).toContainText('Vincular documento');
-    await expect(page.locator('p:has-text("Vinculado:")')).toBeHidden();
+      await expect(page).toHaveURL(/checklist_document=linked/);
+      await expect(page.locator('[data-testid="checklist-document-feedback"]')).toContainText('Documento vinculado correctamente');
+      await openChecklistManagement(page);
+      await expect(select.locator('..')).toContainText('Cambiar documento vinculado');
+      await expect(page.getByTestId('checklist-linked-info-0')).toBeVisible();
+
+      diagnostic.mark('link-reload-start');
+      await page.reload();
+      diagnostic.mark('link-reload-complete');
+      await openChecklistManagement(page);
+      await expect(select.locator('..')).toContainText('Cambiar documento vinculado');
+      await expect(page.getByTestId('checklist-linked-info-0')).toBeVisible();
+
+      await openChecklistManagement(page);
+      await select.selectOption({ value: '' });
+      diagnostic.mark('unlink-save');
+      await saveBtn.click();
+      await confirmChecklistReview(page, 'Revisar vínculo');
+
+      await expect(page).toHaveURL(/checklist_document=unlinked/);
+      await expect(page.locator('[data-testid="checklist-document-feedback"]')).toContainText('Documento desvinculado correctamente');
+      await openChecklistManagement(page);
+      await expect(select.locator('..')).toContainText('Vincular documento');
+      await expect(page.getByTestId('checklist-linked-info-0')).toHaveCount(0);
+
+      diagnostic.mark('unlink-reload-start');
+      await page.reload();
+      diagnostic.mark('unlink-reload-complete');
+      await openChecklistManagement(page);
+      await expect(select.locator('..')).toContainText('Vincular documento');
+      await expect(page.getByTestId('checklist-linked-info-0')).toHaveCount(0);
+    } finally {
+      await test.info().attach('checklist-navigation-sanitized', {
+        body: Buffer.from(JSON.stringify(diagnostic.stop(), null, 2)),
+        contentType: 'application/json',
+      });
+    }
   });
 
   test('11. Agenda 09:30 y otro horario', async () => {
@@ -350,29 +433,33 @@ test.describe.serial('Anulus AI - Flujo Jurídico E2E Obligatorio', () => {
     });
     const todayStr = formatter.format(new Date());
     
+    const audienciaTitle = 'Audiencia E2E ' + randomUUID();
+    const reunionTitle = 'Reunión E2E ' + randomUUID();
+
     await gotoStable('/agenda');
+    await page.locator('button[aria-pressed]').filter({ hasText: /^Hoy$/ }).click();
     await page.getByRole('button', { name: 'Nuevo evento' }).click();
     await expect(page.locator('[data-testid="agenda-titulo"]')).toBeVisible();
 
-    await page.fill('[data-testid="agenda-titulo"]', 'Audiencia E2E ' + Date.now());
+    await page.fill('[data-testid="agenda-titulo"]', audienciaTitle);
     await page.fill('[data-testid="agenda-fecha"]', todayStr);
     await page.fill('[data-testid="agenda-hora"]', '09:30');
     await page.selectOption('[data-testid="agenda-categoria"]', 'turno');
     await page.click('[data-testid="agenda-submit"]');
 
-    await expect(page.locator('body')).toContainText('09:30');
+    await expectSavedAgendaEvent(page, audienciaTitle, '09:30');
 
     // Otro horario
     await page.getByRole('button', { name: 'Nuevo evento' }).click();
     await expect(page.locator('[data-testid="agenda-titulo"]')).toBeVisible();
 
-    await page.fill('[data-testid="agenda-titulo"]', 'Reunión E2E ' + Date.now());
+    await page.fill('[data-testid="agenda-titulo"]', reunionTitle);
     await page.fill('[data-testid="agenda-fecha"]', todayStr);
     await page.fill('[data-testid="agenda-hora"]', '14:15');
     await page.selectOption('[data-testid="agenda-categoria"]', 'evento');
     await page.click('[data-testid="agenda-submit"]');
 
-    await expect(page.locator('body')).toContainText('14:15');
+    await expectSavedAgendaEvent(page, reunionTitle, '14:15');
   });
 
   test('12. duplicado de Agenda', async () => {
@@ -440,7 +527,7 @@ test.describe.serial('Anulus AI - Flujo Jurídico E2E Obligatorio', () => {
 
   test('14. RAG y guardrails', async () => {
     await gotoStable(`${caseUrl}?tab=documentos`);
-    // Need to wait for RAG component to load
+    await openDocumentQuestion(page);
     const ragInput = page.locator('[data-testid="rag-input"]');
     await expect(ragInput).toBeVisible({ timeout: 15000 });
     await ragInput.fill('¿Qué dice el documento?');
@@ -456,9 +543,7 @@ test.describe.serial('Anulus AI - Flujo Jurídico E2E Obligatorio', () => {
     const checklistContainer = page.locator('[data-testid="checklist-items"]');
     await expect(checklistContainer).toBeVisible({ timeout: 15000 });
 
-    const toggleButton = page.locator('[data-testid="checklist-link-toggle-0"]');
-    await expect(toggleButton).toBeVisible();
-    await toggleButton.click();
+    await openChecklistManagement(page);
 
     const selectLink = page.locator('[data-testid="select-doc-0"]');
     await expect(selectLink).toBeVisible();
@@ -470,11 +555,14 @@ test.describe.serial('Anulus AI - Flujo Jurídico E2E Obligatorio', () => {
 
     // 1. Vincular manualmente
     await selectLink.selectOption(targetVal!);
-    await page.locator('[data-testid="btn-guardar-doc-0"]').click();
+    await page.getByTestId('btn-guardar-doc-0').click();
+    await confirmChecklistReview(page, 'Revisar vínculo');
+    await expect(page).toHaveURL(/checklist_document=linked/);
+    await expect(page.getByTestId('checklist-document-feedback')).toContainText('Documento vinculado correctamente');
 
     // status cambia a RECIBIDO y badge cambia a Manual
     await expect(page.locator('[data-testid="checklist-status-badge-0"]')).toHaveText(/Recibido/i);
-    await expect(page.locator('[data-testid="checklist-badge-manual-0"]')).toBeVisible();
+    await expect(page.getByTestId('checklist-linked-info-0').getByText('Manual', { exact: true })).toBeVisible();
 
     // 2. Recargar (reload)
     await page.reload();
@@ -482,34 +570,39 @@ test.describe.serial('Anulus AI - Flujo Jurídico E2E Obligatorio', () => {
 
     // 3. Comprobar que persiste: mismo documento, status RECIBIDO, badge Manual
     await expect(page.locator('[data-testid="checklist-status-badge-0"]')).toHaveText(/Recibido/i);
-    await expect(page.locator('[data-testid="checklist-badge-manual-0"]')).toBeVisible();
+    await expect(page.getByTestId('checklist-linked-info-0').getByText('Manual', { exact: true })).toBeVisible();
     if (!await selectLink.isVisible()) {
-      await page.locator('[data-testid="checklist-link-toggle-0"]').click();
+      await openChecklistManagement(page);
     }
     await expect(selectLink).toHaveValue(targetVal!);
 
     // 4. Disparar AutoMatch
     const autoMatchBtn = page.locator('[data-testid="btn-auto-match"]');
-    if (await autoMatchBtn.isVisible()) {
-      await autoMatchBtn.click();
-      await expect(checklistContainer).toBeVisible({ timeout: 15000 });
-    }
+    await expect(autoMatchBtn).toBeVisible();
+    await autoMatchBtn.click();
+    await confirmChecklistReview(page, 'Detectar documentos ya cargados');
+    await expect(page.getByRole('dialog').getByRole('button', { name: 'Confirmar', exact: true })).toBeEnabled();
+    await closeChecklistReview(page);
+    await expect(checklistContainer).toBeVisible({ timeout: 15000 });
 
     // 5. Comprobar que NO se revierte a Pendiente y NO se sobreescribe la vinculación manual
     await expect(page.locator('[data-testid="checklist-status-badge-0"]')).toHaveText(/Recibido/i);
-    await expect(page.locator('[data-testid="checklist-badge-manual-0"]')).toBeVisible();
+    await expect(page.getByTestId('checklist-linked-info-0').getByText('Manual', { exact: true })).toBeVisible();
 
     // 6. Desvincular manualmente
     if (!await selectLink.isVisible()) {
-      await page.locator('[data-testid="checklist-link-toggle-0"]').click();
+      await openChecklistManagement(page);
     }
     await selectLink.selectOption('');
-    await page.locator('[data-testid="btn-guardar-doc-0"]').click();
+    await page.getByTestId('btn-guardar-doc-0').click();
+    await confirmChecklistReview(page, 'Revisar vínculo');
+    await expect(page).toHaveURL(/checklist_document=unlinked/);
+    await expect(page.getByTestId('checklist-document-feedback')).toContainText('Documento desvinculado correctamente');
 
     // Desvincular quita solo la evidencia: el requisito conserva su estado RECIBIDO.
     await expect(page.locator('[data-testid="checklist-status-badge-0"]')).toHaveText(/Recibido/i);
     if (!await selectLink.isVisible()) {
-      await page.locator('[data-testid="checklist-link-toggle-0"]').click();
+      await openChecklistManagement(page);
     }
     await expect(selectLink).toHaveValue('');
   });

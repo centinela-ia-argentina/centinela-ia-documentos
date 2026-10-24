@@ -1,101 +1,35 @@
+'use client';
+import { useId, useRef, useState, type ReactNode } from 'react';
+import { useFormStatus } from 'react-dom';
+import { CalendarDots, FileText, Sparkle, PencilSimple, Plus, Trash, X } from '@phosphor-icons/react';
 import { formatPlazoDate } from '@/lib/format/date';
-import { Badge } from '@/components/ui/Badge';
 import { pluralHito } from '@/lib/format/pluralize';
 import type { IndustryType } from '@/lib/industries/documentTypes';
-
-export type ItemCronologia = {
-  fecha: string;
-  titulo: string;
-  detalle?: string | null;
-  origen: 'actuacion' | 'detectada' | 'documento' | 'agenda';
-  etiquetaOrigen: string;
-  esFuturo: boolean;
-};
-
-const ORIGEN_TONE: Record<string, 'accent' | 'neutral' | 'success' | 'warning'> = {
-  actuacion: 'accent',
-  detectada: 'success',
-  documento: 'neutral',
-  agenda: 'warning',
-};
-
-const ORIGEN_DOT: Record<string, string> = {
-  actuacion: 'bg-cyan-500 shadow-[0_0_8px_rgba(34,211,238,0.6)]',
-  detectada: 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)]',
-  documento: 'bg-slate-400',
-  agenda: 'bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.6)]',
-};
-
-export function CronologiaExpediente({
-  items,
-  titulo = 'Cronología',
-  industry = 'legal',
-}: {
-  items: ItemCronologia[];
-  titulo?: string;
-  industry?: IndustryType;
-}) {
-  const isImmo = industry === 'inmobiliaria';
-  const isEscr = industry === 'escribania';
-
-  const origenIcon: Record<string, string> = {
-    actuacion: isImmo ? '📍' : isEscr ? '✒️' : '⚖️',
-    detectada: '🤖',
-    documento: '📄',
-    agenda: '📌',
-  };
-
-  const emptyText = isImmo
-    ? 'Todavía no hay fechas para mostrar. Se irá armando sola con los movimientos, las fechas detectadas por la IA en los documentos y las cargas de archivos.'
-    : isEscr
-    ? 'Todavía no hay fechas para mostrar. Se irá armando sola con los hitos notariales, las fechas detectadas por la IA en los documentos y las cargas de archivos.'
-    : 'Todavía no hay fechas para mostrar. Se irá armando sola con las actuaciones, las fechas detectadas por la IA en los documentos y las cargas de archivos.';
-
-  const subtituloText = isImmo
-    ? 'Todas las fechas de la operación unificadas y ordenadas: movimientos, fechas detectadas por la IA y cargas de documentos.'
-    : isEscr
-    ? 'Todas las fechas del legajo unificadas y ordenadas: hitos notariales, fechas detectadas por la IA y cargas de documentos.'
-    : 'Todas las fechas del expediente unificadas y ordenadas: actuaciones, fechas detectadas por la IA y cargas de documentos.';
-
-  if (items.length === 0) {
-    return (
-      <section className="rounded-2xl border border-white/10 bg-white/[0.03] p-6">
-        <h2 className="font-display text-lg font-semibold text-white">{titulo}</h2>
-        <p className="mt-2 text-sm text-slate-400">{emptyText}</p>
-      </section>
-    );
-  }
-
-  return (
-    <section className="rounded-2xl border border-white/10 bg-white/[0.03] p-6">
-      <div className="mb-1 flex items-center gap-2">
-        <h2 className="font-display text-lg font-semibold text-white">{titulo}</h2>
-        <span className="rounded-full bg-white/10 px-2 py-0.5 text-xs text-slate-400">{pluralHito(items.length)}</span>
-      </div>
-      <p className="mb-5 text-sm text-slate-400">{subtituloText}</p>
-
-      <ol className="relative space-y-5 border-l border-white/10 pl-6">
-        {items.map((it, i) => {
-          const tone = ORIGEN_TONE[it.origen] ?? 'neutral';
-          const dot = ORIGEN_DOT[it.origen] ?? ORIGEN_DOT.documento;
-          const icon = origenIcon[it.origen] ?? origenIcon.documento;
-
-          return (
-            <li key={i} className="relative">
-              <span className={`absolute -left-[1.72rem] top-1 h-3 w-3 rounded-full ring-4 ring-[#0a1830] ${dot}`} />
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="text-sm font-medium text-white">{formatPlazoDate(it.fecha)}</span>
-                <Badge tone={tone}>{icon} {it.etiquetaOrigen}</Badge>
-                {it.esFuturo && (
-                  <Badge tone="warning">Próxima</Badge>
-                )}
-              </div>
-              <p className="mt-1 text-sm text-slate-300">{it.titulo}</p>
-              {it.detalle && <p className="mt-0.5 text-sm text-slate-500">{it.detalle}</p>}
-            </li>
-          );
-        })}
-      </ol>
-    </section>
-  );
+import styles from './CaseChronology.module.css';
+export type ItemCronologia = {fecha:string;titulo:string;detalle?:string|null;origen:'actuacion'|'detectada'|'documento'|'agenda';etiquetaOrigen:string;esFuturo:boolean};
+export type ManualChronologyEvent={id:string;event_date:string;event_type:string;title:string;description:string|null};
+type Row=ItemCronologia&{eventId?:string};
+const origins={all:'Todos los orígenes',actuacion:'Registro manual',documento:'Documentos',detectada:'Fechas detectadas',agenda:'Agenda / datos del registro'};
+const icons={actuacion:PencilSimple,documento:FileText,detectada:Sparkle,agenda:CalendarDots};
+function PendingButton({label,pending,danger=false}:{label:string;pending:string;danger?:boolean}){const {pending:busy}=useFormStatus();return <button type="submit" className={danger?styles.danger:styles.primary} disabled={busy}>{busy?pending:label}</button>}
+function ChronologyDialog({label,children,trigger,triggerLabel,cancelFirst=false}:{label:string;children:ReactNode;trigger:ReactNode;triggerLabel?:string;cancelFirst?:boolean}){
+ const dialog=useRef<HTMLDialogElement>(null),button=useRef<HTMLButtonElement>(null);const id=useId();
+ function close(){dialog.current?.close();button.current?.focus()}
+ return <><button ref={button} type="button" className={triggerLabel?styles.iconAction:styles.primary} aria-label={triggerLabel} aria-haspopup="dialog" onClick={()=>{dialog.current?.showModal();if(cancelFirst)dialog.current?.querySelector<HTMLButtonElement>('[data-cancel]')?.focus();else dialog.current?.querySelector<HTMLInputElement>('input,select,textarea')?.focus()}}>{trigger}</button><dialog ref={dialog} className={styles.dialog} aria-labelledby={id} onCancel={e=>{e.preventDefault();close()}}><header><h2 id={id}>{label}</h2><button type="button" className={styles.iconAction} aria-label="Cerrar diálogo" onClick={close}><X size={18} aria-hidden="true"/></button></header>{children}<button type="button" className={styles.secondary} data-cancel onClick={close}>Cancelar</button></dialog></>;
+}
+export function CronologiaExpediente({items,titulo='Cronología',industry='legal',manualEvents=[],canEdit=false,eventTypes={},createAction,deleteAction}:{items:Row[];titulo?:string;industry?:IndustryType;manualEvents?:ManualChronologyEvent[];canEdit?:boolean;eventTypes?:Record<string,string>;createAction?:(data:FormData)=>void|Promise<void>;deleteAction?:(eventId:string)=>void|Promise<void>}){
+ const [filter,setFilter]=useState<keyof typeof origins>('all');const id=useId();
+ const isImmo=industry==='inmobiliaria',isEscr=industry==='escribania';
+ const emptyText=isImmo?'Todavía no hay fechas para mostrar. Se irá armando sola con los movimientos, las fechas detectadas por la IA en los documentos y las cargas de archivos.':isEscr?'Todavía no hay fechas para mostrar. Se irá armando sola con los hitos notariales, las fechas detectadas por la IA en los documentos y las cargas de archivos.':'Todavía no hay fechas para mostrar. Se irá armando sola con las actuaciones, las fechas detectadas por la IA en los documentos y las cargas de archivos.';
+ const addLabel=isImmo?'Agregar movimiento':'Agregar actuación';
+ const visible=items.filter(it=>filter==='all'||it.origen===filter);
+ const placed=new Set(items.filter(it=>it.origen==='actuacion').map(it=>it.eventId));
+ const unplaced=manualEvents.filter(ev=>!placed.has(ev.id));
+ function remove(eventId:string,title:string){if(!canEdit||!deleteAction)return null;return <ChronologyDialog label="Eliminar registro manual" trigger={<Trash size={17} aria-hidden="true"/>} triggerLabel={`Eliminar registro manual: ${title}`} cancelFirst><p className={styles.name}>{title}</p><p>Se elimina este movimiento o actuación manual, no el documento ni el evento de Agenda. Esta acción no se puede deshacer.</p><form action={deleteAction.bind(null,eventId)}><PendingButton label="Eliminar registro manual" pending="Eliminando…" danger/></form></ChronologyDialog>}
+ return <section className={styles.panel} aria-label="Cronología del registro"><header className={styles.header}><div><p className={styles.eyebrow}>SEGUIMIENTO DEL REGISTRO</p><h2>{titulo.replace(/^🕒\s*/, '')}</h2><p>Movimientos, documentos, fechas detectadas y Agenda, con su origen identificado.</p></div>{canEdit&&createAction&&<ChronologyDialog label={addLabel} trigger={<><Plus size={18} aria-hidden="true"/>{addLabel}</>}><form action={createAction} className={styles.form}><div className={styles.fields}><label>Fecha<input type="date" name="eventDate" required/></label><label>Tipo<select aria-label="Tipo" name="eventType" defaultValue="otro">{Object.entries(eventTypes).map(([value,label])=><option key={value} value={value}>{label}</option>)}</select></label></div><label>Título<input type="text" name="title" required placeholder={isImmo?'Ej: Visita al inmueble / Reserva firmada':'Ej: Se presentó la demanda'}/></label><label>Descripción (opcional)<textarea name="description" rows={2}/></label><PendingButton label={addLabel} pending="Guardando…"/></form></ChronologyDialog>}</header>
+  <div className={styles.toolbar}><span>{pluralHito(visible.length)}{filter!=='all'?` de ${items.length}`:''}</span><label htmlFor={id}>Origen<select aria-label="Origen" id={id} value={filter} onChange={e=>setFilter(e.target.value as keyof typeof origins)}>{Object.entries(origins).map(([value,label])=><option key={value} value={value}>{label}</option>)}</select></label></div>
+  <div className={styles.grid}><section aria-label="Línea de tiempo"><p className={styles.order}>Del más antiguo al más reciente</p>{visible.length>0?<ol className={styles.list}>{visible.map((it,i)=>{const Icon=icons[it.origen];const originLabel=it.etiquetaOrigen==='Metadata del legajo'?(isImmo?'Datos de la operación':isEscr?'Datos del legajo':'Datos del expediente'):it.etiquetaOrigen;return <li key={`${it.origen}-${it.eventId??i}-${it.fecha}`} className={styles.row}><div className={styles.date}><time dateTime={it.fecha}>{formatPlazoDate(it.fecha)}</time>{it.esFuturo&&<span>Próxima</span>}</div><div className={styles.event}><p className={styles.origin}><Icon size={16} aria-hidden="true"/>{originLabel}</p><h3>{it.titulo}</h3>{it.detalle&&<p>{it.detalle}</p>}</div>{it.origen==='actuacion'&&it.eventId?remove(it.eventId,it.titulo):null}</li>})}</ol>:<p className={styles.empty}>{items.length===0?emptyText:'No hay hitos de este origen.'}</p>}
+  {unplaced.length>0&&(filter==='all'||filter==='actuacion')&&<section className={styles.unplaced} aria-label="Registros manuales sin fecha válida"><h3>Registros manuales sin fecha válida</h3><p>Se conservan aparte para revisión; no se incorporan al orden por fecha.</p><ul className={styles.list}>{unplaced.map(ev=><li key={ev.id} className={styles.row}><div className={styles.date}>{formatPlazoDate(ev.event_date)}</div><div className={styles.event}><h3>{ev.title}</h3>{ev.description&&<p>{ev.description}</p>}<p>{eventTypes[ev.event_type]||'Actuación'}</p></div>{remove(ev.id,ev.title)}</li>)}</ul></section>}
+  </section><aside className={styles.context}><p className={styles.eyebrow}>LECTURA DE LA CRONOLOGÍA</p><h3>Un registro, distintos orígenes</h3><p>El origen distingue lo que cargaste manualmente de un documento, una fecha detectada o un recordatorio.</p><dl><dt><PencilSimple size={16} aria-hidden="true"/>Registro manual</dt><dd>Movimiento o actuación incorporado a esta ficha.</dd><dt><FileText size={16} aria-hidden="true"/>Documento</dt><dd>Fecha de carga del archivo asociado.</dd><dt><Sparkle size={16} aria-hidden="true"/>Fecha detectada</dt><dd>Información extraída. Revisala contra el documento original.</dd><dt><CalendarDots size={16} aria-hidden="true"/>Agenda / datos del registro</dt><dd>Recordatorios vinculados y fechas operativas del registro.</dd></dl><p className={styles.caution}>Una fecha detectada no confirma un turno, una firma ni un vencimiento definitivo.</p></aside></div>
+ </section>;
 }

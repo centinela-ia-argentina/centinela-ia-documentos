@@ -1,10 +1,13 @@
 'use client';
-import { useState, useEffect, type ReactNode } from 'react';
+import { useState, useEffect, useId, useRef, type ReactNode } from 'react';
+import styles from './SharedControls.module.css';
 
-type Tab = { id: string; label: string; content: ReactNode };
+type Tab = { id: string; label: ReactNode; content: ReactNode };
 
 export function Tabs({ tabs, initial }: { tabs: Tab[]; initial?: string }) {
   const [active, setActive] = useState(initial ?? tabs[0]?.id);
+  const id = useId();
+  const buttons = useRef<Array<HTMLButtonElement | null>>([]);
 
   // Al montar: si la URL trae ?tab=... y es válido, respetamos esa pestaña.
   useEffect(() => {
@@ -25,24 +28,39 @@ export function Tabs({ tabs, initial }: { tabs: Tab[]; initial?: string }) {
   };
   return (
     <div>
-      <div className="mb-6 flex flex-wrap gap-2 border-b border-white/10 pb-3">
-        {tabs.map((t) => (
+      <div className={styles.tabList} role="tablist" aria-label="Secciones de la ficha">
+        {tabs.map((t, index) => (
           <button
             key={t.id}
+            ref={(element) => { buttons.current[index] = element; }}
+            role="tab"
+            id={`${id}-tab-${index}`}
+            aria-controls={`${id}-panel-${index}`}
+            aria-selected={active === t.id}
+            tabIndex={active === t.id ? 0 : -1}
             type="button"
             onClick={() => handleSelect(t.id)}
-            className={
-              active === t.id
-                ? 'rounded-xl bg-slate-900 px-4 py-2 text-sm font-medium text-white'
-                : 'rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2 text-sm text-slate-300 hover:bg-white/[0.06]'
-            }
+            onKeyDown={(event) => {
+              let next: number;
+              switch (event.key) {
+                case 'ArrowRight': next = (index + 1) % tabs.length; break;
+                case 'ArrowLeft': next = (index - 1 + tabs.length) % tabs.length; break;
+                case 'Home': next = 0; break;
+                case 'End': next = tabs.length - 1; break;
+                default: return;
+              }
+              event.preventDefault();
+              handleSelect(tabs[next].id);
+              buttons.current[next]?.focus();
+            }}
+            className={styles.tab}
           >
             {t.label}
           </button>
         ))}
       </div>
-      {tabs.map((t) => (
-        <div key={t.id} className={active === t.id ? 'block' : 'hidden'}>
+      {tabs.map((t, index) => (
+        <div key={t.id} role="tabpanel" id={`${id}-panel-${index}`} aria-labelledby={`${id}-tab-${index}`} hidden={active !== t.id}>
           {t.content}
         </div>
       ))}

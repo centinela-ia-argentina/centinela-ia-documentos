@@ -1,7 +1,12 @@
 'use client';
 
+import { ArrowRight } from 'lucide-react';
+import { MagnifyingGlass } from '@phosphor-icons/react';
+import { AppButton } from '@/components/ui/AppButton';
+import styles from './PropertyDetail.module.css';
+
 import { useState, useTransition } from 'react';
-import { Bot, Sparkles, X } from 'lucide-react';
+import { Sparkles, X } from 'lucide-react';
 import { analizarMatchPropiedadIA } from '../actions';
 
 export function PropertyMatchAiButton({ propertyId }: { propertyId: string }) {
@@ -27,7 +32,7 @@ export function PropertyMatchAiButton({ propertyId }: { propertyId: string }) {
 
   if (result) {
     return (
-      <div className="mb-6 rounded-2xl border border-[#29C5FF]/30 bg-gradient-to-br from-[#1E9BF0]/10 to-[#0A1830] p-6 shadow-[0_0_20px_rgba(30,155,240,0.15)]">
+      <div className={`${styles.aiTool} mb-6 rounded-2xl border border-[#29C5FF]/30 bg-gradient-to-br from-[#1E9BF0]/10 to-[#0A1830] p-6 shadow-[0_0_20px_rgba(30,155,240,0.15)]`}>
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2 text-cyan-400">
             <Sparkles className="h-5 w-5" />
@@ -63,17 +68,13 @@ export function PropertyMatchAiButton({ propertyId }: { propertyId: string }) {
   }
 
   return (
-    <div className="mb-6">
+    <div className={`${styles.aiTool} mb-6`}>
       {error && <p className="mb-2 text-sm text-red-400">{error}</p>}
-      <button
-        onClick={handleAnalyze}
-        disabled={isPending}
-        className="group relative inline-flex items-center gap-2 overflow-hidden rounded-xl bg-gradient-to-r from-cyan-600 to-[#1E9BF0] px-5 py-2.5 text-sm font-bold text-white shadow-lg transition-all hover:scale-105 hover:shadow-cyan-500/25 disabled:pointer-events-none disabled:opacity-70"
-      >
-        <div className="absolute inset-0 bg-white/20 opacity-0 transition-opacity group-hover:opacity-100"></div>
-        <Bot className={`h-4 w-4 ${isPending ? 'animate-pulse' : ''}`} />
-        <span>{isPending ? 'Analizar clientes...' : 'Analizar con IA'}</span>
-      </button>
+      <AppButton onClick={handleAnalyze} disabled={isPending} className={styles.primary}>
+        <MagnifyingGlass size={18} weight="duotone" aria-hidden="true" />
+        {isPending ? 'Analizando…' : 'Analizar coincidencias con IA'}
+        <ArrowRight size={18} strokeWidth={1.7} aria-hidden="true" />
+      </AppButton>
     </div>
   );
 }

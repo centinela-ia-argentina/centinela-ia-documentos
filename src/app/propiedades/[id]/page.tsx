@@ -5,25 +5,23 @@ import { createClient } from '@/lib/supabase/server';
 import { getUserProfile } from '@/lib/auth/getUserProfile';
 import { getPropertyStatusLabel, getPropertyTypeLabel } from '@/lib/properties/labels';
 import { canManageProperty, isUserRole, canUseAi } from '@/lib/permissions/roles';
-import { updateProperty } from '../actions';
-import { ArrowLeft, Building2, MapPin, DollarSign, Home, Tag, Info, ScrollText, Users } from 'lucide-react';
-import { FormSubmitButton } from '@/components/ui/FormSubmitButton';
-import { PropertyAiAssistant } from './PropertyAiAssistant';
-import { Badge } from '@/components/ui/Badge';
 import type { PropertyRecord } from '@/types/property';
+import type { ClientRecord } from '@/types/client';
 import { getCaseStatusLabel } from '@/lib/industries/caseConfig';
 import { normalizeIndustryType } from '@/lib/industries/documentTypes';
-import type { ClientRecord } from '@/types/client';
-import { evaluarMatch, ordenarPorMatch } from '@/lib/matching/match';
+import { evaluarMatch, ordenarPorMatch, type ResultadoMatch } from '@/lib/matching/match';
 import { getDesiredPropertyTypeLabel, getOperationInterestLabel } from '@/lib/clients/labels';
+import { ArrowLeft, ArrowRight } from 'lucide-react';
+import { Buildings, MapPin, CurrencyDollar, Ruler, Door, MapTrifold, Scales, NotePencil, Sparkle, ChatsCircle, FilePdf, Handshake, UsersThree, SealCheck, CheckCircle, XCircle, MagnifyingGlass } from '@phosphor-icons/react/dist/ssr';
+import { PropertyWorkspace } from './PropertyWorkspace';
 import { PropertyMatchAiButton } from './PropertyMatchAiButton';
 import { GenerarAvisoButton } from './GenerarAvisoButton';
 import { DescargarFichaPdfButton } from './DescargarFichaPdfButton';
-import { TasarButton } from './TasarButton';
 import { TasacionPanel } from './TasacionPanel';
 import { PublicacionAsistidaPanel } from './PublicacionAsistidaPanel';
 import { WhatsAppIntentBuilder } from '@/components/WhatsAppIntentBuilder';
 import { generatePropertyMessage } from '@/lib/whatsapp';
+import styles from './PropertyDetail.module.css';
 
 interface PropertyDetailPageProps {
   params: Promise<{ id: string }>;
@@ -88,7 +86,7 @@ export default async function PropertyDetailPage({ params }: PropertyDetailPageP
     
   const comparables = comparablesData || [];
 
-  let sortedMatches: { item: ClientRecord; match: any }[] = [];
+  let sortedMatches: { item: ClientRecord; match: ResultadoMatch }[] = [];
   if (record.status === 'disponible') {
     const { data: clientsData } = await supabase
       .from('clients')
@@ -106,461 +104,57 @@ export default async function PropertyDetailPage({ params }: PropertyDetailPageP
     sortedMatches = ordenarPorMatch(matches);
   }
 
-  return (
-    <AppShell>
-      <div className="mb-8">
-        <Link
-          href="/propiedades"
-          className="inline-flex items-center gap-2 text-sm font-semibold text-slate-400 transition-colors hover:text-white"
-        >
-          <ArrowLeft className="h-4 w-4" /> Volver a propiedades
-        </Link>
-      </div>
-
-      <div className="mb-8 flex flex-col items-start gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <div className="mb-2 flex flex-wrap items-center gap-2">
-            <Badge tone={record.status === 'disponible' ? 'success' : record.status === 'reservada' ? 'warning' : 'neutral'}>
-              {getPropertyStatusLabel(record.status)}
-            </Badge>
-            <span className="rounded-full bg-white/5 px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-slate-400">
-              {getPropertyTypeLabel(record.property_type)}
-            </span>
-          </div>
-          <h1 className="font-display text-3xl font-bold tracking-tight text-white sm:text-4xl">
-            {record.name}
-          </h1>
-          <div className="mt-2 flex items-center gap-2 text-slate-400">
-            <MapPin className="h-4 w-4" />
-            <span>{record.address || 'Sin dirección cargada'}</span>
-          </div>
+  const present = (value: string | number | null | undefined, suffix = '') => value == null || value === '' ? 'No cargado' : `${value}${suffix}`;
+  const legalFields = [['Matrícula / Catastro', record.matricula], ['Titular(es)', record.owners], ['Gravámenes / inhibiciones', record.gravamenes]];
+  const locationFields = [['Dirección', record.address], ['Barrio / Zona', record.neighborhood], ['Subzona', record.subzone], ['Localidad / Ciudad', record.city], ['Provincia', record.province]];
+  const criterionIcons = { tipo: Buildings, presupuesto: CurrencyDollar, ambientes: Door, zona: MapPin };
+  return <AppShell>
+    <Link href="/propiedades" className={styles.back}><ArrowLeft size={18} strokeWidth={1.7} aria-hidden="true" />Volver a propiedades</Link>
+    <PropertyWorkspace key={`${record.id}:${record.updated_at}`} record={record} documents={documents} canManage={canManage} useAi={useAi}
+      header={<div className={styles.heading}>
+        <div className={styles.identity}><span><Buildings size={18} weight="duotone" aria-hidden="true" />{getPropertyTypeLabel(record.property_type)}</span><span className={styles.status}><SealCheck size={18} weight="duotone" aria-hidden="true" />{getPropertyStatusLabel(record.status)}</span></div>
+        <h1>{record.name}</h1><p className={styles.address}><MapPin size={22} weight="duotone" aria-hidden="true" />{record.address || 'Sin dirección cargada'}</p>
+        <div className={styles.facts}>
+          <div><CurrencyDollar size={22} weight="duotone" aria-hidden="true" /><div><span>Precio registrado</span><strong>{record.price != null ? `${record.currency === 'USD' ? 'u$s' : '$'} ${record.price.toLocaleString('es-AR')}` : 'No cargado'}</strong></div></div>
+          <div><Ruler size={22} weight="duotone" aria-hidden="true" /><div><span>Superficie total</span><strong>{present(record.surface_total_m2, ' m²')}</strong></div></div>
+          <div><Buildings size={22} weight="duotone" aria-hidden="true" /><div><span>Superficie cubierta</span><strong>{present(record.surface_covered_m2, ' m²')}</strong></div></div>
+          <div><Door size={22} weight="duotone" aria-hidden="true" /><div><span>Ambientes</span><strong>{present(record.rooms)}</strong></div></div>
         </div>
-      </div>
-
-      <div className="grid gap-6 lg:grid-cols-3">
-        <div className="space-y-6 lg:col-span-2">
-          {useAi && (
-            <PropertyAiAssistant propertyId={record.id} documents={documents} />
-          )}
-
-          {canManage ? (
-            <div className="rounded-3xl border border-white/5 bg-white/[0.02] p-6 sm:p-8">
-              <div className="mb-6">
-                <h2 className="text-xl font-bold text-white">Editar propiedad</h2>
-                <p className="mt-1 text-sm text-slate-400">Modificá los datos técnicos, comerciales y legales.</p>
-              </div>
-
-              <form action={updateProperty} className="space-y-8">
-                <input type="hidden" name="property_id" value={record.id} />
-
-                <section>
-                  <h3 className="mb-4 text-sm font-bold uppercase tracking-wide text-slate-500">Datos principales</h3>
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    <div className="sm:col-span-2">
-                      <label className="mb-1.5 block text-xs font-semibold text-slate-400">Identificación *</label>
-                      <input
-                        name="name"
-                        type="text"
-                        required
-                        defaultValue={record.name}
-                        className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-white placeholder:text-slate-500 outline-none focus:ring-2 focus:ring-sky-400"
-                      />
-                    </div>
-                    <div>
-                      <label className="mb-1.5 block text-xs font-semibold text-slate-400">Tipo</label>
-                      <select
-                        name="property_type"
-                        defaultValue={record.property_type ?? ''}
-                        className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-white outline-none focus:ring-2 focus:ring-sky-400"
-                      >
-                        <option value="" className="bg-[#0C2340] text-white">Seleccionar...</option>
-                        <option value="casa" className="bg-[#0C2340] text-white">Casa</option>
-                        <option value="departamento" className="bg-[#0C2340] text-white">Departamento</option>
-                        <option value="lote/terreno" className="bg-[#0C2340] text-white">Lote/Terreno</option>
-                        <option value="local" className="bg-[#0C2340] text-white">Local</option>
-                        <option value="oficina" className="bg-[#0C2340] text-white">Oficina</option>
-                        <option value="cochera" className="bg-[#0C2340] text-white">Cochera</option>
-                        <option value="otro" className="bg-[#0C2340] text-white">Otro</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="mb-1.5 block text-xs font-semibold text-slate-400">Estado</label>
-                      <select
-                        name="status"
-                        defaultValue={record.status ?? 'disponible'}
-                        className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-white outline-none focus:ring-2 focus:ring-sky-400"
-                      >
-                        <option value="disponible" className="bg-[#0C2340] text-white">Disponible</option>
-                        <option value="reservada" className="bg-[#0C2340] text-white">Reservada</option>
-                        <option value="vendida" className="bg-[#0C2340] text-white">Vendida</option>
-                        <option value="alquilada" className="bg-[#0C2340] text-white">Alquilada</option>
-                        <option value="no_disponible" className="bg-[#0C2340] text-white">No disponible</option>
-                      </select>
-                    </div>
-                  </div>
-                </section>
-
-                <section>
-                  <h3 className="mb-4 text-sm font-bold uppercase tracking-wide text-slate-500">Ubicación</h3>
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    <div className="sm:col-span-2">
-                      <label className="mb-1.5 block text-xs font-semibold text-slate-400">Dirección (calle, número, piso, depto)</label>
-                      <input
-                        name="address"
-                        type="text"
-                        defaultValue={record.address ?? ''}
-                        className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-white placeholder:text-slate-500 outline-none focus:ring-2 focus:ring-sky-400"
-                      />
-                    </div>
-                    <div>
-                      <label className="mb-1.5 block text-xs font-semibold text-slate-400">Barrio / Zona</label>
-                      <input
-                        name="neighborhood"
-                        type="text"
-                        defaultValue={record.neighborhood ?? ''}
-                        className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-white placeholder:text-slate-500 outline-none focus:ring-2 focus:ring-sky-400"
-                      />
-                    </div>
-                    <div>
-                      <label className="mb-1.5 block text-xs font-semibold text-slate-400">Subzona (opcional)</label>
-                      <input
-                        name="subzone"
-                        type="text"
-                        defaultValue={record.subzone ?? ''}
-                        className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-white placeholder:text-slate-500 outline-none focus:ring-2 focus:ring-sky-400"
-                      />
-                    </div>
-                    <div>
-                      <label className="mb-1.5 block text-xs font-semibold text-slate-400">Localidad / Ciudad</label>
-                      <input
-                        name="city"
-                        type="text"
-                        defaultValue={record.city ?? ''}
-                        className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-white placeholder:text-slate-500 outline-none focus:ring-2 focus:ring-sky-400"
-                      />
-                    </div>
-                    <div>
-                      <label className="mb-1.5 block text-xs font-semibold text-slate-400">Provincia</label>
-                      <input
-                        name="province"
-                        type="text"
-                        defaultValue={record.province ?? ''}
-                        className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-white placeholder:text-slate-500 outline-none focus:ring-2 focus:ring-sky-400"
-                      />
-                    </div>
-                  </div>
-                </section>
-
-                <section>
-                  <h3 className="mb-4 text-sm font-bold uppercase tracking-wide text-slate-500">Datos técnicos</h3>
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    <div>
-                      <label className="mb-1.5 block text-xs font-semibold text-slate-400">Matrícula / Catastro</label>
-                      <input
-                        name="matricula"
-                        type="text"
-                        defaultValue={record.matricula ?? ''}
-                        className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-white placeholder:text-slate-500 outline-none focus:ring-2 focus:ring-sky-400"
-                      />
-                    </div>
-                    <div>
-                      <label className="mb-1.5 block text-xs font-semibold text-slate-400">Titular(es)</label>
-                      <input
-                        name="owners"
-                        type="text"
-                        defaultValue={record.owners ?? ''}
-                        className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-white placeholder:text-slate-500 outline-none focus:ring-2 focus:ring-sky-400"
-                      />
-                    </div>
-                    <div>
-                      <label className="mb-1.5 block text-xs font-semibold text-slate-400">Superficie total (m²)</label>
-                      <input
-                        name="surface_total_m2"
-                        type="number"
-                        step="0.01"
-                        defaultValue={record.surface_total_m2 ?? ''}
-                        className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-white placeholder:text-slate-500 outline-none focus:ring-2 focus:ring-sky-400"
-                      />
-                    </div>
-                    <div>
-                      <label className="mb-1.5 block text-xs font-semibold text-slate-400">Sup. cubierta (m²)</label>
-                      <input
-                        name="surface_covered_m2"
-                        type="number"
-                        step="0.01"
-                        defaultValue={record.surface_covered_m2 ?? ''}
-                        className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-white placeholder:text-slate-500 outline-none focus:ring-2 focus:ring-sky-400"
-                      />
-                    </div>
-                    <div>
-                      <label className="mb-1.5 block text-xs font-semibold text-slate-400">Ambientes</label>
-                      <input
-                        name="rooms"
-                        type="number"
-                        defaultValue={record.rooms ?? ''}
-                        className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-white placeholder:text-slate-500 outline-none focus:ring-2 focus:ring-sky-400"
-                      />
-                    </div>
-                  </div>
-                </section>
-
-                <section>
-                  <h3 className="mb-4 text-sm font-bold uppercase tracking-wide text-slate-500">Comercial y Legal</h3>
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    <div>
-                      <label className="mb-1.5 block text-xs font-semibold text-slate-400">Moneda</label>
-                      <select
-                        name="currency"
-                        defaultValue={record.currency ?? 'USD'}
-                        className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-white outline-none focus:ring-2 focus:ring-sky-400"
-                      >
-                        <option value="USD" className="bg-[#0C2340] text-white">USD (Dólares)</option>
-                        <option value="ARS" className="bg-[#0C2340] text-white">ARS (Pesos)</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="mb-1.5 block text-xs font-semibold text-slate-400">Valor</label>
-                      <input
-                        name="price"
-                        type="number"
-                        step="0.01"
-                        defaultValue={record.price ?? ''}
-                        className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-white placeholder:text-slate-500 outline-none focus:ring-2 focus:ring-sky-400"
-                      />
-                    </div>
-                    <div className="sm:col-span-2">
-                      <label className="mb-1.5 block text-xs font-semibold text-slate-400">Gravámenes / inhibiciones</label>
-                      <input
-                        name="gravamenes"
-                        type="text"
-                        defaultValue={record.gravamenes ?? ''}
-                        className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-white placeholder:text-slate-500 outline-none focus:ring-2 focus:ring-sky-400"
-                      />
-                    </div>
-                    <div className="sm:col-span-2">
-                      <label className="mb-1.5 block text-xs font-semibold text-slate-400">Observaciones</label>
-                      <textarea
-                        name="notes"
-                        rows={4}
-                        defaultValue={record.notes ?? ''}
-                        className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-white placeholder:text-slate-500 outline-none focus:ring-2 focus:ring-sky-400"
-                      ></textarea>
-                    </div>
-                  </div>
-                </section>
-
-                <div className="flex justify-end pt-4 border-t border-white/10">
-                  <FormSubmitButton label="Guardar cambios" loadingLabel="Guardando..." />
-                </div>
-              </form>
-            </div>
-          ) : (
-            <div className="rounded-3xl border border-white/5 bg-white/[0.02] p-6 sm:p-8">
-              <h2 className="mb-6 text-xl font-bold text-white">Ficha técnica</h2>
-              <div className="grid gap-6 sm:grid-cols-2">
-                <div>
-                  <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500">Matrícula / Catastro</h4>
-                  <p className="mt-1 font-medium text-white">{record.matricula || '-'}</p>
-                </div>
-                <div>
-                  <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500">Titular(es)</h4>
-                  <p className="mt-1 font-medium text-white">{record.owners || '-'}</p>
-                </div>
-                <div>
-                  <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500">Superficie Total</h4>
-                  <p className="mt-1 font-medium text-white">{record.surface_total_m2 ? `${record.surface_total_m2} m²` : '-'}</p>
-                </div>
-                <div>
-                  <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500">Sup. Cubierta</h4>
-                  <p className="mt-1 font-medium text-white">{record.surface_covered_m2 ? `${record.surface_covered_m2} m²` : '-'}</p>
-                </div>
-                <div>
-                  <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500">Ambientes</h4>
-                  <p className="mt-1 font-medium text-white">{record.rooms || '-'}</p>
-                </div>
-                <div className="sm:col-span-2">
-                  <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500">Gravámenes / inhibiciones</h4>
-                  <p className="mt-1 font-medium text-white">{record.gravamenes || '-'}</p>
-                </div>
-                <div className="sm:col-span-2">
-                  <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500">Observaciones</h4>
-                  <p className="mt-1 font-medium text-white whitespace-pre-wrap">{record.notes || '-'}</p>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-
-        <div className="space-y-6">
-          <div className="rounded-3xl border border-white/5 bg-gradient-to-b from-white/[0.05] to-transparent p-6">
-            <h3 className="mb-4 flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-slate-400">
-              <DollarSign className="h-4 w-4" />
-              Valor de mercado
-            </h3>
-            {record.price != null ? (
-              <div className="text-3xl font-display font-bold text-white">
-                <span className="text-xl text-slate-400 mr-1">{record.currency === 'USD' ? 'u$s' : '$'}</span>
-                {record.price.toLocaleString('es-AR')}
-              </div>
-            ) : (
-              <p className="text-slate-400">No especificado</p>
-            )}
-          </div>
-
-          <div className="rounded-2xl border border-white/10 bg-white/5 p-4 sm:p-5">
-            <h3 className="mb-4 text-sm font-bold uppercase tracking-wider text-slate-400">
-              🛠️ Herramientas Comerciales
-            </h3>
-            <div className="space-y-2">
-              {useAi && (
-                <GenerarAvisoButton propertyId={record.id} />
-              )}
-              <WhatsAppIntentBuilder
-                context="property"
-                resourceId={record.id}
-                defaultMessage={generatePropertyMessage(record)}
-              />
-              <DescargarFichaPdfButton
-                name={record.name}
-                propertyType={getPropertyTypeLabel(record.property_type)}
-                status={getPropertyStatusLabel(record.status)}
-                address={record.address}
-                matricula={record.matricula}
-                owners={record.owners}
-                surfaceTotal={record.surface_total_m2}
-                surfaceCovered={record.surface_covered_m2}
-                rooms={record.rooms}
-                gravamenes={record.gravamenes}
-                notes={record.notes}
-                price={record.price}
-                currency={record.currency}
-              />
-            </div>
-          </div>
-          
-          <div className="rounded-3xl border border-white/5 bg-white/[0.02] p-6">
-            <h3 className="mb-4 text-sm font-bold uppercase tracking-wider text-slate-400">Resumen rápido</h3>
-            <ul className="space-y-4">
-              <li className="flex items-start gap-3">
-                <Home className="h-5 w-5 text-cyan-400 shrink-0" />
-                <div>
-                  <p className="text-xs text-slate-500">Tipo</p>
-                  <p className="font-semibold text-white">{getPropertyTypeLabel(record.property_type)}</p>
-                </div>
-              </li>
-              <li className="flex items-start gap-3">
-                <Tag className="h-5 w-5 text-cyan-400 shrink-0" />
-                <div>
-                  <p className="text-xs text-slate-500">Estado actual</p>
-                  <p className="font-semibold text-white">{getPropertyStatusLabel(record.status)}</p>
-                </div>
-              </li>
-              <li className="flex items-start gap-3">
-                <Info className="h-5 w-5 text-cyan-400 shrink-0" />
-                <div>
-                  <p className="text-xs text-slate-500">Creado</p>
-                  <p className="font-semibold text-white">{new Date(record.created_at).toLocaleDateString('es-AR')}</p>
-                </div>
-              </li>
-            </ul>
-          </div>
-
-          <TasacionPanel propertyId={record.id} propertyType={record.property_type ?? ''} comparables={comparables} />
-
-          <PublicacionAsistidaPanel key={record.id} property={record} canManage={canManage} />
-
-          <div className="rounded-3xl border border-white/5 bg-white/[0.02] p-6 mt-6">
-            <h3 className="mb-4 text-sm font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2">
-              🤝 Operaciones de esta propiedad
-            </h3>
-            {operations.length > 0 ? (
-              <ul className="space-y-3">
-                {operations.map((op) => (
-                  <li key={op.id}>
-                    <Link
-                      href={`/expedientes/${op.id}`}
-                      className="group flex items-center justify-between rounded-xl border border-white/10 bg-[#0C2340] px-4 py-3 transition hover:border-cyan-500/50 hover:bg-cyan-500/10"
-                    >
-                      <span className="font-semibold text-white group-hover:text-cyan-400 transition-colors">
-                        {op.title}
-                      </span>
-                      <Badge tone={op.status === 'new' ? 'neutral' : op.status === 'archived' ? 'neutral' : op.status === 'waiting_client' ? 'warning' : 'success'}>
-                        {getCaseStatusLabel(op.status, industry)}
-                      </Badge>
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="text-sm text-slate-400">
-                Todavía no hay operaciones vinculadas a esta propiedad.
-              </p>
-            )}
-          </div>
-
-          <div className="rounded-3xl border border-white/5 bg-white/[0.02] p-6 mt-6">
-            <h3 className="mb-4 text-sm font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2">
-              👥 Clientes que podrían estar interesados
-            </h3>
-            
-            {useAi && record.status === 'disponible' && sortedMatches.length > 0 && (
-              <PropertyMatchAiButton propertyId={record.id} />
-            )}
-
-            {record.status !== 'disponible' ? (
-              <p className="text-sm text-slate-400 border border-dashed border-white/10 rounded-xl p-4 text-center">
-                El matching se activa cuando la propiedad está en estado Disponible.
-              </p>
-            ) : sortedMatches.length > 0 ? (
-              <ul className="space-y-4">
-                {sortedMatches.map(({ item: c, match }) => (
-                  <li key={c.id}>
-                    <Link
-                      href={`/clientes/${c.id}`}
-                      className="group block rounded-2xl border border-white/10 bg-[#0C2340] p-5 transition hover:border-cyan-500/50 hover:bg-cyan-500/10 outline-none"
-                    >
-                      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                        <div>
-                          <h4 className="font-display text-base font-bold text-white group-hover:text-cyan-400 transition-colors">
-                            {c.name}
-                          </h4>
-                          <p className="mt-1 text-xs font-medium text-slate-300">
-                            {getOperationInterestLabel(c.operation_interest)} · {getDesiredPropertyTypeLabel(c.desired_property_type)}
-                          </p>
-                        </div>
-                        <Badge tone={match.coincidencias === match.aplicables && match.aplicables > 0 ? 'success' : match.coincidencias > 0 ? 'warning' : 'neutral'}>
-                          {match.coincidencias}/{match.aplicables} criterios
-                        </Badge>
-                      </div>
-                      
-                      {match.aplicables > 0 && (
-                        <div className="mt-4 flex flex-wrap gap-2 pt-4 border-t border-white/5">
-                          {match.criterios.filter((crit: any) => crit.aplica).map((crit: any) => (
-                            <span 
-                              key={crit.key} 
-                              className={`inline-flex items-center gap-1 rounded-lg px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${
-                                crit.cumple 
-                                  ? 'bg-green-500/10 text-green-400 border border-green-500/20' 
-                                  : 'bg-white/5 text-slate-500 border border-white/10 line-through decoration-slate-500/50'
-                              }`}
-                            >
-                              {crit.cumple ? '✓' : '✗'} {crit.label}
-                            </span>
-                          ))}
-                        </div>
-                      )}
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="text-sm text-slate-400 border border-dashed border-white/10 rounded-xl p-4 text-center">
-                Aún no hay clientes activos con criterios que encajen.
-              </p>
-            )}
-          </div>
-        </div>
-      </div>
-    </AppShell>
-  );
+      </div>}
+      ficha={<>
+        <div className={styles.intro}><div><h2>Conocé la propiedad</h2><p>Una vista de consulta ordenada.{canManage ? ' Para modificar información, entrá en Editar propiedad.' : ' Acceso de consulta.'}</p></div></div>
+        <div className={styles.readGrid}>
+          <section className={styles.panel}><div className={styles.sectionHead}><span className={styles.icon}><MapTrifold size={26} weight="duotone" aria-hidden="true" /></span><div><span className={styles.eyebrow}>CONTEXTO DEL INMUEBLE</span><h3>Ubicación</h3></div></div><dl className={styles.fields}>{locationFields.map(([label, value]) => <div key={label} className={label === 'Dirección' ? styles.full : undefined}><dt>{label}</dt><dd>{present(value)}</dd></div>)}</dl></section>
+          <section className={styles.panel}><div className={styles.sectionHead}><span className={styles.icon}><Scales size={26} weight="duotone" aria-hidden="true" /></span><div><span className={styles.eyebrow}>INFORMACIÓN REGISTRADA</span><h3>Datos legales</h3></div></div><dl className={styles.fields}>{legalFields.map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{present(value)}</dd></div>)}</dl><p className={styles.note}><strong>Sin dato no significa sin restricciones.</strong> Verificá la documentación antes de utilizar esta información.</p></section>
+          <section className={styles.observations}><h3><NotePencil size={24} weight="duotone" aria-hidden="true" />Observaciones</h3><p>{record.notes || 'Sin observaciones cargadas.'}</p></section>
+        </div><p className={styles.meta}>Creada el {new Date(record.created_at).toLocaleDateString('es-AR')} · Consulta primero, edición a pedido</p>
+      </>}
+      comercial={<>
+        <div className={styles.intro}><div><h2>Prepará la comunicación comercial</h2><p>Del borrador al registro de publicación, cada tarea tiene su espacio.</p></div></div>
+        <p className={styles.note}>Preparar materiales <strong>no publica la propiedad ni envía mensajes.</strong></p>
+        <div className={styles.taskRow}>
+          <article className={styles.panel}><span className={styles.icon}><Sparkle size={28} weight="duotone" aria-hidden="true" /></span><span className={styles.eyebrow}>CREACIÓN ASISTIDA</span><h3>Aviso de la propiedad</h3><p>Prepará un borrador y revisalo antes de usarlo.</p>{useAi ? <GenerarAvisoButton propertyId={record.id} /> : <p>IA no disponible para tu rol.</p>}</article>
+          <article className={styles.panel}><span className={styles.icon}><ChatsCircle size={28} weight="duotone" aria-hidden="true" /></span><span className={styles.eyebrow}>COMUNICACIÓN DIRECTA</span><h3>Mensaje de WhatsApp</h3><p>Preparar, elegir destinatario y enviar son pasos separados.</p><div className={styles.whatsapp}><WhatsAppIntentBuilder context="property" resourceId={record.id} defaultMessage={generatePropertyMessage(record)} /><span className={styles.whatsappArrow} aria-hidden="true"><ArrowRight size={18} strokeWidth={1.7} /></span></div></article>
+          <article className={styles.panel}><span className={styles.icon}><FilePdf size={28} weight="duotone" aria-hidden="true" /></span><span className={styles.eyebrow}>EXPORTACIÓN DE LA FICHA</span><h3>Ficha en PDF</h3><p>Abre impresión para guardar como PDF. Incluye titulares, matrícula, gravámenes y notas: revisá antes de compartir.</p><DescargarFichaPdfButton name={record.name} propertyType={getPropertyTypeLabel(record.property_type)} status={getPropertyStatusLabel(record.status)} address={record.address} matricula={record.matricula} owners={record.owners} surfaceTotal={record.surface_total_m2} surfaceCovered={record.surface_covered_m2} rooms={record.rooms} gravamenes={record.gravamenes} notes={record.notes} price={record.price} currency={record.currency} /></article>
+        </div><PublicacionAsistidaPanel key={record.id} property={record} canManage={canManage} />
+      </>}
+      tasacion={<><div className={styles.intro}><div><h2>Tasación y comparables</h2><p>Referencias para una estimación orientativa; el precio registrado no es una tasación.</p></div></div><TasacionPanel propertyId={record.id} propertyType={record.property_type ?? ''} comparables={comparables} canManage={canManage} useAi={useAi} /></>}
+      vinculos={<>
+        <div className={styles.intro}><div><h2>Vínculos de la propiedad</h2><p>Operaciones asociadas y coincidencias de criterios, sin confundirlas con interés confirmado.</p></div></div>
+        <section className={styles.panel}><div className={styles.sectionHead}><span className={styles.icon}><Handshake size={26} weight="duotone" aria-hidden="true" /></span><div><span className={styles.eyebrow}>ACTIVIDAD VINCULADA</span><h3>Operaciones de esta propiedad</h3></div></div>
+          {operations.length ? <ul className={styles.operations}>{operations.map(op => <li key={op.id}><div><h4>{op.title}</h4><span className={styles.status}>{getCaseStatusLabel(op.status, industry)}</span></div><Link href={`/expedientes/${op.id}`} className={styles.linkAction}>Abrir operación<ArrowRight size={18} strokeWidth={1.7} aria-hidden="true" /></Link></li>)}</ul> : <p>Todavía no hay operaciones vinculadas a esta propiedad.</p>}
+          <p className={styles.note}><strong>Estados independientes.</strong> El estado de una operación no reemplaza el estado de la propiedad.</p>
+        </section>
+        <section className={styles.panel}><div className={styles.sectionHead}><span className={styles.icon}><UsersThree size={26} weight="duotone" aria-hidden="true" /></span><div><span className={styles.eyebrow}>COINCIDENCIAS DE BÚSQUEDA</span><h3>Clientes que podrían estar interesados</h3></div></div>
+          {useAi && record.status === 'disponible' && sortedMatches.length > 0 && <PropertyMatchAiButton propertyId={record.id} />}
+          {record.status !== 'disponible' ? <p>El matching se activa cuando la propiedad está en estado Disponible.</p> : sortedMatches.length ? <ul className={styles.matches}>{sortedMatches.map(({ item: c, match }) => <li key={c.id}>
+            <div className={styles.matchHeader}><div><h4>{c.name}</h4><p>{getOperationInterestLabel(c.operation_interest)} · {getDesiredPropertyTypeLabel(c.desired_property_type)}</p></div><div className={styles.matchCount}><strong>{match.coincidencias}/{match.aplicables}</strong><span>criterios coincidentes</span><div className={styles.matchBars} aria-hidden="true">{match.criterios.filter(crit => crit.aplica).map(crit => <i key={crit.key} data-match={crit.cumple} />)}</div></div></div>
+            <div className={styles.criteria}>{match.criterios.filter(crit => crit.aplica).map(crit => { const Icon = criterionIcons[crit.key]; const Mark = crit.cumple ? CheckCircle : XCircle; return <span key={crit.key} data-match={crit.cumple}><Icon size={19} weight="duotone" aria-hidden="true" /><span>{crit.label}<small>{crit.cumple ? 'Coincide' : 'No coincide'}</small></span><Mark size={17} weight="duotone" aria-hidden="true" /></span>; })}</div>
+            <div className={styles.matchFooter}><p><MagnifyingGlass size={17} weight="duotone" aria-hidden="true" />{match.aplicables > 0 ? (match.coincidencias === match.aplicables ? 'Coincide en todos los criterios aplicables' : `${match.coincidencias} de ${match.aplicables} criterios aplicables coinciden`) : 'Sin criterios aplicables'}</p><Link href={`/clientes/${c.id}`} className={styles.linkAction}>Ver cliente<ArrowRight size={18} strokeWidth={1.7} aria-hidden="true" /></Link></div>
+          </li>)}</ul> : <p>Aún no hay clientes activos con criterios que encajen.</p>}
+          <p className={styles.note}>Coincidir en criterios no acredita interés confirmado ni garantiza una recomendación.</p>
+        </section>
+      </>}
+    />
+  </AppShell>;
 }

@@ -17,7 +17,9 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
   workers: process.env.CI ? 1 : undefined,
-  reporter: 'html',
+  // Publish failure diagnostics as GitHub annotations as well as the HTML artifact.
+  // This avoids requiring a separate browser session just to identify the next failure.
+  reporter: process.env.CI ? [['github'], ['html', { open: 'never' }]] : 'html',
   use: {
     baseURL: 'http://127.0.0.1:3000',
     timezoneId: 'America/Argentina/Buenos_Aires',

@@ -81,7 +81,7 @@ function procesarImagen(
   });
 }
 
-export function ImagenAPdf() {
+export function ImagenAPdf({ canSave = true }: { canSave?: boolean }) {
   const [imagenes, setImagenes] = useState<Imagen[]>([]);
   const [escaneado, setEscaneado] = useState(false);
   const [generando, setGenerando] = useState(false);
@@ -154,6 +154,7 @@ export function ImagenAPdf() {
   };
 
   const guardarEnDocumentos = async () => {
+    if (!canSave) return;
     if (imagenes.length === 0) return;
     setGuardando(true);
     try {
@@ -184,7 +185,7 @@ export function ImagenAPdf() {
           type="file"
           accept="image/*"
           multiple
-          className="hidden"
+          className="sr-only"
           onChange={(e) => {
             agregar(e.target.files);
             e.target.value = '';
@@ -274,7 +275,7 @@ export function ImagenAPdf() {
               {generando ? 'Generando PDF…' : 'Descargar PDF'}
             </button>
 
-            <button
+            {canSave && (<button
               type="button"
               onClick={guardarEnDocumentos}
               disabled={generando || guardando}
@@ -286,7 +287,7 @@ export function ImagenAPdf() {
                 <FolderPlus className="h-4 w-4" />
               )}
               {guardando ? 'Guardando…' : 'Guardar en Documentos'}
-            </button>
+            </button>)}
 
             <button
               type="button"

@@ -1,27 +1,36 @@
 'use client';
 
-import { useState, useRef, useEffect, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
+import {
+  ArrowRight,
+  Buildings,
+  LockKey,
+  LockSimple,
+  PaperPlaneTilt,
+  Sparkle,
+  Waves,
+} from '@phosphor-icons/react';
 import { preguntarAgenteGlobal } from './actions';
 import { getIndustryTerms } from '@/lib/industries/uiLabels';
 import type { IndustryType } from '@/lib/industries/documentTypes';
 import type { MensajeChat, AccionPropuesta } from '@/lib/ai/agente';
-import { MaquinaEscribir } from '@/components/MaquinaEscribir';
-import { AiDisclaimer } from '@/lib/industries/disclaimers';
+import { getAgentDisclaimer } from '@/lib/industries/disclaimers';
+import { AppButton } from '@/components/ui/AppButton';
+import styles from './Agent.module.css';
+import { AnulusAgentAvatar } from '@/components/agent/AnulusAgentAvatar';
 
 type MensajeUI = MensajeChat & { acciones?: AccionPropuesta[] };
 
-
-
 function renderInline(text: string, keyPrefix: string): ReactNode[] {
-  return text.split(/(\*\*[^*]+\*\*)/g).map((p, i) => {
-    if (p.startsWith('**') && p.endsWith('**')) {
+  return text.split(/(\*\*[^*]+\*\*)/g).map((part, index) => {
+    if (part.startsWith('**') && part.endsWith('**')) {
       return (
-        <strong key={`${keyPrefix}-b-${i}`} className="font-semibold text-white">
-          {p.slice(2, -2)}
+        <strong key={`${keyPrefix}-b-${index}`} className="font-semibold">
+          {part.slice(2, -2)}
         </strong>
       );
     }
-    return <span key={`${keyPrefix}-t-${i}`}>{p}</span>;
+    return <span key={`${keyPrefix}-t-${index}`}>{part}</span>;
   });
 }
 
@@ -32,36 +41,35 @@ function MensajeTexto({ texto }: { texto: string }) {
   let key = 0;
 
   const flushLista = () => {
-    if (lista.length) {
-      const items = [...lista];
-      bloques.push(
-        <ul key={`ul-${key++}`} className="my-1 space-y-1">
-          {items.map((item, i) => (
-            <li key={`li-${key}-${i}`} className="flex gap-2">
-              <span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-cyan-400" />
-              <span>{renderInline(item, `li-${key}-${i}`)}</span>
-            </li>
-          ))}
-        </ul>
-      );
-      lista = [];
-    }
+    if (!lista.length) return;
+    const items = [...lista];
+    bloques.push(
+      <ul key={`ul-${key++}`} className="my-2 space-y-1.5">
+        {items.map((item, index) => (
+          <li key={`li-${key}-${index}`} className="flex gap-2.5">
+            <span className="mt-2 h-1.5 w-1.5 shrink-0 rotate-45 bg-current" />
+            <span>{renderInline(item, `li-${key}-${index}`)}</span>
+          </li>
+        ))}
+      </ul>
+    );
+    lista = [];
   };
 
   for (const linea of lineas) {
-    const t = linea.trim();
-    if (!t) {
+    const text = linea.trim();
+    if (!text) {
       flushLista();
       continue;
     }
-    const bullet = t.match(/^[-*•]\s+(.*)$/);
+    const bullet = text.match(/^[-*•]\s+(.*)$/);
     if (bullet) {
       lista.push(bullet[1]);
     } else {
       flushLista();
       bloques.push(
-        <p key={`p-${key++}`} className="my-1">
-          {renderInline(t, `p-${key}`)}
+        <p key={`p-${key++}`} className="my-1.5">
+          {renderInline(text, `p-${key}`)}
         </p>
       );
     }
@@ -72,38 +80,68 @@ function MensajeTexto({ texto }: { texto: string }) {
 
 type Props = { industry: string; puedeUsarIA: boolean };
 
+function agentTitle(industry: IndustryType) {
+  if (industry === 'inmobiliaria') return 'Agente Anulus inmobiliario';
+  if (industry === 'escribania') return 'Agente Anulus notarial';
+  if (industry === 'legal') return 'Agente Anulus jurídico';
+  return 'Agente Anulus';
+}
+
+function contextLabel(industry: IndustryType) {
+  if (industry === 'inmobiliaria') return 'Guía inmobiliaria';
+  if (industry === 'escribania') return 'Guía notarial';
+  if (industry === 'legal') return 'Guía jurídica';
+  return 'Guía de la plataforma';
+}
+
+function activationGreeting(industry: IndustryType) {
+  if (industry === 'inmobiliaria') return 'Hola. ¿Qué función necesitás encontrar?';
+  if (industry === 'escribania') return 'Hola. ¿Qué herramienta necesitás?';
+  if (industry === 'legal') return 'Hola. ¿Dónde necesitás orientación?';
+  return 'Hola. ¿Cómo te guío?';
+}
+
 export function AgenteGlobalChat({ industry, puedeUsarIA }: Props) {
-  const terms = getIndustryTerms(industry as IndustryType);
+  const normalizedIndustry = industry as IndustryType;
+  const terms = getIndustryTerms(normalizedIndustry);
   const saludo = terms.agenteSaludoGlobal;
   const preguntas = terms.agentePreguntasGlobales;
   const [mensajes, setMensajes] = useState<MensajeUI[]>([]);
   const [input, setInput] = useState('');
   const [cargando, setCargando] = useState(false);
+  const [inputFocused, setInputFocused] = useState(false);
+  const [avatarGreeting, setAvatarGreeting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
+  const inputRef = useRef<HTMLTextAreaElement | null>(null);
+  const greetingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    const el = scrollRef.current;
-    if (el) el.scrollTop = el.scrollHeight;
+    const element = scrollRef.current;
+    if (element) element.scrollTop = element.scrollHeight;
   }, [mensajes, cargando]);
+
+  useEffect(() => () => {
+    if (greetingTimer.current) clearTimeout(greetingTimer.current);
+  }, []);
 
   async function enviar(texto: string) {
     const pregunta = texto.trim();
     if (!pregunta || cargando) return;
     setError(null);
-    const historialPrevio = mensajes.map((m) => ({ rol: m.rol, texto: m.texto }));
-    setMensajes((prev) => [...prev, { rol: 'user', texto: pregunta }]);
+    const historialPrevio = mensajes.map((message) => ({ rol: message.rol, texto: message.texto }));
+    setMensajes((previous) => [...previous, { rol: 'user', texto: pregunta }]);
     setInput('');
     setCargando(true);
     try {
-      const res = await preguntarAgenteGlobal({ historial: historialPrevio, pregunta });
-      if (res.ok) {
-        setMensajes((prev) => [
-          ...prev,
-          { rol: 'model', texto: res.respuesta, acciones: res.acciones },
+      const response = await preguntarAgenteGlobal({ historial: historialPrevio, pregunta });
+      if (response.ok) {
+        setMensajes((previous) => [
+          ...previous,
+          { rol: 'model', texto: response.respuesta, acciones: response.acciones },
         ]);
       } else {
-        setError(res.motivo);
+        setError(response.motivo);
       }
     } catch {
       setError('Hubo un error de conexión. Probá de nuevo.');
@@ -112,156 +150,69 @@ export function AgenteGlobalChat({ industry, puedeUsarIA }: Props) {
     }
   }
 
+  function activateAgent() {
+    setAvatarGreeting(true);
+    inputRef.current?.focus();
+    if (greetingTimer.current) clearTimeout(greetingTimer.current);
+    greetingTimer.current = setTimeout(() => setAvatarGreeting(false), 2600);
+  }
+
   if (!puedeUsarIA) return null;
 
   const iniciado = mensajes.length > 0;
+  const visualState = cargando
+    ? 'thinking'
+    : inputFocused
+      ? 'listening'
+      : iniciado
+        ? 'attentive'
+        : 'idle';
 
-  return (
-    <div className="rounded-2xl border border-cyan-500/30 bg-slate-900/50 p-4">
-      <style>{`
-        @keyframes botFlota { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
-        @keyframes botAura { 0%,100% { transform: scale(1); opacity: .5; } 50% { transform: scale(1.18); opacity: .12; } }
-        @keyframes botParpadeo { 0%,92%,100% { transform: scaleY(1); } 96% { transform: scaleY(0.1); } }
-        @keyframes botAntena { 0%,100% { opacity: .4; box-shadow: 0 0 4px rgba(34,211,238,.6); } 50% { opacity: 1; box-shadow: 0 0 12px rgba(34,211,238,1); } }
-        @keyframes botOnda { 0%,100% { transform: scaleY(0.4); } 50% { transform: scaleY(1); } }
-        .bot-flota { animation: botFlota 3.5s ease-in-out infinite; }
-        .bot-aura { animation: botAura 3.5s ease-in-out infinite; }
-        .bot-ojo { animation: botParpadeo 4s ease-in-out infinite; transform-origin: center; }
-        .bot-antena { animation: botAntena 2s ease-in-out infinite; }
-        .bot-onda { animation: botOnda 1s ease-in-out infinite; }
-      `}</style>
-
-      {/* Avatar animado + saludo */}
-      <div className="flex flex-col items-center text-center">
-        <div className="relative mb-3 h-24 w-24">
-          <div className="bot-aura absolute inset-0 rounded-full bg-gradient-to-br from-cyan-500 to-violet-600" />
-          <div className="bot-flota relative flex h-24 w-24 items-center justify-center">
-            <span className="bot-antena absolute -top-1 h-2 w-2 rounded-full bg-cyan-400" />
-            <span className="absolute top-1 h-3 w-0.5 bg-slate-500" />
-            <div className="relative flex h-16 w-[4.5rem] items-center justify-center gap-2 rounded-2xl border border-cyan-400/50 bg-gradient-to-br from-slate-800 to-slate-900 shadow-lg shadow-cyan-900/40">
-              <span className="bot-ojo h-3.5 w-3.5 rounded-full bg-cyan-400 shadow-[0_0_8px_rgba(34,211,238,0.9)]" />
-              <span
-                className="bot-ojo h-3.5 w-3.5 rounded-full bg-cyan-400 shadow-[0_0_8px_rgba(34,211,238,0.9)]"
-                style={{ animationDelay: '0.15s' }}
-              />
-            </div>
-          </div>
-        </div>
-        <div className="flex flex-wrap items-center justify-center gap-2">
-          <h2 className="text-lg font-bold text-white">Agente IA general</h2>
-          <span className="inline-flex items-center gap-1 rounded-full bg-cyan-500/15 px-2.5 py-0.5 text-xs font-medium text-cyan-300 border border-cyan-500/20">
-            🌐 Contexto: panorama {industry === 'inmobiliaria' ? 'de la inmobiliaria' : industry === 'escribania' ? 'de la escribanía' : industry === 'legal' ? 'del estudio' : 'general'}
-          </span>
-          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2 py-0.5 text-xs font-medium text-emerald-300">
-            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400" /> En línea
-          </span>
-        </div>
-        <p className="mt-1.5 max-w-lg text-sm text-slate-300">
-          Consultá el panorama general de tu organización: {terms.expedientePlural.toLowerCase()} recientes, plazos, vencimientos y alertas.
-        </p>
-        <div className="mt-3 flex flex-col items-center gap-1.5 text-xs text-slate-400 max-w-lg">
-          <p className="rounded-lg bg-slate-950/50 border border-slate-800 px-3 py-2 text-slate-300 w-full text-center">
-            ℹ️ Para trabajar sobre documentos o ejecutar acciones, abrí {terms.unExpediente} y usá su Agente IA.
-          </p>
-          <p className="text-slate-500">
-            ⌛ Por privacidad, esta conversación no se guarda en Anulus AI y se reinicia al salir o recargar.
-          </p>
-        </div>
+  return <section className={styles.agentMain}>
+    <header className={styles.agentHead}>
+      <div className={styles.avatarSlot}>
+        <AnulusAgentAvatar industry={normalizedIndustry} state={visualState} compact={iniciado}
+          onActivate={activateAgent} showHint={!avatarGreeting} className={styles.avatar} />
+        {avatarGreeting ? <p role="status" className={styles.activationHint}>{activationGreeting(normalizedIndustry)}</p> : null}
       </div>
-
-      {/* Saludo conversacional: el agente inicia la charla */}
-      {!iniciado && (
-        <div className="mt-4 rounded-2xl border border-cyan-500/20 bg-slate-800/40 px-4 py-3 text-sm leading-relaxed text-slate-200">
-          <p className="font-semibold text-cyan-300">
-            👋 <MaquinaEscribir texto="¡Hola! ¿Cómo estás? ¿Qué tal tu día?" />
-          </p>
-          <p className="mt-1">
-            Estoy acá para ayudarte con el panorama de tu organización, sus vencimientos y prioridades. ¿En qué te doy una mano?
-          </p>
+      <div className={styles.agentIdentity}>
+        <p className={styles.eyebrow}>Guía general de Anulus</p><h1>{agentTitle(normalizedIndustry)}</h1>
+        <p className={styles.saludo}>{saludo}</p>
+        <div className={styles.agentMeta}><span><Buildings size={13} aria-hidden="true" />{contextLabel(normalizedIndustry)}</span>
+          <span><LockKey size={13} aria-hidden="true" />Conversación temporal</span></div>
+      </div>
+    </header>
+    <div className={styles.agentBody}>
+      {!iniciado ? <>
+        <div className={styles.orientation}><Sparkle size={21} aria-hidden="true" /><div>
+          <h2>¿En qué parte de Anulus te ayudo?</h2>
+          <p>Puedo mostrarte dónde está cada función y cómo recorrer la plataforma. Para analizar un caso concreto, abrí {terms.unExpediente} y usá su agente contextual.</p>
+        </div></div>
+        <div className={styles.questions}>{preguntas.map((question:string) => <AppButton key={question} variant="secondary"
+          onClick={() => enviar(question)} className={styles.question}><span>{question}</span><ArrowRight size={15} aria-hidden="true" /></AppButton>)}</div>
+      </> : null}
+      {iniciado ? <div ref={scrollRef} role="log" aria-live="polite" aria-label="Conversación con el agente" className={styles.conversation}>
+        {mensajes.map((message,index) => <div key={`${message.rol}-${index}`} className={`${styles.message} ${message.rol === 'user' ? styles.user : styles.model}`}>
+          <span className={styles.speaker}>{message.rol === 'user' ? 'Vos' : 'Agente Anulus'}</span>
+          {message.rol === 'user' ? <p>{message.texto}</p> : <MensajeTexto texto={message.texto} />}
+        </div>)}
+        {cargando ? <div role="status" className={styles.responseState}><Waves size={17} aria-hidden="true" />Analizando el panorama…</div> : null}
+      </div> : null}
+      {error ? <p role="alert" className={styles.chatError}>{error}</p> : null}
+      <form onSubmit={event => {event.preventDefault(); enviar(input);}} className={styles.composer}>
+        <label htmlFor="agent-global-query">Tu consulta</label>
+        <div className={styles.composerBox}>
+          <textarea id="agent-global-query" ref={inputRef} value={input} onChange={event => setInput(event.target.value)}
+            onFocus={() => setInputFocused(true)} onBlur={() => setInputFocused(false)}
+            onKeyDown={event => {if(event.key === 'Enter' && !event.shiftKey){event.preventDefault();enviar(input);}}}
+            rows={2} aria-label="Escribir una consulta para el Agente Anulus" placeholder="Escribí tu consulta…" />
+          <AppButton type="submit" aria-label="Enviar consulta" disabled={cargando || !input.trim()} className={styles.send}>
+            <span>Enviar</span><PaperPlaneTilt size={16} weight="regular" aria-hidden="true" />
+          </AppButton>
         </div>
-      )}
-
-      {/* Preguntas sugeridas (solo antes de empezar) */}
-      {!iniciado && (
-        <div className="mt-4 flex flex-wrap justify-center gap-2">
-          {preguntas.map((q: string, i: number) => (
-            <button
-              key={i}
-              onClick={() => enviar(q)}
-              className="rounded-full border border-slate-700 bg-slate-800/50 px-3 py-1.5 text-xs text-slate-300 transition hover:border-cyan-500/60 hover:text-cyan-300"
-            >
-              {q}
-            </button>
-          ))}
-        </div>
-      )}
-
-      {/* Conversación */}
-      {iniciado && (
-        <div ref={scrollRef} className="mt-4 max-h-96 space-y-3 overflow-y-auto pr-1">
-          {mensajes.map((m, i) => (
-            <div key={i} className={m.rol === 'user' ? 'flex justify-end' : 'flex justify-start'}>
-              {m.rol === 'user' ? (
-                <div className="max-w-[85%] rounded-2xl rounded-br-sm bg-cyan-600/20 px-3 py-2 text-sm text-cyan-50">
-                  {m.texto}
-                </div>
-              ) : (
-                <div className="max-w-[90%]">
-                  <div className="rounded-2xl rounded-bl-sm bg-slate-800/60 px-3 py-2 text-sm text-slate-200">
-                    <MensajeTexto texto={m.texto} />
-                  </div>
-                </div>
-              )}
-            </div>
-          ))}
-          {cargando && (
-            <div className="flex items-center gap-1.5 text-slate-400">
-              <span className="bot-onda inline-block h-3 w-1 rounded-full bg-cyan-400" />
-              <span
-                className="bot-onda inline-block h-3 w-1 rounded-full bg-cyan-400"
-                style={{ animationDelay: '0.15s' }}
-              />
-              <span
-                className="bot-onda inline-block h-3 w-1 rounded-full bg-cyan-400"
-                style={{ animationDelay: '0.3s' }}
-              />
-              <span className="ml-1 text-xs">Pensando…</span>
-            </div>
-          )}
-        </div>
-      )}
-
-      {error && <p className="mt-2 text-xs text-rose-400">{error}</p>}
-
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          enviar(input);
-        }}
-        className="mt-3 flex items-end gap-2"
-      >
-        <textarea
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' && !e.shiftKey) {
-              e.preventDefault();
-              enviar(input);
-            }
-          }}
-          rows={1}
-          placeholder="Escribile a tu agente…"
-          className="flex-1 resize-none rounded-lg border border-slate-700 bg-slate-950/60 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:border-cyan-500 focus:outline-none"
-        />
-        <button
-          type="submit"
-          disabled={cargando || !input.trim()}
-          className="rounded-lg bg-gradient-to-r from-cyan-500 to-violet-600 px-4 py-2 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-50"
-        >
-          Enviar
-        </button>
+        <p className={styles.inputHint}><span><LockSimple size={12} aria-hidden="true" />Sesión temporal: el historial se borra al salir.</span><span>Enter para enviar · Shift + Enter para nueva línea</span></p>
+        <p className={styles.disclaimer}><strong>Uso responsable:</strong> {getAgentDisclaimer(industry)}</p>
       </form>
-      <AiDisclaimer industry={industry} className="mt-3" />
     </div>
-  );
+  </section>;
 }

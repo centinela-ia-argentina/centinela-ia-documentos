@@ -10,6 +10,7 @@ import { getIndustryTerms, type IndustryTerms } from '@/lib/industries/uiLabels'
 import { esPlazoRadar } from '@/lib/plazos/plazos';
 import { getDocumentExpiryStatus } from '@/lib/documents/expiry';
 import { MotionCard } from '@/components/ui/MotionCard';
+import { isAiAudit, metadataText, parseStrictPositiveInteger, type AuditLogRecordForReport } from './reportHelpers';
 
 type ReportView = 'general' | 'gestion' | 'documentos' | 'auditoria';
 
@@ -66,17 +67,6 @@ interface AiOutputRecordForReport {
     sensibilidad_detectada?: string;
     caracteres_extraidos?: number;
   } | null;
-}
-
-interface AuditLogRecordForReport {
-  id: string;
-  organization_id?: string | null;
-  user_id?: string | null;
-  action: string;
-  resource_type?: string | null;
-  resource_id?: string | null;
-  created_at?: string | null;
-  metadata?: Record<string, unknown> | null;
 }
 
 interface ProfileRecordForReport {
@@ -248,19 +238,6 @@ function uniqueDocuments(documents: DocumentRecordForReport[]) {
   return Array.from(map.values());
 }
 
-function metadataText(
-  metadata: Record<string, unknown> | null | undefined,
-  key: string
-) {
-  const value = metadata?.[key];
-
-  if (typeof value === 'string') return value;
-  if (typeof value === 'number') return String(value);
-  if (typeof value === 'boolean') return value ? 'Sí' : 'No';
-
-  return null;
-}
-
 function getActorLabel(
   log: AuditLogRecordForReport,
   profilesById: Map<string, ProfileRecordForReport>
@@ -273,15 +250,6 @@ function getActorLabel(
   if (profile?.email) return profile.email;
 
   return `Usuario ${log.user_id.slice(0, 8)}...`;
-}
-
-export function parseStrictPositiveInteger(val: unknown): number | null {
-  if (val === null || val === undefined) return null;
-  const s = String(val).trim();
-  if (!/^[1-9]\d*$/.test(s)) return null;
-  const num = Number(s);
-  if (!Number.isSafeInteger(num) || num <= 0) return null;
-  return num;
 }
 
 function getActorRole(
@@ -386,18 +354,6 @@ function getAuditDetail(log: AuditLogRecordForReport) {
   if (details.length === 0) return 'Sin detalle adicional registrado.';
 
   return details.slice(0, 3).join(' · ');
-}
-
-export function isAiAudit(log: AuditLogRecordForReport) {
-  const action = log.action.toLowerCase();
-  return (
-    action.includes('analyzed') ||
-    action.startsWith('ai_') ||
-    action.includes('uif') ||
-    action.includes('ros') ||
-    action.includes('prescore') ||
-    metadataText(log.metadata, 'output_type') === 'document_analysis'
-  );
 }
 
 function isDocumentAudit(log: AuditLogRecordForReport) {

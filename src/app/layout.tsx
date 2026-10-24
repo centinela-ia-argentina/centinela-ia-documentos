@@ -1,7 +1,13 @@
 import type { Metadata } from 'next';
-import { Space_Grotesk } from 'next/font/google';
+import { Manrope, Space_Grotesk } from 'next/font/google';
 import { brand } from '@/config/brand';
 import './globals.css';
+
+const ui = Manrope({
+  subsets: ['latin'],
+  weight: ['400', '500', '600', '700'],
+  variable: '--font-ui',
+});
 
 const display = Space_Grotesk({
   subsets: ['latin'],
@@ -56,8 +62,8 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="es" className={`${display.variable}`}>
-      <body>{children}</body>
+    <html lang="es" className={`${ui.variable} ${display.variable}`}>
+      <body className="font-ui">{children}</body>
     </html>
   );
 }

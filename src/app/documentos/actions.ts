@@ -1,6 +1,7 @@
 'use server';
 
 import { randomUUID } from 'crypto';
+import { deleteDocumentSafely } from '@/lib/documents/deleteDocumentSafely';
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
@@ -1211,19 +1212,22 @@ export async function archiveDocument(formData: FormData) {
   if (!documentId) redirect('/documentos');
 
   const supabase = await createClient();
-  await supabase
+  const { data: changedRows, error: archiveError } = await supabase
     .from('documents')
     .update({ archived_at: new Date().toISOString() })
     .eq('id', documentId)
-    .eq('organization_id', profile.organization_id);
+    .eq('organization_id', profile.organization_id)
+    .select('id');
+  if (archiveError || changedRows?.length !== 1) redirect('/documentos?docarchive=failed');
 
-  await createAuditLog({
+  const audit = await createAuditLog({
     organizationId: profile.organization_id,
     userId: user.id,
     action: 'document_archived',
     resourceType: 'document',
     resourceId: documentId,
   });
+  if (!audit.ok) redirect('/documentos?docarchive=audit');
 
   revalidatePath('/documentos');
   revalidatePath(`/documentos/${documentId}`);
@@ -1242,164 +1246,67 @@ export async function unarchiveDocument(formData: FormData) {
   if (!documentId) redirect('/documentos');
 
   const supabase = await createClient();
-  await supabase
+  const { data: changedRows, error: archiveError } = await supabase
     .from('documents')
     .update({ archived_at: null })
     .eq('id', documentId)
-    .eq('organization_id', profile.organization_id);
+    .eq('organization_id', profile.organization_id)
+    .select('id');
+  if (archiveError || changedRows?.length !== 1) redirect('/documentos?docarchive=failed');
 
-  await createAuditLog({
+  const audit = await createAuditLog({
     organizationId: profile.organization_id,
     userId: user.id,
     action: 'document_unarchived',
     resourceType: 'document',
     resourceId: documentId,
   });
+  if (!audit.ok) redirect('/documentos?docarchive=audit');
 
   revalidatePath('/documentos');
   revalidatePath(`/documentos/${documentId}`);
   revalidatePath('/dashboard');
 }
 
-export async function deleteDocument(formData: FormData) {
+/** Both entry points share checked cleanup; no claim of cross-service atomicity. */
+async function deleteDocumentWithFeedback(formData: FormData, fromCase: boolean) {
   const { user, profile } = await getUserProfile();
   if (!user) redirect('/login');
   if (!profile) redirect('/onboarding');
   if (!isUserRole(profile.role) || !canDeleteDocument(profile.role)) {
     redirect('/acceso-denegado?motivo=rol&accion=subir');
   }
-
-  const documentId = formData.get('document_id') as string;
-  if (!documentId) redirect('/documentos');
-
+  const documentId = String(formData.get('document_id') || '');
+  const caseId = fromCase ? String(formData.get('case_id') || '') : '';
+  if (!documentId || (fromCase && !caseId)) redirect('/documentos?docdel=failed');
+  const destination = caseId ? `/expedientes/${encodeURIComponent(caseId)}?tab=documentos&` : '/documentos?';
   const supabase = await createClient();
-  const { data: docData } = await supabase
-    .from('documents')
-    .select('id, file_path, file_name')
-    .eq('id', documentId)
-    .eq('organization_id', profile.organization_id)
-    .maybeSingle();
-
-  if (!docData) redirect('/documentos');
-
-  // 1. Borrar el archivo del Storage
-  await supabase.storage.from('documents').remove([docData.file_path]);
-
-  // 2. DELETE FROM document_chunks
-  await supabase
-    .from('document_chunks')
-    .delete()
-    .eq('document_id', documentId)
-    .eq('organization_id', profile.organization_id);
-
-  // 3. DELETE FROM ai_outputs
-  await supabase
-    .from('ai_outputs')
-    .delete()
-    .eq('document_id', documentId)
-    .eq('organization_id', profile.organization_id);
-
-  // 4. Desvincular de checklists
-  await supabase
-    .from('checklist_items')
-    .update({ document_id: null, status: 'pending' })
-    .eq('document_id', documentId);
-
-  // 5. DELETE FROM documents
-  await supabase
-    .from('documents')
-    .delete()
-    .eq('id', documentId)
-    .eq('organization_id', profile.organization_id);
-
-  await createAuditLog({
-    organizationId: profile.organization_id,
-    userId: user.id,
-    action: 'document_deleted',
-    resourceType: 'document',
-    resourceId: documentId,
-    metadata: { file_name: docData.file_name },
+  const result = await deleteDocumentSafely(supabase, {
+    documentId, organizationId: profile.organization_id, ...(caseId ? { caseId } : {}),
   });
-
+  let feedback: string = result.status;
+  if (result.status === 'deleted') {
+    const audit = await createAuditLog({
+      organizationId: profile.organization_id,
+      userId: user.id,
+      action: 'document_deleted',
+      resourceType: 'document',
+      resourceId: documentId,
+      metadata: { file_name: result.fileName },
+    });
+    feedback = audit.ok ? 'ok' : 'audit';
+  }
   revalidatePath('/documentos');
+  revalidatePath(`/documentos/${documentId}`);
   revalidatePath('/dashboard');
-  redirect('/documentos');
+  if (caseId) revalidatePath(`/expedientes/${caseId}`);
+  redirect(`${destination}docdel=${feedback}`);
 }
 
-// Igual que deleteDocument, pero para usar DENTRO de un legajo:
-// en vez de mandarte a /documentos, refresca el legajo donde estás.
+export async function deleteDocument(formData: FormData) {
+  return deleteDocumentWithFeedback(formData, false);
+}
+
 export async function deleteDocumentFromCase(formData: FormData) {
-  const { user, profile } = await getUserProfile();
-  if (!user) redirect('/login');
-  if (!profile) redirect('/onboarding');
-  if (!isUserRole(profile.role) || !canDeleteDocument(profile.role)) {
-    redirect('/acceso-denegado?motivo=rol&accion=subir');
-  }
-
-  const documentId = formData.get('document_id') as string;
-  const caseId = formData.get('case_id') as string;
-  if (!documentId || !caseId) redirect(`/expedientes/${caseId || ''}`);
-
-  const supabase = await createClient();
-  const { data: docData } = await supabase
-    .from('documents')
-    .select('id, file_path, file_name')
-    .eq('id', documentId)
-    .eq('organization_id', profile.organization_id)
-    .maybeSingle();
-
-  if (!docData) redirect(`/expedientes/${caseId}`);
-
-  // 1. Borrar el archivo del Storage
-  await supabase.storage.from('documents').remove([docData.file_path]);
-
-  // 2. Borrar los fragmentos de búsqueda
-  await supabase
-    .from('document_chunks')
-    .delete()
-    .eq('document_id', documentId)
-    .eq('organization_id', profile.organization_id);
-
-  // 3. Borrar los análisis de IA de ese documento
-  await supabase
-    .from('ai_outputs')
-    .delete()
-    .eq('document_id', documentId)
-    .eq('organization_id', profile.organization_id);
-
-  // 4. Liberar el ítem del checklist que lo tuviera vinculado
-  await supabase
-    .from('checklist_items')
-    .update({ document_id: null, status: 'pending' })
-    .eq('document_id', documentId);
-
-  // 5. Borrar el documento (con diagnóstico de por qué falla)
-  const { data: filasBorradas, error: errorBorrado } = await supabase
-    .from('documents')
-    .delete()
-    .eq('id', documentId)
-    .eq('organization_id', profile.organization_id)
-    .select('id');
-
-  if (errorBorrado) {
-    console.error('deleteDocumentFromCase error:', errorBorrado);
-    redirect(`/expedientes/${caseId}?docdel=error`);
-  }
-  if (!filasBorradas || filasBorradas.length === 0) {
-    redirect(`/expedientes/${caseId}?docdel=error`);
-  }
-
-  await createAuditLog({
-    organizationId: profile.organization_id,
-    userId: user.id,
-    action: 'document_deleted',
-    resourceType: 'document',
-    resourceId: documentId,
-    metadata: { file_name: docData.file_name },
-  });
-
-  revalidatePath(`/expedientes/${caseId}`);
-  revalidatePath('/documentos');
-  revalidatePath('/dashboard');
-  redirect(`/expedientes/${caseId}?docdel=ok`);
+  return deleteDocumentWithFeedback(formData, true);
 }

@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 
 vi.mock('server-only', () => ({}));
 
-import { filterAgendaDocuments, type AgendaDocumentRecord } from './page';
+import { filterAgendaDocuments, type AgendaDocumentRecord } from './agendaDocuments';
 import { isCaseTypeCompatibleWithIndustry } from '@/lib/industries/caseConfig';
 
 describe('Agenda Document Filtering by Vertical Compatibility and Org Scope', () => {

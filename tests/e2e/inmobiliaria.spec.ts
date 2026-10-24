@@ -1,9 +1,16 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
 import { createClient } from '@supabase/supabase-js';
-import { loginAs } from './helpers';
+import { loginAs, openChecklistManagement, confirmChecklistReview } from './helpers';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'http://127.0.0.1:54321';
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+// This suite creates and removes fixtures. Never run it against a remote backend.
+for (const destination of [supabaseUrl, process.env.PLAYWRIGHT_BASE_URL || 'http://127.0.0.1:3000']) {
+  const url = new URL(destination);
+  if (url.protocol !== 'http:' || !['127.0.0.1', 'localhost', '[::1]'].includes(url.hostname) || url.username || url.password) {
+    throw new Error('Inmobiliaria E2E requires an explicit loopback-only test environment');
+  }
+}
 const serviceClient = createClient(supabaseUrl, supabaseServiceKey, {
   auth: { autoRefreshToken: false, persistSession: false },
 });
@@ -11,6 +18,22 @@ const serviceClient = createClient(supabaseUrl, supabaseServiceKey, {
 const ORG_INM_ID = '22222222-2222-2222-2222-222222222222';
 const CASE_INM_ID = 'dddd2222-2222-2222-2222-222222222222';
 const CASE_LEGAL_ID = 'cccc1111-1111-1111-1111-111111111111';
+
+async function selectWizardOption(page: Page, label: string, option: RegExp) {
+  await page.getByRole('button', { name: label, exact: true }).click();
+  await page.getByRole('listbox', { name: label, exact: true }).getByRole('option', { name: option }).click();
+}
+
+async function expectSingleFormValues(page: Page, values: Record<string, string>) {
+  const entries = await page.locator('form').filter({ has: page.getByRole('list', { name: 'Progreso de creación', exact: true }) }).evaluate((form) => {
+    const data = new FormData(form as HTMLFormElement);
+    return [...data.entries()].map(([key, value]) => [key, String(value)]);
+  });
+  for (const [key, value] of Object.entries(values)) {
+    expect(entries.filter(([entryKey]) => entryKey === key).map(([, entryValue]) => entryValue), key).toEqual([value]);
+  }
+}
+
 
 test.describe.serial('Anulus AI - Inmobiliaria E2E', () => {
   let tempCaseId = '';
@@ -155,11 +178,10 @@ test.describe.serial('Anulus AI - Inmobiliaria E2E', () => {
     try {
       await page.goto('/expedientes/nuevo');
 
-      const caseType = page.locator('[data-testid="case-type"]');
-      await expect(caseType).toBeVisible();
-
-      const values = await caseType.locator('option').evaluateAll(
-        options => options.map(option => (option as HTMLOptionElement).value)
+      const typeOptions = page.getByRole('group', { name: 'Tipo de operación', exact: true }).getByRole('radio');
+      await expect(typeOptions).toHaveCount(4);
+      const values = await typeOptions.evaluateAll(
+        options => options.map(option => (option as HTMLInputElement).value)
       );
 
       expect(values).toContain('Compraventa de inmueble');
@@ -179,19 +201,94 @@ test.describe.serial('Anulus AI - Inmobiliaria E2E', () => {
     }
   });
 
+  test('D2. El wizard bloquea un título vacío sin crear registros', async ({ browser }) => {
+    const { context, page } = await loginAs(browser, 'admin.inm@test.com');
+    try {
+      await page.goto('/operaciones/nueva');
+      // Observe native submit events before navigation: React must not reuse
+      // the clicked Continue button as the final submit button.
+      await page.locator('form').filter({ has: page.getByTestId('case-title') }).evaluate((form) => {
+        form.setAttribute('data-e2e-submit-count', '0');
+        form.addEventListener('submit', () => {
+          const count = Number(form.getAttribute('data-e2e-submit-count'));
+          form.setAttribute('data-e2e-submit-count', String(count + 1));
+        });
+      });
+      await page.getByRole('button', { name: 'Continuar', exact: true }).click();
+      await expect(page.getByTestId('case-client')).toBeVisible();
+      await page.getByRole('button', { name: 'Continuar', exact: true }).click();
+      await expect(page.getByTestId('case-submit')).toBeVisible();
+      await expect(page.locator('form[data-e2e-submit-count]')).toHaveAttribute('data-e2e-submit-count', '0');
+      let submits = 0;
+      const onRequest = (request: import('@playwright/test').Request) => {
+        if (request.method() === 'POST' && request.url().includes('/operaciones/nueva')) submits += 1;
+      };
+      page.on('request', onRequest);
+      await page.getByTestId('case-submit').click();
+      await expect(page.getByTestId('case-title')).toBeVisible();
+      await expect(page.getByTestId('case-title')).toBeFocused();
+      await expect(page).toHaveURL(/\/operaciones\/nueva$/);
+      expect(submits).toBe(0);
+      await expect(page.locator('form[data-e2e-submit-count]')).toHaveAttribute('data-e2e-submit-count', '1');
+      page.off('request', onRequest);
+    } finally {
+      await page.close();
+      await context.close();
+    }
+  });
+
   test('E. Checklist automático', async ({ browser }) => {
     const { context, page } = await loginAs(browser, 'admin.inm@test.com');
     try {
-      await page.goto('/expedientes/nuevo');
+      await page.goto('/operaciones/nueva');
 
       const uniqueTitle = `Operacion E2E ${Date.now()}`;
-      await page.fill('[data-testid="case-title"]', uniqueTitle);
-      await page.fill('[data-testid="case-client"]', 'Cliente Prueba');
-      await page.selectOption('[data-testid="case-type"]', 'Compraventa de inmueble');
-      await page.click('[data-testid="case-submit"]');
+      await page.getByTestId('case-title').fill(uniqueTitle);
+      await page.getByRole('radio', { name: /Compraventa de inmueble/ }).locator('..').click();
+      await expect(page.getByRole('radio', { name: /Compraventa de inmueble/ })).toBeChecked();
+      await selectWizardOption(page, 'Estado inicial', /Disponible/);
+      await page.getByRole('button', { name: 'Continuar', exact: true }).click();
+      await page.getByTestId('case-client').fill('Cliente Prueba');
+      await page.getByRole('button', { name: 'Continuar', exact: true }).click();
+      const metadata = {
+        direccion_inmueble: 'Dirección de fixture E2E', contraparte: 'Contraparte de fixture',
+        valor_operacion: '120000', moneda_operacion: 'USD', fecha_relevante: '2026-10-15', sensibilidad: 'Alta',
+      };
+      await page.getByLabel('Dirección del inmueble', { exact: true }).fill(metadata.direccion_inmueble);
+      await page.getByLabel('Cliente / contraparte', { exact: true }).fill(metadata.contraparte);
+      await page.getByLabel('Valor de la operación', { exact: true }).fill(metadata.valor_operacion);
+      await page.getByLabel('Fecha relevante', { exact: true }).fill(metadata.fecha_relevante);
+      await selectWizardOption(page, 'Moneda de la operación', /USD/);
+      await selectWizardOption(page, 'Nivel de sensibilidad', /Alta/);
+      const submittedValues = {
+        title: uniqueTitle, case_type: 'Compraventa de inmueble', status: 'active',
+        client_name: 'Cliente Prueba', property_id: '',
+        ...Object.fromEntries(Object.entries(metadata).map(([key, value]) => [`case_metadata.${key}`, value])),
+      };
+      await expectSingleFormValues(page, submittedValues);
+      // Back/forward navigation must preserve all controls, including unmounted ones.
+      await page.getByRole('button', { name: 'Anterior', exact: true }).click();
+      await expect(page.getByTestId('case-client')).toHaveValue('Cliente Prueba');
+      await expectSingleFormValues(page, submittedValues);
+      await page.getByRole('button', { name: 'Anterior', exact: true }).click();
+      await expect(page.getByTestId('case-title')).toHaveValue(uniqueTitle);
+      await expectSingleFormValues(page, submittedValues);
+      await page.getByRole('button', { name: 'Continuar', exact: true }).click();
+      await page.getByRole('button', { name: 'Continuar', exact: true }).click();
+      await expect(page.getByLabel('Fecha relevante', { exact: true })).toHaveValue(metadata.fecha_relevante);
+      await expectSingleFormValues(page, submittedValues);
+      await page.getByTestId('case-submit').click();
 
-      await expect(page).toHaveURL(/\/expedientes\/[a-f0-9\-]+/);
+      await expect(page).toHaveURL(/\/operaciones\/[a-f0-9\-]+/);
       tempCaseId = page.url().split('/').pop() || '';
+      const { data: persistedCase, error: caseError } = await serviceClient.from('cases')
+        .select('title, client_name, case_type, status, property_id, metadata, organization_id')
+        .eq('id', tempCaseId).single();
+      expect(caseError).toBeNull();
+      expect(persistedCase).toMatchObject({
+        title: uniqueTitle, client_name: 'Cliente Prueba', case_type: 'Compraventa de inmueble',
+        status: 'active', property_id: null, metadata, organization_id: ORG_INM_ID,
+      });
 
       const { data: checklists, error: chkErr } = await serviceClient
         .from('checklists')
@@ -250,32 +347,51 @@ test.describe.serial('Anulus AI - Inmobiliaria E2E', () => {
       await expect(page.locator('text=Cartera de propiedades')).toBeVisible();
 
       await page.goto('/propiedades/nueva');
-      await expect(page.locator('text=Alta de ficha técnica')).toBeVisible();
+      await expect(page.getByRole('heading', { name: 'Nueva propiedad', level: 1, exact: true })).toBeVisible();
 
-      const nameInput = page.locator('input[name="name"]');
+      const nameInput = page.getByLabel('Nombre de la propiedad *', { exact: true });
+      const totalInput = page.getByLabel('Superficie total (m²)', { exact: true });
+      const roomsInput = page.getByLabel('Ambientes', { exact: true });
       await expect(nameInput).toBeVisible();
-      const currencySelect = page.locator('select[name="currency"]');
-      await expect(currencySelect).toBeVisible();
+      await expect(totalInput).toBeVisible();
+      await expect(roomsInput).toBeVisible();
 
-      const currencyOptions = await currencySelect.locator('option').evaluateAll(
-        opts => opts.map(o => (o as HTMLOptionElement).value)
-      );
-      expect(currencyOptions).toContain('USD');
-      expect(currencyOptions).toContain('ARS');
+      // SelectField exposes an accessible button/listbox and one submitted value,
+      // not a native select. Exercise both currencies without submitting a fixture.
+      const currencyTrigger = page.getByRole('button', { name: 'Moneda', exact: true });
+      const currencyValue = page.locator('input[type="hidden"][name="currency"]');
+      await expect(currencyTrigger).toBeVisible();
+      await expect(currencyValue).toHaveCount(1);
+      await expect(currencyValue).toHaveValue('USD');
+      await currencyTrigger.click();
+      const currencyOptions = page.getByRole('listbox', { name: 'Moneda', exact: true });
+      await expect(currencyOptions.getByRole('option')).toHaveCount(2);
+      await expect(currencyOptions.getByRole('option', { name: /^USD/ })).toBeVisible();
+      await expect(currencyOptions.getByRole('option', { name: /^ARS/ })).toBeVisible();
+      await currencyOptions.getByRole('option', { name: /^ARS/ }).click();
+      await expect(currencyValue).toHaveValue('ARS');
+      await expect(currencyTrigger).toContainText('ARS');
+      await expect(currencyTrigger).toBeFocused();
+      await selectWizardOption(page, 'Moneda', /^USD/);
+      await expect(currencyValue).toHaveValue('USD');
+      await expect(currencyTrigger).toContainText('USD');
 
-      await expect(page.locator('input[name="surface_total_m2"]')).toBeVisible();
-      await expect(page.locator('input[name="rooms"]')).toBeVisible();
-
-      // Validación de conducta de entrada en campos técnicos
+      // Keep the original input assertions and cover decimal entry as well.
       await nameInput.fill('Propiedad QA Test');
-      await currencySelect.selectOption('USD');
-      await page.locator('input[name="surface_total_m2"]').fill('120');
-      await page.locator('input[name="rooms"]').fill('3');
-
-      expect(await nameInput.inputValue()).toBe('Propiedad QA Test');
-      expect(await currencySelect.inputValue()).toBe('USD');
-      expect(await page.locator('input[name="surface_total_m2"]').inputValue()).toBe('120');
-      expect(await page.locator('input[name="rooms"]').inputValue()).toBe('3');
+      await totalInput.fill('120.50');
+      await roomsInput.fill('3');
+      await expect(nameInput).toHaveValue('Propiedad QA Test');
+      await expect(totalInput).toHaveValue('120.50');
+      await expect(roomsInput).toHaveValue('3');
+      const form = page.locator('form').filter({ has: nameInput });
+      const submittedValues = await form.evaluate(element => {
+        const data = new FormData(element as HTMLFormElement);
+        return ['name', 'currency', 'surface_total_m2', 'rooms'].map(key => [key, data.getAll(key)]);
+      });
+      expect(submittedValues).toEqual([
+        ['name', ['Propiedad QA Test']], ['currency', ['USD']],
+        ['surface_total_m2', ['120.50']], ['rooms', ['3']],
+      ]);
     } finally {
       await page.close();
       await context.close();
@@ -289,7 +405,7 @@ test.describe.serial('Anulus AI - Inmobiliaria E2E', () => {
       await expect(page.locator('text=Clientes e interesados')).toBeVisible();
 
       await page.goto('/clientes/nuevo');
-      await expect(page.locator('text=Registrar contacto o interesado')).toBeVisible();
+      await expect(page.getByRole('heading', { name: 'Registrar nuevo cliente', exact: true })).toBeVisible();
       await expect(page.locator('input[name="name"]')).toBeVisible();
       await expect(page.locator('select[name="client_type"]')).toBeVisible();
 
@@ -318,7 +434,7 @@ test.describe.serial('Anulus AI - Inmobiliaria E2E', () => {
     try {
       await page.goto('/alquileres');
       await expect(
-        page.getByRole('heading', { name: 'Radar de alquileres', exact: true })
+        page.getByRole('heading', { name: 'Alquileres', exact: true })
       ).toBeVisible();
     } finally {
       await page.close();
@@ -334,15 +450,34 @@ test.describe.serial('Anulus AI - Inmobiliaria E2E', () => {
       await expect(page.locator('text=Pre-Score de Inquilino y Garantía')).toHaveCount(0);
 
       // 2. Creamos una operación de Alquiler para verificar que SÍ muestre Pre-Score
-      await page.goto('/expedientes/nuevo');
+      await page.goto('/operaciones/nueva');
       const rentalTitle = `Alquiler QA E2E ${Date.now()}`;
-      await page.fill('[data-testid="case-title"]', rentalTitle);
-      await page.fill('[data-testid="case-client"]', 'Inquilino Postulante QA');
-      await page.selectOption('[data-testid="case-type"]', 'Alquiler');
-      await page.click('[data-testid="case-submit"]');
+      await page.getByTestId('case-title').fill(rentalTitle);
+      await page.getByRole('radio', { name: /Alquiler/ }).locator('..').click();
+      await expect(page.getByRole('radio', { name: /Alquiler/ })).toBeChecked();
+      await page.getByRole('button', { name: 'Continuar', exact: true }).click();
+      await page.getByTestId('case-client').fill('Inquilino Postulante QA');
+      await page.getByRole('button', { name: 'Continuar', exact: true }).click();
+      await expectSingleFormValues(page, {
+        title: rentalTitle, case_type: 'Alquiler', status: 'new',
+        client_name: 'Inquilino Postulante QA', property_id: '',
+      });
+      await page.getByTestId('case-submit').click();
 
-      await expect(page).toHaveURL(/\/expedientes\/[a-f0-9\-]+/);
+      await expect(page).toHaveURL(/\/operaciones\/[a-f0-9\-]+/);
       tempRentalCaseId = page.url().split('/').pop() || '';
+      const { data: persistedRental, error: rentalError } = await serviceClient.from('cases')
+        .select('title, client_name, case_type, status, property_id, metadata, organization_id')
+        .eq('id', tempRentalCaseId).single();
+      expect(rentalError).toBeNull();
+      expect(persistedRental).toMatchObject({
+        title: rentalTitle, client_name: 'Inquilino Postulante QA', case_type: 'Alquiler',
+        status: 'new', property_id: null, metadata: {}, organization_id: ORG_INM_ID,
+      });
+      const { data: rentalChecklists, error: rentalChecklistError } = await serviceClient.from('checklists')
+        .select('template_type, organization_id').eq('case_id', tempRentalCaseId);
+      expect(rentalChecklistError).toBeNull();
+      expect(rentalChecklists).toEqual([{ template_type: 'Alquiler', organization_id: ORG_INM_ID }]);
 
       // En la operación de alquiler debe renderizarse el contenedor de Pre-Score
       await expect(page.locator('text=Pre-Score de Inquilino y Garantía')).toBeVisible();
@@ -384,7 +519,7 @@ test.describe.serial('Anulus AI - Inmobiliaria E2E', () => {
       // Pestaña Cronología debe tener botón adaptado para Inmobiliaria
       const cronTab = page.locator('button, a', { hasText: 'Cronología' }).first();
       await cronTab.click();
-      await expect(page.locator('button', { hasText: 'Agregar movimiento' })).toBeVisible();
+      await expect(page.getByRole('button', { name: 'Agregar movimiento', exact: true })).toBeVisible();
     } finally {
       await page.close();
       await context.close();
@@ -463,7 +598,7 @@ test.describe.serial('Anulus AI - Inmobiliaria E2E', () => {
         .insert({
           organization_id: ORG_INM_ID,
           checklist_id: fixtChecklistId,
-          title: `Documento prueba ${uniqueSuffix}`,
+          title: `Título de propiedad ${uniqueSuffix}`,
           status: 'pending',
         })
         .select('id')
@@ -478,7 +613,7 @@ test.describe.serial('Anulus AI - Inmobiliaria E2E', () => {
         .insert({
           organization_id: ORG_INM_ID,
           case_id: fixtCaseId,
-          file_name: `doc-checklist-e2e-${uniqueSuffix}.pdf`,
+          file_name: `titulo-propiedad-${uniqueSuffix}.pdf`,
           file_path: `${ORG_INM_ID}/${fixtCaseId}/doc-checklist-e2e-${uniqueSuffix}.pdf`,
           file_size: 1024,
           file_mime_type: 'application/pdf',
@@ -496,24 +631,53 @@ test.describe.serial('Anulus AI - Inmobiliaria E2E', () => {
       ({ context, page } = await loginAs(browser, 'admin.inm@test.com'));
 
       // 6. Navegar al checklist de la operación creada
+      // Mounting every tab, switching tabs and reloading must not start an action.
+      const automaticRequests: string[] = [];
+      page.on('request', request => {
+        if (request.method() === 'POST' && request.headers()['next-action']) automaticRequests.push(request.url());
+      });
       await page.goto(`/operaciones/${fixtCaseId}?tab=checklist`);
-      const linkToggle = page.locator('[data-testid="checklist-link-toggle-0"]').first();
-      await expect(linkToggle).toBeVisible({ timeout: 15000 });
+      await expect(page.getByTestId('checklist-status-badge-0')).toHaveText('Pendiente');
+      await page.getByRole('tab', { name: 'Resumen', exact: true }).click();
+      await page.getByRole('tab', { name: 'Checklist', exact: true }).click();
+      await page.reload();
+      await expect(page.getByTestId('checklist-status-badge-0')).toHaveText('Pendiente');
+      const { data: beforeDetection, error: beforeError } = await serviceClient.from('checklist_items')
+        .select('document_id, match_source, status').eq('id', fixtItemId).single();
+      expect(beforeError).toBeNull();
+      expect(beforeDetection).toEqual({ document_id: null, match_source: null, status: 'pending' });
+      expect(automaticRequests).toEqual([]);
 
-      await linkToggle.click();
-
-      const form = linkToggle.locator('..');
-      const docSelect = form.locator('select[name="document_id"]').first();
+      // Detection remains available, but only after the explicit review/confirmation.
+      await page.getByRole('button', { name: 'Detectar documentos ya cargados', exact: true }).click();
+      expect(automaticRequests).toEqual([]);
+      const { data: beforeConfirmation } = await serviceClient.from('checklist_items')
+        .select('status').eq('id', fixtItemId).single();
+      expect(beforeConfirmation?.status).toBe('pending');
+      await confirmChecklistReview(page, 'Detectar documentos ya cargados');
+      await expect(page.getByTestId('checklist-status-badge-0')).toHaveText('Recibido');
+      const { data: afterDetection, error: detectionError } = await serviceClient.from('checklist_items')
+        .select('document_id, match_source, status').eq('id', fixtItemId).single();
+      expect(detectionError).toBeNull();
+      expect(afterDetection).toEqual({ document_id: fixtDocId, match_source: 'automatic', status: 'received' });
+      // The reviewed action revalidates without redirecting; close the still-open
+      // dialog explicitly, as an operator would, before continuing with the row.
+      const detectionDialog = page.getByRole('dialog', { name: 'Detectar documentos ya cargados', exact: true });
+      await detectionDialog.getByRole('button', { name: 'Cerrar', exact: true }).click();
+      await expect(detectionDialog).not.toBeVisible();
+      const row = await openChecklistManagement(page);
+      const docSelect = row.getByTestId('select-doc-0');
       await expect.poll(async () => docSelect.locator('option').count(), { timeout: 10000 }).toBeGreaterThan(1);
 
       // 7. Vincular manualmente al documento propio
       await docSelect.selectOption(fixtDocId);
-      const saveBtn = form.locator('button', { hasText: 'Guardar' }).first();
+      const saveBtn = row.getByTestId('btn-guardar-doc-0');
       await saveBtn.click();
+      await confirmChecklistReview(page, 'Revisar vínculo');
 
       await expect(page).toHaveURL(/checklist_document=linked/);
       await expect(page.locator('[data-testid="checklist-document-feedback"]')).toContainText('Documento vinculado correctamente');
-      await expect(page.locator('[data-testid="checklist-badge-manual-0"]')).toBeVisible();
+      await expect(page.getByTestId('checklist-linked-info-0').getByText('Manual', { exact: true })).toBeVisible();
 
       // 8. Verificar persistencia en DB: document_id, match_source=manual, status=received
       const { data: itemAfterLink } = await serviceClient
@@ -527,22 +691,21 @@ test.describe.serial('Anulus AI - Inmobiliaria E2E', () => {
 
       // 9. Persistencia en UI tras recarga
       await page.reload();
-      await expect(page.locator('[data-testid="checklist-badge-manual-0"]')).toBeVisible();
+      await expect(page.getByTestId('checklist-linked-info-0').getByText('Manual', { exact: true })).toBeVisible();
 
       // 10. Desvincular
-      const toggleAfterReload = page.locator('[data-testid="checklist-link-toggle-0"]').first();
-      await toggleAfterReload.click();
-      const formAfterReload = toggleAfterReload.locator('..');
-      const selectAfterReload = formAfterReload.locator('select[name="document_id"]').first();
+      const rowAfterReload = await openChecklistManagement(page);
+      const selectAfterReload = rowAfterReload.getByTestId('select-doc-0');
       await selectAfterReload.selectOption('');
-      const saveBtnUnlink = formAfterReload.locator('button', { hasText: 'Guardar' }).first();
+      const saveBtnUnlink = rowAfterReload.getByTestId('btn-guardar-doc-0');
       await saveBtnUnlink.click();
+      await confirmChecklistReview(page, 'Revisar vínculo');
 
       await expect(page).toHaveURL(/checklist_document=unlinked/);
       await expect(page.locator('[data-testid="checklist-document-feedback"]')).toContainText('Documento desvinculado correctamente');
-      await expect(page.locator('[data-testid="checklist-badge-manual-0"]')).toBeHidden();
-      await expect(page.locator('[data-testid="checklist-toggle-0"]')).toHaveAttribute('aria-label', 'Marcar como pendiente');
-      await expect(page.getByText('Documentación completa', { exact: false })).toBeVisible();
+      await expect(page.getByTestId('checklist-linked-info-0').getByText('Manual', { exact: true })).toBeHidden();
+      await expect(page.getByTestId('checklist-status-badge-0')).toHaveText('Recibido');
+      await expect(page.getByRole('heading', { name: 'Requisitos completos por estado', exact: true })).toBeVisible();
 
       // 11. Verificar persistencia de desvinculación manual en DB, conservación del estado y protección frente al auto-match
       const { data: itemAfterUnlink } = await serviceClient
@@ -556,23 +719,22 @@ test.describe.serial('Anulus AI - Inmobiliaria E2E', () => {
 
       // 12. Persistencia de desvinculación en UI tras recarga
       await page.reload();
-      await expect(page.locator('[data-testid="checklist-badge-manual-0"]')).toBeHidden();
-      await expect(page.locator('[data-testid="checklist-toggle-0"]')).toHaveAttribute('aria-label', 'Marcar como pendiente');
-      await expect(page.getByText('Documentación completa', { exact: false })).toBeVisible();
+      await expect(page.getByTestId('checklist-linked-info-0').getByText('Manual', { exact: true })).toBeHidden();
+      await expect(page.getByTestId('checklist-status-badge-0')).toHaveText('Recibido');
+      await expect(page.getByRole('heading', { name: 'Requisitos completos por estado', exact: true })).toBeVisible();
 
       // 13. Verificar que checklist e ítem siguen existiendo (no se eliminaron)
       const { data: stillItem } = await serviceClient.from('checklist_items').select('id').eq('id', fixtItemId).single();
       expect(stillItem?.id).toBe(fixtItemId);
 
       // 14. Reversibilidad: volver a vincular
-      const toggleFinal = page.locator('[data-testid="checklist-link-toggle-0"]').first();
-      await toggleFinal.click();
-      const formFinal = toggleFinal.locator('..');
-      const selectFinal = formFinal.locator('select[name="document_id"]').first();
+      const rowFinal = await openChecklistManagement(page);
+      const selectFinal = rowFinal.getByTestId('select-doc-0');
       await selectFinal.selectOption(fixtDocId);
-      await formFinal.locator('button', { hasText: 'Guardar' }).first().click();
+      await rowFinal.getByTestId('btn-guardar-doc-0').click();
+      await confirmChecklistReview(page, 'Revisar vínculo');
       await expect(page).toHaveURL(/checklist_document=linked/);
-      await expect(page.locator('[data-testid="checklist-badge-manual-0"]')).toBeVisible();
+      await expect(page.getByTestId('checklist-linked-info-0').getByText('Manual', { exact: true })).toBeVisible();
     } finally {
       // Siempre se ejecuta: cierra browser y limpia todos los fixtures en orden correcto
       if (page) await page.close().catch(() => {});

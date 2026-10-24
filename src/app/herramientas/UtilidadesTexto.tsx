@@ -232,6 +232,7 @@ export function UtilidadesTexto() {
 						<button
 							key={t.id}
 							onClick={() => setTab(t.id)}
+                            aria-pressed={tab === t.id}
 							className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium ${tab === t.id ? 'bg-emerald-600 text-white' : 'border border-slate-200 text-slate-600 hover:bg-slate-50'}`}
 						>
 							<Icon size={16} />

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { getAiDisclaimer } from './disclaimers';
+import { getAgentDisclaimer, getAiDisclaimer } from './disclaimers';
 
 describe('C-M3-J-002: AI Disclaimers per vertical', () => {
   it('returns legal disclaimer with explicit legal assistance reservation', () => {
@@ -25,5 +25,12 @@ describe('C-M3-J-002: AI Disclaimers per vertical', () => {
 
     const textEmpty = getAiDisclaimer(undefined);
     expect(textEmpty).toContain('Todo resultado debe ser revisado por un profesional');
+  });
+
+  it('returns a task-specific real estate disclaimer for the global agent', () => {
+    const text = getAgentDisclaimer('inmobiliaria');
+    expect(text).toContain('organiza y orienta');
+    expect(text).toContain('Verificá documentos, fechas e importes');
+    expect(text).toContain('no reemplaza una tasación');
   });
 });

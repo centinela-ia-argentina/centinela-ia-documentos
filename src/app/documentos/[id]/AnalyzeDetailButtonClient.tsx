@@ -19,7 +19,7 @@ export function AnalyzeDetailButtonClient({ documentId, label }: { documentId: s
     <MotionButton
       onClick={handleAnalyze}
       disabled={isPending}
-      className={`w-full bg-gradient-to-r from-accent to-brandviolet px-5 py-3 text-sm font-bold text-white ${isPending ? 'cursor-not-allowed opacity-70' : ''}`}
+      className={`w-full px-5 py-3 text-sm ${isPending ? 'cursor-not-allowed opacity-70' : ''}`}
     >
       {isPending ? (
         <span className="flex items-center justify-center gap-2">
