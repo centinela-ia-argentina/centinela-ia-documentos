@@ -15,19 +15,21 @@
   --accent-strong: #25272a;
   color-scheme: light;
   font-family: var(--font-ui), sans-serif;
-  min-height: calc(100dvh - 32px);
-  margin: 16px;
-  border: 1px solid #d5d7d8;
-  border-radius: 10px;
+  position: relative;
+  min-height: 100dvh;
+  margin: 0;
+  border: 0;
+  border-radius: 0;
   background: #fafafa;
   color: #25272a;
-  box-shadow: 0 12px 40px #1c232809;
+  box-shadow: none;
 }
 .workspace { min-width: 0; margin-left: 226px; }
-.main { width: 100%; max-width: 1600px; margin: 0 auto; padding: 28px 30px; }
+/* Keep the browser as the page scroll owner: no nested main scroller. */
+.main { width: 100%; min-width: 0; padding: 28px 30px; }
 .skip { position: fixed; left: 30px; top: -100px; z-index: 100; padding: 10px 14px; background: #fff; color: #25272a; border: 2px solid #3d526c; border-radius: 5px; }
 .skip:focus { top: 24px; }
-.sidebar { position: fixed; inset: 17px auto 17px 17px; z-index: 30; display: flex; flex-direction: column; width: 226px; border-right: 1px solid #e3e4e5; border-radius: 9px 0 0 9px; background: #fcfcfc; color: #25272a; }
+.sidebar { position: fixed; inset: 0 auto 0 0; z-index: 30; display: flex; flex-direction: column; width: 226px; border-right: 1px solid #e3e4e5; border-radius: 0; background: #fcfcfc; color: #25272a; }
 .brand { display: block; padding: 23px 21px 18px; border-bottom: 1px solid #ececed; }
 .brandName { font-family: var(--font-display), sans-serif; font-size: 19px; font-weight: 600; letter-spacing: -.7px; }
 .brandNote { display: block; margin-top: 4px; color: #777e84; font-size: 9px; letter-spacing: .06em; text-transform: uppercase; }
@@ -49,7 +51,8 @@
 .accountMenu { position: absolute; bottom: calc(100% + 4px); inset-inline: 10px; z-index: 45; padding: 5px; border: 1px solid #d2d8dd; border-radius: 6px; background: #fff; color: #25272a; box-shadow: 0 7px 20px #1b26341a; }
 .accountAction { display: flex; align-items: center; gap: 8px; min-height: 40px; width: 100%; padding: 8px 10px; border-radius: 3px; color: #50565d; text-align: left; font-size: 12px; }
 .accountAction:hover { background: #f1f3f4; }
-.topbar { position: sticky; top: 16px; z-index: 20; border-bottom: 1px solid #e6e7e7; border-radius: 0 9px 0 0; background: #fdfdfd; color: #62676d; }
+/* Normal flow reserves the header space; it scrolls away rather than covering titles. */
+.topbar { position: relative; z-index: 20; border-bottom: 1px solid #e6e7e7; border-radius: 0; background: #fdfdfd; color: #62676d; }
 .barContent { display: flex; align-items: center; justify-content: space-between; gap: 14px; min-height: 57px; padding: 8px 30px; }
 .scope { display: flex; align-items: center; gap: 8px; min-width: 0; font-size: 11px; }
 .scopeText { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -64,12 +67,10 @@
 .drawerBody { display: flex; min-height: 0; flex-direction: column; overflow-y: auto; }
 .shell :is(a, button, summary):focus-visible { outline: 2px solid #3d526c; outline-offset: 3px; }
 @media(max-width: 1023px) {
-  .shell { margin: 12px; min-height: calc(100dvh - 24px); }
   .sidebar { display: none; }
   .workspace { margin-left: 0; }
-  .topbar { top: 12px; border-radius: 9px 9px 0 0; }
   .barContent { padding-left: 60px; padding-right: 14px; min-height: 57px; }
-  .mobileTrigger { position: fixed; top: 24px; left: 26px; z-index: 25; display: inline-flex; }
+  .mobileTrigger { position: absolute; top: 8px; left: 14px; z-index: 25; display: inline-flex; }
   .main { padding: 24px; }
 }
 @media(max-width: 600px) {
