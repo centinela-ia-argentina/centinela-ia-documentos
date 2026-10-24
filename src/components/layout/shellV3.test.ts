@@ -156,3 +156,28 @@ describe('Style migration boundaries', () => {
     expect(css).toContain('@media (forced-colors: active)');
   });
 });
+
+describe('Full viewport shell without scroll overlays', () => {
+  const shellCss = readFileSync('src/components/layout/Shell.module.css', 'utf8');
+  it('removes the presentation frame and arbitrary main width cap', () => {
+    const shell = shellCss.split('.workspace')[0];
+    expect(shell).toContain('min-height: 100dvh');
+    expect(shell).toContain('margin: 0');
+    expect(shell).toContain('border-radius: 0');
+    expect(shell).toContain('box-shadow: none');
+    expect(shellCss).not.toContain('max-width: 1600px');
+    expect(shellCss).not.toContain('100dvh - 32px');
+    expect(shellCss).not.toContain('.shell { margin: 12px;');
+  });
+  it('keeps header and mobile trigger in document flow, with a flush desktop rail', () => {
+    const header = shellCss.match(/\.topbar \{([^}]+)\}/)?.[1];
+    expect(header).toContain('position: relative');
+    expect(header).not.toMatch(/sticky|fixed|top:/);
+    expect(shellCss).toContain('inset: 0 auto 0 0');
+    expect(shellCss).toContain('.mobileTrigger { position: absolute; top: 8px; left: 14px;');
+    expect(shellCss).not.toContain('.mobileTrigger { position: fixed');
+    const main = shellCss.match(/\.main \{([^}]+)\}/)?.[1];
+    expect(main).not.toContain('overflow');
+    expect(main).toContain('padding: 28px 30px');
+  });
+});
