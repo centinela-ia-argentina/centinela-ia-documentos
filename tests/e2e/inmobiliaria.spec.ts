@@ -598,7 +598,7 @@ test.describe.serial('Anulus AI - Inmobiliaria E2E', () => {
         .insert({
           organization_id: ORG_INM_ID,
           checklist_id: fixtChecklistId,
-          title: `Documento prueba ${uniqueSuffix}`,
+          title: `Título de propiedad ${uniqueSuffix}`,
           status: 'pending',
         })
         .select('id')
@@ -613,7 +613,7 @@ test.describe.serial('Anulus AI - Inmobiliaria E2E', () => {
         .insert({
           organization_id: ORG_INM_ID,
           case_id: fixtCaseId,
-          file_name: `doc-checklist-e2e-${uniqueSuffix}.pdf`,
+          file_name: `titulo-propiedad-${uniqueSuffix}.pdf`,
           file_path: `${ORG_INM_ID}/${fixtCaseId}/doc-checklist-e2e-${uniqueSuffix}.pdf`,
           file_size: 1024,
           file_mime_type: 'application/pdf',
@@ -631,7 +631,35 @@ test.describe.serial('Anulus AI - Inmobiliaria E2E', () => {
       ({ context, page } = await loginAs(browser, 'admin.inm@test.com'));
 
       // 6. Navegar al checklist de la operación creada
+      // Mounting every tab, switching tabs and reloading must not start an action.
+      const automaticRequests: string[] = [];
+      page.on('request', request => {
+        if (request.method() === 'POST' && request.headers()['next-action']) automaticRequests.push(request.url());
+      });
       await page.goto(`/operaciones/${fixtCaseId}?tab=checklist`);
+      await expect(page.getByTestId('checklist-status-badge-0')).toHaveText('Pendiente');
+      await page.getByRole('tab', { name: 'Resumen', exact: true }).click();
+      await page.getByRole('tab', { name: 'Checklist', exact: true }).click();
+      await page.reload();
+      await expect(page.getByTestId('checklist-status-badge-0')).toHaveText('Pendiente');
+      const { data: beforeDetection, error: beforeError } = await serviceClient.from('checklist_items')
+        .select('document_id, match_source, status').eq('id', fixtItemId).single();
+      expect(beforeError).toBeNull();
+      expect(beforeDetection).toEqual({ document_id: null, match_source: null, status: 'pending' });
+      expect(automaticRequests).toEqual([]);
+
+      // Detection remains available, but only after the explicit review/confirmation.
+      await page.getByRole('button', { name: 'Detectar documentos ya cargados', exact: true }).click();
+      expect(automaticRequests).toEqual([]);
+      const { data: beforeConfirmation } = await serviceClient.from('checklist_items')
+        .select('status').eq('id', fixtItemId).single();
+      expect(beforeConfirmation?.status).toBe('pending');
+      await confirmChecklistReview(page, 'Detectar documentos ya cargados');
+      await expect(page.getByTestId('checklist-status-badge-0')).toHaveText('Recibido');
+      const { data: afterDetection, error: detectionError } = await serviceClient.from('checklist_items')
+        .select('document_id, match_source, status').eq('id', fixtItemId).single();
+      expect(detectionError).toBeNull();
+      expect(afterDetection).toEqual({ document_id: fixtDocId, match_source: 'automatic', status: 'received' });
       const row = await openChecklistManagement(page);
       const docSelect = row.getByTestId('select-doc-0');
       await expect.poll(async () => docSelect.locator('option').count(), { timeout: 10000 }).toBeGreaterThan(1);

@@ -14,8 +14,8 @@ export function EliminarDocumentoButton({documentId,caseId,fileName}:{documentId
     const formData = new FormData();
     formData.append('document_id', documentId);
     formData.append('case_id', caseId);
-    startTransition(() => {
-      deleteDocumentFromCase(formData);
+    startTransition(async () => {
+      await deleteDocumentFromCase(formData);
     });
  };
  return <>

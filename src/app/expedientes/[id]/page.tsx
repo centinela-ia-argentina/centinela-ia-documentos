@@ -56,7 +56,6 @@ import type { PreScoreInquilino } from '@/lib/ai/preScore';
 import { CronologiaExpediente } from './CronologiaExpediente';
 import { DerivarEscribania } from './DerivarEscribania';
 import { RadarPlazos } from './RadarPlazos';
-import { AutoMatchTrigger } from './AutoMatchTrigger';
 import { CaseChecklistPanel } from './CaseChecklistPanel';
 import { Tabs } from '@/components/ui/Tabs';
 import { Badge } from '@/components/ui/Badge';
@@ -267,7 +266,7 @@ export default async function CaseDetailPage({ params, searchParams }: CaseDetai
     checklistItemsData = data || [];
   }
 
-  const { data: caseDocumentsData } = await supabase
+  const { data: caseDocumentsData, error: caseDocumentsError } = await supabase
     .from('documents')
     .select('id, file_name, document_type, sensitivity_level, created_at, contributed_by_organization_id, contributed_by_name')
     .eq('case_id', caseRecord.id)
@@ -713,7 +712,7 @@ export default async function CaseDetailPage({ params, searchParams }: CaseDetai
             id: 'documentos',
             label: <><FileTextIcon size={16} aria-hidden />Documentos</>,
             content: (
-              <CaseDocumentsPanel caseId={caseRecord.id} industry={industry} role={profile.role} puedeUsarIA={puedeUsarIA} documents={caseDocuments} notes={observacionesEscribania} />
+              <CaseDocumentsPanel caseId={caseRecord.id} industry={industry} role={profile.role} puedeUsarIA={puedeUsarIA} documents={caseDocuments} notes={observacionesEscribania} documentsFailed={Boolean(caseDocumentsError)} deleteFeedback={typeof sp.docdel === 'string' ? sp.docdel : undefined} />
             )
           },
           {
@@ -743,7 +742,6 @@ export default async function CaseDetailPage({ params, searchParams }: CaseDetai
             label: <><ListChecks size={16} aria-hidden />Checklist</>,
             content: (
           <>
-            <AutoMatchTrigger caseId={caseRecord.id} isComplete={checklistProgress.isComplete} />
             <CaseChecklistPanel caseId={caseRecord.id} items={checklistItems} documents={availableDocuments} progress={checklistProgress} canEdit={canUpdateCase(profile.role)} feedback={typeof sp.checklist_document === 'string' ? sp.checklist_document : undefined} actions={{ toggle: toggleChecklistItem, exclude: toggleChecklistItemNotRequired, remove: removeChecklistItem, link: linkChecklistItemDocument, add: addChecklistItem, detect: autoMarcarChecklist }} />
           </>
             )

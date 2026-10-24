@@ -1,3 +1,4 @@
+import { DocumentDeletionFeedback, DocumentArchiveFeedback } from '@/components/documents/DocumentDeletionFeedback';
 import { DocumentLibrary } from './DocumentLibrary';
 import { redirect } from 'next/navigation';
 import { AppShell } from '@/components/layout/AppShell';
@@ -15,7 +16,7 @@ import type { DocumentRecord } from '@/types/document';
 import { isUserRole, canArchiveDocument, canDeleteDocument, canUploadDocument, canUseAi } from '@/lib/permissions/roles';
 
 interface DocumentsPageProps {
-  searchParams: Promise<{ ia?: string; q?: string; estado?: string }>;
+  searchParams: Promise<{ ia?: string; q?: string; estado?: string; docdel?: string; docarchive?: string }>;
 }
 
 type IaFilter = 'todos' | 'pendientes' | 'analizados';
@@ -166,5 +167,5 @@ export default async function DocumentsPage({
     return { id: item.id, fileName: item.file_name, documentTypeLabel: getDocumentTypeLabel(item.document_type), sensitivityLabel: sensitivityLabel(item.sensitivity_level), isPendingAi: analysisCount === 0, isAnalyzable: ['application/pdf', 'image/jpeg', 'image/png'].includes(mime), expiryStatus, expiryText, fileSizeLabel: formatFileSize(item.file_size), formatLabel: formatLabels[mime] ?? 'Archivo', isArchived: item.archived_at != null };
   });
   const roleValid = isUserRole(profile.role);
-  return <AppShell><DocumentLibrary key={`${isArchivedView}-${activeFilter}-${searchTerm}`} items={items} filters={filters} activeFilter={activeFilter} searchTerm={searchTerm} isArchivedView={isArchivedView} totalDocuments={totalDocuments} expiredDocs={expiredDocs} expiringDocs={expiringDocs} documentsFailed={Boolean(documentsError)} analysisFailed={Boolean(analysisError)} canUpload={roleValid && canUploadDocument(profile.role)} canAnalyze={roleValid && canUseAi(profile.role)} canArchive={canArchive} canDelete={canDelete} /></AppShell>;
+  return <AppShell><DocumentDeletionFeedback result={query.docdel} /><DocumentArchiveFeedback result={query.docarchive} /><DocumentLibrary key={`${isArchivedView}-${activeFilter}-${searchTerm}`} items={items} filters={filters} activeFilter={activeFilter} searchTerm={searchTerm} isArchivedView={isArchivedView} totalDocuments={totalDocuments} expiredDocs={expiredDocs} expiringDocs={expiringDocs} documentsFailed={Boolean(documentsError)} analysisFailed={Boolean(analysisError)} canUpload={roleValid && canUploadDocument(profile.role)} canAnalyze={roleValid && canUseAi(profile.role)} canArchive={canArchive} canDelete={canDelete} /></AppShell>;
 }
