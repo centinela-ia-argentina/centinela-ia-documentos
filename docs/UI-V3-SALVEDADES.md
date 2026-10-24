@@ -25,3 +25,8 @@ Base remota verificada: `555035fb69961958276b2002e1f1c16b4c11140c`. Sus 210 E2E 
 - Regresión E2E N ampliada: documento y requisito coincidentes en fixture por navegador; abrir/alternar/recargar debe conservar Pending y no emitir acciones; abrir confirmación tampoco modifica; confirmar detecta, vincula y persiste Received/automatic. Conserva las verificaciones originales de vínculo manual, recarga, desvinculación y reversibilidad.
 - Fixture E2E solo permite loopback y Supabase efímero. No se ejecutan pruebas destructivas en Preview ni contra datos reales.
 - Pendiente: todos los gates de CI y Vercel/protección **sobre el SHA nuevo**, sin reutilizar los verdes anteriores.
+
+## Primera CI y corrección de secuencia del ensayo
+SHA 50974b7: auditoría/lint/tipos/unitarias/build, seguridad/RLS/drift y migración/rollback aprobados; Vercel listo y protegido. Playwright: 204 aprobadas, 3 fallidas (N en tres navegadores), 3 no ejecutadas por secuencia serial. El nuevo recorrido llegó a verificar ausencia de acciones al abrir y persistencia Received/automatic tras confirmar detección. Falló después, al intentar gestionar el requisito con el diálogo de detección todavía abierto: la acción revalida sin redirigir y el diálogo no se cierra solo.
+
+Se añade cierre explícito mediante su botón Cerrar y comprobación de cierre, **después** de verificar el estado persistido y antes de continuar con las comprobaciones manuales originales. No se altera aplicación, timeouts, número de casos ni aserciones de persistencia. No se pide otra sesión ni informe: diagnóstico obtenido de anotaciones del reporter. Nuevo SHA requiere de nuevo todos los gates.

@@ -660,6 +660,11 @@ test.describe.serial('Anulus AI - Inmobiliaria E2E', () => {
         .select('document_id, match_source, status').eq('id', fixtItemId).single();
       expect(detectionError).toBeNull();
       expect(afterDetection).toEqual({ document_id: fixtDocId, match_source: 'automatic', status: 'received' });
+      // The reviewed action revalidates without redirecting; close the still-open
+      // dialog explicitly, as an operator would, before continuing with the row.
+      const detectionDialog = page.getByRole('dialog', { name: 'Detectar documentos ya cargados', exact: true });
+      await detectionDialog.getByRole('button', { name: 'Cerrar', exact: true }).click();
+      await expect(detectionDialog).not.toBeVisible();
       const row = await openChecklistManagement(page);
       const docSelect = row.getByTestId('select-doc-0');
       await expect.poll(async () => docSelect.locator('option').count(), { timeout: 10000 }).toBeGreaterThan(1);
