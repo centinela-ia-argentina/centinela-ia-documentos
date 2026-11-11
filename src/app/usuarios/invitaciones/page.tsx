@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/server';
 import { getUserProfile } from '@/lib/auth/getUserProfile';
 import { roleOptions, roleLabel, roleTone } from '@/lib/permissions/roleDisplay';
 import { cancelUserInvitation, createUserInvitation } from '../actions';
+import { FormSubmitButton } from '@/components/ui/FormSubmitButton';
 
 interface InvitationsPageProps {
   searchParams: Promise<{
@@ -69,6 +70,12 @@ function statusTone(status?: string | null) {
   if (status === 'expired') return 'bg-slate-100 text-slate-600';
 
   return 'bg-slate-100 text-slate-600';
+}
+
+function expiryAvailability(value?: string | null): 'valid' | 'absent' {
+  if (!value) return 'absent';
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? 'absent' : 'valid';
 }
 
 function isExpired(value?: string | null) {
@@ -163,6 +170,10 @@ export default async function UserInvitationsPage({
   const invitations = (invitationsResult.data ?? []) as InvitationRecord[];
   const users = (profilesResult.data ?? []) as ProfileRecord[];
 
+  // Un fallo de consulta no se presenta como vacío ni como cero.
+  const invitationsUnavailable = Boolean(invitationsResult.error);
+  const usersUnavailable = Boolean(profilesResult.error);
+
   const pendingInvitations = invitations.filter((item) => item.status === 'pending');
   const acceptedInvitations = invitations.filter((item) => item.status === 'accepted');
   const cancelledInvitations = invitations.filter((item) => item.status === 'cancelled');
@@ -222,9 +233,9 @@ Gestión operativa de invitaciones, roles y accesos a la organización.
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
           <p className="text-sm font-semibold text-slate-500">Usuarios actuales</p>
-          <p className="mt-2 text-3xl font-bold text-slate-950">{users.length}</p>
+          <p className="mt-2 text-3xl font-bold text-slate-950">{usersUnavailable ? '—' : users.length}</p>
           <p className="mt-3 text-xs text-slate-500">
-            Perfiles activos en la organización
+            {usersUnavailable ? 'Consulta no disponible' : 'Perfiles activos en la organización'}
           </p>
         </div>
 
@@ -233,15 +244,15 @@ Gestión operativa de invitaciones, roles y accesos a la organización.
             Invitaciones pendientes
           </p>
           <p className="mt-2 text-3xl font-bold text-slate-950">
-            {pendingInvitations.length}
+            {invitationsUnavailable ? '—' : pendingInvitations.length}
           </p>
-          <p className="mt-3 text-xs text-slate-500">Esperando gestión</p>
+          <p className="mt-3 text-xs text-slate-500">Incluye pendientes vencidas</p>
         </div>
 
         <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
           <p className="text-sm font-semibold text-slate-500">Aceptadas</p>
           <p className="mt-2 text-3xl font-bold text-slate-950">
-            {acceptedInvitations.length}
+            {invitationsUnavailable ? '—' : acceptedInvitations.length}
           </p>
           <p className="mt-3 text-xs text-slate-500">Altas completadas</p>
         </div>
@@ -249,7 +260,7 @@ Gestión operativa de invitaciones, roles y accesos a la organización.
         <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
           <p className="text-sm font-semibold text-slate-500">Canceladas</p>
           <p className="mt-2 text-3xl font-bold text-slate-950">
-            {cancelledInvitations.length}
+            {invitationsUnavailable ? '—' : cancelledInvitations.length}
           </p>
           <p className="mt-3 text-xs text-slate-500">Invitaciones desestimadas</p>
         </div>
@@ -303,12 +314,11 @@ Esta acción registra una invitación operativa para controlar el alta, rol y es
                 </select>
               </div>
 
-              <button
-                type="submit"
-                className="w-full rounded-2xl bg-slate-950 px-5 py-3 text-sm font-bold text-white hover:bg-slate-800"
-              >
-Registrar invitación
-              </button>
+              <FormSubmitButton
+                label="Registrar invitación"
+                loadingLabel="Registrando…"
+                className="w-full rounded-2xl bg-slate-950 px-5 py-3 text-sm font-bold text-white hover:bg-slate-800 disabled:opacity-60 disabled:cursor-not-allowed"
+              />
             </form>
           ) : (
             <div className="mt-6 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm font-semibold text-amber-800">
@@ -323,7 +333,7 @@ Registrar invitación
             <div>
               <p className="font-bold text-white">Control operativo</p>
               <p className="mt-1 text-sm leading-6 text-slate-300">
-                Las invitaciones permiten ordenar accesos, roles y trazabilidad durante la beta operativa.
+                Las invitaciones permiten ordenar accesos, roles y trazabilidad durante la beta operativa. Registrar una invitación no acredita la entrega del correo ni su aceptación: esos pasos se verifican por separado.
               </p>
             </div>
           </div>
@@ -346,11 +356,16 @@ Registrar invitación
             </div>
 
             <span className="rounded-full bg-slate-100 px-4 py-2 text-sm font-bold text-slate-600">
-              {invitations.length} registros
+              {invitationsUnavailable ? '—' : `${invitations.length} registros`}
             </span>
           </div>
 
           <div className="overflow-hidden rounded-2xl border border-slate-200">
+            {invitationsUnavailable ? (
+              <div className="p-6 text-sm text-amber-800">
+                No se pudieron consultar las invitaciones. La bandeja no se presenta como vacía hasta confirmar el estado real de la consulta.
+              </div>
+            ) : (
             <table className="w-full text-left text-sm">
               <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
                 <tr>
@@ -366,6 +381,8 @@ Registrar invitación
                 {invitations.map((invitation) => {
                   const expired =
                     invitation.status === 'pending' && isExpired(invitation.expires_at);
+                  const expiryAvailable = expiryAvailability(invitation.expires_at) === 'valid';
+                  const canCancel = canManage && invitation.status === 'pending' && !expired && expiryAvailable;
 
                   return (
                     <tr key={invitation.id} className="align-top hover:bg-slate-50">
@@ -400,11 +417,11 @@ Registrar invitación
                       </td>
 
                       <td className="px-4 py-4 text-slate-600">
-                        {formatDate(invitation.expires_at)}
+                        {expiryAvailable ? formatDate(invitation.expires_at) : 'No disponible'}
                       </td>
 
                       <td className="px-4 py-4">
-                        {canManage && invitation.status === 'pending' && !expired ? (
+                        {canCancel ? (
                           <form action={cancelUserInvitation}>
                             <input
                               type="hidden"
@@ -412,12 +429,11 @@ Registrar invitación
                               value={invitation.id}
                             />
 
-                            <button
-                              type="submit"
-                              className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-2 text-xs font-bold text-rose-700 hover:bg-rose-100"
-                            >
-                              Cancelar
-                            </button>
+                            <FormSubmitButton
+                              label="Cancelar"
+                              loadingLabel="Cancelando…"
+                              className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-2 text-xs font-bold text-rose-700 hover:bg-rose-100 disabled:opacity-60 disabled:cursor-not-allowed"
+                            />
                           </form>
                         ) : (
                           <span className="text-xs font-semibold text-slate-400">
@@ -429,13 +445,14 @@ Registrar invitación
                   );
                 })}
               </tbody>
-            </table>
 
             {invitations.length === 0 ? (
               <div className="p-6 text-sm text-slate-500">
                 Todavía no hay invitaciones registradas.
               </div>
             ) : null}
+            </table>
+            )}
           </div>
         </section>
       </div>
@@ -447,7 +464,9 @@ Registrar invitación
           </p>
 
           <p className="mt-1">
-            Conviene cancelarlas o recrearlas para mantener limpio el control de accesos.
+            {canManage
+              ? 'Podés cancelarlas desde la bandeja cuando el control de cancelación esté disponible.'
+              : 'Su gestión corresponde a un administrador de la organización.'}
           </p>
         </div>
       ) : null}

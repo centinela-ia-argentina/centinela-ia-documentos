@@ -11,7 +11,7 @@ import {
   normalizeIndustryType,
 } from '@/lib/industries/documentTypes';
 import { MotionCard } from '@/components/ui/MotionCard';
-import { MotionButton } from '@/components/ui/MotionButton';
+import { FormSubmitButton } from '@/components/ui/FormSubmitButton';
 
 interface ConfiguracionPageProps {
   searchParams: Promise<{ success?: string; error?: string }>;
@@ -30,7 +30,8 @@ const errorMessages: Record<string, string> = {
   logo_invalid: 'Revisá el archivo seleccionado (formato y peso permitidos).',
   logo_locked: 'No tenés permisos para modificar el logo de la organización.',
   logo_upload_failed: 'No se pudo subir el archivo de logo al storage.',
-  logo_update_failed: 'No se pudo guardar el nuevo logo en la base de datos.',
+  logo_update_failed:
+    'El archivo se subió pero no se pudo asociar el logo. El logo anterior puede seguir activo: revisá el estado actual antes de reintentar.',
   industry_invalid: 'El rubro seleccionado no es válido.',
   industry_locked: 'El rubro ya fue definido y no puede modificarse.',
   industry_update_failed: 'No se pudo asignar el rubro seleccionado.',
@@ -62,15 +63,17 @@ export default async function ConfiguracionPage({ searchParams }: ConfiguracionP
   }
 
   const supabase = await createClient();
-  const { data: org } = await supabase
+  const orgResult = await supabase
     .from('organizations')
     .select('name, industry_type, logo_url')
     .eq('id', profile.organization_id)
     .single();
 
+  const orgUnavailable = Boolean(orgResult.error);
+
   const platformOwner = await isPlatformOwner(user.id);
-  const currentIndustry = normalizeIndustryType(org?.industry_type);
-  const isUnset = currentIndustry === 'general';
+  const currentIndustry = normalizeIndustryType(orgResult.data?.industry_type);
+  const isUnset = !orgUnavailable && currentIndustry === 'general';
 
   const statusMsg = getStatusMessage(params.success, params.error);
 
@@ -99,6 +102,11 @@ export default async function ConfiguracionPage({ searchParams }: ConfiguracionP
         )}
       </div>
 
+      {orgUnavailable ? (
+        <div className="max-w-3xl rounded-xl border border-amber-500/20 bg-amber-500/10 px-4 py-3 text-sm text-amber-300">
+          No se pudieron consultar los datos de la organización. Los formularios permanecen deshabilitados hasta confirmar el estado real; no se presentan valores por defecto.
+        </div>
+      ) : (
       <div className="max-w-3xl space-y-6">
         <MotionCard index={0} className="border border-white/10 bg-white/[0.03] p-6 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.06),0_16px_40px_-16px_rgba(0,0,0,0.7)] transition-colors hover:border-accent/40">
           <div className="mb-6">
@@ -110,9 +118,9 @@ export default async function ConfiguracionPage({ searchParams }: ConfiguracionP
 
           <div className="mb-8 flex items-center gap-6 rounded-xl border border-white/10 bg-white/[0.02] p-4">
             <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white/[0.05] border border-white/10">
-              {org?.logo_url ? (
+              {orgResult.data?.logo_url ? (
                 /* eslint-disable-next-line @next/next/no-img-element */
-                <img src={org.logo_url} alt="Logo" className="h-full w-full object-cover" />
+                <img src={orgResult.data?.logo_url ?? ''} alt="Logo" className="h-full w-full object-cover" />
               ) : (
                 <Building2 size={24} className="text-slate-400" />
               )}
@@ -126,7 +134,7 @@ export default async function ConfiguracionPage({ searchParams }: ConfiguracionP
                     type="file"
                     id="logo-input"
                     name="logo"
-                    accept="image/*"
+                    accept="image/png,image/jpeg,image/webp,image/svg+xml"
                     className="sr-only"
                   />
                   <label
@@ -135,14 +143,14 @@ export default async function ConfiguracionPage({ searchParams }: ConfiguracionP
                   >
                     Seleccionar imagen
                   </label>
+                  <span className="text-xs text-slate-500">PNG, JPG, WebP o SVG · hasta 2 MB</span>
                 </div>
               </div>
-              <MotionButton
-                type="submit"
-                className="w-full sm:w-auto bg-white/10 hover:bg-white/20"
-              >
-                Subir logo
-              </MotionButton>
+              <FormSubmitButton
+                label="Subir logo"
+                loadingLabel="Subiendo…"
+                className="w-full sm:w-auto rounded-xl bg-white/10 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-white/20 disabled:opacity-60 disabled:cursor-not-allowed"
+              />
             </form>
           </div>
 
@@ -153,16 +161,15 @@ export default async function ConfiguracionPage({ searchParams }: ConfiguracionP
               <input
                 type="text"
                 name="name"
-                defaultValue={org?.name ?? ''}
+                defaultValue={orgResult.data?.name ?? ''}
                 className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-white outline-none focus:border-accent focus:ring-1 focus:ring-accent"
               />
             </div>
-            <MotionButton
-              type="submit"
-              className="w-full bg-accent hover:bg-accent-strong"
-            >
-              Guardar nombre
-            </MotionButton>
+            <FormSubmitButton
+              label="Guardar nombre"
+              loadingLabel="Guardando…"
+              className="w-full rounded-xl bg-cyan-500 px-4 py-3 text-sm font-bold text-slate-900 transition-colors hover:bg-cyan-400 disabled:opacity-60 disabled:cursor-not-allowed"
+            />
           </form>
 
           <div className="mb-4">
@@ -197,21 +204,24 @@ export default async function ConfiguracionPage({ searchParams }: ConfiguracionP
 
               <select
                 name="industry_type"
-                defaultValue={['legal', 'escribania', 'inmobiliaria'].includes(currentIndustry) ? currentIndustry : 'legal'}
+                required
+                defaultValue=""
                 className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 pr-10 text-white outline-none focus:border-accent focus:ring-1 focus:ring-accent"
               >
+                <option value="" disabled>
+                  Elegí un rubro
+                </option>
                 {(['legal', 'escribania', 'inmobiliaria'] as const).map((t) => (
                   <option key={t} value={t}>
                     {industryLabels[t]}
                   </option>
                 ))}
               </select>
-              <MotionButton
-                type="submit"
-                className="w-full bg-accent hover:bg-accent-strong"
-              >
-                Guardar rubro
-              </MotionButton>
+              <FormSubmitButton
+                label="Guardar rubro"
+                loadingLabel="Guardando…"
+                className="w-full rounded-xl bg-cyan-500 px-4 py-3 text-sm font-bold text-slate-900 transition-colors hover:bg-cyan-400 disabled:opacity-60 disabled:cursor-not-allowed"
+              />
             </form>
           ) : (
             <div className="space-y-4">
@@ -240,6 +250,7 @@ export default async function ConfiguracionPage({ searchParams }: ConfiguracionP
           </MotionCard>
         </Link>
       </div>
+      )}
     </AppShell>
   );
 }

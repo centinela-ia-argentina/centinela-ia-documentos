@@ -7,7 +7,7 @@ import { formatAuditActionLabel } from '@/lib/audit/actionLabels';
 import { roleOptions, roleLabel, roleDescription, roleTone } from '@/lib/permissions/roleDisplay';
 import { updateUserAccess } from './actions';
 import { MotionCard } from '@/components/ui/MotionCard';
-import { MotionButton } from '@/components/ui/MotionButton';
+import { FormSubmitButton } from '@/components/ui/FormSubmitButton';
 import { getIndustryTerms } from '@/lib/industries/uiLabels';
 
 interface UsuariosPageProps {
@@ -89,9 +89,9 @@ function statusLabel(status?: string | null) {
 
 function statusTone(status?: string | null) {
   if (status === 'active') return 'bg-emerald-50 text-emerald-700';
-  if (status === 'inactive') return 'bg-rose-50 text-rose-700';
   if (status === 'invited') return 'bg-amber-50 text-amber-700';
 
+  // Inactivo y estados desconocidos se presentan neutrales, no como error.
   return 'bg-slate-100 text-slate-600';
 }
 
@@ -181,6 +181,7 @@ export default async function UsuariosPage({ searchParams }: UsuariosPageProps) 
 
   const users = (profilesResult.data ?? []) as ProfileRecord[];
   const auditLogs = (auditLogsResult.data ?? []) as AuditLogRecord[];
+  const profilesUnavailable = Boolean(profilesResult.error);
 
   const sortedUsers = [...users].sort((a, b) => {
     if (a.id === user.id) return -1;
@@ -206,22 +207,22 @@ export default async function UsuariosPage({ searchParams }: UsuariosPageProps) 
   const metrics = [
     {
       label: 'Usuarios totales',
-      value: users.length,
+      value: profilesUnavailable ? ('—' as unknown as number) : users.length,
       helper: 'Perfiles de la organización',
     },
     {
       label: 'Usuarios activos',
-      value: activeUsers,
+      value: profilesUnavailable ? ('—' as unknown as number) : activeUsers,
       helper: 'Con acceso habilitado',
     },
     {
       label: 'Invitados',
-      value: invitedUsers,
+      value: profilesUnavailable ? ('—' as unknown as number) : invitedUsers,
       helper: 'Perfiles marcados como invitados',
     },
     {
       label: 'Inactivos',
-      value: inactiveUsers,
+      value: profilesUnavailable ? ('—' as unknown as number) : inactiveUsers,
       helper: 'Acceso deshabilitado',
     },
   ];
@@ -299,7 +300,7 @@ export default async function UsuariosPage({ searchParams }: UsuariosPageProps) 
 
       <div className="mt-8 grid gap-6 lg:grid-cols-[minmax(0,1fr)_300px]">
         <MotionCard index={4} className="min-w-0 p-6">
-          <div className="mb-5 flex flex-col justify-between gap-4 xl:flex-row xl:items-start">
+              <div className="mb-5 flex flex-col justify-between gap-4 xl:flex-row xl:items-start">
             <div>
               <p className="text-sm font-semibold uppercase tracking-[0.2em] text-cyan-300">
                 Directorio
@@ -311,10 +312,15 @@ export default async function UsuariosPage({ searchParams }: UsuariosPageProps) 
             </div>
 
             <span className="rounded-full border border-white/10 bg-white/[0.06] px-4 py-2 text-sm font-bold text-slate-200">
-              {users.length} perfiles
+              {profilesUnavailable ? '—' : `${users.length} perfiles`}
             </span>
           </div>
 
+          {profilesUnavailable ? (
+            <div className="rounded-2xl border border-amber-400/25 bg-amber-400/10 p-6 text-sm text-amber-200">
+              No se pudieron consultar los perfiles de la organización. El directorio no se presenta como vacío hasta confirmar el estado real de la consulta.
+            </div>
+          ) : (
           <div className="overflow-x-auto rounded-2xl border border-white/10">
             <table className="w-full text-left text-sm">
               <thead className="bg-white/[0.05] text-xs uppercase tracking-wide text-slate-300">
@@ -385,7 +391,7 @@ export default async function UsuariosPage({ searchParams }: UsuariosPageProps) 
 
                       <td className="px-4 py-4">
                         <p className="font-bold text-white">
-                          {eventCount} eventos <span className="text-[11px] font-normal text-slate-400">(recientes)</span>
+                          {eventCount} eventos <span className="text-[11px] font-normal text-slate-400">(de los últimos 80 de la organización)</span>
                         </p>
 
                         <p className="mt-1 text-xs text-slate-400">
@@ -427,9 +433,15 @@ export default async function UsuariosPage({ searchParams }: UsuariosPageProps) 
 
                               <select
                                 name="role"
-                                defaultValue={item.role ?? 'employee'}
+                                defaultValue={item.role && roleOptions.some((option) => option.value === item.role) || item.role === 'admin' ? item.role : ''}
+                                required
                                 className="w-full rounded-xl border border-white/10 bg-[#071226] px-3 py-2 text-xs font-semibold text-slate-100 outline-none focus:border-sky-400"
                               >
+                                {!item.role || !(roleOptions.some((option) => option.value === item.role) || item.role === 'admin') ? (
+                                  <option value="" disabled>
+                                    Sin definir
+                                  </option>
+                                ) : null}
                                 {roleOptions.map((option) => (
                                   <option key={option.value} value={option.value}>
                                     {option.label}
@@ -445,9 +457,15 @@ export default async function UsuariosPage({ searchParams }: UsuariosPageProps) 
 
                               <select
                                 name="status"
-                                defaultValue={item.status ?? 'active'}
+                                defaultValue={item.status && statusOptions.some((option) => option.value === item.status) ? item.status : ''}
+                                required
                                 className="w-full rounded-xl border border-white/10 bg-[#071226] px-3 py-2 text-xs font-semibold text-slate-100 outline-none focus:border-sky-400"
                               >
+                                {!item.status || !statusOptions.some((option) => option.value === item.status) ? (
+                                  <option value="" disabled>
+                                    Sin definir
+                                  </option>
+                                ) : null}
                                 {statusOptions.map((option) => (
                                   <option key={option.value} value={option.value}>
                                     {option.label}
@@ -456,12 +474,11 @@ export default async function UsuariosPage({ searchParams }: UsuariosPageProps) 
                               </select>
                             </div>
 
-                            <MotionButton
-                              type="submit"
-                              className="w-full bg-cyan-600 hover:bg-cyan-500"
-                            >
-                              Actualizar acceso
-                            </MotionButton>
+                            <FormSubmitButton
+                              label="Actualizar acceso"
+                              loadingLabel="Actualizando…"
+                              className="w-full rounded-xl bg-cyan-600 px-3 py-2 text-xs font-bold text-white transition-colors hover:bg-cyan-500 disabled:opacity-60 disabled:cursor-not-allowed"
+                            />
                           </form>
                         )}
                       </td>
@@ -477,6 +494,7 @@ export default async function UsuariosPage({ searchParams }: UsuariosPageProps) 
               </div>
             ) : null}
           </div>
+          )}
         </MotionCard>
 
         <section className="space-y-4 lg:w-[300px] lg:max-w-[300px]">

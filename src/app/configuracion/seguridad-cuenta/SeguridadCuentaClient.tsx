@@ -6,7 +6,7 @@ import { Shield } from 'lucide-react';
 
 export function SeguridadCuentaClient() {
   const supabase = createClient();
-  const [estado, setEstado] = useState<'cargando' | 'activo' | 'inactivo'>('cargando');
+  const [estado, setEstado] = useState<'cargando' | 'activo' | 'inactivo' | 'desconocido'>('cargando');
   const [factorId, setFactorId] = useState<string | null>(null);
   const [qr, setQr] = useState<string | null>(null);
   const [secret, setSecret] = useState<string | null>(null);
@@ -16,7 +16,11 @@ export function SeguridadCuentaClient() {
 
   async function refrescar() {
     const { data, error } = await supabase.auth.mfa.listFactors();
-    if (error) { setEstado('inactivo'); return; }
+    if (error) {
+      // Un fallo de consulta no se presenta como "inactivo": el estado queda desconocido.
+      setEstado('desconocido');
+      return;
+    }
     const verificado = (data?.totp ?? []).some((f) => f.status === 'verified');
     setEstado(verificado ? 'activo' : 'inactivo');
   }
@@ -51,16 +55,45 @@ export function SeguridadCuentaClient() {
   }
 
   async function cancelar() {
-    if (factorId) await supabase.auth.mfa.unenroll({ factorId });
-    setQr(null); setSecret(null); setFactorId(null); setCode(''); setMsg(null);
+    if (factorId) {
+      const { error } = await supabase.auth.mfa.unenroll({ factorId });
+      if (error) {
+        setMsg('No se pudo cancelar la configuración pendiente. Reintentá desde la pantalla; el factor verificado no fue afectado.');
+        setCargando(false);
+        return;
+      }
+    }
+    setQr(null); setSecret(null); setFactorId(null); setCode(''); setMsg('Configuración pendiente cancelada. El estado de los factores verificados no cambió.');
   }
 
   async function desactivar() {
     setCargando(true); setMsg(null);
-    const { data } = await supabase.auth.mfa.listFactors();
-    for (const f of (data?.totp ?? [])) await supabase.auth.mfa.unenroll({ factorId: f.id });
+    const { data, error: listError } = await supabase.auth.mfa.listFactors();
+
+    if (listError) {
+      setMsg('No se pudo confirmar el estado de los factores. La desactivación no se declara completa; revisá el estado antes de reintentar.');
+      setCargando(false);
+      return;
+    }
+
+    let falloRetiro = false;
+    for (const f of (data?.totp ?? [])) {
+      const { error } = await supabase.auth.mfa.unenroll({ factorId: f.id });
+      if (error) falloRetiro = true;
+    }
+
     await refrescar();
-    setMsg('2FA desactivado.');
+
+    // La desactivación solo se anuncia como completa si el re consultedo confirma
+    // que ya no queda ningún factor verificado.
+    const { data: verificacion } = await supabase.auth.mfa.listFactors();
+    const quedanVerificados = (verificacion?.totp ?? []).some((f) => f.status === 'verified');
+
+    if (falloRetiro || quedanVerificados) {
+      setMsg('No se pudo confirmar la desactivación completa. Revisá el estado actual de la verificación en dos pasos antes de reintentar.');
+    } else {
+      setMsg('2FA desactivado.');
+    }
     setCargando(false);
   }
 
@@ -96,6 +129,12 @@ export function SeguridadCuentaClient() {
                 Desactivar 2FA
               </button>
             </div>
+          </div>
+        )}
+
+        {estado === 'desconocido' && !qr && (
+          <div className="rounded-xl border border-amber-500/20 bg-amber-500/10 px-4 py-3 text-sm text-amber-300" role="alert">
+            No se pudo confirmar el estado de la verificación en dos pasos. El estado no se presenta como desactivado; revisá tu conexión e ingresá nuevamente para confirmarlo.
           </div>
         )}
 
