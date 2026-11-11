@@ -3,15 +3,54 @@ import { redirect } from 'next/navigation';
 import { AppShell } from '@/components/layout/AppShell';
 import { createClient } from '@/lib/supabase/server';
 import { getUserProfile } from '@/lib/auth/getUserProfile';
-import { summarizeChecklistStatuses } from '@/lib/checklist/progress';
-import { getDocumentExpiryStatus, expiryStatusLabel, getExpiryBadgeStyles, getDaysUntilExpiry } from '@/lib/documents/expiry';
-import { getDocumentTypeLabel, normalizeIndustryType } from '@/lib/industries/documentTypes';
+import { normalizeIndustryType } from '@/lib/industries/documentTypes';
 import { getIndustryTerms } from '@/lib/industries/uiLabels';
-import { isSensitiveDocument } from '@/lib/documents/sensitivity';
+import { getCaseBasePath } from '@/lib/industries/caseConfig';
+import { getDocumentTypeLabel } from '@/lib/industries/documentTypes';
+import { getExpiryBadgeStyles, expiryStatusLabel, getDocumentExpiryStatus } from '@/lib/documents/expiry';
 import { formatPlazoDate } from '@/lib/format/date';
-import { MotionCard } from '@/components/ui/MotionCard';
-import { extraerFechasAccionablesLegajo } from '@/lib/plazos/fechasCanonicas';
+import { buildObservacionesModel, type ObservacionesModel, type CategoryState } from './data';
+import styles from './Observaciones.module.css';
 
+export const dynamic = 'force-dynamic';
+
+function CategorySection({
+  eyebrow,
+  title,
+  copy,
+  state,
+  emptyMessage,
+  children,
+  full,
+}: {
+  eyebrow: string;
+  title: string;
+  copy: string;
+  state: CategoryState<unknown>;
+  emptyMessage: string;
+  children: React.ReactNode;
+  full?: boolean;
+}) {
+  return (
+    <section className={`${styles.section} ${full ? styles.sectionFull : ''}`}>
+      <p className={styles.eyebrow}>{eyebrow}</p>
+      <h3 className={styles.title}>{title}</h3>
+      <p className={styles.copy}>{copy}</p>
+
+      {state.kind === 'unknown' ? (
+        <p className={styles.sectionUnavailable}>
+          Esta sección no está disponible porque la consulta no pudo completarse. No se interpreta como vacía ni como cero.
+        </p>
+      ) : state.total === 0 ? (
+        <div className={`${styles.stateBanner} ${styles.stateEmpty}`} style={{ marginTop: 14 }} role="status">
+          {emptyMessage}
+        </div>
+      ) : (
+        <div className={styles.items}>{children}</div>
+      )}
+    </section>
+  );
+}
 
 export default async function ObservacionesPage() {
   const { user, profile } = await getUserProfile();
@@ -36,14 +75,12 @@ export default async function ObservacionesPage() {
       .select('id, file_name, document_type, sensitivity_level, expires_at, case_id, file_mime_type, created_at')
       .eq('organization_id', profile.organization_id)
       .order('created_at', { ascending: false }),
-
     supabase
       .from('ai_outputs')
       .select('id, document_id, output_type, result_json, case_id, created_at')
       .eq('organization_id', profile.organization_id)
       .in('output_type', ['document_analysis', 'case_summary'])
       .order('created_at', { ascending: false }),
-
     supabase
       .from('cases')
       .select('id, title, status, metadata')
@@ -51,25 +88,21 @@ export default async function ObservacionesPage() {
       .neq('status', 'archived')
       .neq('status', 'Archivado')
       .order('created_at', { ascending: false }),
-
     supabase
       .from('checklist_items')
       .select('status, checklists!inner(case_id)')
       .eq('checklists.organization_id', profile.organization_id),
-
     supabase
       .from('organizations')
       .select('industry_type')
       .eq('id', profile.organization_id)
       .maybeSingle(),
-
     supabase
       .from('clients')
       .select('id, name, updated_at, status')
       .eq('organization_id', profile.organization_id)
       .neq('status', 'inactivo')
       .order('updated_at', { ascending: true }),
-
     supabase
       .from('properties')
       .select('id, name, updated_at, status')
@@ -77,486 +110,317 @@ export default async function ObservacionesPage() {
       .neq('status', 'vendida')
       .neq('status', 'alquilada')
       .order('updated_at', { ascending: true }),
-
     supabase
       .from('agenda_plazos')
       .select('id, titulo, fecha, detalle, categoria, case_id')
       .eq('organization_id', profile.organization_id),
   ]);
 
-  const documents = documentsResult.data ?? [];
-  const aiOutputs = aiOutputsResult.data ?? [];
-  const cases = casesResult.data ?? [];
-  const checklistItems = checklistItemsResult.data ?? [];
-  const clients = clientsResult?.data ?? [];
-  const properties = propertiesResult?.data ?? [];
-  const agendaPlazos = agendaPlazosResult?.data ?? [];
-
-  const industry = normalizeIndustryType(organizationResult?.data?.industry_type);
+  const industry = normalizeIndustryType(organizationResult?.data?.industry_type ?? null);
   const terms = getIndustryTerms(industry);
+  const casePath = getCaseBasePath(industry);
   const isFem = terms.expedientePlural.toLowerCase() === 'operaciones';
 
-  const caseTitleMap = new Map(cases.map(c => [c.id, c.title || terms.itemSinTitulo]));
-
-  // 1. Documentos sensibles
-  const sensiblesAll = documents.filter((doc) => isSensitiveDocument(doc.sensitivity_level));
-  const sensibles = sensiblesAll.slice(0, 8);
-
-  // 2. Vencimientos a revisar
-  const vencimientosAll = documents.filter((doc) => {
-    if (!doc.expires_at) return false;
-    const status = getDocumentExpiryStatus(doc.expires_at);
-    return status === 'por_vencer' || status === 'vencido';
-  }).sort((a, b) => {
-    const daysA = getDaysUntilExpiry(a.expires_at!) ?? 0;
-    const daysB = getDaysUntilExpiry(b.expires_at!) ?? 0;
-    return daysA - daysB;
-  });
-  const vencimientos = vencimientosAll.slice(0, 8);
-
-  // 3. Expedientes incompletos
-  const statusesByCase = checklistItems.reduce((acc: Record<string, string[]>, item: any) => {
-    const caseId = item.checklists.case_id;
-    if (!acc[caseId]) acc[caseId] = [];
-    acc[caseId].push(item.status);
-    return acc;
-  }, {});
-
-  const incompletosAll = cases.map((c) => {
-    const statuses = statusesByCase[c.id] || [];
-    const summary = summarizeChecklistStatuses(statuses);
-    return { ...c, summary };
-  }).filter((c) => !c.summary.isComplete && c.summary.total > 0);
-  const incompletos = incompletosAll.slice(0, 8);
-
-  // 4. Análisis IA pendientes
-  const analyzedDocIds = new Set(
-    aiOutputs
-      .filter((o) => o.output_type === 'document_analysis' && o.document_id)
-      .map((o) => String(o.document_id))
-  );
-  const iaPendientesAll = documents.filter((doc) => !analyzedDocIds.has(String(doc.id)));
-  const iaPendientes = iaPendientesAll.slice(0, 8);
-
-  // 5. Documentos sin clasificar
-  const sinClasificarAll = documents.filter((doc) => !doc.document_type || doc.document_type.trim() === '');
-  const sinClasificar = sinClasificarAll.slice(0, 8);
-
-  // 6. Plazos procesales / fechas clave
-  const docCaseMap = new Map<string, string>();
-  for (const d of documents) {
-    if (d.case_id) docCaseMap.set(d.id, d.case_id);
+  if (!industry) {
+    return (
+      <AppShell>
+        <div className={styles.stateBanner + ' ' + styles.stateError} role="alert">
+          El rubro de la organización no está disponible o no es reconocido, por lo que las observaciones no pueden evaluarse.
+        </div>
+      </AppShell>
+    );
   }
 
-  // Deduplicación determinística en memoria: último análisis real por document_id
-  const sortedAiOutputs = [...aiOutputs].sort(
-    (a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
+  const model = buildObservacionesModel(
+    {
+      documents: documentsResult.error ? null : (documentsResult.data ?? []) as any,
+      aiOutputs: aiOutputsResult.error ? null : (aiOutputsResult.data ?? []) as any,
+      cases: casesResult.error ? null : (casesResult.data ?? []) as any,
+      checklistItems: checklistItemsResult.error ? null : (checklistItemsResult.data ?? []) as any,
+      clients: clientsResult.error ? null : (clientsResult.data ?? []) as any,
+      properties: propertiesResult.error ? null : (propertiesResult.data ?? []) as any,
+      agendaPlazos: agendaPlazosResult.error ? null : (agendaPlazosResult.data ?? []) as any,
+      industry,
+    },
+    new Date()
   );
 
-  const aiOutputsByCase = new Map<string, any[]>();
-  const seenDocByCase = new Map<string, Set<string>>();
+  const indicators = [
+    { label: 'Doc. sensibles', state: model.sensibles, tone: 'critical' },
+    { label: 'Vencimientos', state: model.vencimientos, tone: 'warning' },
+    { label: terms.observacionesIncompletosCard, state: model.incompletos, tone: 'warning' },
+    { label: 'IA pendiente', state: model.iaPendientes, tone: 'info' },
+    { label: 'Sin clasificar', state: model.sinClasificar, tone: 'neutral' },
+    { label: terms.observacionesPlazosCard, state: model.plazos, tone: 'warning' },
+  ];
 
-  for (let idx = 0; idx < sortedAiOutputs.length; idx++) {
-    const o = sortedAiOutputs[idx];
-    const cId = o.case_id || (o.document_id ? docCaseMap.get(o.document_id) : null);
-    if (cId) {
-      if (!aiOutputsByCase.has(cId)) {
-        aiOutputsByCase.set(cId, []);
-        seenDocByCase.set(cId, new Set());
-      }
-      const docKey = o.document_id ? String(o.document_id) : `out-${o.id || idx}`;
-      const seen = seenDocByCase.get(cId)!;
-      if (!seen.has(docKey)) {
-        seen.add(docKey);
-        aiOutputsByCase.get(cId)!.push(o);
-      }
-    }
-  }
+  const indicatorValue = (state: CategoryState<unknown>) =>
+    state.kind === 'ok' ? String(state.total) : '—';
 
-  // Agrupar eventos de agenda_plazos exclusivamente por case_id
-  const agendaEventsByCase = new Map<string, any[]>();
-  for (const a of agendaPlazos) {
-    if (a.case_id) {
-      if (!agendaEventsByCase.has(a.case_id)) agendaEventsByCase.set(a.case_id, []);
-      agendaEventsByCase.get(a.case_id)!.push({
-        id: a.id,
-        titulo: a.titulo,
-        fecha: a.fecha,
-        detalle: a.detalle,
-        categoria: a.categoria,
-      });
-    }
-  }
-
-  const plazosAll: Array<{ id: string; caseId: string; title: string; fecha: string; tipo: string }> = [];
-  const plazosVistos = new Set<string>();
-
-  for (const c of cases) {
-    const outputs = aiOutputsByCase.get(c.id) || [];
-    const agendaParaCaso = agendaEventsByCase.get(c.id) || [];
-    const fechas = extraerFechasAccionablesLegajo(c, outputs, agendaParaCaso);
-    for (const f of fechas) {
-      const status = getDocumentExpiryStatus(f.fecha);
-      if (status === 'por_vencer' || status === 'vencido') {
-        const dedupKey = `${c.id}-${f.fecha}-${f.tipo}`;
-        if (!plazosVistos.has(dedupKey)) {
-          plazosVistos.add(dedupKey);
-          plazosAll.push({
-            id: f.id || `${c.id}-${f.fecha}`,
-            caseId: c.id,
-            title: c.title || terms.itemSinTitulo,
-            fecha: f.fecha,
-            tipo: f.tipo,
-          });
-        }
-      }
-    }
-  }
-
-  plazosAll.sort((a, b) => (getDaysUntilExpiry(a.fecha) ?? 0) - (getDaysUntilExpiry(b.fecha) ?? 0));
-  const plazos = plazosAll.slice(0, 8);
-
-  const now = new Date();
-  
-  // 7. Clientes sin seguimiento
-  const clientesSinSeguimientoAll = clients.filter(c => {
-    const lastUpdate = new Date(c.updated_at);
-    const diffTime = Math.abs(now.getTime() - lastUpdate.getTime());
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    return diffDays > 15;
-  });
-  const clientesSinSeguimiento = clientesSinSeguimientoAll.slice(0, 8);
-
-  // 8. Propiedades sin movimiento
-  const propiedadesSinMovimientoAll = properties.filter(p => {
-    if (p.status !== 'disponible') return false;
-    const lastUpdate = new Date(p.updated_at);
-    const diffTime = Math.abs(now.getTime() - lastUpdate.getTime());
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    return diffDays > 30;
-  });
-  const propiedadesSinMovimiento = propiedadesSinMovimientoAll.slice(0, 8);
-
-  // 9. Reservas por vencer (Inmobiliaria)
-  const reservasPorVencerAll = cases.map(c => {
-    const meta = c.metadata as Record<string, unknown> | null;
-    const fecha = (meta?.fecha_fin_reserva as string | undefined)?.trim();
-    return fecha ? { id: c.id, title: c.title, fecha, tipo: 'Reserva' } : null;
-  }).filter((c): c is { id: string; title: string; fecha: string; tipo: string } => {
-    if (!c) return false;
-    const status = getDocumentExpiryStatus(c.fecha);
-    return status === 'por_vencer' || status === 'vencido';
-  }).sort((a, b) => (getDaysUntilExpiry(a.fecha) ?? 0) - (getDaysUntilExpiry(b.fecha) ?? 0));
-  const reservasPorVencer = reservasPorVencerAll.slice(0, 8);
-
-  const totalObservaciones = sensiblesAll.length + vencimientosAll.length + incompletosAll.length + iaPendientesAll.length + sinClasificarAll.length + plazosAll.length + (industry === 'inmobiliaria' ? (clientesSinSeguimientoAll.length + propiedadesSinMovimientoAll.length + reservasPorVencerAll.length) : 0);
+  const allZero = model.queriesComplete && model.totalObservaciones === 0;
 
   return (
     <AppShell>
       <div className="mb-8 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
         <div>
-          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-cyan-400">
-            Observaciones
-          </p>
-          <h2 className="mt-2 text-3xl font-bold text-white">
+          <p className={styles.eyebrow}>Observaciones</p>
+          <h2 className={styles.title} style={{ fontSize: 28 }}>
             Centro de atención operativa
           </h2>
-          <p className="mt-2 text-sm text-slate-400">
-            {terms.observacionesSubtitulo}
-          </p>
+          <p className={styles.copy}>{terms.observacionesSubtitulo}</p>
         </div>
       </div>
 
-      <div className="mb-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-6">
-        <MotionCard index={0} className="p-5">
-          <p className="text-sm font-semibold text-slate-400">Doc. sensibles</p>
-          <p className={`mt-2 text-3xl font-bold ${sensiblesAll.length > 0 ? 'text-rose-400' : 'text-white'}`}>
-            {sensiblesAll.length}
-          </p>
-        </MotionCard>
-        <MotionCard index={1} className="p-5">
-          <p className="text-sm font-semibold text-slate-400">Vencimientos</p>
-          <p className={`mt-2 text-3xl font-bold ${vencimientosAll.length > 0 ? 'text-amber-400' : 'text-white'}`}>
-            {vencimientosAll.length}
-          </p>
-        </MotionCard>
-        <MotionCard index={2} className="p-5">
-          <p className="text-sm font-semibold text-slate-400">{terms.observacionesIncompletosCard}</p>
-          <p className={`mt-2 text-3xl font-bold ${incompletosAll.length > 0 ? 'text-amber-400' : 'text-white'}`}>
-            {incompletosAll.length}
-          </p>
-        </MotionCard>
-        <MotionCard index={3} className="p-5">
-          <p className="text-sm font-semibold text-slate-400">IA pendiente</p>
-          <p className={`mt-2 text-3xl font-bold ${iaPendientesAll.length > 0 ? 'text-cyan-400' : 'text-white'}`}>
-            {iaPendientesAll.length}
-          </p>
-        </MotionCard>
-        <MotionCard index={4} className="p-5">
-          <p className="text-sm font-semibold text-slate-400">Sin clasificar</p>
-          <p className={`mt-2 text-3xl font-bold ${sinClasificarAll.length > 0 ? 'text-slate-300' : 'text-white'}`}>
-            {sinClasificarAll.length}
-          </p>
-        </MotionCard>
-        <MotionCard index={5} className="p-5">
-          <p className="text-sm font-semibold text-slate-400">{terms.observacionesPlazosCard}</p>
-          <p className={`mt-2 text-3xl font-bold ${plazosAll.length > 0 ? 'text-amber-400' : 'text-white'}`}>
-            {plazosAll.length}
-          </p>
-        </MotionCard>
+      {model.queriesComplete ? null : (
+        <div className={`${styles.stateBanner} ${styles.statePartial}`} role="alert" style={{ marginBottom: 16 }}>
+          Datos parciales: las consultas {model.failedDependencies.join(', ')} no pudieron completarse.
+          Las secciones afectadas se muestran como no disponibles y el total no se presenta como cero.
+        </div>
+      )}
+
+      <div className={styles.gridIndicators}>
+        {indicators.map((indicator) => (
+          <div key={indicator.label} className={`${styles.indicator} ${indicator.tone === 'critical' ? styles.critical : indicator.tone === 'warning' ? styles.warning : indicator.tone === 'info' ? styles.info : ''}`}>
+            <p className={styles.indicatorLabel}>{indicator.label}</p>
+            <p className={styles.indicatorValue}>{indicatorValue(indicator.state)}</p>
+          </div>
+        ))}
       </div>
 
-      {totalObservaciones === 0 ? (
-        <MotionCard index={6} className="border-emerald-500/20 bg-emerald-500/10 p-8 text-center">
-          <p className="text-lg font-bold text-emerald-400">No hay observaciones pendientes. Todo en orden. ✅</p>
-          <p className="mt-2 text-sm text-emerald-200/70">El entorno controlado no detecta tareas operativas críticas en este momento.</p>
-        </MotionCard>
+      {allZero ? (
+        <div className={`${styles.stateBanner} ${styles.stateOk}`} role="status">
+          No hay observaciones pendientes entre las secciones consultadas. Este aviso solo corresponde a datos efectivamente disponibles; no garantiza ausencia de riesgos no evaluados.
+        </div>
       ) : (
-        <div className="grid gap-6 xl:grid-cols-2">
-          {/* 1. Documentos sensibles */}
-          <MotionCard index={6} className="p-6">
-            <h3 className="text-lg font-bold text-white">Documentos sensibles</h3>
-            <p className="mt-1 text-sm text-slate-400">Archivos marcados con alta criticidad.</p>
-            <div className="mt-4 space-y-3">
-              {sensibles.length > 0 ? sensibles.map((doc) => (
-                <Link key={doc.id} href={`/documentos/${doc.id}`} className="flex items-center justify-between rounded-xl border border-white/10 bg-white/[0.02] p-3 cursor-pointer transition hover:bg-white/[0.04]">
-                  <div className="overflow-hidden">
-                    <p className="truncate font-bold text-slate-200">{doc.file_name}</p>
-                    <p className="truncate text-xs text-slate-400">{getDocumentTypeLabel(doc.document_type)}</p>
+        <div className={styles.grid}>
+          <CategorySection
+            eyebrow="Sensibilidad"
+            title="Documentos sensibles"
+            copy="Archivos marcados con alta criticidad."
+            state={model.sensibles}
+            emptyMessage="Sin documentos sensibles."
+          >
+            {model.sensibles.kind === 'ok' ? model.sensibles.items.slice(0, 8).map((doc) => (
+              <Link key={doc.id} href={`/documentos/${doc.id}`} className={styles.itemRow}>
+                <div style={{ overflow: 'hidden' }}>
+                  <p className={styles.itemTitle}>{doc.file_name}</p>
+                  <p className={styles.itemMeta}>{getDocumentTypeLabel(doc.document_type)}</p>
+                </div>
+                <span className={`${styles.badge} ${styles.badgeCritical}`}>Sensible</span>
+              </Link>
+            )) : null}
+            {model.sensibles.kind === 'ok' && model.sensibles.total > 8 ? (
+              <Link href="/reportes?vista=documentos" className={styles.moreLink}>Ver reporte de sensibilidad ({model.sensibles.total})</Link>
+            ) : null}
+          </CategorySection>
+
+          <CategorySection
+            eyebrow="Vencimientos"
+            title="Vencimientos a revisar"
+            copy="Documentos próximos a vencer o vencidos."
+            state={model.vencimientos}
+            emptyMessage="Sin vencimientos próximos."
+          >
+            {model.vencimientos.kind === 'ok' ? model.vencimientos.items.slice(0, 8).map((doc) => {
+              const status = getDocumentExpiryStatus(doc.expires_at);
+              return (
+                <Link key={doc.id} href={`/documentos/${doc.id}`} className={styles.itemRow}>
+                  <div style={{ overflow: 'hidden' }}>
+                    <p className={styles.itemTitle}>{doc.file_name}</p>
+                    <p className={styles.itemMeta}>{formatPlazoDate(doc.expires_at)}</p>
                   </div>
-                  <div className="ml-3 flex shrink-0 items-center gap-3">
-                    <span className="rounded-full bg-rose-500/20 px-2 py-1 text-xs font-bold text-rose-400">Sensible</span>
-                    <span className="text-xs font-semibold text-cyan-400">Revisar ›</span>
-                  </div>
+                  <span className={`${styles.badge} ${getExpiryBadgeStyles(status)}`}>{expiryStatusLabel(status)}</span>
                 </Link>
-              )) : (
-                <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-4 text-sm text-emerald-200/70">Sin documentos sensibles.</div>
-              )}
-              {sensiblesAll.length > 8 && <Link href="/reportes?vista=documentos" className="block text-sm font-bold text-cyan-400 hover:text-cyan-300">Ver reporte de sensibilidad</Link>}
-            </div>
-          </MotionCard>
+              );
+            }) : null}
+            {model.vencimientos.kind === 'ok' && model.vencimientos.total > 8 ? (
+              <Link href="/reportes?vista=documentos" className={styles.moreLink}>Ver reporte de vencimientos ({model.vencimientos.total})</Link>
+            ) : null}
+          </CategorySection>
 
+          <CategorySection
+            eyebrow="Checklist"
+            title={terms.observacionesIncompletosTitulo}
+            copy="Checklist documental sugerido, aún sin completar."
+            state={model.incompletos}
+            emptyMessage={`Todos los ${terms.expedientePlural.toLowerCase()} están ${isFem ? 'completas' : 'completos'}.`}
+          >
+            {model.incompletos.kind === 'ok' ? model.incompletos.items.slice(0, 8).map((c) => (
+              <Link key={c.id} href={`${casePath}/${c.id}`} className={styles.itemRow}>
+                <div style={{ overflow: 'hidden' }}>
+                  <p className={styles.itemTitle}>{c.title || terms.itemSinTitulo}</p>
+                  {c.hasUnknown ? <p className={styles.itemMeta}>Incluye estados por revisar</p> : null}
+                </div>
+                <span className={`${styles.badge} ${styles.badgeNeutral}`}>
+                  Sugeridos {c.total - c.fulfilled}/{c.total}
+                </span>
+              </Link>
+            )) : null}
+            {model.incompletos.kind === 'ok' && model.incompletos.total > 8 ? (
+              <Link href={casePath} className={styles.moreLink}>
+                Ver {isFem ? 'todas las' : 'todos los'} {terms.expedientePlural.toLowerCase()} ({model.incompletos.total})
+              </Link>
+            ) : null}
+          </CategorySection>
 
-          {/* 2. Vencimientos a revisar */}
-          <MotionCard index={7} className="p-6">
-            <h3 className="text-lg font-bold text-white">Vencimientos a revisar</h3>
-            <p className="mt-1 text-sm text-slate-400">Documentos próximos a vencer o vencidos.</p>
-            <div className="mt-4 space-y-3">
-              {vencimientos.length > 0 ? vencimientos.map((doc) => {
-                const status = getDocumentExpiryStatus(doc.expires_at!);
-                const badgeStyles = getExpiryBadgeStyles(status);
-                const label = expiryStatusLabel(status);
-                return (
-                  <Link key={doc.id} href={`/documentos/${doc.id}`} className="flex items-center justify-between rounded-xl border border-white/10 bg-white/[0.02] p-3 cursor-pointer transition hover:bg-white/[0.04]">
-                    <div className="overflow-hidden">
-                      <p className="truncate font-bold text-slate-200">{doc.file_name}</p>
-                      <p className="truncate text-xs text-slate-400">{formatPlazoDate(doc.expires_at)}</p>
-                    </div>
-                    <div className="ml-3 flex shrink-0 items-center gap-3">
-                      <span className={`rounded-full px-2 py-1 text-xs font-bold ${badgeStyles}`}>{label}</span>
-                      <span className="text-xs font-semibold text-cyan-400">Revisar ›</span>
-                    </div>
-                  </Link>
-                );
-              }) : (
-                <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-4 text-sm text-emerald-200/70">Sin vencimientos próximos.</div>
-              )}
-              {vencimientosAll.length > 8 && <Link href="/reportes?vista=documentos" className="block text-sm font-bold text-cyan-400 hover:text-cyan-300">Ver reporte de vencimientos</Link>}
-            </div>
-          </MotionCard>
-
-          {/* 3. Expedientes incompletos */}
-          <MotionCard index={8} className="p-6">
-            <h3 className="text-lg font-bold text-white">{terms.observacionesIncompletosTitulo}</h3>
-            <p className="mt-1 text-sm text-slate-400">Checklist documental sugerido, aún sin completar.</p>
-            <div className="mt-4 space-y-3">
-              {incompletos.length > 0 ? incompletos.map((c) => (
-                <Link key={c.id} href={`/expedientes/${c.id}`} className="flex items-center justify-between rounded-xl border border-white/10 bg-white/[0.02] p-3 cursor-pointer transition hover:bg-white/[0.04]">
-                  <div className="overflow-hidden">
-                    <p className="truncate font-bold text-slate-200">{c.title || terms.itemSinTitulo}</p>
-                  </div>
-                  <div className="ml-3 flex shrink-0 items-center gap-3">
-                    <span className="rounded-full bg-white/10 px-2 py-1 text-xs font-bold text-slate-300">
-                      Sugeridos {c.summary.total - c.summary.missing}/{c.summary.total}
-                    </span>
-                    <span className="text-xs font-semibold text-cyan-400">Completar ›</span>
-                  </div>
-                </Link>
-              )) : (
-                <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-4 text-sm text-emerald-200/70">Todos los {terms.expedientePlural.toLowerCase()} están {isFem ? 'completas' : 'completos'}.</div>
-              )}
-              {incompletosAll.length > 8 && <Link href="/expedientes" className="block text-sm font-bold text-cyan-400 hover:text-cyan-300">Ver {isFem ? 'todas las' : 'todos los'} {terms.expedientePlural.toLowerCase()}</Link>}
-            </div>
-          </MotionCard>
-
-          {/* 4. Análisis IA pendientes */}
-          <div id="analisis-ia-pendientes">
-            <MotionCard index={9} className="p-6 h-full">
-            <h3 className="text-lg font-bold text-white">Análisis IA pendientes</h3>
-            <p className="mt-1 text-sm text-slate-400">Documentos que no han sido procesados por la IA.</p>
-            <div className="mt-4 space-y-3">
-              {iaPendientes.length > 0 ? iaPendientes.map((doc) => {
-                const isPdf = doc.file_mime_type === 'application/pdf';
-                return (
-                  <Link key={doc.id} href={`/documentos/${doc.id}`} className="flex items-center justify-between rounded-xl border border-white/10 bg-white/[0.02] p-3 cursor-pointer transition hover:bg-white/[0.04]">
-                    <div className="overflow-hidden">
-                      <p className="truncate font-bold text-slate-200">{doc.file_name}</p>
-                      <p className="truncate text-xs text-slate-400">
-                        {doc.case_id && caseTitleMap.has(doc.case_id) ? `${caseTitleMap.get(doc.case_id)} · ` : 'Sin operación asociada · '}
-                        Tipo: {getDocumentTypeLabel(doc.document_type) || 'Sin clasificar'} · IA pendiente
-                      </p>
-                    </div>
-                    <div className="ml-3 flex shrink-0 items-center gap-3">
-                      {isPdf ? (
-                        <span className="rounded-full bg-cyan-500/20 px-2 py-1 text-xs font-bold text-cyan-400">IA pendiente</span>
-                      ) : (
-                        <span className="rounded-full bg-white/10 px-2 py-1 text-xs font-bold text-slate-300">Solo PDF</span>
-                      )}
-                      <span className="text-xs font-semibold text-cyan-400">Revisar ›</span>
-                    </div>
-                  </Link>
-                );
-              }) : (
-                <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-4 text-sm text-emerald-200/70">Análisis IA al día.</div>
-              )}
-              {iaPendientesAll.length > 8 && <Link href="/documentos?ia=pendientes" className="block text-sm font-bold text-cyan-400 hover:text-cyan-300">Ver todos los pendientes ({iaPendientesAll.length})</Link>}
-            </div>
-          </MotionCard>
-          </div>
-
-          {/* 5. Documentos sin clasificar */}
-          <MotionCard index={10} className="p-6 xl:col-span-2">
-            <h3 className="text-lg font-bold text-white">Documentos sin clasificar</h3>
-            <p className="mt-1 text-sm text-slate-400">Documentos que no tienen un tipo asignado.</p>
-            <div className="mt-4 grid gap-3 sm:grid-cols-2">
-              {sinClasificar.length > 0 ? sinClasificar.map((doc) => (
-                <Link key={doc.id} href={`/documentos/${doc.id}`} className="flex items-center justify-between rounded-xl border border-white/10 bg-white/[0.02] p-3 cursor-pointer transition hover:bg-white/[0.04]">
-                  <div className="overflow-hidden">
-                    <p className="truncate font-bold text-slate-200">{doc.file_name}</p>
-                    <p className="truncate text-xs text-slate-400">
-                      {doc.case_id && caseTitleMap.has(doc.case_id) ? `${caseTitleMap.get(doc.case_id)} · ` : 'Sin operación asociada · '}
-                      Sin clasificar · {analyzedDocIds.has(String(doc.id)) ? 'IA completada' : 'IA pendiente'}
+          <CategorySection
+            eyebrow="Análisis"
+            title="Análisis IA pendientes"
+            copy="Documentos que no han sido procesados por la IA."
+            state={model.iaPendientes}
+            emptyMessage="Análisis IA al día."
+          >
+            {model.iaPendientes.kind === 'ok' ? model.iaPendientes.items.slice(0, 8).map((doc) => {
+              const isPdf = doc.file_mime_type === 'application/pdf';
+              return (
+                <Link key={doc.id} href={`/documentos/${doc.id}`} className={styles.itemRow}>
+                  <div style={{ overflow: 'hidden' }}>
+                    <p className={styles.itemTitle}>{doc.file_name}</p>
+                    <p className={styles.itemMeta}>
+                      Tipo: {getDocumentTypeLabel(doc.document_type) || 'Sin clasificar'} · IA pendiente
                     </p>
                   </div>
-                  <div className="ml-3 flex shrink-0 items-center gap-3">
-                    <span className="rounded-full bg-white/10 px-2 py-1 text-xs font-bold text-slate-300">Sin clasificar</span>
-                    <span className="text-xs font-semibold text-cyan-400">Abrir para clasificar ›</span>
-                  </div>
+                  <span className={`${styles.badge} ${isPdf ? styles.badgeInfo : styles.badgeNeutral}`}>
+                    {isPdf ? 'IA pendiente' : 'Solo PDF'}
+                  </span>
                 </Link>
-              )) : (
-                <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-4 text-sm text-emerald-200/70 sm:col-span-2">Todos los documentos están clasificados.</div>
-              )}
-            </div>
-            {sinClasificarAll.length > 8 && <Link href="/documentos" className="mt-3 block text-sm font-bold text-cyan-400 hover:text-cyan-300">Ver todos los documentos</Link>}
-          </MotionCard>
+              );
+            }) : null}
+            {model.iaPendientes.kind === 'ok' && model.iaPendientes.total > 8 ? (
+              <Link href="/documentos?ia=pendientes" className={styles.moreLink}>Ver todos los pendientes ({model.iaPendientes.total})</Link>
+            ) : null}
+          </CategorySection>
 
-          {/* 6. Plazos procesales / fechas clave */}
-          <MotionCard index={11} className="p-6">
-            <h3 className="text-lg font-bold text-white">{terms.observacionesPlazosTitulo}</h3>
-            <p className="mt-1 text-sm text-slate-400">{terms.observacionesPlazosDesc}</p>
-            <div className="mt-4 space-y-3">
-              {plazos.length > 0 ? plazos.map((item) => {
-                const status = getDocumentExpiryStatus(item.fecha);
-                const badgeStyles = getExpiryBadgeStyles(status);
-                const label = expiryStatusLabel(status);
-                return (
-                  <Link key={item.id} href={`/expedientes/${item.caseId}`} className="flex items-center justify-between rounded-xl border border-white/10 bg-white/[0.02] p-3 cursor-pointer transition hover:bg-white/[0.04]">
-                    <div className="overflow-hidden">
-                      <p className="truncate font-bold text-slate-200">{item.title || terms.itemSinTitulo}</p>
-                      <p className="truncate text-xs text-slate-400">{item.tipo} · {formatPlazoDate(item.fecha)}</p>
-                    </div>
-                    <div className="ml-3 flex shrink-0 items-center gap-3">
-                      <span className={`rounded-full px-2 py-1 text-xs font-bold ${badgeStyles}`}>{label}</span>
-                      <span className="text-xs font-semibold text-cyan-400">Revisar ›</span>
-                    </div>
-                  </Link>
-                );
-              }) : (
-                <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-4 text-sm text-emerald-200/70">{terms.observacionesPlazosVacio}</div>
-              )}
-              {plazosAll.length > 8 && <Link href="/expedientes" className="block text-sm font-bold text-cyan-400 hover:text-cyan-300">Ver todos ({plazosAll.length})</Link>}
-            </div>
-          </MotionCard>
+          <CategorySection
+            eyebrow="Clasificación"
+            title="Documentos sin clasificar"
+            copy="Documentos que no tienen un tipo asignado."
+            state={model.sinClasificar}
+            emptyMessage="Todos los documentos están clasificados."
+            full
+          >
+            {model.sinClasificar.kind === 'ok' ? model.sinClasificar.items.slice(0, 8).map((doc) => (
+              <Link key={doc.id} href={`/documentos/${doc.id}`} className={styles.itemRow}>
+                <div style={{ overflow: 'hidden' }}>
+                  <p className={styles.itemTitle}>{doc.file_name}</p>
+                  <p className={styles.itemMeta}>Sin clasificar</p>
+                </div>
+                <span className={`${styles.badge} ${styles.badgeNeutral}`}>Sin clasificar</span>
+              </Link>
+            )) : null}
+            {model.sinClasificar.kind === 'ok' && model.sinClasificar.total > 8 ? (
+              <Link href="/documentos" className={styles.moreLink}>Ver todos los documentos ({model.sinClasificar.total})</Link>
+            ) : null}
+          </CategorySection>
 
-          {industry === 'inmobiliaria' && (
+          <CategorySection
+            eyebrow="Plazos"
+            title={terms.observacionesPlazosTitulo}
+            copy={terms.observacionesPlazosDesc}
+            state={model.plazos}
+            emptyMessage={terms.observacionesPlazosVacio}
+          >
+            {model.plazos.kind === 'ok' ? model.plazos.items.slice(0, 8).map((item) => {
+              const status = getDocumentExpiryStatus(item.fecha);
+              return (
+                <Link key={item.id} href={`${casePath}/${item.caseId}`} className={styles.itemRow}>
+                  <div style={{ overflow: 'hidden' }}>
+                    <p className={styles.itemTitle}>{item.title || terms.itemSinTitulo}</p>
+                    <p className={styles.itemMeta}>{item.tipo} · {formatPlazoDate(item.fecha)}</p>
+                  </div>
+                  <span className={`${styles.badge} ${getExpiryBadgeStyles(status)}`}>{expiryStatusLabel(status)}</span>
+                </Link>
+              );
+            }) : null}
+            {model.plazos.kind === 'ok' && model.plazos.total > 8 ? (
+              <Link href={casePath} className={styles.moreLink}>Ver todos ({model.plazos.total})</Link>
+            ) : null}
+          </CategorySection>
+
+          {industry === 'inmobiliaria' ? (
             <>
-              {/* 7. Clientes sin seguimiento */}
-              <MotionCard index={12} className="p-6">
-                <h3 className="text-lg font-bold text-white">Clientes sin seguimiento</h3>
-                <p className="mt-1 text-sm text-slate-400">Sin movimientos en los últimos 15 días.</p>
-                <div className="mt-4 space-y-3">
-                  {clientesSinSeguimiento.length > 0 ? clientesSinSeguimiento.map((item) => (
-                    <Link key={item.id} href={`/clientes/${item.id}`} className="flex items-center justify-between rounded-xl border border-white/10 bg-white/[0.02] p-3 cursor-pointer transition hover:bg-white/[0.04]">
-                      <div className="overflow-hidden">
-                        <p className="truncate font-bold text-slate-200">{item.name}</p>
-                        <p className="truncate text-xs text-slate-400">Último cambio: {formatPlazoDate(item.updated_at)}</p>
-                      </div>
-                      <div className="ml-3 flex shrink-0 items-center gap-3">
-                        <span className="rounded-full bg-amber-500/20 px-2 py-1 text-xs font-bold text-amber-400">+15 días</span>
-                        <span className="text-xs font-semibold text-cyan-400">Revisar ›</span>
-                      </div>
-                    </Link>
-                  )) : (
-                    <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-4 text-sm text-emerald-200/70">Todos los clientes tienen seguimiento reciente.</div>
-                  )}
-                  {clientesSinSeguimientoAll.length > 8 && <Link href="/clientes" className="block text-sm font-bold text-cyan-400 hover:text-cyan-300">Ver todos ({clientesSinSeguimientoAll.length})</Link>}
-                </div>
-              </MotionCard>
+              <CategorySection
+                eyebrow="Clientes"
+                title="Clientes sin seguimiento"
+                copy="Sin movimientos en los últimos 15 días."
+                state={model.clientesSinSeguimiento}
+                emptyMessage="Todos los clientes tienen seguimiento reciente."
+              >
+                {model.clientesSinSeguimiento.kind === 'ok' ? model.clientesSinSeguimiento.items.map((item) => (
+                  <Link key={item.id} href={`/clientes/${item.id}`} className={styles.itemRow}>
+                    <div style={{ overflow: 'hidden' }}>
+                      <p className={styles.itemTitle}>{item.name}</p>
+                      <p className={styles.itemMeta}>
+                        {item.days !== null ? `Último cambio hace más de ${item.days} días` : 'Fecha de cambio no disponible'}
+                      </p>
+                    </div>
+                    <span className={`${styles.badge} ${styles.badgeWarning}`}>+15 días</span>
+                  </Link>
+                )) : null}
+                {model.clientesSinSeguimiento.kind === 'ok' && model.clientesSinSeguimiento.hasIndeterminate ? (
+                  <p className={styles.partialNote}>Algunos clientes no se evaluaron por fecha de cambio ausente o no interpretable.</p>
+                ) : null}
+                {model.clientesSinSeguimiento.kind === 'ok' && model.clientesSinSeguimiento.total > 8 ? (
+                  <Link href="/clientes" className={styles.moreLink}>Ver todos ({model.clientesSinSeguimiento.total})</Link>
+                ) : null}
+              </CategorySection>
 
-              {/* 8. Propiedades sin movimiento */}
-              <MotionCard index={13} className="p-6">
-                <h3 className="text-lg font-bold text-white">Propiedades sin movimiento</h3>
-                <p className="mt-1 text-sm text-slate-400">Sin movimientos en los últimos 30 días.</p>
-                <div className="mt-4 space-y-3">
-                  {propiedadesSinMovimiento.length > 0 ? propiedadesSinMovimiento.map((item) => (
-                    <Link key={item.id} href={`/propiedades/${item.id}`} className="flex items-center justify-between rounded-xl border border-white/10 bg-white/[0.02] p-3 cursor-pointer transition hover:bg-white/[0.04]">
-                      <div className="overflow-hidden">
-                        <p className="truncate font-bold text-slate-200">{item.name}</p>
-                        <p className="truncate text-xs text-slate-400">Último cambio: {formatPlazoDate(item.updated_at)}</p>
-                      </div>
-                      <div className="ml-3 flex shrink-0 items-center gap-3">
-                        <span className="rounded-full bg-amber-500/20 px-2 py-1 text-xs font-bold text-amber-400">+30 días</span>
-                        <span className="text-xs font-semibold text-cyan-400">Revisar ›</span>
-                      </div>
-                    </Link>
-                  )) : (
-                    <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-4 text-sm text-emerald-200/70">Todas las propiedades tienen movimientos recientes.</div>
-                  )}
-                  {propiedadesSinMovimientoAll.length > 8 && <Link href="/propiedades" className="block text-sm font-bold text-cyan-400 hover:text-cyan-300">Ver todas ({propiedadesSinMovimientoAll.length})</Link>}
-                </div>
-              </MotionCard>
+              <CategorySection
+                eyebrow="Propiedades"
+                title="Propiedades sin movimiento"
+                copy="Sin movimientos en los últimos 30 días."
+                state={model.propiedadesSinMovimiento}
+                emptyMessage="Todas las propiedades tienen movimientos recientes."
+              >
+                {model.propiedadesSinMovimiento.kind === 'ok' ? model.propiedadesSinMovimiento.items.map((item) => (
+                  <Link key={item.id} href={`/propiedades/${item.id}`} className={styles.itemRow}>
+                    <div style={{ overflow: 'hidden' }}>
+                      <p className={styles.itemTitle}>{item.name}</p>
+                      <p className={styles.itemMeta}>
+                        {item.days !== null ? `Último cambio hace más de ${item.days} días` : 'Fecha de cambio no disponible'}
+                      </p>
+                    </div>
+                    <span className={`${styles.badge} ${styles.badgeWarning}`}>+30 días</span>
+                  </Link>
+                )) : null}
+                {model.propiedadesSinMovimiento.kind === 'ok' && model.propiedadesSinMovimiento.hasIndeterminate ? (
+                  <p className={styles.partialNote}>Algunas propiedades no se evaluaron por fecha de cambio ausente o no interpretable.</p>
+                ) : null}
+                {model.propiedadesSinMovimiento.kind === 'ok' && model.propiedadesSinMovimiento.total > 8 ? (
+                  <Link href="/propiedades" className={styles.moreLink}>Ver todas ({model.propiedadesSinMovimiento.total})</Link>
+                ) : null}
+              </CategorySection>
 
-              {/* 9. Reservas por vencer */}
-              <MotionCard index={14} className="p-6 xl:col-span-2">
-                <h3 className="text-lg font-bold text-white">Reservas por vencer</h3>
-                <p className="mt-1 text-sm text-slate-400">Operaciones con reserva próxima a vencer.</p>
-                <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                  {reservasPorVencer.length > 0 ? reservasPorVencer.map((item) => {
-                    const status = getDocumentExpiryStatus(item.fecha);
-                    const badgeStyles = getExpiryBadgeStyles(status);
-                    const label = expiryStatusLabel(status);
-                    return (
-                      <Link key={item.id} href={`/expedientes/${item.id}`} className="flex items-center justify-between rounded-xl border border-white/10 bg-white/[0.02] p-3 cursor-pointer transition hover:bg-white/[0.04]">
-                        <div className="overflow-hidden">
-                          <p className="truncate font-bold text-slate-200">{item.title || terms.itemSinTitulo}</p>
-                          <p className="truncate text-xs text-slate-400">Fin de reserva: {formatPlazoDate(item.fecha)}</p>
-                        </div>
-                        <div className="ml-3 flex shrink-0 items-center gap-3">
-                          <span className={`rounded-full px-2 py-1 text-xs font-bold ${badgeStyles}`}>{label}</span>
-                          <span className="text-xs font-semibold text-cyan-400">Revisar ›</span>
-                        </div>
-                      </Link>
-                    );
-                  }) : (
-                    <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-4 text-sm text-emerald-200/70 sm:col-span-2">No hay reservas próximas a vencer.</div>
-                  )}
-                </div>
-                {reservasPorVencerAll.length > 8 && <Link href="/expedientes" className="mt-3 block text-sm font-bold text-cyan-400 hover:text-cyan-300">Ver todas ({reservasPorVencerAll.length})</Link>}
-              </MotionCard>
+              <CategorySection
+                eyebrow="Reservas"
+                title="Reservas por vencer"
+                copy="Operaciones con reserva próxima a vencer."
+                state={model.reservasPorVencer}
+                emptyMessage="No hay reservas próximas a vencer."
+                full
+              >
+                {model.reservasPorVencer.kind === 'ok' ? model.reservasPorVencer.items.slice(0, 8).map((item) => {
+                  const status = getDocumentExpiryStatus(item.fecha);
+                  return (
+                    <Link key={item.id} href={`/operaciones/${item.id}`} className={styles.itemRow}>
+                      <div style={{ overflow: 'hidden' }}>
+                        <p className={styles.itemTitle}>{item.title || terms.itemSinTitulo}</p>
+                        <p className={styles.itemMeta}>Fin de reserva: {formatPlazoDate(item.fecha)}</p>
+                      </div>
+                      <span className={`${styles.badge} ${getExpiryBadgeStyles(status)}`}>{expiryStatusLabel(status)}</span>
+                    </Link>
+                  );
+                }) : null}
+                {model.reservasPorVencer.kind === 'ok' && model.reservasPorVencer.total > 8 ? (
+                  <Link href="/operaciones" className={styles.moreLink}>Ver todas ({model.reservasPorVencer.total})</Link>
+                ) : null}
+              </CategorySection>
             </>
-          )}
+          ) : null}
         </div>
       )}
     </AppShell>
   );
 }
+
+export type { ObservacionesModel };
