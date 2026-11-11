@@ -1,0 +1,229 @@
+/* Reporte Auditoría — estilos neutrales compatibles con V3. */
+
+.section {
+  border: 1px solid var(--ui-line, #e0e1e1);
+  border-radius: 9px;
+  background: var(--ui-panel, #fff);
+  padding: 18px;
+}
+
+.eyebrow {
+  color: #62676d;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.065em;
+  text-transform: uppercase;
+}
+
+.title {
+  color: var(--ui-text, #25272a);
+  font-size: 19px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  margin-top: 6px;
+}
+
+.copy {
+  color: #62676d;
+  font-size: 12.5px;
+  line-height: 1.6;
+  margin-top: 4px;
+}
+
+.gridCounts {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  margin-top: 16px;
+}
+
+.countTile {
+  background: #f5f5f4;
+  border: 1px solid var(--ui-line, #e0e1e1);
+  border-radius: 6px;
+  padding: 12px 14px;
+}
+
+.countLabel {
+  color: #62676d;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.065em;
+  text-transform: uppercase;
+}
+
+.countValue {
+  color: var(--ui-text, #25272a);
+  font-size: 24px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  line-height: 1.2;
+  margin-top: 4px;
+}
+
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.filterChip {
+  background: #fff;
+  border: 1px solid var(--ui-line, #e0e1e1);
+  border-radius: 999px;
+  color: #44484d;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 6px 14px;
+  text-decoration: none;
+}
+
+.filterChip:hover {
+  background: #f3f4f4;
+}
+
+.filterChipActive {
+  background: #25272a;
+  border-color: #25272a;
+  color: #fff;
+}
+
+.tableWrap {
+  border: 1px solid var(--ui-line, #e0e1e1);
+  border-radius: 8px;
+  margin-top: 16px;
+  overflow-x: auto;
+}
+
+.table {
+  border-collapse: collapse;
+  font-size: 12.5px;
+  min-width: 720px;
+  text-align: left;
+  width: 100%;
+}
+
+.tableHead {
+  background: #f5f5f4;
+  border-bottom: 1px solid var(--ui-line, #e0e1e1);
+  color: #62676d;
+  font-size: 10.5px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.tableHead th {
+  padding: 10px 12px;
+  white-space: nowrap;
+}
+
+.tableBody td {
+  border-bottom: 1px solid #ececea;
+  color: #44484d;
+  padding: 12px;
+  vertical-align: top;
+}
+
+.tableBody tr:hover {
+  background: #fafafa;
+}
+
+.actionCell {
+  align-items: center;
+  display: inline-flex;
+  font-weight: 600;
+  gap: 8px;
+  white-space: nowrap;
+}
+
+.dot {
+  border-radius: 999px;
+  display: inline-block;
+  flex-shrink: 0;
+  height: 9px;
+  width: 9px;
+}
+
+.actorName {
+  color: var(--ui-text, #25272a);
+  font-weight: 600;
+}
+
+.actorRole {
+  color: #62676d;
+  font-size: 11px;
+  margin-top: 2px;
+}
+
+.detailCell {
+  color: #62676d;
+  max-width: 320px;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+.dateCell {
+  color: #62676d;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.emptyRow {
+  color: #62676d;
+  font-size: 12.5px;
+  padding: 18px 14px;
+}
+
+.pagination {
+  align-items: center;
+  color: #62676d;
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 12px;
+  gap: 10px;
+  justify-content: space-between;
+  margin-top: 14px;
+}
+
+.pageButton {
+  background: #fff;
+  border: 1px solid var(--ui-line, #e0e1e1);
+  border-radius: 5px;
+  color: #44484d;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 6px 12px;
+  text-decoration: none;
+}
+
+.pageButton:hover {
+  background: #f3f4f4;
+}
+
+.pageButtonDisabled {
+  background: #f4f5f5;
+  border-color: #ececea;
+  color: #a7abaf;
+  cursor: not-allowed;
+}
+
+.stateBanner {
+  border-radius: 6px;
+  font-size: 12.5px;
+  line-height: 1.55;
+  margin-top: 16px;
+  padding: 10px 14px;
+}
+
+.stateError {
+  background: #fdf3f3;
+  border: 1px solid #e4c8c8;
+  color: #7c2d2d;
+}
+
+.stateEmpty {
+  background: #f4f5f5;
+  border: 1px solid var(--ui-line, #e0e1e1);
+  color: #62676d;
+}
