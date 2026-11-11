@@ -21,6 +21,8 @@ export function UnirPdf({ canSave = true }: { canSave?: boolean }) {
 	const [uniendo, setUniendo] = useState(false);
 	const [guardando, setGuardando] = useState(false);
 	const [error, setError] = useState<string | null>(null);
+	const [aviso, setAviso] = useState<string | null>(null);
+	const [descargaSolicitada, setDescargaSolicitada] = useState(false);
 
 	const agregar = (files: FileList | null) => {
 		if (!files) return;
@@ -29,7 +31,11 @@ export function UnirPdf({ canSave = true }: { canSave?: boolean }) {
 			if (file.type !== 'application/pdf') return;
 			nuevos.push({ id: crypto.randomUUID(), nombre: file.name, file });
 		});
-		if (nuevos.length > 0) setArchivos((prev) => [...prev, ...nuevos]);
+		if (nuevos.length > 0) {
+			setArchivos((prev) => [...prev, ...nuevos]);
+			setDescargaSolicitada(false);
+			setAviso(null);
+		}
 	};
 
 	const quitar = (id: string) =>
@@ -44,10 +50,13 @@ export function UnirPdf({ canSave = true }: { canSave?: boolean }) {
 			return arr;
 		});
 
-	// Une los PDFs en el orden de la lista y devuelve los bytes finales
+	// Une los PDFs en el orden de una instantánea de la lista y devuelve los
+	// bytes finales. La instantánea evita que un cambio durante la operación
+	// altere el resultado.
 	const construirPdf = async (): Promise<Uint8Array> => {
+		const instantanea = [...archivos];
 		const merged = await PDFDocument.create();
-		for (const item of archivos) {
+		for (const item of instantanea) {
 			const bytes = await item.file.arrayBuffer();
 			const src = await PDFDocument.load(bytes, { ignoreEncryption: true });
 			const paginas = await merged.copyPages(src, src.getPageIndices());
@@ -57,9 +66,10 @@ export function UnirPdf({ canSave = true }: { canSave?: boolean }) {
 	};
 
 	const unirYDescargar = async () => {
-		if (archivos.length < 2) return;
+		if (archivos.length < 2 || uniendo || guardando) return;
 		setUniendo(true);
 		setError(null);
+		setAviso(null);
 		try {
 			const bytes = await construirPdf();
 			const blob = new Blob([bytes as any], { type: 'application/pdf' });
@@ -69,9 +79,11 @@ export function UnirPdf({ canSave = true }: { canSave?: boolean }) {
 			a.download = 'documento-unido.pdf';
 			a.click();
 			URL.revokeObjectURL(url);
+			// La solicitud de descarga no acredita que el archivo quedó guardado.
+			setDescargaSolicitada(true);
 		} catch (e) {
 			setError(
-				'No se pudo unir. Verificá que todos sean PDF válidos y no estén protegidos con contraseña.'
+				'No se pudo completar la unión. No se genera ni se ofrece un archivo parcial. Verificá que todos sean PDF válidos y no estén protegidos con contraseña.'
 			);
 		} finally {
 			setUniendo(false);
@@ -79,10 +91,10 @@ export function UnirPdf({ canSave = true }: { canSave?: boolean }) {
 	};
 
 	const guardarEnDocumentos = async () => {
-    if (!canSave) return;
-		if (archivos.length < 2) return;
+		if (!canSave || archivos.length < 2 || guardando || uniendo) return;
 		setGuardando(true);
 		setError(null);
+		setAviso(null);
 		try {
 			const bytes = await construirPdf();
 			const blob = new Blob([bytes as any], { type: 'application/pdf' });
@@ -93,8 +105,12 @@ export function UnirPdf({ canSave = true }: { canSave?: boolean }) {
 			fd.append('file', file);
 			fd.append('sensitivity_level', 'medium');
 			await uploadDocument(fd);
+			setAviso('Solicitud de guardado enviada. Revisá Documentos para confirmar que el archivo quedó registrado.');
+			setGuardando(false);
 		} catch (e) {
-			setError('No se pudo guardar en Documentos. Intentá de nuevo.');
+			// Un fallo después de iniciar el envío deja el resultado incierto:
+			// no se afirma rollback ni ausencia de archivo.
+			setError('El resultado del envío a Documentos es incierto. Revisá Documentos antes de reintentar para evitar duplicados.');
 			setGuardando(false);
 		}
 	};
@@ -122,8 +138,14 @@ export function UnirPdf({ canSave = true }: { canSave?: boolean }) {
 			</label>
 
 			{error && (
-				<p className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">
+				<p className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700" role="alert">
 					{error}
+				</p>
+			)}
+
+			{aviso && (
+				<p className="rounded-lg bg-sky-50 px-3 py-2 text-sm text-sky-800" role="status">
+					{aviso}
 				</p>
 			)}
 
@@ -212,6 +234,12 @@ export function UnirPdf({ canSave = true }: { canSave?: boolean }) {
 							</span>
 						)}
 					</div>
+
+					{descargaSolicitada ? (
+						<p className="text-xs text-slate-500" role="status">
+							Se solicitó la descarga al navegador; no se puede confirmar desde aquí que el archivo quedó guardado en tu dispositivo.
+						</p>
+					) : null}
 				</>
 			)}
 		</div>
