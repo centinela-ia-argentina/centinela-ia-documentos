@@ -12,6 +12,7 @@ export interface ShellContext {
   role: string | null;
   industry: IndustryType;
   organizationName: string | null;
+  organizationLogo: string | null;
 }
 
 export const getShellContext = cache(async (): Promise<ShellContext> => {
@@ -20,18 +21,20 @@ export const getShellContext = cache(async (): Promise<ShellContext> => {
 
   let industry: IndustryType = 'general';
   let organizationName: string | null = null;
+  let organizationLogo: string | null = null;
 
   if (profile?.organization_id) {
     const supabase = await createClient();
     const { data: organization } = await supabase
       .from('organizations')
-      .select('name, industry_type')
+      .select('name, industry_type, logo_url')
       .eq('id', profile.organization_id)
       .maybeSingle();
 
     industry = normalizeIndustryType(organization?.industry_type);
     organizationName = organization?.name?.trim() || null;
+    organizationLogo = organization?.logo_url?.trim() || null;
   }
 
-  return { profile, role, industry, organizationName };
+  return { profile, role, industry, organizationName, organizationLogo };
 });
