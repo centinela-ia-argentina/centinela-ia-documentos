@@ -94,7 +94,7 @@ describe('Usuarios — fallo de consulta no se presenta como vacío', () => {
 
     expect(html).toContain('Sin definir');
     expect(html).not.toContain('value="employee" selected');
-    expect(html).toContain('los últimos 80');
+    expect(html).toContain('los últimos 80 eventos de la organización');
   });
 
   it('estado inactivo se presenta neutral, no como error', async () => {
@@ -179,7 +179,7 @@ describe('Ajustes — organización no disponible y rubro sin selección automá
 
     const html = renderToString(await ConfiguracionPage({ searchParams: Promise.resolve({}) }));
 
-    expect(html).toContain('Elegí un rubro');
+    expect(html).toContain('— Sin selección (definir explícitamente) —');
     expect(html).not.toContain('selected>');
   });
 });
