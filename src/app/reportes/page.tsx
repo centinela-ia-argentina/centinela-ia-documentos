@@ -275,29 +275,29 @@ if (
     <AppShell>
       <div className="mb-8 flex flex-col justify-between gap-4 xl:flex-row xl:items-end">
         <div>
-          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-cyan-400">
+          <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-neutral-500">
             Reportes
           </p>
 
-          <h2 className="mt-2 text-3xl font-bold text-white">
+          <h2 className="mt-2 text-3xl font-bold tracking-tight text-neutral-900">
             Reporte operativo del sistema
           </h2>
 
-          <p className="mt-2 text-sm text-slate-300">
+          <p className="mt-2 text-[13px] text-neutral-500">
             {terms.reportesSubtitulo}
           </p>
         </div>
       </div>
 
-      <div className="mb-6 flex flex-wrap gap-3">
+      <div className="flex flex-wrap gap-2">
         {views.map((view) => (
           <Link
             key={view.value}
             href={view.href}
-            className={`rounded-xl px-4 py-2 text-sm font-bold transition-all hover:scale-[1.03] active:scale-[0.97] ${
+            className={`inline-flex items-center rounded-full border px-4 py-2 text-[12.5px] font-bold transition-colors ${
               activeView === view.value
-                ? 'bg-cyan-600 text-white shadow-lg shadow-cyan-500/20'
-                : 'border border-white/10 bg-white/[0.04] text-slate-200 hover:border-cyan-400/40 hover:text-cyan-200'
+                ? 'border-neutral-900 bg-neutral-900 text-white'
+                : 'border-neutral-200 bg-white text-neutral-600 hover:border-neutral-400'
             }`}
           >
             {view.label}
@@ -313,11 +313,11 @@ if (
               index={index}
               className="p-5"
             >
-              <p className="text-sm font-semibold text-slate-400">{metric.label}</p>
+              <p className="text-[12px] font-semibold text-neutral-500">{metric.label}</p>
 
-              <p className="mt-2 text-3xl font-bold text-white">{metric.value}</p>
+              <p className="mt-2 text-3xl font-bold tracking-tight text-neutral-900">{metric.value}</p>
 
-              <p className="mt-3 text-xs text-slate-500">{metric.helper}</p>
+              <p className="mt-1 text-[11.5px] text-neutral-400">{metric.helper}</p>
             </MotionCard>
           ))}
         </div>
@@ -326,28 +326,28 @@ if (
       {activeView === 'gestion' ? (
         <div className="mt-8">
           <MotionCard index={5} className="p-6">
-            <p className="text-sm font-semibold uppercase tracking-[0.2em] text-cyan-400">
+            <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-neutral-500">
               Estado actual
             </p>
-            <h3 className="mt-2 text-2xl font-bold text-white">
+            <h3 className="mt-2 text-[15px] font-bold text-neutral-900">
               Estado de {isFem ? 'las ' : 'los '} {terms.expedientePlural.toLowerCase()}
             </h3>
-            <p className="mt-2 text-sm text-slate-300">
+            <p className="mt-1.5 text-[12.5px] text-neutral-500">
               Distribución actual por etapa de gestión.
             </p>
 
-            <div className="mt-6 mb-6 grid gap-4 sm:grid-cols-3">
-              <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-5">
-                <p className="text-sm font-semibold text-slate-400">Total</p>
-                <p className="mt-2 text-3xl font-bold text-white">{totalCases}</p>
+            <div className="mt-6 mb-6 grid gap-3 sm:grid-cols-3">
+              <div className="rounded-xl border border-neutral-100 bg-neutral-50 p-4">
+                <p className="text-[12px] font-semibold text-neutral-500">Total</p>
+                <p className="mt-1.5 text-2xl font-bold tracking-tight text-neutral-900">{totalCases}</p>
               </div>
-              <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-5">
-                <p className="text-sm font-semibold text-slate-400">{isFem ? 'Activas' : 'Activos'}</p>
-                <p className="mt-2 text-3xl font-bold text-emerald-400">{activeCases}</p>
+              <div className="rounded-xl border border-neutral-100 bg-neutral-50 p-4">
+                <p className="text-[12px] font-semibold text-neutral-500">{isFem ? 'Activas' : 'Activos'}</p>
+                <p className="mt-1.5 text-2xl font-bold tracking-tight text-emerald-700">{activeCases}</p>
               </div>
-              <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-5">
-                <p className="text-sm font-semibold text-slate-400">{getCaseStatusLabel('archived', industry)}</p>
-                <p className="mt-2 text-3xl font-bold text-slate-400">{terminalCases}</p>
+              <div className="rounded-xl border border-neutral-100 bg-neutral-50 p-4">
+                <p className="text-[12px] font-semibold text-neutral-500">{getCaseStatusLabel('archived', industry)}</p>
+                <p className="mt-1.5 text-2xl font-bold tracking-tight text-neutral-400">{terminalCases}</p>
               </div>
             </div>
 
@@ -357,16 +357,16 @@ if (
                   const count = casesByStatus.get(s.value) || 0;
                   const percentage = getPercentage(count, totalCases);
                   return (
-                    <div key={s.value} className="rounded-2xl bg-white/[0.04] p-4">
-                      <div className="mb-2 flex justify-between text-sm">
-                        <span className="font-semibold text-slate-300">{s.label}</span>
-                        <span className="font-bold text-white">
+                    <div key={s.value} className="rounded-xl border border-neutral-100 bg-neutral-50 p-4">
+                      <div className="mb-2 flex justify-between text-[13px]">
+                        <span className="font-semibold text-neutral-600">{s.label}</span>
+                        <span className="font-bold text-neutral-900">
                           {count} · {percentage}%
                         </span>
                       </div>
-                      <div className="h-3 overflow-hidden rounded-full bg-slate-800">
+                      <div className="h-2 overflow-hidden rounded-full bg-neutral-200">
                         <div
-                          className="h-full rounded-full bg-cyan-500"
+                          className="h-full rounded-full bg-neutral-900"
                           style={{ width: `${percentage}%` }}
                         />
                       </div>
@@ -385,16 +385,16 @@ if (
                   if (otherCount > 0) {
                     const percentage = getPercentage(otherCount, totalCases);
                     return (
-                      <div key="otros" className="rounded-2xl bg-white/[0.04] p-4">
-                        <div className="mb-2 flex justify-between text-sm">
-                          <span className="font-semibold text-slate-300">Otros estados históricos</span>
-                          <span className="font-bold text-white">
+                      <div key="otros" className="rounded-xl border border-neutral-100 bg-neutral-50 p-4">
+                        <div className="mb-2 flex justify-between text-[13px]">
+                          <span className="font-semibold text-neutral-600">Otros estados históricos</span>
+                          <span className="font-bold text-neutral-900">
                             {otherCount} · {percentage}%
                           </span>
                         </div>
-                        <div className="h-3 overflow-hidden rounded-full bg-slate-800">
+                        <div className="h-2 overflow-hidden rounded-full bg-neutral-200">
                           <div
-                            className="h-full rounded-full bg-slate-500"
+                            className="h-full rounded-full bg-neutral-400"
                             style={{ width: `${percentage}%` }}
                           />
                         </div>
@@ -405,7 +405,7 @@ if (
                 })()}
               </div>
             ) : (
-              <div className="mt-6 rounded-2xl border border-white/10 bg-white/[0.02] p-6 text-center text-sm text-slate-500">
+              <div className="mt-6 rounded-xl border border-neutral-100 bg-neutral-50 p-6 text-center text-sm text-neutral-500">
                 No hay {terms.expedientePlural.toLowerCase()} registrados en el sistema.
               </div>
             )}
