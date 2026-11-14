@@ -12,13 +12,13 @@ export default async function SeguridadCuentaPage() {
   return (
     <AppShell>
       <div className="mb-8">
-        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-accent-soft">
-          CONFIGURACIÓN
+        <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-neutral-500">
+          Configuración
         </p>
-        <h2 className="mt-2 font-display text-3xl font-semibold tracking-tight text-white">
-          Seguridad de la <span className="text-gradient">cuenta</span>
+        <h2 className="mt-2 text-3xl font-bold tracking-tight text-neutral-900">
+          Seguridad de la cuenta
         </h2>
-        <p className="mt-2 text-sm text-slate-400">
+        <p className="mt-2 text-[13px] text-neutral-500">
           Gestioná la verificación en dos pasos (2FA).
         </p>
       </div>

@@ -528,7 +528,7 @@ export default async function UserInvitationsPage({
             </div>
 
             <span className="text-[12px] font-semibold text-neutral-400">
-              {invitationsUnavailable ? '—' : `${invitations.length} registros`}
+              {invitationsUnavailable ? '—' : `${invitations.length} ${invitations.length === 1 ? 'registro' : 'registros'}`}
             </span>
           </div>
 

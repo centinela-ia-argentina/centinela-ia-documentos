@@ -46,21 +46,32 @@ export function BackfillDocs() {
   const sinPendientes = metricas !== null && metricas.pendientes === 0;
 
   return (
-    <div className="mt-10 rounded-xl border border-white/10 bg-white/[0.02] p-5">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h3 className="text-sm font-semibold text-white">
-          Indexación de documentos para búsqueda inteligente <span className="font-normal text-slate-400">(admin)</span>
-        </h3>
-        {metricas && (
-          <div className="flex items-center gap-3 text-xs text-slate-400">
-            <span>Analizados: <strong className="text-white">{metricas.totalAnalizados}</strong></span>
-            <span>Indexados: <strong className="text-emerald-400">{metricas.totalIndexados}</strong></span>
-            <span>Pendientes: <strong className={metricas.pendientes > 0 ? 'text-amber-400' : 'text-slate-400'}>{metricas.pendientes}</strong></span>
-          </div>
-        )}
-      </div>
+    <div className="mt-8 rounded-xl border border-neutral-200 bg-white p-6">
+      <h3 className="text-[14px] font-bold text-neutral-900">
+        Indexación de documentos para búsqueda inteligente{' '}
+        <span className="rounded-full bg-neutral-100 px-2 py-0.5 text-[10.5px] font-bold text-neutral-500">admin</span>
+      </h3>
 
-      <p className="mt-2 text-xs text-slate-400">
+      {metricas && (
+        <div className="mt-3.5 flex flex-wrap gap-3">
+          <div className="min-w-[110px] flex-1 rounded-lg border border-neutral-100 bg-neutral-50 px-3.5 py-2.5">
+            <p className="text-[11.5px] font-semibold text-neutral-500">Analizados</p>
+            <p className="mt-0.5 text-lg font-bold text-neutral-900">{metricas.totalAnalizados}</p>
+          </div>
+          <div className="min-w-[110px] flex-1 rounded-lg border border-neutral-100 bg-neutral-50 px-3.5 py-2.5">
+            <p className="text-[11.5px] font-semibold text-neutral-500">Indexados</p>
+            <p className="mt-0.5 text-lg font-bold text-emerald-700">{metricas.totalIndexados}</p>
+          </div>
+          <div className="min-w-[110px] flex-1 rounded-lg border border-neutral-100 bg-neutral-50 px-3.5 py-2.5">
+            <p className="text-[11.5px] font-semibold text-neutral-500">Pendientes</p>
+            <p className={`mt-0.5 text-lg font-bold ${metricas.pendientes > 0 ? 'text-amber-700' : 'text-neutral-400'}`}>
+              {metricas.pendientes}
+            </p>
+          </div>
+        </div>
+      )}
+
+      <p className="mt-3 text-[12px] leading-relaxed text-neutral-500">
         Los documentos analizados con IA se fragmentan e indexan para búsquedas semánticas precisas.
         {sinPendientes ? ' Todos los documentos analizados ya están indexados.' : ' Si hay documentos analizados pendientes, podés indexarlos ahora.'}
       </p>
@@ -68,20 +79,20 @@ export function BackfillDocs() {
       <button
         onClick={run}
         disabled={cargando || sinPendientes}
-        className="mt-3 rounded-lg bg-cyan-600 px-4 py-2 text-xs font-semibold text-white transition hover:bg-cyan-500 disabled:cursor-not-allowed disabled:opacity-50"
+        className="mt-3 inline-flex h-8 items-center justify-center rounded-lg border border-neutral-200 bg-white px-4 text-[12px] font-bold text-neutral-900 transition-colors hover:border-neutral-400 disabled:cursor-not-allowed disabled:opacity-50"
       >
         {cargando ? 'Indexando…' : sinPendientes ? 'Sin documentos pendientes' : 'Indexar documentos pendientes'}
       </button>
 
       {res && (
-        <div className="mt-3 text-xs">
+        <div className="mt-3 text-[12px]">
           {res.ok ? (
-            <p className="text-emerald-400">
+            <p className="text-emerald-700">
               ✅ Listo: {res.indexados} indexados · {res.yaIndexados} ya estaban · {res.sinTexto} sin
               texto · {res.errores} con error (de {res.total} analizados).
             </p>
           ) : (
-            <p className="text-rose-400">{res.error}</p>
+            <p className="text-rose-700">{res.error}</p>
           )}
         </div>
       )}

@@ -574,7 +574,7 @@ export default async function UsuariosPage({ searchParams }: UsuariosPageProps) 
           </div>
 
           <span className="text-[12px] font-semibold text-neutral-400">
-            {profilesUnavailable ? '—' : `${users.length} personas`}
+            {profilesUnavailable ? '—' : `${users.length} ${users.length === 1 ? 'persona' : 'personas'} · actividad limitada a los últimos 80 eventos de la organización`}
           </span>
         </div>
 
@@ -669,10 +669,6 @@ export default async function UsuariosPage({ searchParams }: UsuariosPageProps) 
                 </div>
               );
             })}
-
-            <p className="px-1 pb-2 text-[11.5px] text-neutral-400">
-              Actividad limitada a los últimos 80 eventos de la organización.
-            </p>
 
             {filteredUsers.length === 0 ? (
               <div className="border-t border-neutral-100 py-6 text-sm text-neutral-500">
