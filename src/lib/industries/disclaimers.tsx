@@ -46,17 +46,35 @@ export function AiDisclaimer({
     : getAiDisclaimer((industry as IndustryType) || 'general');
   const baseClass = context === 'agent'
     ? 'mt-3 rounded-md border border-white/10 bg-white/[0.025] px-4 py-3 font-ui text-[13px] font-medium leading-5 tracking-[-0.015em] text-[#AAB9B4]'
-    : 'mt-4 rounded-xl border border-cyan-500/20 bg-cyan-500/10 p-3 text-xs text-cyan-400';
+    : 'mt-2.5 flex items-start gap-2 text-[11.5px] leading-relaxed text-neutral-500';
 
   return (
     <div
       className={`${baseClass} ${className}`}
       style={context === 'agent' ? { color: '#AAB9B4' } : undefined}
     >
-      <span className={context === 'agent' ? 'mr-1 font-semibold text-[#F1F6F4]' : 'mr-1 font-bold'}>
-        {context === 'agent' ? 'Uso responsable:' : 'Aviso importante:'}
+      {context === 'agent' ? (
+        <span className="mr-1 font-semibold text-[#F1F6F4]">Uso responsable:</span>
+      ) : (
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.8"
+          className="mt-0.5 h-3.5 w-3.5 shrink-0 text-neutral-400"
+        >
+          <circle cx="12" cy="12" r="9" />
+          <path d="M12 8h.01M12 12v5" strokeLinecap="round" />
+        </svg>
+      )}
+      <span>
+        {context === 'agent' ? (
+          <span className="mr-1 font-semibold text-[#F1F6F4]" />
+        ) : (
+          <b className="text-neutral-600">Aviso importante:</b>
+        )}
+        {disclaimerText}
       </span>
-      {disclaimerText}
     </div>
   );
 }

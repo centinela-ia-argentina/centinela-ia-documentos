@@ -61,3 +61,38 @@ export async function openDocumentQuestion(page: Page) {
   if (await details.getAttribute('open') === null) await details.locator('summary').first().click();
   await expect(input).toBeVisible();
 }
+
+
+// Geometry regression: browser owns the page scroll; header never floats over content.
+export async function expectFullscreenShell(page: Page) {
+  const shell = page.locator('[data-visual-system="v3"]');
+  const initial = await shell.evaluate((element) => {
+    const box = element.getBoundingClientRect();
+    const css = getComputedStyle(element);
+    const header = element.querySelector('header')!;
+    const main = element.querySelector('main')!;
+    return {
+      x: box.x, y: box.y, width: box.width, viewport: document.documentElement.clientWidth,
+      margin: css.margin, border: css.borderTopWidth, radius: css.borderTopLeftRadius,
+      shadow: css.boxShadow, headerPosition: getComputedStyle(header).position,
+      headerBottom: header.getBoundingClientRect().bottom, mainTop: main.getBoundingClientRect().top,
+      mainOverflow: getComputedStyle(main).overflowY,
+    };
+  });
+  expect(initial.x).toBeCloseTo(0, 0);
+  expect(initial.y).toBeCloseTo(0, 0);
+  expect(initial.width).toBeCloseTo(initial.viewport, 0);
+  expect(initial.margin).toBe('0px');
+  expect(initial.border).toBe('0px');
+  expect(initial.radius).toBe('0px');
+  expect(initial.shadow).toBe('none');
+  expect(initial.headerPosition).toBe('relative');
+  expect(initial.mainTop).toBeGreaterThanOrEqual(initial.headerBottom);
+  expect(initial.mainOverflow).toBe('visible');
+  await page.evaluate(() => window.scrollTo({ top: 500, behavior: 'instant' }));
+  const scrolled = await shell.evaluate((element) => ({
+    y: window.scrollY, headerTop: element.querySelector('header')!.getBoundingClientRect().top,
+  }));
+  expect(scrolled.headerTop).toBeCloseTo(-scrolled.y, 0);
+  await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
+}

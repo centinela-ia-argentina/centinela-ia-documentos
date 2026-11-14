@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { loginAs } from './helpers';
+import { loginAs, expectFullscreenShell } from './helpers';
 
 // Read-only navigation against CI's disposable, seeded Supabase, never live data.
 const profiles = [
@@ -36,6 +36,7 @@ for (const [email, label] of profiles) {
             await expect(page.getByRole('main')).toBeVisible();
             await expect(page.getByRole('main').getByRole('heading').first()).toBeVisible();
             expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true);
+            await expectFullscreenShell(page);
           });
         }
         const trigger = page.getByRole('button', { name: 'Abrir navegación', exact: true });

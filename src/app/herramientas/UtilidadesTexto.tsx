@@ -6,20 +6,44 @@ import { montoALetras } from '@/lib/format/numeroALetras';
 
 type Tab = 'montos' | 'contador' | 'comparar' | 'fechas';
 
+type CopiaEstado = 'inactivo' | 'copiado' | 'fallo';
+
 function CopiarBtn({ texto }: { texto: string }) {
-	const [ok, setOk] = useState(false);
+	// El estado se vincula al texto visible: si el texto cambia, la copia
+	// anterior se considera inactiva sin setState en efecto.
+	const [registro, setRegistro] = useState<{ texto: string; estado: CopiaEstado }>({
+		texto: '',
+		estado: 'inactivo',
+	});
+
+	const estado: CopiaEstado = registro.texto === texto ? registro.estado : 'inactivo';
+
+	const copiar = async () => {
+		try {
+			// Se espera el resultado real del portapapeles: un rechazo se informa
+			// como fallo y no como copia aceptada.
+			await navigator.clipboard.writeText(texto);
+			setRegistro({ texto, estado: 'copiado' });
+		} catch {
+			setRegistro({ texto, estado: 'fallo' });
+		}
+	};
+
 	return (
-		<button
-			onClick={() => {
-				navigator.clipboard.writeText(texto);
-				setOk(true);
-				setTimeout(() => setOk(false), 1500);
-			}}
-			className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50"
-		>
-			{ok ? <Check size={14} /> : <Copy size={14} />}
-			{ok ? 'Copiado' : 'Copiar'}
-		</button>
+		<span className="inline-flex flex-col items-start gap-1">
+			<button
+				onClick={copiar}
+				className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50"
+			>
+				{estado === 'copiado' ? <Check size={14} /> : <Copy size={14} />}
+				{estado === 'copiado' ? 'Copiado' : 'Copiar'}
+			</button>
+			{estado === 'fallo' ? (
+				<span className="text-[11px] font-medium text-rose-600" role="alert">
+					No se pudo copiar al portapapeles. Probá de nuevo o copiá manualmente.
+				</span>
+			) : null}
+		</span>
 	);
 }
 
@@ -124,6 +148,11 @@ function Comparar() {
 	const [b, setB] = useState('');
 	const [diff, setDiff] = useState<null | { tipo: 'igual' | 'add' | 'del'; texto: string }[]>(null);
 
+	// Al editar cualquiera de los textos se limpia el resultado anterior:
+	// no se conserva una comparación que ya no corresponde al contenido visible.
+	const cambiarA = (valor: string) => { setA(valor); setDiff(null); };
+	const cambiarB = (valor: string) => { setB(valor); setDiff(null); };
+
 	const comparar = () => {
 		const la = a.split('\n');
 		const lb = b.split('\n');
@@ -147,10 +176,11 @@ function Comparar() {
 	return (
 		<div className="space-y-3">
 			<div className="grid gap-3 sm:grid-cols-2">
-				<textarea className="min-h-[120px] rounded-lg border border-slate-200 px-3 py-2 text-sm" placeholder="Texto original…" value={a} onChange={(e) => setA(e.target.value)} />
-				<textarea className="min-h-[120px] rounded-lg border border-slate-200 px-3 py-2 text-sm" placeholder="Texto modificado…" value={b} onChange={(e) => setB(e.target.value)} />
+				<textarea className="min-h-[120px] rounded-lg border border-slate-200 px-3 py-2 text-sm" placeholder="Texto original…" value={a} onChange={(e) => cambiarA(e.target.value)} />
+				<textarea className="min-h-[120px] rounded-lg border border-slate-200 px-3 py-2 text-sm" placeholder="Texto modificado…" value={b} onChange={(e) => cambiarB(e.target.value)} />
 			</div>
 			<button onClick={comparar} className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700">Comparar</button>
+			<p className="text-xs text-slate-500">La comparación línea por línea distingue agregados y eliminados; se calcula en tu navegador y no considera sinónimos ni reformulaciones.</p>
 			{diff && (
 				<div className="rounded-lg border border-slate-200 p-3 font-mono text-xs leading-relaxed">
 					{diff.map((d, k) => (
@@ -170,6 +200,9 @@ const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', '
 function ExtraerFechas() {
 	const [texto, setTexto] = useState('');
 	const [fechas, setFechas] = useState<null | string[]>(null);
+
+	// Al editar el texto se limpia el resultado anterior.
+	const cambiarTexto = (valor: string) => { setTexto(valor); setFechas(null); };
 
 	const extraer = () => {
 		const encontradas: string[] = [];
@@ -193,8 +226,9 @@ function ExtraerFechas() {
 
 	return (
 		<div className="space-y-3">
-			<textarea className="w-full min-h-[140px] rounded-lg border border-slate-200 px-3 py-2 text-sm" placeholder="Pegá el texto de una cédula, escrito o resolución…" value={texto} onChange={(e) => setTexto(e.target.value)} />
+			<textarea className="w-full min-h-[140px] rounded-lg border border-slate-200 px-3 py-2 text-sm" placeholder="Pegá el texto de una cédula, escrito o resolución…" value={texto} onChange={(e) => cambiarTexto(e.target.value)} />
 			<button onClick={extraer} className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700">Extraer fechas</button>
+			<p className="text-xs text-slate-500">La extracción reconoce únicamente los formatos dd/mm/aaaa y “12 de agosto de 2026”; otras formas de escribir fechas no se detectan.</p>
 			{fechas && (
 				fechas.length > 0 ? (
 					<div className="rounded-lg border border-slate-200 bg-slate-50 p-3">

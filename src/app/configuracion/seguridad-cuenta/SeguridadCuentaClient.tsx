@@ -6,7 +6,7 @@ import { Shield } from 'lucide-react';
 
 export function SeguridadCuentaClient() {
   const supabase = createClient();
-  const [estado, setEstado] = useState<'cargando' | 'activo' | 'inactivo'>('cargando');
+  const [estado, setEstado] = useState<'cargando' | 'activo' | 'inactivo' | 'desconocido'>('cargando');
   const [factorId, setFactorId] = useState<string | null>(null);
   const [qr, setQr] = useState<string | null>(null);
   const [secret, setSecret] = useState<string | null>(null);
@@ -16,7 +16,11 @@ export function SeguridadCuentaClient() {
 
   async function refrescar() {
     const { data, error } = await supabase.auth.mfa.listFactors();
-    if (error) { setEstado('inactivo'); return; }
+    if (error) {
+      // Un fallo de consulta no se presenta como "inactivo": el estado queda desconocido.
+      setEstado('desconocido');
+      return;
+    }
     const verificado = (data?.totp ?? []).some((f) => f.status === 'verified');
     setEstado(verificado ? 'activo' : 'inactivo');
   }
@@ -51,47 +55,76 @@ export function SeguridadCuentaClient() {
   }
 
   async function cancelar() {
-    if (factorId) await supabase.auth.mfa.unenroll({ factorId });
-    setQr(null); setSecret(null); setFactorId(null); setCode(''); setMsg(null);
+    if (factorId) {
+      const { error } = await supabase.auth.mfa.unenroll({ factorId });
+      if (error) {
+        setMsg('No se pudo cancelar la configuración pendiente. Reintentá desde la pantalla; el factor verificado no fue afectado.');
+        setCargando(false);
+        return;
+      }
+    }
+    setQr(null); setSecret(null); setFactorId(null); setCode(''); setMsg('Configuración pendiente cancelada. El estado de los factores verificados no cambió.');
   }
 
   async function desactivar() {
     setCargando(true); setMsg(null);
-    const { data } = await supabase.auth.mfa.listFactors();
-    for (const f of (data?.totp ?? [])) await supabase.auth.mfa.unenroll({ factorId: f.id });
+    const { data, error: listError } = await supabase.auth.mfa.listFactors();
+
+    if (listError) {
+      setMsg('No se pudo confirmar el estado de los factores. La desactivación no se declara completa; revisá el estado antes de reintentar.');
+      setCargando(false);
+      return;
+    }
+
+    let falloRetiro = false;
+    for (const f of (data?.totp ?? [])) {
+      const { error } = await supabase.auth.mfa.unenroll({ factorId: f.id });
+      if (error) falloRetiro = true;
+    }
+
     await refrescar();
-    setMsg('2FA desactivado.');
+
+    // La desactivación solo se anuncia como completa si el re consultedo confirma
+    // que ya no queda ningún factor verificado.
+    const { data: verificacion } = await supabase.auth.mfa.listFactors();
+    const quedanVerificados = (verificacion?.totp ?? []).some((f) => f.status === 'verified');
+
+    if (falloRetiro || quedanVerificados) {
+      setMsg('No se pudo confirmar la desactivación completa. Revisá el estado actual de la verificación en dos pasos antes de reintentar.');
+    } else {
+      setMsg('2FA desactivado.');
+    }
     setCargando(false);
   }
 
   return (
     <div className="space-y-6">
-      <MotionCard index={0} className="border border-white/10 bg-white/[0.03] p-6 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.06),0_16px_40px_-16px_rgba(0,0,0,0.7)] transition-colors hover:border-accent/40">
+      <MotionCard index={0} className="rounded-xl border border-[#e3e4e5] bg-white p-6 transition-colors hover:border-[#cfd3d2]">
         <div className="mb-6 flex items-center gap-3">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-accent/20 text-accent">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[#eceeed] bg-[#fcfcfc] text-[#50565d]">
             <Shield size={20} />
           </div>
           <div>
-            <h3 className="font-display text-xl font-semibold text-white">Seguridad de la cuenta</h3>
-            <p className="mt-1 text-sm text-slate-400">Verificación en dos pasos (2FA) con app autenticadora.</p>
+            <h3 className="text-[15.5px] font-bold text-[#25272a]">Seguridad de la cuenta</h3>
+            <p className="mt-0.5 text-[13px] text-[#6b7075]">Verificación en dos pasos (2FA) con app autenticadora.</p>
           </div>
         </div>
 
         {estado === 'cargando' && (
-          <p className="text-sm text-slate-400">Cargando estado de seguridad…</p>
+          <p className="text-[13px] text-[#6b7075]">Cargando estado de seguridad…</p>
         )}
 
         {estado === 'activo' && (
-          <div className="space-y-4 border-t border-white/10 pt-4">
-            <div className="inline-flex items-center gap-2 rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-semibold text-emerald-400">
-              <span className="h-2 w-2 rounded-full bg-emerald-400" />
+          <div className="flex items-center justify-between gap-4 border-t border-[#eceeed] pt-4">
+            <div className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700">
+              <span className="h-2 w-2 rounded-full bg-emerald-500" />
               2FA activado
             </div>
             <div>
               <button
                 onClick={desactivar}
                 disabled={cargando}
-                className="rounded-xl border border-rose-500/20 bg-rose-500/10 px-4 py-2 text-sm font-semibold text-rose-400 transition hover:bg-rose-500/20 disabled:opacity-50"
+                className="rounded-lg border border-rose-200 bg-white px-4 py-2 text-[12.5px] font-bold text-rose-700 transition hover:bg-rose-50 disabled:opacity-50"
               >
                 Desactivar 2FA
               </button>
@@ -99,12 +132,18 @@ export function SeguridadCuentaClient() {
           </div>
         )}
 
+        {estado === 'desconocido' && !qr && (
+          <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-[13px] text-amber-800" role="alert">
+            No se pudo confirmar el estado de la verificación en dos pasos. El estado no se presenta como desactivado; revisá tu conexión e ingresá nuevamente para confirmarlo.
+          </div>
+        )}
+
         {estado === 'inactivo' && !qr && (
-          <div className="border-t border-white/10 pt-4">
+          <div className="border-t border-[#eceeed] pt-4">
             <button
               onClick={activar}
               disabled={cargando}
-              className="rounded-xl bg-accent px-4 py-2 text-sm font-semibold text-white transition hover:bg-accent-strong disabled:opacity-50"
+              className="rounded-lg bg-[#25272a] px-4 py-2 text-[12.5px] font-bold text-white transition hover:bg-[#3a3d41] disabled:opacity-50"
             >
               Activar 2FA
             </button>
@@ -112,16 +151,16 @@ export function SeguridadCuentaClient() {
         )}
 
         {qr && (
-          <div className="space-y-4 rounded-xl border border-white/10 bg-white/[0.02] p-6 mt-4">
-            <p className="text-sm text-slate-300">
+          <div className="mt-4 space-y-4 rounded-xl border border-[#eceeed] bg-[#fcfcfc] p-6">
+            <p className="text-[13px] text-[#50565d]">
               Escaneá el QR con Google Authenticator o Authy y escribí el código de 6 dígitos.
             </p>
-            <div className="rounded-xl bg-white p-2 w-fit">
+            <div className="w-fit rounded-lg border border-[#e3e4e5] bg-white p-2">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={qr} alt="Código QR 2FA" width={180} height={180} />
             </div>
             {secret && (
-              <p className="text-[11px] font-mono text-slate-500 break-all max-w-[200px]">
+              <p className="max-w-[200px] break-all font-mono text-[11px] text-[#6b7075]">
                 Secret: {secret}
               </p>
             )}
@@ -133,20 +172,20 @@ export function SeguridadCuentaClient() {
                 placeholder="123456"
                 value={code}
                 onChange={(e) => setCode(e.target.value)}
-                className="w-full text-center tracking-widest rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-white outline-none focus:border-accent focus:ring-1 focus:ring-accent"
+                className="w-full rounded-lg border border-[#e3e4e5] bg-white px-4 py-2.5 text-center tracking-widest text-[13.5px] text-[#25272a] outline-none focus:border-[#25272a] focus:ring-1 focus:ring-[#25272a]/20"
               />
               <div className="flex gap-2">
                 <button
                   onClick={cancelar}
                   disabled={cargando}
-                  className="flex-1 rounded-xl bg-white/10 px-4 py-2 text-sm font-semibold text-white transition hover:bg-white/20 disabled:opacity-50"
+                  className="flex-1 rounded-lg border border-[#e3e4e5] bg-white px-4 py-2 text-[12.5px] font-bold text-[#25272a] transition hover:bg-[#f3f4f4] disabled:opacity-50"
                 >
                   Cancelar
                 </button>
                 <button
                   onClick={verificar}
                   disabled={cargando || code.length !== 6}
-                  className="flex-1 rounded-xl bg-accent px-4 py-2 text-sm font-semibold text-white transition hover:bg-accent-strong disabled:opacity-50"
+                  className="flex-1 rounded-lg bg-[#25272a] px-4 py-2 text-[12.5px] font-bold text-white transition hover:bg-[#3a3d41] disabled:opacity-50"
                 >
                   Verificar
                 </button>
@@ -156,7 +195,7 @@ export function SeguridadCuentaClient() {
         )}
 
         {msg && (
-          <p className={`mt-4 text-sm ${msg.includes('éxito') ? 'text-emerald-400' : 'text-amber-400'}`}>
+          <p className={`mt-4 text-[13px] font-semibold ${msg.includes('éxito') ? 'text-emerald-700' : 'text-amber-800'}`}>
             {msg}
           </p>
         )}

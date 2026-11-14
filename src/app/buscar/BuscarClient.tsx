@@ -87,88 +87,89 @@ export function BuscarClient({ industry = null }: { industry?: IndustryType | nu
 
   return (
     <div>
-      <div className="mb-6 flex gap-2 border-b border-white/10 pb-3">
+      <div className="flex flex-wrap gap-2">
         <button
           type="button"
           onClick={() => setTab('rag')}
-          className={`inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition ${
+          className={`inline-flex items-center gap-1.5 rounded-full border px-4 py-2 text-[12.5px] font-bold transition-colors ${
             tab === 'rag'
-              ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30'
-              : 'text-slate-400 hover:text-white hover:bg-white/[0.04]'
+              ? 'border-neutral-900 bg-neutral-900 text-white'
+              : 'border-neutral-200 bg-white text-neutral-600 hover:border-neutral-400'
           }`}
         >
-          <Sparkles className="h-4 w-4" /> Preguntá a tus documentos (RAG)
+          <Sparkles className="h-3.5 w-3.5" /> Preguntá a tus documentos (RAG)
         </button>
         <button
           type="button"
           onClick={() => setTab('operativo')}
-          className={`inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition ${
+          className={`inline-flex items-center gap-1.5 rounded-full border px-4 py-2 text-[12.5px] font-bold transition-colors ${
             tab === 'operativo'
-              ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30'
-              : 'text-slate-400 hover:text-white hover:bg-white/[0.04]'
+              ? 'border-neutral-900 bg-neutral-900 text-white'
+              : 'border-neutral-200 bg-white text-neutral-600 hover:border-neutral-400'
           }`}
         >
-          <Search className="h-4 w-4" /> Buscador operativo
+          <Search className="h-3.5 w-3.5" /> Buscador operativo
         </button>
       </div>
 
       {tab === 'rag' ? (
         <div>
-          <AvisoPrivacidadIA contexto="responder tu pregunta" />
-          <AiDisclaimer industry={industry ?? undefined} className="mb-4" />
-          <form onSubmit={onSubmitRag} className="flex flex-col gap-3 sm:flex-row">
+          <form onSubmit={onSubmitRag} className="mt-5 flex flex-col gap-3 sm:flex-row">
             <input
               type="text"
               value={pregunta}
               onChange={(e) => setPregunta(e.target.value)}
               placeholder={placeholder}
-              className="flex-1 rounded-xl border border-white/10 bg-white/[0.02] px-4 py-2.5 text-sm text-white shadow-sm outline-none placeholder-slate-500 focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400"
+              className="flex-1 rounded-xl border border-neutral-200 bg-white px-4 py-2.5 text-[13.5px] text-neutral-900 outline-none placeholder:text-neutral-400 focus:border-neutral-500"
             />
             <MotionButton
               type="submit"
               disabled={cargando || !pregunta.trim()}
-              className="rounded-xl bg-gradient-to-r from-accent to-brandviolet px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition disabled:cursor-not-allowed disabled:opacity-50"
+              className="rounded-xl bg-neutral-900 px-5 py-2.5 text-[13px] font-bold text-white transition-colors hover:bg-neutral-700 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {cargando ? 'Buscando…' : 'Preguntar'}
             </MotionButton>
           </form>
 
+          <AvisoPrivacidadIA contexto="responder tu pregunta" />
+          <AiDisclaimer industry={industry ?? undefined} className="mt-2" />
+
           {error && (
-            <MotionCard index={1} className="mt-4 border-red-500/20 bg-red-500/10 p-3 text-sm text-red-200">
+            <MotionCard index={1} className="mt-4 border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">
               {error}
             </MotionCard>
           )}
 
           {respuesta && (
-            <MotionCard index={2} className="mt-6 p-5">
-              <h2 className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+            <MotionCard index={2} className="mt-6 p-6">
+              <h2 className="text-[11px] font-bold uppercase tracking-[0.12em] text-neutral-400">
                 Respuesta
               </h2>
-              <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-white">
+              <p className="mt-2.5 whitespace-pre-wrap text-[13.5px] leading-relaxed text-neutral-900">
                 {respuesta}
               </p>
             </MotionCard>
           )}
 
           {fuentes.length > 0 && (
-            <MotionCard index={3} className="mt-4 p-5">
-              <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-400">
-                Fuentes
+            <MotionCard index={3} className="mt-4 p-6">
+              <h3 className="text-[11px] font-bold uppercase tracking-[0.12em] text-neutral-400">
+                Fuentes citadas
               </h3>
-              <ol className="space-y-2">
+              <ol className="mt-3 space-y-2">
                 {fuentes.map((f, i) => (
-                  <li key={i} className="rounded-xl border border-white/10 bg-white/[0.02] p-3 text-sm transition hover:bg-white/[0.04]">
+                  <li key={i} className="rounded-xl border border-neutral-100 bg-neutral-50 p-3.5 text-[13px] transition-colors hover:border-neutral-300">
                     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
                       <div className="flex flex-wrap items-center gap-2">
-                        <span className="font-semibold text-cyan-300">
+                        <span className="font-bold text-neutral-900">
                           [{i + 1}]
                         </span>
                         {f.caseTitle && (
-                          <span className="rounded-md bg-white/5 px-2 py-0.5 text-xs font-medium text-slate-300">
+                          <span className="rounded-full border border-neutral-200 bg-white px-2.5 py-0.5 text-xs font-semibold text-neutral-600">
                             {terms?.expedienteSingular ?? 'Operación'}: {f.caseTitle}
                           </span>
                         )}
-                        <span className="font-medium text-slate-200">
+                        <span className="font-semibold text-neutral-900">
                           Documento: {f.fileName}
                         </span>
                       </div>
@@ -176,20 +177,20 @@ export function BuscarClient({ industry = null }: { industry?: IndustryType | nu
                         {f.caseId && (
                           <Link
                             href={industry === 'inmobiliaria' ? `/operaciones/${f.caseId}` : `/expedientes/${f.caseId}`}
-                            className="shrink-0 text-xs font-semibold text-slate-400 hover:text-white hover:underline"
+                            className="shrink-0 text-xs font-semibold text-neutral-500 hover:text-neutral-900 hover:underline"
                           >
                             Ver {terms?.expedienteSingular?.toLowerCase() ?? 'operación'} →
                           </Link>
                         )}
                         <Link
                           href={`/documentos/${f.documentId}`}
-                          className="shrink-0 text-xs font-semibold text-cyan-400 hover:underline"
+                          className="shrink-0 text-xs font-bold text-neutral-900 hover:underline"
                         >
                           Ver documento →
                         </Link>
                       </div>
                     </div>
-                    <p className="mt-2 line-clamp-3 text-xs text-slate-400">{f.fragmento}</p>
+                    <p className="mt-2 line-clamp-3 text-xs text-neutral-500">{f.fragmento}</p>
                   </li>
                 ))}
               </ol>
@@ -198,18 +199,18 @@ export function BuscarClient({ industry = null }: { industry?: IndustryType | nu
         </div>
       ) : (
         <div>
-          <form onSubmit={onBuscarOperativo} className="flex flex-col gap-3 sm:flex-row">
+          <form onSubmit={onBuscarOperativo} className="mt-5 flex flex-col gap-3 sm:flex-row">
             <input
               type="text"
               value={terminoOp}
               onChange={(e) => setTerminoOp(e.target.value)}
               placeholder={`Buscá por título, cliente, tipo o nombre de archivo…`}
-              className="flex-1 rounded-xl border border-white/10 bg-white/[0.02] px-4 py-2.5 text-sm text-white shadow-sm outline-none placeholder-slate-500 focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400"
+              className="flex-1 rounded-xl border border-neutral-200 bg-white px-4 py-2.5 text-[13.5px] text-neutral-900 outline-none placeholder:text-neutral-400 focus:border-neutral-500"
             />
             <MotionButton
               type="submit"
               disabled={buscandoOp || !terminoOp.trim()}
-              className="rounded-xl bg-cyan-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-cyan-500 disabled:cursor-not-allowed disabled:opacity-50"
+              className="rounded-xl bg-neutral-900 px-5 py-2.5 text-[13px] font-bold text-white transition-colors hover:bg-neutral-700 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {buscandoOp ? 'Buscando…' : 'Buscar'}
             </MotionButton>
@@ -219,21 +220,21 @@ export function BuscarClient({ industry = null }: { industry?: IndustryType | nu
             <div className="mt-6 space-y-6">
               {/* Legajos */}
               <div>
-                <h3 className="flex items-center gap-2 text-sm font-semibold text-white">
-                  <FolderKanban className="h-4 w-4 text-cyan-400" /> {entityPlural} ({resultadosOp.legajos.length})
+                <h3 className="flex items-center gap-2 text-[13px] font-bold text-neutral-900">
+                  <FolderKanban className="h-4 w-4 text-neutral-500" /> {entityPlural} ({resultadosOp.legajos.length})
                 </h3>
                 {resultadosOp.legajos.length === 0 ? (
-                  <p className="mt-2 text-xs text-slate-500">No se encontraron {entityPlural.toLowerCase()} con ese criterio.</p>
+                  <p className="mt-2 text-xs text-neutral-400">No se encontraron {entityPlural.toLowerCase()} con ese criterio.</p>
                 ) : (
                   <div className="mt-3 grid gap-2 sm:grid-cols-2">
                     {resultadosOp.legajos.map((l) => (
                       <Link
                         key={l.id}
                         href={`/expedientes/${l.id}`}
-                        className="rounded-xl border border-white/10 bg-white/[0.02] p-3 transition hover:bg-white/[0.05]"
+                        className="rounded-xl border border-neutral-200 bg-white p-3.5 transition-colors hover:border-neutral-400"
                       >
-                        <p className="font-semibold text-sm text-white">{l.title}</p>
-                        <p className="text-xs text-slate-400 mt-1">
+                        <p className="text-[13.5px] font-bold text-neutral-900">{l.title}</p>
+                        <p className="mt-0.5 text-xs text-neutral-500">
                           {l.client_name ? `Cliente: ${l.client_name}` : l.case_type || 'Sin tipo'}
                         </p>
                       </Link>
@@ -244,21 +245,21 @@ export function BuscarClient({ industry = null }: { industry?: IndustryType | nu
 
               {/* Documentos */}
               <div>
-                <h3 className="flex items-center gap-2 text-sm font-semibold text-white">
-                  <FileText className="h-4 w-4 text-cyan-400" /> Documentos ({resultadosOp.documentos.length})
+                <h3 className="flex items-center gap-2 text-[13px] font-bold text-neutral-900">
+                  <FileText className="h-4 w-4 text-neutral-500" /> Documentos ({resultadosOp.documentos.length})
                 </h3>
                 {resultadosOp.documentos.length === 0 ? (
-                  <p className="mt-2 text-xs text-slate-500">No se encontraron documentos con ese criterio.</p>
+                  <p className="mt-2 text-xs text-neutral-400">No se encontraron documentos con ese criterio.</p>
                 ) : (
                   <div className="mt-3 grid gap-2 sm:grid-cols-2">
                     {resultadosOp.documentos.map((d) => (
                       <Link
                         key={d.id}
                         href={`/documentos/${d.id}`}
-                        className="rounded-xl border border-white/10 bg-white/[0.02] p-3 transition hover:bg-white/[0.05]"
+                        className="rounded-xl border border-neutral-200 bg-white p-3.5 transition-colors hover:border-neutral-400"
                       >
-                        <p className="font-semibold text-sm text-white truncate">{d.file_name}</p>
-                        <p className="text-xs text-slate-400 mt-1">
+                        <p className="truncate text-[13.5px] font-bold text-neutral-900">{d.file_name}</p>
+                        <p className="mt-0.5 text-xs text-neutral-500">
                           {getDocumentTypeLabel(d.document_type)}
                         </p>
                       </Link>
