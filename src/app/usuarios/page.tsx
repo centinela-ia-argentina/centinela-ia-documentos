@@ -514,7 +514,7 @@ export default async function UsuariosPage({ searchParams }: UsuariosPageProps) 
           <MotionCard
             key={metric.label}
             index={idx}
-            className="p-5"
+            className="border border-neutral-200 bg-white p-5 hover:border-neutral-400"
           >
             <div className="flex items-center gap-2 text-[12px] font-semibold text-neutral-500">
               {metric.icon}
@@ -565,7 +565,7 @@ export default async function UsuariosPage({ searchParams }: UsuariosPageProps) 
         </form>
       </div>
 
-      <MotionCard index={4} className="mt-4 p-6">
+      <MotionCard index={4} className="mt-4 border border-neutral-200 bg-white p-6 hover:border-neutral-400">
         <div className="mb-5 flex flex-col justify-between gap-4 xl:flex-row xl:items-start">
           <div>
             <h3 className="text-[15px] font-bold text-neutral-900">
