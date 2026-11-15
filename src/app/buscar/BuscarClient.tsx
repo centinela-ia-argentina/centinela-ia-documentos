@@ -27,7 +27,7 @@ export function BuscarClient({ industry = null }: { industry?: IndustryType | nu
       ? 'Operaciones'
       : 'Legajos / Expedientes';
 
-  const [tab, setTab] = useState<'rag' | 'operativo'>('rag');
+  const [tab, setTab] = useState<'rag' | 'operativo'>('operativo');
 
   // Estado para RAG
   const [pregunta, setPregunta] = useState('');

@@ -1,11 +1,10 @@
 import { notFound, redirect } from 'next/navigation';
-import Link from 'next/link';
 import { AppShell } from '@/components/layout/AppShell';
 import { createClient } from '@/lib/supabase/server';
 import { getUserProfile } from '@/lib/auth/getUserProfile';
 import { canManageClient } from '@/lib/permissions/roles';
 import { updateClientRecord } from '../actions';
-import { ArrowLeft, User } from 'lucide-react';
+import { User } from 'lucide-react';
 import { ClientDetailMode } from '@/components/approved/ClientDetailMode';
 import { ClientDetailReadView } from '@/components/approved/ClientDetailReadView';
 import styles from '@/components/approved/ApprovedDetail.module.css';
@@ -61,7 +60,6 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
 
   return (
     <AppShell>
-      <Link href="/clientes" className="mb-5 inline-flex min-h-11 items-center gap-2 text-sm text-slate-300 hover:text-white"><ArrowLeft size={16} aria-hidden="true" />Volver a clientes</Link>
       <ClientDetailMode name={record.name} canManage={canManage}
         identity={<div className={styles.identity}><span className={styles.avatar}><User size={32} aria-hidden="true" /></span><div><p className={styles.eyebrow}>Ficha de cliente</p><h1>{record.name}</h1><div className={styles.identityTags}><span>{getClientStatusLabel(record.status)}</span><span>{getClientTypeLabel(record.client_type)}</span></div></div></div>}
         editForm={canManage ? (

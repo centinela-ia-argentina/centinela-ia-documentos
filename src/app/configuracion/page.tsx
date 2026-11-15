@@ -170,7 +170,7 @@ export default async function ConfiguracionPage({ searchParams }: ConfiguracionP
             <FormSubmitButton
               label="Guardar nombre"
               loadingLabel="Guardando…"
-              className="w-full rounded-lg bg-[#25272a] px-4 py-2.5 text-[12.5px] font-bold text-white transition-colors hover:bg-[#3a3d41] disabled:opacity-60 disabled:cursor-not-allowed"
+              className="w-full sm:w-auto rounded-lg bg-[#25272a] px-4 py-2.5 text-[12.5px] font-bold text-white transition-colors hover:bg-[#3a3d41] disabled:opacity-60 disabled:cursor-not-allowed"
             />
           </form>
 

@@ -6,6 +6,7 @@ import { getUserProfile } from '@/lib/auth/getUserProfile';
 import { roleOptions, roleLabel, roleTone } from '@/lib/permissions/roleDisplay';
 import { cancelUserInvitation, createUserInvitation } from '../actions';
 import { FormSubmitButton } from '@/components/ui/FormSubmitButton';
+import { SelectField } from '@/components/ui/SelectField';
 
 interface InvitationsPageProps {
   searchParams: Promise<{
@@ -481,17 +482,13 @@ export default async function UserInvitationsPage({
                   Rol inicial
                 </label>
 
-                <select
+                <SelectField
                   name="role"
+                  label="Rol inicial"
                   defaultValue="employee"
-                  className="w-full rounded-[10px] border border-neutral-200 bg-white px-3.5 py-2.5 text-[13px] font-semibold text-neutral-900 outline-none focus:border-neutral-500"
-                >
-                  {roleOptions.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
+                  placeholder="Elegí el rol"
+                  options={roleOptions}
+                />
               </div>
 
               <FormSubmitButton

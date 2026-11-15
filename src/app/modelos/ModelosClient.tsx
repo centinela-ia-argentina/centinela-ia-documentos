@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState, useId, type ReactNode } from 'react';
 import styles from './ModelosWorkspace.module.css';
 import { Document, Packer, Paragraph, TextRun } from 'docx';
-import { ArrowLeft, Copy, Check, Download, FileSignature, Search, FolderKanban, FileDown, Sparkles, Loader2 } from 'lucide-react';
+import { ArrowLeft, Copy, Check, Download, FileSignature, Search, FolderKanban, FileDown, Sparkles, Loader2, Lock, TriangleAlert } from 'lucide-react';
 import { MODELOS, type ModeloEscrito } from '@/lib/legal/modelos';
 import { MotionButton } from '@/components/ui/MotionButton';
 import { Badge } from '@/components/ui/Badge';
@@ -438,32 +438,32 @@ export function ModelosClient({
                   </div>
 
                   <div>
-                    <div>
+                    <div style={{ display: 'flex', gap: 8 }}>
                       <span>Jurisdicción:</span>
                       <span>{seleccionado.jurisdiction ?? 'Nacional'}</span>
                     </div>
-                    <div>
+                    <div style={{ display: 'flex', gap: 8 }}>
                       <span>Estado normativo:</span>
                       <span>Bloqueado para uso productivo</span>
                     </div>
-                    <div>
+                    <div style={{ display: 'flex', gap: 8 }}>
                       <span>Versión de catálogo:</span>
                       <span>v{seleccionado.version ?? '1.0'}</span>
                     </div>
-                    <div>
+                    <div style={{ display: 'flex', gap: 8 }}>
                       <span>Última revisión:</span>
                       <span>{seleccionado.lastVerifiedAt ?? 'No registrada'}</span>
                     </div>
                   </div>
 
                   <div>
-                    🔒 <strong>Ficha histórica restringida:</strong> No se admite edición manual, carga de variables, prellenado desde legajo, redacción asistida con IA ni exportación (TXT / Word). Este escrito se mantiene exclusivamente para fines de consulta histórica.
+                    <Lock size={16} style={{ display: 'inline-block', verticalAlign: '-3px', marginRight: 6 }} /> <strong>Ficha histórica restringida:</strong> No se admite edición manual, carga de variables, prellenado desde legajo, redacción asistida con IA ni exportación (TXT / Word). Este escrito se mantiene exclusivamente para fines de consulta histórica.
                   </div>
                 </div>
               ) : (
                 <div>
                   <div>
-                    <div>
+                    <div style={{ display: 'flex', gap: 8 }}>
                       <span>Estado normativo:</span>
                       {seleccionado.reviewStatus === 'verified' ? (
                         <span>Modelo auditado con fuente oficial</span>
@@ -471,17 +471,17 @@ export function ModelosClient({
                         <span>Modelo orientativo editable</span>
                       )}
                     </div>
-                    <div>
+                    <div style={{ display: 'flex', gap: 8 }}>
                       <span>Jurisdicción:</span>
                       <span>{seleccionado.jurisdiction ?? 'Nacional'}</span>
                     </div>
-                    <div>
+                    <div style={{ display: 'flex', gap: 8 }}>
                       <span>Versión / Revisión:</span>
                       <span>
                         v{seleccionado.version ?? '1.0'} • {seleccionado.lastReviewedAt ?? seleccionado.lastVerifiedAt ?? 'Fecha de revisión normativa no registrada'}
                       </span>
                     </div>
-                    <div>
+                    <div style={{ display: 'flex', gap: 8 }}>
                       <span>Fuentes oficiales:</span>
                       <span>
                         {seleccionado.officialSources && seleccionado.officialSources.length > 0
@@ -490,7 +490,7 @@ export function ModelosClient({
                       </span>
                     </div>
                     <div>
-                      ⚠️ Requiere revisión profesional antes de su utilización judicial o firma.
+                      <TriangleAlert size={16} style={{ display: 'inline-block', verticalAlign: '-3px', marginRight: 6 }} /> Requiere revisión profesional antes de su utilización judicial o firma.
                     </div>
                   </div>
 

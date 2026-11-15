@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, type ReactNode } from 'react';
-import { Loader2, Sparkles, AlertTriangle, ListChecks, Lightbulb, CheckCircle2, XCircle, FileWarning } from 'lucide-react';
+import { Loader2, Sparkles, AlertTriangle, ListChecks, Lightbulb, CheckCircle2, XCircle, FileWarning, NotePencil } from 'lucide-react';
 import { revisarEscritoIA, type RevisionEscrito } from './actions';
 
 const SEMAFORO: Record<string, { label: string; chip: string; bar: string }> = {
@@ -67,7 +67,7 @@ export function RevisarEscrito({ industria = 'legal' }: { industria?: string }) 
 
   return (
     <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-      <h2 className="text-base font-semibold text-slate-800">✍️ {tituloRevision}</h2>
+      <h2 className="flex items-center gap-2 text-base font-semibold text-slate-800"><NotePencil className="h-4 w-4" /> {tituloRevision}</h2>
       <p className="mt-1 text-sm text-slate-500">
         {subtituloRevision}
       </p>
@@ -77,7 +77,7 @@ export function RevisarEscrito({ industria = 'legal' }: { industria?: string }) 
         onChange={(e) => setTexto(e.target.value)}
         rows={10}
         placeholder={placeholderRevision}
-        className="mt-3 w-full rounded-xl border border-slate-200 p-3 text-sm text-slate-800 focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-100"
+        className="mt-3 w-full rounded-xl border border-slate-200 p-3 text-sm text-slate-800 focus:border-neutral-500 focus:outline-none focus:ring-2 focus:ring-neutral-100"
       />
 
       <div className="mt-3 flex items-center gap-3">
@@ -85,12 +85,12 @@ export function RevisarEscrito({ industria = 'legal' }: { industria?: string }) 
           type="button"
           onClick={revisar}
           disabled={estado === 'loading' || texto.trim().length < 40}
-          className="flex items-center gap-2 rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-violet-700 disabled:opacity-60"
+          className="flex items-center gap-2 rounded-lg bg-neutral-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-neutral-700 disabled:cursor-not-allowed disabled:border disabled:border-neutral-200 disabled:bg-white disabled:text-neutral-400"
         >
           {estado === 'loading' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
           {estado === 'loading' ? 'Revisando…' : 'Revisar con IA'}
         </button>
-        <span className="text-xs text-slate-400">{texto.trim().length} caracteres</span>
+        <span className="text-xs text-slate-400">{texto.trim().length} caracteres · mínimo 40 para revisar</span>
       </div>
 
       {estado === 'sin_texto' && <p className="mt-3 text-sm text-amber-600">Pegá un texto más largo para poder revisarlo.</p>}
@@ -113,7 +113,7 @@ export function RevisarEscrito({ industria = 'legal' }: { industria?: string }) 
           <Bloque icon={<FileWarning className="h-4 w-4" />} titulo="Secciones faltantes o flojas" items={rev.secciones_faltantes} tono="text-amber-700" />
           <Bloque icon={<AlertTriangle className="h-4 w-4" />} titulo="Errores e inconsistencias" items={rev.errores} tono="text-red-700" />
           <Bloque icon={<FileWarning className="h-4 w-4" />} titulo="Datos sin completar" items={rev.datos_incompletos} tono="text-slate-700" />
-          <Bloque icon={<Lightbulb className="h-4 w-4" />} titulo="Sugerencias de mejora" items={rev.sugerencias} tono="text-violet-700" />
+          <Bloque icon={<Lightbulb className="h-4 w-4" />} titulo="Sugerencias de mejora" items={rev.sugerencias} tono="text-neutral-700" />
 
           {rev.checklist.length > 0 && (
             <div className="rounded-xl border border-slate-100 bg-slate-50/60 p-3">

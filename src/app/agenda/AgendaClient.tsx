@@ -173,9 +173,10 @@ export function AgendaClient({ eventos, cases, industry, puedeGuardar = true }: 
       />
 
       {showForm && (
-        <section className={styles.formPanel}>
+        <AgendaDialog onClose={() => setShowForm(false)} labelledById="agenda-form-title">
+          <div className="p-6">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-base font-semibold text-[#252a2d]">Cargar evento manual</h2>
+            <h2 id="agenda-form-title" className="text-base font-semibold text-[#252a2d]">Cargar evento manual</h2>
             <button type="button" onClick={() => setShowForm(false)} aria-label="Cerrar formulario" className="text-[#626b73] hover:text-[#252a2d]">
               <X className="h-5 w-5" />
             </button>
@@ -195,7 +196,7 @@ export function AgendaClient({ eventos, cases, industry, puedeGuardar = true }: 
               <input type="date" value={nuevaFecha} onChange={(e) => setNuevaFecha(e.target.value)} className="w-full rounded-md border border-[#d9dddd] bg-white px-3 py-2 text-sm text-[#252a2d] focus:ring-1" data-testid="agenda-fecha" />
             </label>
             <div>
-              <label htmlFor="agenda-create-time" className="mb-1 block text-xs font-semibold text-[#626b73]">Hora (opcional)</label>
+              <label htmlFor="agenda-create-time" className="mb-1 block text-xs font-semibold text-[#626b73]">Hora</label>
               <input
                 type="time"
                 id="agenda-create-time"
@@ -239,11 +240,12 @@ export function AgendaClient({ eventos, cases, industry, puedeGuardar = true }: 
             </AppButton>
             {aviso && <p className="text-center text-[11px] font-medium text-[#785820]">{aviso}</p>}
           </div>
-        </section>
+          </div>
+        </AgendaDialog>
       )}
 
       {eventoDetalle && (
-        <AgendaDialog onClose={() => {setEventoDetalle(null);setEditando(false);}}><div>
+        <AgendaDialog onClose={() => {setEventoDetalle(null);setEditando(false);}} labelledById="agenda-detail-title"><div>
             <div className="flex items-start justify-between gap-4 border-b border-[#d9dddd] px-5 py-5 sm:px-6">
               <div className="flex min-w-0 items-start gap-3">
                 {SelectedIcon && selectedMeta ? (

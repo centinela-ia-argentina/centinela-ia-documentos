@@ -642,7 +642,7 @@ export default async function UsuariosPage({ searchParams }: UsuariosPageProps) 
                     {!canManageAccess ? null : isCurrentUser ? (
                       <span
                         title="Usuario protegido. No podés modificar tu propio rol o estado desde este panel."
-                        className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-[#d9e2f5] bg-[#eef2fb] text-[#2b4a9e]"
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-neutral-200 bg-neutral-100 text-neutral-500"
                       >
                         <InfoIcon className="h-3.5 w-3.5" />
                       </span>
@@ -688,7 +688,7 @@ export default async function UsuariosPage({ searchParams }: UsuariosPageProps) 
           </h3>
 
           <p className="mt-1.5 text-[12.5px] leading-relaxed text-neutral-500">
-            {adminUsers} administradores · {employeeUsers} operadores · {auditorUsers} auditores · {clientUsers} clientes. Los operadores administran y, los auditores se pueden revisar. Los clientes pueden revisar tus propiedades.
+            {adminUsers} administrador{adminUsers === 1 ? '' : 'es'} · {employeeUsers} operador{employeeUsers === 1 ? '' : 'es'} · {auditorUsers} auditor{auditorUsers === 1 ? '' : 'es'} · {clientUsers} cliente{clientUsers === 1 ? '' : 's'}. Los operadores administran y los auditores revisan. Los clientes revisan tus propiedades.
           </p>
         </MotionCard>
 
@@ -698,7 +698,7 @@ export default async function UsuariosPage({ searchParams }: UsuariosPageProps) 
           </h3>
 
           <p className="mt-1.5 text-[12.5px] leading-relaxed text-neutral-500">
-            Cada administrador y operador se puede, con la actividad del sistema. Todos los espacios confirmados.
+            Cada administrador y operador accede con la actividad del sistema registrada en la auditoría. Todos los espacios de trabajo confirmados.
           </p>
 
           <Link

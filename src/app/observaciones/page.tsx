@@ -8,7 +8,7 @@ import { getIndustryTerms } from '@/lib/industries/uiLabels';
 import { getCaseBasePath } from '@/lib/industries/caseConfig';
 import { getDocumentTypeLabel } from '@/lib/industries/documentTypes';
 import { getExpiryBadgeStyles, expiryStatusLabel, getDocumentExpiryStatus } from '@/lib/documents/expiry';
-import { formatPlazoDate } from '@/lib/format/date';
+import { formatPlazoDate, formatTimestampDate } from '@/lib/format/date';
 import { buildObservacionesModel, type ObservacionesModel, type CategoryState } from './data';
 import styles from './Observaciones.module.css';
 
@@ -351,10 +351,10 @@ export default async function ObservacionesPage() {
                     <div style={{ overflow: 'hidden' }}>
                       <p className={styles.itemTitle}>{item.name}</p>
                       <p className={styles.itemMeta}>
-                        {item.days !== null ? `Último cambio hace más de ${item.days} días` : 'Fecha de cambio no disponible'}
+                        {formatTimestampDate(item.updatedAt) ? `Último cambio: ${formatTimestampDate(item.updatedAt)}` : 'Fecha de cambio no disponible'}
                       </p>
                     </div>
-                    <span className={`${styles.badge} ${styles.badgeWarning}`}>+15 días</span>
+                    <span className={`${styles.badge} ${styles.badgeWarning}`}>{item.days !== null ? `+${item.days} días` : 'Sin fecha'}</span>
                   </Link>
                 )) : null}
                 {model.clientesSinSeguimiento.kind === 'ok' && model.clientesSinSeguimiento.hasIndeterminate ? (
@@ -377,10 +377,10 @@ export default async function ObservacionesPage() {
                     <div style={{ overflow: 'hidden' }}>
                       <p className={styles.itemTitle}>{item.name}</p>
                       <p className={styles.itemMeta}>
-                        {item.days !== null ? `Último cambio hace más de ${item.days} días` : 'Fecha de cambio no disponible'}
+                        {formatTimestampDate(item.updatedAt) ? `Último cambio: ${formatTimestampDate(item.updatedAt)}` : 'Fecha de cambio no disponible'}
                       </p>
                     </div>
-                    <span className={`${styles.badge} ${styles.badgeWarning}`}>+30 días</span>
+                    <span className={`${styles.badge} ${styles.badgeWarning}`}>{item.days !== null ? `+${item.days} días` : 'Sin fecha'}</span>
                   </Link>
                 )) : null}
                 {model.propiedadesSinMovimiento.kind === 'ok' && model.propiedadesSinMovimiento.hasIndeterminate ? (
