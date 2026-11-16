@@ -10,13 +10,16 @@ function nombreBase(nombre: string) {
   return i > 0 ? nombre.slice(0, i) : nombre;
 }
 
+// La conversión falla explícitamente si la imagen no puede leerse o
+// representarse: nunca se resuelve con el original para no descargarlo
+// renombrado como si fuera el resultado.
 function convertir(
   dataUrl: string,
   formato: 'image/jpeg' | 'image/png',
   calidad: number,
   maxAncho: number
 ): Promise<string> {
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
     const img = new Image();
     img.onload = () => {
       let w = img.naturalWidth;
@@ -30,7 +33,7 @@ function convertir(
       canvas.height = h;
       const ctx = canvas.getContext('2d');
       if (!ctx) {
-        resolve(dataUrl);
+        reject(new Error('No se pudo preparar la conversión de la imagen.'));
         return;
       }
       // Fondo blanco al pasar a JPG (evita fondo negro si el PNG era transparente)
@@ -41,7 +44,7 @@ function convertir(
       ctx.drawImage(img, 0, 0, w, h);
       resolve(canvas.toDataURL(formato, calidad));
     };
-    img.onerror = () => resolve(dataUrl);
+    img.onerror = () => reject(new Error('No se pudo leer la imagen.'));
     img.src = dataUrl;
   });
 }
@@ -58,31 +61,47 @@ export function ConversorImagenes() {
   const [calidad, setCalidad] = useState(0.7);
   const [reducir, setReducir] = useState(false);
   const [procesando, setProcesando] = useState(false);
+  const [errorPorItem, setErrorPorItem] = useState<Record<string, string | null>>({});
+  const [solicitudDescarga, setSolicitudDescarga] = useState<string | null>(null);
 
-  const agregar = (files: FileList | null) => {
-    if (!files) return;
-    Array.from(files).forEach((file) => {
-      if (!file.type.startsWith('image/')) return;
-      const reader = new FileReader();
-      reader.onload = () =>
-        setItems((prev) => [
-          ...prev,
-          {
-            id: crypto.randomUUID(),
-            nombre: file.name,
-            dataUrl: String(reader.result),
-            pesoOriginal: file.size,
-          },
-        ]);
-      reader.readAsDataURL(file);
-    });
+  // La carga respeta el orden de selección: cada imagen se agrega en secuencia,
+  // no según el orden en que termina cada lectura.
+  const agregar = async (files: FileList | null) => {
+    if (!files || procesando) return;
+    const validos = Array.from(files).filter((file) => file.type.startsWith('image/'));
+
+    for (const file of validos) {
+      const dataUrl = await new Promise<string | null>((resolve) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result));
+        reader.onerror = () => resolve(null);
+        reader.readAsDataURL(file);
+      });
+
+      if (!dataUrl) {
+        setErrorPorItem((prev) => ({ ...prev, [file.name]: 'No se pudo leer la imagen.' }));
+        continue;
+      }
+
+      setItems((prev) => [
+        ...prev,
+        {
+          id: crypto.randomUUID(),
+          nombre: file.name,
+          dataUrl,
+          pesoOriginal: file.size,
+        },
+      ]);
+    }
   };
 
   const quitar = (id: string) =>
     setItems((prev) => prev.filter((x) => x.id !== id));
 
   const descargar = async (item: Item) => {
+    if (procesando) return;
     setProcesando(true);
+    setErrorPorItem((prev) => ({ ...prev, [item.id]: null }));
     try {
       const out = await convertir(
         item.dataUrl,
@@ -95,14 +114,21 @@ export function ConversorImagenes() {
       a.href = out;
       a.download = `${nombreBase(item.nombre)}.${ext}`;
       a.click();
+      // La solicitud de descarga no acredita que el archivo quedó guardado.
+      setSolicitudDescarga(item.id);
+    } catch (e) {
+      setErrorPorItem((prev) => ({
+        ...prev,
+        [item.id]: e instanceof Error ? e.message : 'No se pudo convertir la imagen.',
+      }));
     } finally {
       setProcesando(false);
     }
   };
 
   const descargarTodo = async () => {
+    if (procesando) return;
     for (const item of items) {
-       
       await descargar(item);
     }
   };
@@ -189,12 +215,22 @@ export function ConversorImagenes() {
                   className="h-12 w-12 rounded object-cover"
                 />
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium text-slate-800">
+                  <p className="truncate text-sm font-medium text-slate-800 sm:max-w-full" title={item.nombre}>
                     {item.nombre}
                   </p>
                   <p className="text-xs text-slate-500">
                     Original: {formatoPeso(item.pesoOriginal)}
                   </p>
+                  {errorPorItem[item.id] ? (
+                    <p className="text-[11px] font-medium text-rose-600" role="alert">
+                      {errorPorItem[item.id]} El original no se descarga como resultado.
+                    </p>
+                  ) : null}
+                  {solicitudDescarga === item.id ? (
+                    <p className="text-[11px] text-slate-500" role="status">
+                      Descarga solicitada al navegador; el guardado en tu dispositivo no se puede confirmar desde aquí.
+                    </p>
+                  ) : null}
                 </div>
                 <button
                   type="button"

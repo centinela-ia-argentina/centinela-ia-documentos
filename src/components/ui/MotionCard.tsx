@@ -10,7 +10,7 @@ export function MotionCard({ children, className = '', index = 0 }: { children: 
       viewport={{ once: true, margin: '-40px' }}
       transition={{ duration: 0.3, delay: index * 0.04, ease: 'easeOut' }}
       whileHover={{ y: -4 }}
-      className={`rounded-2xl border border-white/10 bg-white/[0.03] p-5 backdrop-blur transition-colors hover:border-cyan-400/30 ${className}`}
+      className={`rounded-2xl border border-white/10 bg-white/[0.03] p-5 backdrop-blur transition-colors hover:border-neutral-400 ${className}`}
     >
       {children}
     </motion.div>

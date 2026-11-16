@@ -7,6 +7,7 @@ import { signOut } from '@/app/login/actions';
 import { ActiveNavLink } from './ActiveNavLink';
 import { MobileNavigation } from './MobileNavigation';
 import { AccountMenu } from './AccountMenu';
+import { OrganizationLogo } from './OrganizationLogo';
 import { getNavGroupLabel, getNavItemLabel } from '@/lib/industries/uiLabels';
 import { getShellContext } from '@/lib/shell/getShellContext';
 import styles from './Shell.module.css';
@@ -14,7 +15,7 @@ import styles from './Shell.module.css';
 const groupOrder = ['Operación', 'Herramientas jurídicas', 'Utilidades', 'Gestión'];
 
 export async function Sidebar() {
-  const { profile, role, industry, organizationName } = await getShellContext();
+  const { profile, role, industry, organizationName, organizationLogo } = await getShellContext();
   const visibleNavigation = role ? navigation.filter((item) =>
     item.roles.includes(role) && (!item.industries || item.industries.includes(industry))) : [];
   const accountName = organizationName || profile?.full_name?.trim() || 'Cuenta Anulus';
@@ -47,7 +48,7 @@ export async function Sidebar() {
   );
   const renderAccount = () => (
     <AccountMenu summary={<>
-        <span className={styles.avatar} aria-hidden="true">{initials || 'AN'}</span>
+        <OrganizationLogo logoUrl={organizationLogo} initials={initials || 'AN'} />
         <span className={styles.accountText}><strong>{accountName}</strong>{roleLabel}</span>
         <CaretDown size={16} className={styles.navCaret} aria-hidden="true" />
       </>}>

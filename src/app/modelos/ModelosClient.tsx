@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState, useId, type ReactNode } from 'react';
 import styles from './ModelosWorkspace.module.css';
 import { Document, Packer, Paragraph, TextRun } from 'docx';
-import { ArrowLeft, Copy, Check, Download, FileSignature, Search, FolderKanban, FileDown, Sparkles, Loader2 } from 'lucide-react';
+import { ArrowLeft, Copy, Check, Download, FileSignature, Search, FolderKanban, FileDown, Sparkles, Loader2, Lock, AlertTriangle } from 'lucide-react';
 import { MODELOS, type ModeloEscrito } from '@/lib/legal/modelos';
 import { MotionButton } from '@/components/ui/MotionButton';
 import { Badge } from '@/components/ui/Badge';
@@ -112,6 +112,9 @@ export function ModelosClient({
   const [provincia, setProvincia] = useState<ProvinciaFiltro>('todas');
   const [valores, setValores] = useState<Record<string, string>>(expInicial ? datosDeExpediente(expInicial) : {});
   const [copiado, setCopiado] = useState(false);
+  const [estadoCopia, setEstadoCopia] = useState<'inactivo' | 'esperando' | 'copiado' | 'fallo'>('inactivo');
+  const [estadoExport, setEstadoExport] = useState<'inactivo' | 'solicitado' | 'incierto' | 'fallo'>('inactivo');
+  const [exportDetalle, setExportDetalle] = useState<string | null>(null);
   const [expedienteId, setExpedienteId] = useState(expInicial?.id ?? '');
   const [cargandoPrellenado, setCargandoPrellenado] = useState(false);
   const [errorPrellenado, setErrorPrellenado] = useState<string | null>(null);
@@ -120,6 +123,10 @@ export function ModelosClient({
   const [textoIA, setTextoIA] = useState<string | null>(null);
   const [redactando, setRedactando] = useState(false);
   const [avisoIA, setAvisoIA] = useState<string | null>(null);
+  const [avisoPrellenado, setAvisoPrellenado] = useState<string | null>(null);
+  // Contexto del último borrador generado con IA: si los datos o la instrucción
+  // cambian después, el borrador visible se señala como anterior.
+  const borradorContextoRef = useRef<{ valores: Record<string, string>; instruccion: string; modeloId: string | null } | null>(null);
 
   const seleccionado = MODELOS.find((m) => m.id === seleccionadoId) ?? null;
 
@@ -186,8 +193,19 @@ export function ModelosClient({
     ? `[FICHA HISTÓRICA — MODELO FUERA DE USO PRODUCTIVO]\n\n${seleccionado?.cuerpo ?? ''}`
     : (textoIA ?? textoFinal);
 
+  // El borrador visible queda marcado como anterior cuando cambian los datos
+  // o la instrucción respecto de la redacción que lo generó.
+  useEffect(() => {
+    const ctx = borradorContextoRef.current;
+    if (!textoIA || !ctx) return;
+    if (ctx.modeloId !== (seleccionadoId ?? null) || ctx.instruccion !== instruccion || JSON.stringify(ctx.valores) !== JSON.stringify(valores)) {
+      setAvisoIA('El borrador visible corresponde a datos o instrucciones anteriores. Volvé a redactar o revisá la vista previa antes de usarlo.');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [valores, instruccion, seleccionadoId]);
+
   const redactarIA = async () => {
-    if (!puedeIA) return;
+    if (!puedeIA || redactando) return;
     if (!seleccionado || isOutdatedOrRetired) return;
     setRedactando(true);
     setAvisoIA(null);
@@ -197,8 +215,12 @@ export function ModelosClient({
         valores,
         instruccion,
       });
-      if (r.ok) {
+      if (r.ok && r.texto && r.texto.trim()) {
         setTextoIA(r.texto);
+        borradorContextoRef.current = { valores: { ...valores }, instruccion, modeloId: seleccionado.id };
+      } else if (r.ok) {
+        // Una respuesta sin texto no se presenta como borrador recibido.
+        setAvisoIA('La respuesta no incluyó texto utilizable; no se registra ningún borrador. Probá de nuevo o ajustá la instrucción.');
       } else if (r.motivo === 'sin_key') {
         setAvisoIA('La redacción con IA todavía no está activada en este entorno. Podés seguir usando el relleno manual; se activa cargando la clave cuando quieras.');
       } else if (r.motivo === 'sin_permiso') {
@@ -247,6 +269,10 @@ export function ModelosClient({
 
     setValores(datosDeExpediente(exp));
 
+    // Los valores tomados de la ficha quedan editables: ya no se rotulan como
+    // "precargados"; la vista solicita revisarlos antes de usar el borrador.
+    setAvisoPrellenado('Se incorporaron valores de la ficha del expediente. Revisalos y completá lo que falte antes de usar el borrador.');
+
     if (!puedeIA || (seleccionado && (seleccionado.reviewStatus === 'outdated' || seleccionado.reviewStatus === 'retired'))) {
       setCargandoPrellenado(false);
       return;
@@ -264,6 +290,16 @@ export function ModelosClient({
 
         for (const [k, v] of Object.entries(extr)) {
           if (v) next[k] = v;
+        }
+
+        const incorporoDatos = Object.values(extr).some((v) => Boolean(v));
+
+        if (solicitudActual === solicitudPrellenadoRef.current) {
+          setAvisoPrellenado(
+            incorporoDatos
+              ? 'Se incorporaron valores sugeridos a partir de los datos y análisis ya registrados. No se analizan documentos nuevos: revisalos antes de usar el borrador.'
+              : 'La consulta de datos registrados no devolvió valores utilizables. No se confirma que no existan: revisá la ficha o completá los campos manualmente.'
+          );
         }
 
         return next;
@@ -306,47 +342,71 @@ export function ModelosClient({
   };
 
   const copiar = async () => {
-    if (isOutdatedOrRetired) return;
+    if (isOutdatedOrRetired || estadoCopia === 'esperando' || estadoExport === 'solicitado' || estadoExport === 'incierto') return;
+    setEstadoCopia('esperando');
     try {
+      // Se espera el resultado real del portapapeles; el mensaje se vincula
+      // al modelo y al texto visible del intento.
       await navigator.clipboard.writeText(textoParaMostrar);
       setCopiado(true);
-      setTimeout(() => setCopiado(false), 2000);
+      setEstadoCopia('copiado');
+      setTimeout(() => {
+        setCopiado(false);
+        setEstadoCopia((prev) => (prev === 'copiado' ? 'inactivo' : prev));
+      }, 2000);
     } catch {
       setCopiado(false);
+      setEstadoCopia('fallo');
     }
   };
 
-  const descargar = () => {
-    if (!seleccionado || isOutdatedOrRetired) return;
-    const blob = new Blob([textoParaMostrar], { type: 'text/plain;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${seleccionado.titulo}.txt`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+  const descargar = async () => {
+    if (!seleccionado || isOutdatedOrRetired || estadoExport === 'solicitado' || estadoExport === 'incierto' || estadoCopia === 'esperando') return;
+    setEstadoExport('solicitado');
+    setExportDetalle(`«${seleccionado.titulo}.txt»`);
+    try {
+      const blob = new Blob([textoParaMostrar], { type: 'text/plain;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${seleccionado.titulo}.txt`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch {
+      setEstadoExport('incierto');
+      setExportDetalle(`«${seleccionado.titulo}.txt»`);
+    }
   };
 
   const descargarDocx = async () => {
-    if (!seleccionado || isOutdatedOrRetired) return;
-    const parrafos = textoParaMostrar.split('\n').map(
-      (linea) =>
-        new Paragraph({
-          children: [new TextRun({ text: linea, font: 'Times New Roman', size: 24 })],
-        })
-    );
-    const doc = new Document({ sections: [{ children: parrafos }] });
-    const blob = await Packer.toBlob(doc);
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${seleccionado.titulo}.docx`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    if (!seleccionado || isOutdatedOrRetired || estadoExport === 'solicitado' || estadoExport === 'incierto' || estadoCopia === 'esperando') return;
+    setEstadoExport('solicitado');
+    setExportDetalle(`«${seleccionado.titulo}.docx»`);
+    try {
+      const parrafos = textoParaMostrar.split('\n').map(
+        (linea) =>
+          new Paragraph({
+            children: [new TextRun({ text: linea, font: 'Times New Roman', size: 24 })],
+          })
+      );
+      const doc = new Document({ sections: [{ children: parrafos }] });
+      const blob = await Packer.toBlob(doc);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${seleccionado.titulo}.docx`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch {
+      // Fallo durante la preparación o después del intento: estado incierto,
+      // no se afirma que el archivo quedó guardado.
+      setEstadoExport('incierto');
+      setExportDetalle(`«${seleccionado.titulo}.docx»`);
+    }
   };
 
   return <div className={styles.root}>
@@ -378,32 +438,32 @@ export function ModelosClient({
                   </div>
 
                   <div>
-                    <div>
+                    <div style={{ display: 'flex', gap: 8 }}>
                       <span>Jurisdicción:</span>
                       <span>{seleccionado.jurisdiction ?? 'Nacional'}</span>
                     </div>
-                    <div>
+                    <div style={{ display: 'flex', gap: 8 }}>
                       <span>Estado normativo:</span>
                       <span>Bloqueado para uso productivo</span>
                     </div>
-                    <div>
+                    <div style={{ display: 'flex', gap: 8 }}>
                       <span>Versión de catálogo:</span>
                       <span>v{seleccionado.version ?? '1.0'}</span>
                     </div>
-                    <div>
+                    <div style={{ display: 'flex', gap: 8 }}>
                       <span>Última revisión:</span>
                       <span>{seleccionado.lastVerifiedAt ?? 'No registrada'}</span>
                     </div>
                   </div>
 
                   <div>
-                    🔒 <strong>Ficha histórica restringida:</strong> No se admite edición manual, carga de variables, prellenado desde legajo, redacción asistida con IA ni exportación (TXT / Word). Este escrito se mantiene exclusivamente para fines de consulta histórica.
+                    <Lock size={16} style={{ display: 'inline-block', verticalAlign: '-3px', marginRight: 6 }} /> <strong>Ficha histórica restringida:</strong> No se admite edición manual, carga de variables, prellenado desde legajo, redacción asistida con IA ni exportación (TXT / Word). Este escrito se mantiene exclusivamente para fines de consulta histórica.
                   </div>
                 </div>
               ) : (
                 <div>
                   <div>
-                    <div>
+                    <div style={{ display: 'flex', gap: 8 }}>
                       <span>Estado normativo:</span>
                       {seleccionado.reviewStatus === 'verified' ? (
                         <span>Modelo auditado con fuente oficial</span>
@@ -411,17 +471,17 @@ export function ModelosClient({
                         <span>Modelo orientativo editable</span>
                       )}
                     </div>
-                    <div>
+                    <div style={{ display: 'flex', gap: 8 }}>
                       <span>Jurisdicción:</span>
                       <span>{seleccionado.jurisdiction ?? 'Nacional'}</span>
                     </div>
-                    <div>
+                    <div style={{ display: 'flex', gap: 8 }}>
                       <span>Versión / Revisión:</span>
                       <span>
                         v{seleccionado.version ?? '1.0'} • {seleccionado.lastReviewedAt ?? seleccionado.lastVerifiedAt ?? 'Fecha de revisión normativa no registrada'}
                       </span>
                     </div>
-                    <div>
+                    <div style={{ display: 'flex', gap: 8 }}>
                       <span>Fuentes oficiales:</span>
                       <span>
                         {seleccionado.officialSources && seleccionado.officialSources.length > 0
@@ -430,7 +490,7 @@ export function ModelosClient({
                       </span>
                     </div>
                     <div>
-                      ⚠️ Requiere revisión profesional antes de su utilización judicial o firma.
+                      <AlertTriangle size={16} style={{ display: 'inline-block', verticalAlign: '-3px', marginRight: 6 }} /> Requiere revisión profesional antes de su utilización judicial o firma.
                     </div>
                   </div>
 
@@ -477,6 +537,10 @@ export function ModelosClient({
                             >
                               Reintentar
                             </button>
+                          </div>
+                        ) : avisoPrellenado ? (
+                          <div role="status">
+                            <span>{avisoPrellenado}</span>
                           </div>
                         ) : (() => {
                           const filledCount = variables.filter(
@@ -594,6 +658,15 @@ export function ModelosClient({
                     {copiado ? <Check /> : <Copy />}
                     {copiado ? 'Copiado' : 'Copiar'}
                   </button>
+                  {estadoCopia === 'fallo' ? (
+                    <p role="alert">No se pudo copiar «{seleccionado?.titulo}» al portapapeles. Probá de nuevo o copiá manualmente desde la vista previa.</p>
+                  ) : null}
+                  {estadoExport === 'solicitado' && exportDetalle ? (
+                    <p role="status">Se solicitó la descarga de {exportDetalle} al navegador; el guardado en tu dispositivo no se puede confirmar desde aquí.</p>
+                  ) : null}
+                  {estadoExport === 'incierto' && exportDetalle ? (
+                    <p role="alert">El resultado de la exportación de {exportDetalle} es incierto. Verificá el archivo antes de reintentar.</p>
+                  ) : null}
                   <button
                     type="button"
                     onClick={descargar}

@@ -28,17 +28,13 @@ export default async function BuscarPage() {
     <AppShell>
       <div className="mx-auto w-full max-w-3xl px-4 py-8">
         <MotionCard index={0} className="mb-6 p-6">
-          <p className="text-xs font-semibold uppercase tracking-wider text-cyan-400">
+          <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-neutral-500">
             Búsqueda inteligente
           </p>
-          <h1 className="mt-1 text-2xl font-bold text-white">Preguntá a tus documentos</h1>
-          <p className="mt-2 text-sm text-slate-400">
+          <h1 className="mt-1.5 text-3xl font-bold tracking-tight text-neutral-900">Preguntá a tus documentos</h1>
+          <p className="mt-2 text-[13px] text-neutral-500">
             Hacé una pregunta en lenguaje natural y la IA responde usando el contenido de los
             documentos analizados de tu organización, citando las fuentes.
-          </p>
-          <p className="mt-1 text-xs text-slate-500">
-            Para generar la respuesta, tu pregunta y los fragmentos relevantes se procesan con IA de
-            Google.
           </p>
         </MotionCard>
 

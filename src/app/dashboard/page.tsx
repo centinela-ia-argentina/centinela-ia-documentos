@@ -75,7 +75,7 @@ export default async function DashboardPage() {
   const isRealEstate = industry === 'inmobiliaria';
   const profileName = profile.full_name?.trim();
   const greetingName =
-    profileName && !/^inmobiliaria$/i.test(profileName)
+    profileName && !/inmobiliaria|estudio|escriban/i.test(profileName)
       ? firstName(profileName)
       : organizationResult.data?.name?.trim() || firstName(profileName);
   const operationBasePath = isRealEstate ? '/operaciones' : '/expedientes';

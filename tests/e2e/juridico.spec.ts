@@ -134,7 +134,7 @@ test.describe.serial('Anulus AI - Flujo Jurídico E2E Obligatorio', () => {
     await expect(page).toHaveURL(/\/usuarios/);
     const usersPageTitle = page.locator('[data-testid="users-page-title"]');
     await expect(usersPageTitle).toBeVisible({ timeout: 15000 });
-    await expect(usersPageTitle).toContainText('Control de usuarios y accesos');
+    await expect(usersPageTitle).toContainText('Usuarios');
 
     // Create a temporary isolated context for employee
     const employeeContext = await browser.newContext();

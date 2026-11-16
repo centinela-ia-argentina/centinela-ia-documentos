@@ -18,11 +18,13 @@ type Imagen = { id: string; nombre: string; dataUrl: string };
 
 // Dibuja la imagen en un canvas; si "escaneado" está activo, la pasa a efecto
 // fotocopia (blanquea el fondo del papel + contraste). Siempre devuelve JPEG.
+// Si la imagen no puede leerse ni representarse, la promesa se rechaza:
+// nunca se resuelve con el original ni con un marcador silencioso.
 function procesarImagen(
   dataUrl: string,
   escaneado: boolean
 ): Promise<{ src: string; w: number; h: number }> {
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
     const img = new Image();
     img.onload = () => {
       const canvas = document.createElement('canvas');
@@ -30,7 +32,7 @@ function procesarImagen(
       canvas.height = img.naturalHeight;
       const ctx = canvas.getContext('2d');
       if (!ctx) {
-        resolve({ src: dataUrl, w: img.naturalWidth, h: img.naturalHeight });
+        reject(new Error('No se pudo preparar la imagen para el PDF.'));
         return;
       }
       ctx.drawImage(img, 0, 0);
@@ -76,7 +78,7 @@ function procesarImagen(
         h: canvas.height,
       });
     };
-    img.onerror = () => resolve({ src: dataUrl, w: 1, h: 1 });
+    img.onerror = () => reject(new Error('No se pudo leer una de las imágenes.'));
     img.src = dataUrl;
   });
 }
@@ -86,23 +88,33 @@ export function ImagenAPdf({ canSave = true }: { canSave?: boolean }) {
   const [escaneado, setEscaneado] = useState(false);
   const [generando, setGenerando] = useState(false);
   const [guardando, setGuardando] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [aviso, setAviso] = useState<string | null>(null);
+  const [descargaSolicitada, setDescargaSolicitada] = useState(false);
 
-  const agregar = (files: FileList | null) => {
-    if (!files) return;
-    Array.from(files).forEach((file) => {
-      if (!file.type.startsWith('image/')) return;
-      const reader = new FileReader();
-      reader.onload = () =>
-        setImagenes((prev) => [
-          ...prev,
-          {
-            id: crypto.randomUUID(),
-            nombre: file.name,
-            dataUrl: String(reader.result),
-          },
-        ]);
-      reader.readAsDataURL(file);
-    });
+  // La carga respeta el orden de selección de las imágenes.
+  const agregar = async (files: FileList | null) => {
+    if (!files || generando || guardando) return;
+    const validas = Array.from(files).filter((file) => file.type.startsWith('image/'));
+
+    for (const file of validas) {
+      const dataUrl = await new Promise<string | null>((resolve) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result));
+        reader.onerror = () => resolve(null);
+        reader.readAsDataURL(file);
+      });
+
+      if (!dataUrl) {
+        setError('No se pudo leer una de las imágenes seleccionadas.');
+        continue;
+      }
+
+      setImagenes((prev) => [
+        ...prev,
+        { id: crypto.randomUUID(), nombre: file.name, dataUrl },
+      ]);
+    }
   };
 
   const quitar = (id: string) =>
@@ -143,20 +155,29 @@ export function ImagenAPdf({ canSave = true }: { canSave?: boolean }) {
     escaneado ? 'documento-escaneado.pdf' : 'documento.pdf';
 
   const generarPdf = async () => {
-    if (imagenes.length === 0) return;
+    if (imagenes.length === 0 || generando || guardando) return;
     setGenerando(true);
+    setError(null);
+    setAviso(null);
     try {
       const pdf = await construirPdf();
       pdf.save(nombrePdf());
+      // La solicitud de descarga no acredita que el archivo quedó guardado.
+      setDescargaSolicitada(true);
+    } catch (e) {
+      setError(
+        'No se pudo completar el PDF con todas las imágenes. No se genera ni se ofrece un PDF parcial. Verificá que las imágenes sean legibles.'
+      );
     } finally {
       setGenerando(false);
     }
   };
 
   const guardarEnDocumentos = async () => {
-    if (!canSave) return;
-    if (imagenes.length === 0) return;
+    if (!canSave || imagenes.length === 0 || guardando || generando) return;
     setGuardando(true);
+    setError(null);
+    setAviso(null);
     try {
       const pdf = await construirPdf();
       const blob = pdf.output('blob');
@@ -166,7 +187,12 @@ export function ImagenAPdf({ canSave = true }: { canSave?: boolean }) {
       fd.append('sensitivity_level', 'medium');
       // Sube a la bóveda y redirige al documento nuevo
       await uploadDocument(fd);
-    } finally {
+      setAviso('Solicitud de guardado enviada. Revisá Documentos para confirmar que el archivo quedó registrado.');
+      setGuardando(false);
+    } catch (e) {
+      // Un fallo después de iniciar el envío deja el resultado incierto:
+      // no se afirma rollback ni ausencia de archivo.
+      setError('El resultado del envío a Documentos es incierto. Revisá Documentos antes de reintentar para evitar duplicados.');
       setGuardando(false);
     }
   };
@@ -192,6 +218,18 @@ export function ImagenAPdf({ canSave = true }: { canSave?: boolean }) {
           }}
         />
       </label>
+
+      {error && (
+        <p className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700" role="alert">
+          {error}
+        </p>
+      )}
+
+      {aviso && (
+        <p className="rounded-lg bg-sky-50 px-3 py-2 text-sm text-sky-800" role="status">
+          {aviso}
+        </p>
+      )}
 
       {imagenes.length > 0 && (
         <>
@@ -291,12 +329,18 @@ export function ImagenAPdf({ canSave = true }: { canSave?: boolean }) {
 
             <button
               type="button"
-              onClick={() => setImagenes([])}
+              onClick={() => { setImagenes([]); setDescargaSolicitada(false); setAviso(null); }}
               className="text-sm font-medium text-slate-500 underline"
             >
               Limpiar todo
             </button>
           </div>
+
+          {descargaSolicitada ? (
+            <p className="text-xs text-slate-500" role="status">
+              Se solicitó la descarga al navegador; no se puede confirmar desde aquí que el archivo quedó guardado en tu dispositivo.
+            </p>
+          ) : null}
         </>
       )}
     </div>

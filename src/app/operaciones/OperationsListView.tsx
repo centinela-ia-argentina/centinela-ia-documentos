@@ -79,7 +79,7 @@ export function OperationsListView({ records, statusesByCase, basePath, industry
             <td><Link className={styles.recordTitle} href={`${basePath}/${item.id}`}>{title}</Link><span className={styles.type}>{getCaseTypeLabel(item.case_type)}</span></td>
             <td data-label="Cliente">{displayText(item.client_name, property ? 'Sin cliente' : 'Sin cliente asignado')}</td>
             <td><span className={styles.statusTag}>{getCaseStatusLabel(item.status, industry)}</span></td>
-            <td data-label="Documentación"><span className={styles.progressText}>{!progress.total ? 'Sin checklist' : property ? `${progress.fulfilled}/${progress.total} · ${progress.percent}%` : progress.isComplete ? 'Completo' : `Sugeridos ${progress.total - progress.missing}/${progress.total}`}</span>
+            <td data-label="Documentación"><span className={styles.progressText}>{!progress.total ? 'Sin checklist' : property ? `${progress.fulfilled}/${progress.total} · ${progress.percent}%` : progress.hasUnknown ? 'Estado por revisar' : progress.isComplete ? 'Completo' : `Sugeridos ${progress.total - progress.missing}/${progress.total}`}</span>
               {property && progress.total ? <span className={styles.progressBar}><span style={{width:`${progress.percent}%`}} /></span> : null}
             </td>
             <td data-label="Fecha clave">{date ? <><span className={styles.dateText}>{formatPlazoDate(date)}</span><span className={`${styles.dateState} ${expiry === 'vencido' ? styles.late : ''}`}>{property ? expiry === 'vencido' ? 'Vencida' : expiry === 'por_vencer' ? 'Próxima' : 'Vigente' : expiryStatusLabel(expiry!)}</span></> : <span className={styles.dateText}>Sin fecha clave</span>}</td>
