@@ -438,7 +438,9 @@ test.describe.serial('Anulus AI - Escribania E2E', () => {
       // Formulario de nuevo evento: opción plazo disponible y no oculta en escribanía
       await page.locator('button:has-text("Nuevo evento")').click();
       await expect(page.locator('select[data-testid="agenda-categoria"] option[value="plazo"]')).toBeAttached();
-      await page.locator('button:has-text("Nuevo evento")').click();
+      // El formulario abre como modal: se cierra con su propio botón de cerrar.
+      await page.locator('button[aria-label="Cerrar formulario"]').click();
+      await expect(page.locator('dialog[aria-labelledby="agenda-form-title"]')).not.toBeVisible();
 
       // Evento de plazo en la lista del mes con categoría plazo (no degradado a Recordatorio)
       await expect(page.locator('body')).toContainText('Fecha límite contractual');
