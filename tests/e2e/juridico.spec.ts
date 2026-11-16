@@ -634,7 +634,7 @@ test.describe.serial('Anulus AI - Flujo Jurídico E2E Obligatorio', () => {
     await expect(caseSelect).toBeVisible();
     await caseSelect.getByRole('button').click();
     const agendaText = await page.getByRole('listbox').innerText();
-    await page.keyboard.press('Escape');
+    await caseSelect.getByRole('button').click();
     expect(agendaText).not.toContain('Propiedad 1');
     expect(agendaText).not.toContain('Escritura 1');
     expect(agendaText).not.toContain('Compraventa');
