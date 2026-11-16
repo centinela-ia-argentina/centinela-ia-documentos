@@ -19,6 +19,7 @@ export type SelectFieldProps = {
   placeholder: string;
   icon?: ReactNode;
   testId?: string;
+  disabled?: boolean;
   onChange?: (value: string) => void;
 };
 
@@ -31,6 +32,7 @@ export function SelectField({
   placeholder,
   icon,
   testId,
+  disabled,
   onChange,
 }: SelectFieldProps) {
   const [open, setOpen] = useState(false);
@@ -44,6 +46,7 @@ export function SelectField({
   const selected = options.find((option) => option.value === currentValue);
 
   function openMenu(fromEnd = false) {
+    if (disabled) return;
     const selectedIndex = options.findIndex((option) => option.value === currentValue);
     setActiveIndex(selectedIndex >= 0 ? selectedIndex : fromEnd ? Math.max(0, options.length - 1) : 0);
     setOpen(true);
@@ -95,6 +98,7 @@ export function SelectField({
       <button
         type="button"
         ref={triggerRef}
+        disabled={disabled}
         aria-label={label}
         aria-haspopup="listbox"
         aria-expanded={open}

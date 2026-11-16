@@ -72,9 +72,16 @@ async function expectSavedAgendaEvent(page: Page, title: string, hour: string) {
   await expect(savedEvent).toBeVisible();
 }
 
+// SelectField no es un select nativo: se abre el menú y se elige la opción por su texto.
+async function selectUploadCase(page: Page) {
+  await page.getByTestId('upload-case').getByRole('button').click();
+  await page.getByRole('option', { name: caseTitle }).click();
+}
+
 test.describe.serial('Anulus AI - Flujo Jurídico E2E Obligatorio', () => {
   let caseUrl = '';
   let caseId = '';
+  let caseTitle = '';
 
   test.beforeAll(async ({ browser }) => {
     // We could do global login here, but since 'login' is a suite itself, we'll do it in the first test
@@ -181,8 +188,8 @@ test.describe.serial('Anulus AI - Flujo Jurídico E2E Obligatorio', () => {
 
   test('03. expediente', async () => {
     await gotoStable('/expedientes/nuevo');
-    const caseTitle = `Expediente E2E ${Date.now()}`;
-    await page.fill('[data-testid="case-title"]', caseTitle);
+    const createdCaseTitle = `Expediente E2E ${Date.now()}`;
+    await page.fill('[data-testid="case-title"]', createdCaseTitle);
     await page.fill('[data-testid="case-client"]', 'Cliente E2E');
     const caseTypeSelect = page.locator('[data-testid="case-type"]');
     await expect(caseTypeSelect).toBeVisible({ timeout: 15000 });
@@ -193,9 +200,10 @@ test.describe.serial('Anulus AI - Flujo Jurídico E2E Obligatorio', () => {
     await expect(page).toHaveURL(/\/expedientes\/.+/);
     const caseDetailTitle = page.locator('[data-testid="case-detail-title"]');
     await expect(caseDetailTitle).toBeVisible({ timeout: 15000 });
-    await expect(caseDetailTitle).toHaveText(caseTitle);
+    await expect(caseDetailTitle).toHaveText(createdCaseTitle);
     caseUrl = page.url();
     caseId = caseUrl.split('/').pop() || '';
+    caseTitle = createdCaseTitle;
     expect(caseId).toBeTruthy();
 
     // Verify automatic checklist creation
@@ -224,12 +232,14 @@ test.describe.serial('Anulus AI - Flujo Jurídico E2E Obligatorio', () => {
 
   test('04. 15 uploads (concurrencia y exactamente 15 success)', async () => {
     await gotoStable('/documentos/subir');
-    await page.selectOption('[data-testid="upload-case"]', { value: caseId });
-    const uploadTypeSelect = page.locator('[data-testid="upload-type"]');
-    await expect(uploadTypeSelect).toBeVisible({ timeout: 15000 });
-    await uploadTypeSelect.selectOption({ label: 'Prueba documental' });
-    await expect(uploadTypeSelect).toHaveValue('Prueba documental');
-    await page.selectOption('[data-testid="upload-sensitivity"]', 'low');
+    await selectUploadCase(page);
+    const uploadTypeField = page.getByTestId('upload-type');
+    await expect(uploadTypeField).toBeVisible({ timeout: 15000 });
+    await uploadTypeField.getByRole('button').click();
+    await page.getByRole('option', { name: 'Prueba documental' }).click();
+    await expect(uploadTypeField).toContainText('Prueba documental');
+    await page.getByTestId('upload-sensitivity').getByRole('button').click();
+    await page.getByRole('option', { name: 'Bajo' }).click();
 
     const filePayloads = Array.from({ length: 15 }).map((_, i) => ({
       name: `bulk_${randomUUID()}_${i}.pdf`,
@@ -246,7 +256,7 @@ test.describe.serial('Anulus AI - Flujo Jurídico E2E Obligatorio', () => {
 
   test('05. invalid', async () => {
     await gotoStable('/documentos/subir');
-    await page.selectOption('[data-testid="upload-case"]', { value: caseId });
+    await selectUploadCase(page);
 
     // We get initial counts
     const { count: docsCountBefore } = await serviceClient.from('documents').select('*', { count: 'exact', head: true });
@@ -276,7 +286,7 @@ test.describe.serial('Anulus AI - Flujo Jurídico E2E Obligatorio', () => {
 
   test('06. duplicate y partial failure', async () => {
     await gotoStable('/documentos/subir');
-    await page.selectOption('[data-testid="upload-case"]', { value: caseId });
+    await selectUploadCase(page);
 
     const fileBytes = Buffer.from('%PDF-1.4 Duplicate Me ' + randomUUID());
 
@@ -299,7 +309,7 @@ test.describe.serial('Anulus AI - Flujo Jurídico E2E Obligatorio', () => {
     ]);
 
     await gotoStable('/documentos/subir');
-    await page.selectOption('[data-testid="upload-case"]', { value: caseId });
+    await selectUploadCase(page);
     await page.setInputFiles('[data-testid="upload-file-input"]', [
       { name: `retry.pdf`, mimeType: 'application/pdf', buffer: Buffer.from('%PDF-1.4 Retry Me') }
     ]);
@@ -327,7 +337,7 @@ test.describe.serial('Anulus AI - Flujo Jurídico E2E Obligatorio', () => {
   test('08. request manipulado (magic bytes)', async () => {
     // To truly manipulate, we bypass UI restrictions and send wrong content with a PDF mime
     await gotoStable('/documentos/subir');
-    await page.selectOption('[data-testid="upload-case"]', { value: caseId });
+    await selectUploadCase(page);
 
     await page.setInputFiles('[data-testid="upload-file-input"]', [
       { name: `fake.pdf`, mimeType: 'application/pdf', buffer: Buffer.from('FAKE PDF CONTENT NO MAGIC') }
