@@ -42,6 +42,7 @@ export function SelectField({
   const [internalValue, setInternalValue] = useState(defaultValue);
   const rootRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
+  const [popupPos, setPopupPos] = useState<{ up: boolean; maxHeight: number }>({ up: false, maxHeight: 256 });
   const currentValue = value ?? internalValue;
   const selected = options.find((option) => option.value === currentValue);
 
@@ -49,6 +50,22 @@ export function SelectField({
     if (disabled) return;
     const selectedIndex = options.findIndex((option) => option.value === currentValue);
     setActiveIndex(selectedIndex >= 0 ? selectedIndex : fromEnd ? Math.max(0, options.length - 1) : 0);
+    const trigger = triggerRef.current;
+    if (trigger && typeof window !== 'undefined') {
+      const rect = trigger.getBoundingClientRect();
+      const dialog = trigger.closest('dialog');
+      const dialogRect = dialog?.getBoundingClientRect();
+      const bottomLimit = Math.min(window.innerHeight, dialogRect ? dialogRect.bottom : window.innerHeight);
+      const topLimit = Math.max(0, dialogRect ? dialogRect.top : 0);
+      const below = bottomLimit - rect.bottom - 8;
+      const above = rect.top - topLimit - 8;
+      const estimate = Math.min(options.length * 44 + 10, 256);
+      if (below < Math.min(estimate, 176) && above > below) {
+        setPopupPos({ up: true, maxHeight: Math.max(120, Math.min(estimate, above)) });
+      } else {
+        setPopupPos({ up: false, maxHeight: Math.max(120, Math.min(estimate, Math.max(below, 120))) });
+      }
+    }
     setOpen(true);
   }
 
@@ -56,7 +73,14 @@ export function SelectField({
     if (!open) return;
     const option = optionRefs.current[activeIndex];
     option?.focus({ preventScroll: true });
-    option?.scrollIntoView?.({ block: 'nearest' });
+    // Scrollea solo dentro del popup (nunca el dialog ni la página de fondo).
+    const popup = option?.parentElement;
+    if (option && popup) {
+      const optionTop = option.offsetTop;
+      const optionBottom = optionTop + option.offsetHeight;
+      if (optionTop < popup.scrollTop) popup.scrollTop = optionTop;
+      else if (optionBottom > popup.scrollTop + popup.clientHeight) popup.scrollTop = optionBottom - popup.clientHeight;
+    }
   }, [open, activeIndex]);
 
   useEffect(() => {
@@ -126,6 +150,10 @@ export function SelectField({
           aria-label={label}
           role="listbox"
           className={styles.popup}
+          style={{
+            maxHeight: popupPos.maxHeight,
+            ...(popupPos.up ? { bottom: 'calc(100% + 5px)', top: 'auto' } : {}),
+          }}
         >
           {options.map((option, index) => {
             const active = option.value === currentValue;
