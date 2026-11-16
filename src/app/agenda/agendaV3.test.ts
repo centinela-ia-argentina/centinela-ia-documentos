@@ -22,8 +22,10 @@ async function detail(){fireEvent.click(screen.getAllByRole('button',{name:/Revi
 describe('Agenda V1: contracts and CRUD preserved',()=>{
  it.each(['inmobiliaria','legal','escribania'] as IndustryType[])('retains filter options/priority list and industry labels for %s',industry=>{
   const select=vi.fn();render(h(AgendaCommandCenter,{industry,eventos:[event,firma],agendaLabels:getAgendaLabels(industry),terms:getIndustryTerms(industry),puedeGuardar:true,onCreate:vi.fn(),onSelect:select}));
-  expect(screen.getByRole('combobox',{name:'Mostrar eventos'}).querySelectorAll('option').length).toBe(6);
-  fireEvent.change(screen.getByRole('combobox',{name:'Mostrar eventos'}),{target:{value:'firma'}});
+  fireEvent.click(screen.getByRole('button',{name:'Mostrar eventos'}));
+  const listbox=screen.getByRole('listbox',{name:'Mostrar eventos'});
+  expect(within(listbox).getAllByRole('option')).toHaveLength(6);
+  fireEvent.click(within(listbox).getByRole('option',{name:'Firmas'}));
   const aside=screen.getByRole('complementary');expect(within(aside).getByRole('button',{name:/Revisar documentación/})).toBeTruthy();
   fireEvent.click(within(aside).getByRole('button',{name:/Firma de escritura/}));expect(select).toHaveBeenCalledWith(firma);
  });
