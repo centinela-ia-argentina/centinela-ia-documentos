@@ -444,7 +444,8 @@ test.describe.serial('Anulus AI - Flujo Jurídico E2E Obligatorio', () => {
     await page.fill('[data-testid="agenda-titulo"]', audienciaTitle);
     await page.fill('[data-testid="agenda-fecha"]', todayStr);
     await page.fill('[data-testid="agenda-hora"]', '09:30');
-    await page.selectOption('[data-testid="agenda-categoria"]', 'turno');
+    await page.getByTestId('agenda-categoria').getByRole('button').click();
+    await page.getByRole('option', { name: 'Turno' }).click();
     await page.click('[data-testid="agenda-submit"]');
 
     await expectSavedAgendaEvent(page, audienciaTitle, '09:30');
@@ -456,7 +457,8 @@ test.describe.serial('Anulus AI - Flujo Jurídico E2E Obligatorio', () => {
     await page.fill('[data-testid="agenda-titulo"]', reunionTitle);
     await page.fill('[data-testid="agenda-fecha"]', todayStr);
     await page.fill('[data-testid="agenda-hora"]', '14:15');
-    await page.selectOption('[data-testid="agenda-categoria"]', 'evento');
+    await page.getByTestId('agenda-categoria').getByRole('button').click();
+    await page.getByRole('option', { name: 'Recordatorio' }).click();
     await page.click('[data-testid="agenda-submit"]');
 
     await expectSavedAgendaEvent(page, reunionTitle, '14:15');
@@ -479,7 +481,8 @@ test.describe.serial('Anulus AI - Flujo Jurídico E2E Obligatorio', () => {
     await page.fill('[data-testid="agenda-titulo"]', fixedTitle);
     await page.fill('[data-testid="agenda-fecha"]', todayStr);
     await page.fill('[data-testid="agenda-hora"]', '10:00');
-    await page.selectOption('[data-testid="agenda-categoria"]', 'evento');
+    await page.getByTestId('agenda-categoria').getByRole('button').click();
+    await page.getByRole('option', { name: 'Recordatorio' }).click();
     await page.click('[data-testid="agenda-submit"]');
     await expect(page.locator('body')).toContainText(fixedTitle);
 
@@ -490,7 +493,8 @@ test.describe.serial('Anulus AI - Flujo Jurídico E2E Obligatorio', () => {
     await page.fill('[data-testid="agenda-titulo"]', fixedTitle);
     await page.fill('[data-testid="agenda-fecha"]', todayStr);
     await page.fill('[data-testid="agenda-hora"]', '10:00');
-    await page.selectOption('[data-testid="agenda-categoria"]', 'evento');
+    await page.getByTestId('agenda-categoria').getByRole('button').click();
+    await page.getByRole('option', { name: 'Recordatorio' }).click();
     await page.click('[data-testid="agenda-submit"]');
 
     // Should show error or conflict
@@ -626,9 +630,11 @@ test.describe.serial('Anulus AI - Flujo Jurídico E2E Obligatorio', () => {
   test('14d. selectores de Agenda y Modelos segregados por vertical', async () => {
     await gotoStable('/agenda');
     await page.getByRole('button', { name: 'Nuevo evento' }).click();
-    const caseSelect = page.locator('[data-testid="agenda-case-select"]');
+    const caseSelect = page.getByTestId('agenda-case-select');
     await expect(caseSelect).toBeVisible();
-    const agendaText = await caseSelect.innerText();
+    await caseSelect.getByRole('button').click();
+    const agendaText = await page.getByRole('listbox').innerText();
+    await page.keyboard.press('Escape');
     expect(agendaText).not.toContain('Propiedad 1');
     expect(agendaText).not.toContain('Escritura 1');
     expect(agendaText).not.toContain('Compraventa');

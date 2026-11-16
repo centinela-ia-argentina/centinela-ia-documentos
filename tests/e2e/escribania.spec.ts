@@ -437,7 +437,9 @@ test.describe.serial('Anulus AI - Escribania E2E', () => {
 
       // Formulario de nuevo evento: opción plazo disponible y no oculta en escribanía
       await page.locator('button:has-text("Nuevo evento")').click();
-      await expect(page.locator('select[data-testid="agenda-categoria"] option[value="plazo"]')).toBeAttached();
+      await page.getByTestId('agenda-categoria').getByRole('button').click();
+      await expect(page.getByRole('option', { name: 'Plazo / vencimiento' })).toBeVisible();
+      await page.keyboard.press('Escape');
       // El formulario abre como modal: se cierra con su propio botón de cerrar.
       await page.locator('button[aria-label="Cerrar formulario"]').click();
       await expect(page.locator('dialog[aria-labelledby="agenda-form-title"]')).not.toBeVisible();
@@ -455,10 +457,12 @@ test.describe.serial('Anulus AI - Escribania E2E', () => {
 
       // Al entrar en edición: la categoría seleccionada es plazo y caseId inferido
       await page.locator('[data-testid="agenda-editar-btn"]').click();
-      await expect(page.locator('[data-testid="agenda-edit-categoria"]')).toBeVisible();
-      await expect(page.locator('[data-testid="agenda-edit-categoria"]')).toHaveValue('plazo');
-      await expect(page.locator('[data-testid="agenda-edit-categoria"] option[value="plazo"]')).toBeAttached();
-      await expect(page.locator('[data-testid="agenda-edit-case-select"]')).toHaveValue(CASE_PALERMO_ID);
+      await expect(page.getByTestId('agenda-edit-categoria')).toBeVisible();
+      await expect(page.getByTestId('agenda-edit-categoria')).toContainText('Plazo / vencimiento');
+      await page.getByTestId('agenda-edit-categoria').getByRole('button').click();
+      await expect(page.getByRole('option', { name: 'Plazo / vencimiento' })).toHaveAttribute('aria-selected', 'true');
+      await page.keyboard.press('Escape');
+      await expect(page.getByTestId('agenda-edit-case-select')).toContainText('Compraventa Depto Palermo Cuba');
     } finally {
       await page.close();
       await context.close();

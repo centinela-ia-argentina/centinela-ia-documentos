@@ -18,6 +18,7 @@ export type SelectFieldProps = {
   options: SelectOption[];
   placeholder: string;
   icon?: ReactNode;
+  testId?: string;
   onChange?: (value: string) => void;
 };
 
@@ -29,6 +30,7 @@ export function SelectField({
   options,
   placeholder,
   icon,
+  testId,
   onChange,
 }: SelectFieldProps) {
   const [open, setOpen] = useState(false);
@@ -84,6 +86,7 @@ export function SelectField({
     <div
       ref={rootRef}
       className="relative mt-2"
+      data-testid={testId}
       onBlur={(event) => {
         if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setOpen(false);
       }}
