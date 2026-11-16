@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, type ReactNode } from 'react';
-import { Loader2, Sparkles, AlertTriangle, ListChecks, Lightbulb, CheckCircle2, XCircle, FileWarning, NotePencil } from 'lucide-react';
+import { Loader2, Sparkles, AlertTriangle, ListChecks, Lightbulb, CheckCircle2, XCircle, FileWarning, Pencil } from 'lucide-react';
 import { revisarEscritoIA, type RevisionEscrito } from './actions';
 
 const SEMAFORO: Record<string, { label: string; chip: string; bar: string }> = {
@@ -67,7 +67,7 @@ export function RevisarEscrito({ industria = 'legal' }: { industria?: string }) 
 
   return (
     <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-      <h2 className="flex items-center gap-2 text-base font-semibold text-slate-800"><NotePencil className="h-4 w-4" /> {tituloRevision}</h2>
+      <h2 className="flex items-center gap-2 text-base font-semibold text-slate-800"><Pencil className="h-4 w-4" /> {tituloRevision}</h2>
       <p className="mt-1 text-sm text-slate-500">
         {subtituloRevision}
       </p>

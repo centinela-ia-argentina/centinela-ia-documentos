@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState, useId, type ReactNode } from 'react';
 import styles from './ModelosWorkspace.module.css';
 import { Document, Packer, Paragraph, TextRun } from 'docx';
-import { ArrowLeft, Copy, Check, Download, FileSignature, Search, FolderKanban, FileDown, Sparkles, Loader2, Lock, TriangleAlert } from 'lucide-react';
+import { ArrowLeft, Copy, Check, Download, FileSignature, Search, FolderKanban, FileDown, Sparkles, Loader2, Lock, AlertTriangle } from 'lucide-react';
 import { MODELOS, type ModeloEscrito } from '@/lib/legal/modelos';
 import { MotionButton } from '@/components/ui/MotionButton';
 import { Badge } from '@/components/ui/Badge';
@@ -490,7 +490,7 @@ export function ModelosClient({
                       </span>
                     </div>
                     <div>
-                      <TriangleAlert size={16} style={{ display: 'inline-block', verticalAlign: '-3px', marginRight: 6 }} /> Requiere revisión profesional antes de su utilización judicial o firma.
+                      <AlertTriangle size={16} style={{ display: 'inline-block', verticalAlign: '-3px', marginRight: 6 }} /> Requiere revisión profesional antes de su utilización judicial o firma.
                     </div>
                   </div>
 
