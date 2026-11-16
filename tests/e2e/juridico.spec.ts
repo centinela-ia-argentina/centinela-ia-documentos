@@ -72,16 +72,16 @@ async function expectSavedAgendaEvent(page: Page, title: string, hour: string) {
   await expect(savedEvent).toBeVisible();
 }
 
-// SelectField no es un select nativo: se abre el menú y se elige la opción por su texto.
-async function selectUploadCase(page: Page) {
-  await page.getByTestId('upload-case').getByRole('button').click();
-  await page.getByRole('option', { name: caseTitle }).click();
-}
-
 test.describe.serial('Anulus AI - Flujo Jurídico E2E Obligatorio', () => {
   let caseUrl = '';
   let caseId = '';
   let caseTitle = '';
+
+  // SelectField no es un select nativo: se abre el menú y se elige la opción por su texto.
+  async function selectUploadCase(page: Page) {
+    await page.getByTestId('upload-case').getByRole('button').click();
+    await page.getByRole('option', { name: caseTitle }).click();
+  }
 
   test.beforeAll(async ({ browser }) => {
     // We could do global login here, but since 'login' is a suite itself, we'll do it in the first test
