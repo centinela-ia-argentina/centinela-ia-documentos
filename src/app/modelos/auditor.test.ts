@@ -93,8 +93,8 @@ describe('T-AUD-P2-015: Controles de IA para Rol Auditor en Modelos', () => {
     expect(screen.queryByText('Redactar con IA (opcional)')).toBeNull();
 
     // 5. Aplicar expediente como auditor: carga datos manuales pero NO llama a extraerDatosParaModelo ni muestra spinner
-    const select = screen.getByRole('combobox');
-    fireEvent.change(select, { target: { value: 'case-1' } });
+    fireEvent.click(screen.getByRole('button', { name: /Prellenar desde un expediente/ }));
+    fireEvent.click(screen.getByRole('option', { name: /Perez c\/ Gomez/ }));
 
     await waitFor(() => {
       const inputCaratula = screen.getByPlaceholderText(/Completar caratula/i) as HTMLInputElement;
@@ -140,8 +140,8 @@ describe('T-AUD-P2-015: Controles de IA para Rol Auditor en Modelos', () => {
     expect(screen.getByText('Redactar con IA')).toBeDefined();
 
     // Aplicar expediente: DEBE llamar a extraerDatosParaModelo
-    const select = screen.getByRole('combobox');
-    fireEvent.change(select, { target: { value: 'case-1' } });
+    fireEvent.click(screen.getByRole('button', { name: /Prellenar desde un expediente/ }));
+    fireEvent.click(screen.getByRole('option', { name: /Perez c\/ Gomez/ }));
 
     await waitFor(() => {
       expect(extraerDatosParaModelo).toHaveBeenCalled();

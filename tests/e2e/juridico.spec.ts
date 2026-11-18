@@ -380,7 +380,7 @@ test.describe.serial('Anulus AI - Flujo Jurídico E2E Obligatorio', () => {
       const row = await openChecklistManagement(page);
       const select = row.getByTestId('select-doc-0');
       const trigger = select.getByRole('button');
-      await expect(trigger).toContainText('Vincular documento');
+      await expect(trigger).toHaveAccessibleName('Vincular documento');
 
       // El menú debe tener más de 1 opción por los documentos previos
       await trigger.click();
@@ -397,14 +397,14 @@ test.describe.serial('Anulus AI - Flujo Jurídico E2E Obligatorio', () => {
       await expect(page).toHaveURL(/checklist_document=linked/);
       await expect(page.locator('[data-testid="checklist-document-feedback"]')).toContainText('Documento vinculado correctamente');
       await openChecklistManagement(page);
-      await expect(trigger).toContainText('Cambiar documento vinculado');
+      await expect(trigger).toHaveAccessibleName('Cambiar documento vinculado');
       await expect(page.getByTestId('checklist-linked-info-0')).toBeVisible();
 
       diagnostic.mark('link-reload-start');
       await page.reload();
       diagnostic.mark('link-reload-complete');
       await openChecklistManagement(page);
-      await expect(trigger).toContainText('Cambiar documento vinculado');
+      await expect(trigger).toHaveAccessibleName('Cambiar documento vinculado');
       await expect(page.getByTestId('checklist-linked-info-0')).toBeVisible();
 
       await openChecklistManagement(page);
@@ -417,14 +417,14 @@ test.describe.serial('Anulus AI - Flujo Jurídico E2E Obligatorio', () => {
       await expect(page).toHaveURL(/checklist_document=unlinked/);
       await expect(page.locator('[data-testid="checklist-document-feedback"]')).toContainText('Documento desvinculado correctamente');
       await openChecklistManagement(page);
-      await expect(trigger).toContainText('Vincular documento');
+      await expect(trigger).toHaveAccessibleName('Vincular documento');
       await expect(page.getByTestId('checklist-linked-info-0')).toHaveCount(0);
 
       diagnostic.mark('unlink-reload-start');
       await page.reload();
       diagnostic.mark('unlink-reload-complete');
       await openChecklistManagement(page);
-      await expect(trigger).toContainText('Vincular documento');
+      await expect(trigger).toHaveAccessibleName('Vincular documento');
       await expect(page.getByTestId('checklist-linked-info-0')).toHaveCount(0);
     } finally {
       await test.info().attach('checklist-navigation-sanitized', {
