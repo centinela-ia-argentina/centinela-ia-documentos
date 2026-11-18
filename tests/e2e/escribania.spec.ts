@@ -98,12 +98,11 @@ test.describe.serial('Anulus AI - Escribania E2E', () => {
     try {
       await page.goto('/expedientes/nuevo');
 
-      const caseType = page.locator('[data-testid="case-type"]');
+      const caseType = page.getByTestId('case-type');
       await expect(caseType).toBeVisible();
 
-      const values = await caseType.locator('option').evaluateAll(
-        options => options.map(option => (option as HTMLOptionElement).value)
-      );
+      await caseType.getByRole('button').click();
+      const values = await page.getByRole('option').allInnerTexts();
 
       expect(values).toContain('Escritura');
       expect(values).toContain('Poder');
@@ -131,7 +130,8 @@ test.describe.serial('Anulus AI - Escribania E2E', () => {
       const uniqueTitle = `Escritura E2E ${Date.now()}`;
       await page.fill('[data-testid="case-title"]', uniqueTitle);
       await page.fill('[data-testid="case-client"]', 'Cliente Notarial');
-      await page.selectOption('[data-testid="case-type"]', 'Escritura');
+      await page.getByTestId('case-type').getByRole('button').click();
+      await page.getByRole('option', { name: 'Escritura' }).click();
       await page.click('[data-testid="case-submit"]');
 
       await expect(page).toHaveURL(/\/expedientes\/[a-f0-9\-]+/);

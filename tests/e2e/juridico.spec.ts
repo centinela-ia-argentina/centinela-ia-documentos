@@ -191,10 +191,11 @@ test.describe.serial('Anulus AI - Flujo Jurídico E2E Obligatorio', () => {
     const createdCaseTitle = `Expediente E2E ${Date.now()}`;
     await page.fill('[data-testid="case-title"]', createdCaseTitle);
     await page.fill('[data-testid="case-client"]', 'Cliente E2E');
-    const caseTypeSelect = page.locator('[data-testid="case-type"]');
+    const caseTypeSelect = page.getByTestId('case-type');
     await expect(caseTypeSelect).toBeVisible({ timeout: 15000 });
-    await caseTypeSelect.selectOption({ label: 'Sucesión' });
-    await expect(caseTypeSelect).toHaveValue('Sucesión');
+    await caseTypeSelect.getByRole('button').click();
+    await page.getByRole('option', { name: 'Sucesión' }).click();
+    await expect(page.locator('input[name="case_type"]')).toHaveValue('Sucesión');
     await page.click('[data-testid="case-submit"]');
 
     await expect(page).toHaveURL(/\/expedientes\/.+/);
@@ -378,17 +379,15 @@ test.describe.serial('Anulus AI - Flujo Jurídico E2E Obligatorio', () => {
       await gotoStable(`${caseUrl}?tab=checklist`);
       const row = await openChecklistManagement(page);
       const select = row.getByTestId('select-doc-0');
-      await expect(select.locator('..')).toContainText('Vincular documento');
+      const trigger = select.getByRole('button');
+      await expect(trigger).toContainText('Vincular documento');
 
-      // El select debe tener mas de 1 opcion por los documentos previos
-      const options = select.locator('option');
+      // El menú debe tener más de 1 opción por los documentos previos
+      await trigger.click();
+      const options = page.getByRole('option');
       await expect.poll(async () => options.count()).toBeGreaterThan(1);
 
-      const firstDocumentOption = select.locator('option:not([value=""])').first();
-      const firstDocumentValue = await firstDocumentOption.getAttribute('value');
-      expect(firstDocumentValue).toBeTruthy();
-
-      await select.selectOption(firstDocumentValue!);
+      await options.nth(1).click();
 
       const saveBtn = row.getByTestId('btn-guardar-doc-0');
       diagnostic.mark('link-save');
@@ -398,18 +397,19 @@ test.describe.serial('Anulus AI - Flujo Jurídico E2E Obligatorio', () => {
       await expect(page).toHaveURL(/checklist_document=linked/);
       await expect(page.locator('[data-testid="checklist-document-feedback"]')).toContainText('Documento vinculado correctamente');
       await openChecklistManagement(page);
-      await expect(select.locator('..')).toContainText('Cambiar documento vinculado');
+      await expect(trigger).toContainText('Cambiar documento vinculado');
       await expect(page.getByTestId('checklist-linked-info-0')).toBeVisible();
 
       diagnostic.mark('link-reload-start');
       await page.reload();
       diagnostic.mark('link-reload-complete');
       await openChecklistManagement(page);
-      await expect(select.locator('..')).toContainText('Cambiar documento vinculado');
+      await expect(trigger).toContainText('Cambiar documento vinculado');
       await expect(page.getByTestId('checklist-linked-info-0')).toBeVisible();
 
       await openChecklistManagement(page);
-      await select.selectOption({ value: '' });
+      await trigger.click();
+      await page.getByRole('option', { name: '-- sin vincular --' }).click();
       diagnostic.mark('unlink-save');
       await saveBtn.click();
       await confirmChecklistReview(page, 'Revisar vínculo');
@@ -417,14 +417,14 @@ test.describe.serial('Anulus AI - Flujo Jurídico E2E Obligatorio', () => {
       await expect(page).toHaveURL(/checklist_document=unlinked/);
       await expect(page.locator('[data-testid="checklist-document-feedback"]')).toContainText('Documento desvinculado correctamente');
       await openChecklistManagement(page);
-      await expect(select.locator('..')).toContainText('Vincular documento');
+      await expect(trigger).toContainText('Vincular documento');
       await expect(page.getByTestId('checklist-linked-info-0')).toHaveCount(0);
 
       diagnostic.mark('unlink-reload-start');
       await page.reload();
       diagnostic.mark('unlink-reload-complete');
       await openChecklistManagement(page);
-      await expect(select.locator('..')).toContainText('Vincular documento');
+      await expect(trigger).toContainText('Vincular documento');
       await expect(page.getByTestId('checklist-linked-info-0')).toHaveCount(0);
     } finally {
       await test.info().attach('checklist-navigation-sanitized', {
@@ -560,15 +560,17 @@ test.describe.serial('Anulus AI - Flujo Jurídico E2E Obligatorio', () => {
     await openChecklistManagement(page);
 
     const selectLink = page.locator('[data-testid="select-doc-0"]');
-    await expect(selectLink).toBeVisible();
+    const linkTrigger = selectLink.getByRole('button');
+    await expect(linkTrigger).toBeVisible();
 
-    const options = await selectLink.locator('option').all();
-    expect(options.length).toBeGreaterThan(1);
-    const targetVal = await options[1].getAttribute('value');
-    expect(targetVal).toBeTruthy();
+    await linkTrigger.click();
+    const options = page.getByRole('option');
+    expect(await options.count()).toBeGreaterThan(1);
+    const targetName = (await options.nth(1).innerText()).trim();
+    expect(targetName).toBeTruthy();
 
     // 1. Vincular manualmente
-    await selectLink.selectOption(targetVal!);
+    await options.nth(1).click();
     await page.getByTestId('btn-guardar-doc-0').click();
     await confirmChecklistReview(page, 'Revisar vínculo');
     await expect(page).toHaveURL(/checklist_document=linked/);
@@ -588,7 +590,7 @@ test.describe.serial('Anulus AI - Flujo Jurídico E2E Obligatorio', () => {
     if (!await selectLink.isVisible()) {
       await openChecklistManagement(page);
     }
-    await expect(selectLink).toHaveValue(targetVal!);
+    await expect(linkTrigger).toContainText(targetName);
 
     // 4. Disparar AutoMatch
     const autoMatchBtn = page.locator('[data-testid="btn-auto-match"]');
@@ -607,7 +609,8 @@ test.describe.serial('Anulus AI - Flujo Jurídico E2E Obligatorio', () => {
     if (!await selectLink.isVisible()) {
       await openChecklistManagement(page);
     }
-    await selectLink.selectOption('');
+    await linkTrigger.click();
+    await page.getByRole('option', { name: '-- sin vincular --' }).click();
     await page.getByTestId('btn-guardar-doc-0').click();
     await confirmChecklistReview(page, 'Revisar vínculo');
     await expect(page).toHaveURL(/checklist_document=unlinked/);
@@ -618,7 +621,7 @@ test.describe.serial('Anulus AI - Flujo Jurídico E2E Obligatorio', () => {
     if (!await selectLink.isVisible()) {
       await openChecklistManagement(page);
     }
-    await expect(selectLink).toHaveValue('');
+    await expect(linkTrigger).toContainText('-- sin vincular --');
   });
 
   test('14c. modelo outdated en /modelos sin campos editables, sin copiar, sin descargar', async () => {
@@ -650,9 +653,11 @@ test.describe.serial('Anulus AI - Flujo Jurídico E2E Obligatorio', () => {
     expect(agendaText).not.toContain('Compraventa');
 
     await gotoStable('/modelos?modelo=solicita-tramite');
-    const modeloCaseSelect = page.locator('[data-testid="modelos-expediente-select"]');
+    const modeloCaseSelect = page.getByTestId('modelos-expediente-select');
     await expect(modeloCaseSelect).toBeVisible();
-    const modeloText = await modeloCaseSelect.innerText();
+    await modeloCaseSelect.getByRole('button').click();
+    const modeloText = await page.getByRole('listbox').innerText();
+    await modeloCaseSelect.getByRole('button').click();
     expect(modeloText).not.toContain('Propiedad 1');
     expect(modeloText).not.toContain('Escritura 1');
     expect(modeloText).not.toContain('Compraventa');
