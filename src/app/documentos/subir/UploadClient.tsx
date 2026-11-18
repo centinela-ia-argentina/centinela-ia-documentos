@@ -177,8 +177,6 @@ export function UploadClient({
     // Eliminado el redireccionamiento automático para permitir que
     // el usuario (y E2E) vea el resumen de estado y decida cuándo avanzar.
   }, [isUploading, totalFiles, successCount, errorCount, caseId, router]);
-
-  const destination = cases.find(item => item.id === caseId)?.title || 'Sin asociación';
   return (
     <div className={styles.root}>
       {totalFiles > 0 && (successCount > 0 || errorCount > 0 || duplicateCount > 0) && !isUploading && (
@@ -188,7 +186,6 @@ export function UploadClient({
           {successCount > 0 && <button type="button" onClick={() => {router.refresh(); router.push(caseId ? `${industry === 'inmobiliaria' ? '/operaciones' : '/expedientes'}/${caseId}?tab=documentos` : '/documentos');}}>{caseId ? `Ver en ${terms.elExpediente}` : 'Ver documentos'}</button>}
         </section>
       )}
-      <div className={styles.uploadLayout}>
       <form onSubmit={handleSubmit}>
         <section><header className={styles.uploadSectionHead}><h2>Datos de la carga</h2><p>Se aplican a todos los archivos seleccionados.</p></header>
           <div className={styles.uploadFields}>
@@ -236,8 +233,6 @@ export function UploadClient({
         </section>
         <footer className={styles.uploadActions}><button type="submit" data-testid="upload-submit" disabled={isUploading || !files.length} className={styles.primary}>{isUploading ? 'Subiendo…' : `Subir ${files.length} documento${files.length !== 1 ? 's' : ''}`}</button><p>Subir no implica analizar ni confirmar validez documental.</p></footer>
       </form>
-      <aside className={styles.uploadAside} aria-label="Antes de subir"><p className={styles.eyebrow}>ANTES DE SUBIR</p><h2>Un destino, los mismos datos</h2><section><h3>{terms.expedienteSingular} de destino</h3><p>{destination}</p></section><section><h3>Almacenamiento privado</h3><p>Los archivos quedan asociados a tu organización.</p></section><section><h3>Un archivo no equivale a una revisión</h3><p>Subir no confirma validez documental ni revisión profesional. El análisis IA es una acción separada.</p></section><p className={styles.uploadAsideNote}>Para usar tipos, sensibilidades o fechas diferentes, prepará cargas separadas.</p></aside>
-      </div>
     </div>
   );
 }
