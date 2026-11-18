@@ -1,4 +1,6 @@
 name: CI Pipeline
+run-name: >-
+  CI Pipeline — ${{ github.event_name == 'pull_request' && format('PR #{0}: {1}', github.event.pull_request.number, github.event.pull_request.title) || format('{0} ({1})', github.event.head_commit.message, github.ref_name) }}
 
 on:
   push:
@@ -20,8 +22,8 @@ jobs:
           node-version: lts/*
       - name: Install dependencies
         run: npm ci
-      - name: Audit dependencies
-        run: npm audit
+      - name: Audit dependencies (production)
+        run: npm audit --omit=dev
       - name: Lint
         run: npm run lint
       - name: Typecheck

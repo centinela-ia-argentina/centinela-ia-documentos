@@ -111,21 +111,17 @@ test.describe.serial('Anulus AI - Aislamiento Transversal', () => {
     const { context, page } = await loginAs(browser, 'admin.esc@test.com');
     try {
       await page.goto('/expedientes/nuevo');
-      const caseType = page.locator('[data-testid="case-type"]');
-      const values = await caseType.locator('option').evaluateAll(
-        options => options.map(option => (option as HTMLOptionElement).value)
-      );
+      const caseType = page.getByTestId('case-type');
+      await caseType.getByRole('button').click();
+      const values = await page.getByRole('option').allInnerTexts();
       expect(values).not.toContain('civil');
+      await page.keyboard.press('Escape');
 
       uniqueTitleForManipulation = `Transversal Manipulation ${randomUUID()}`;
 
       await page.evaluate(() => {
-        const select = document.querySelector('[data-testid="case-type"]') as HTMLSelectElement;
-        const option = document.createElement('option');
-        option.value = 'civil';
-        option.text = 'civil';
-        select.add(option);
-        select.value = 'civil';
+        const input = document.querySelector('input[name="case_type"]') as HTMLInputElement;
+        input.value = 'civil';
       });
 
       await page.fill('[data-testid="case-title"]', uniqueTitleForManipulation);

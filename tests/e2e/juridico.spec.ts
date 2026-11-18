@@ -75,6 +75,13 @@ async function expectSavedAgendaEvent(page: Page, title: string, hour: string) {
 test.describe.serial('Anulus AI - Flujo Jurídico E2E Obligatorio', () => {
   let caseUrl = '';
   let caseId = '';
+  let caseTitle = '';
+
+  // SelectField no es un select nativo: se abre el menú y se elige la opción por su texto.
+  async function selectUploadCase(page: Page) {
+    await page.getByTestId('upload-case').getByRole('button').click();
+    await page.getByRole('option', { name: caseTitle }).click();
+  }
 
   test.beforeAll(async ({ browser }) => {
     // We could do global login here, but since 'login' is a suite itself, we'll do it in the first test
@@ -181,21 +188,23 @@ test.describe.serial('Anulus AI - Flujo Jurídico E2E Obligatorio', () => {
 
   test('03. expediente', async () => {
     await gotoStable('/expedientes/nuevo');
-    const caseTitle = `Expediente E2E ${Date.now()}`;
-    await page.fill('[data-testid="case-title"]', caseTitle);
+    const createdCaseTitle = `Expediente E2E ${Date.now()}`;
+    await page.fill('[data-testid="case-title"]', createdCaseTitle);
     await page.fill('[data-testid="case-client"]', 'Cliente E2E');
-    const caseTypeSelect = page.locator('[data-testid="case-type"]');
+    const caseTypeSelect = page.getByTestId('case-type');
     await expect(caseTypeSelect).toBeVisible({ timeout: 15000 });
-    await caseTypeSelect.selectOption({ label: 'Sucesión' });
-    await expect(caseTypeSelect).toHaveValue('Sucesión');
+    await caseTypeSelect.getByRole('button').click();
+    await page.getByRole('option', { name: 'Sucesión' }).click();
+    await expect(page.locator('input[name="case_type"]')).toHaveValue('Sucesión');
     await page.click('[data-testid="case-submit"]');
 
     await expect(page).toHaveURL(/\/expedientes\/.+/);
     const caseDetailTitle = page.locator('[data-testid="case-detail-title"]');
     await expect(caseDetailTitle).toBeVisible({ timeout: 15000 });
-    await expect(caseDetailTitle).toHaveText(caseTitle);
+    await expect(caseDetailTitle).toHaveText(createdCaseTitle);
     caseUrl = page.url();
     caseId = caseUrl.split('/').pop() || '';
+    caseTitle = createdCaseTitle;
     expect(caseId).toBeTruthy();
 
     // Verify automatic checklist creation
@@ -224,12 +233,14 @@ test.describe.serial('Anulus AI - Flujo Jurídico E2E Obligatorio', () => {
 
   test('04. 15 uploads (concurrencia y exactamente 15 success)', async () => {
     await gotoStable('/documentos/subir');
-    await page.selectOption('[data-testid="upload-case"]', { value: caseId });
-    const uploadTypeSelect = page.locator('[data-testid="upload-type"]');
-    await expect(uploadTypeSelect).toBeVisible({ timeout: 15000 });
-    await uploadTypeSelect.selectOption({ label: 'Prueba documental' });
-    await expect(uploadTypeSelect).toHaveValue('Prueba documental');
-    await page.selectOption('[data-testid="upload-sensitivity"]', 'low');
+    await selectUploadCase(page);
+    const uploadTypeField = page.getByTestId('upload-type');
+    await expect(uploadTypeField).toBeVisible({ timeout: 15000 });
+    await uploadTypeField.getByRole('button').click();
+    await page.getByRole('option', { name: 'Prueba documental' }).click();
+    await expect(uploadTypeField).toContainText('Prueba documental');
+    await page.getByTestId('upload-sensitivity').getByRole('button').click();
+    await page.getByRole('option', { name: 'Bajo' }).click();
 
     const filePayloads = Array.from({ length: 15 }).map((_, i) => ({
       name: `bulk_${randomUUID()}_${i}.pdf`,
@@ -246,7 +257,7 @@ test.describe.serial('Anulus AI - Flujo Jurídico E2E Obligatorio', () => {
 
   test('05. invalid', async () => {
     await gotoStable('/documentos/subir');
-    await page.selectOption('[data-testid="upload-case"]', { value: caseId });
+    await selectUploadCase(page);
 
     // We get initial counts
     const { count: docsCountBefore } = await serviceClient.from('documents').select('*', { count: 'exact', head: true });
@@ -276,7 +287,7 @@ test.describe.serial('Anulus AI - Flujo Jurídico E2E Obligatorio', () => {
 
   test('06. duplicate y partial failure', async () => {
     await gotoStable('/documentos/subir');
-    await page.selectOption('[data-testid="upload-case"]', { value: caseId });
+    await selectUploadCase(page);
 
     const fileBytes = Buffer.from('%PDF-1.4 Duplicate Me ' + randomUUID());
 
@@ -299,7 +310,7 @@ test.describe.serial('Anulus AI - Flujo Jurídico E2E Obligatorio', () => {
     ]);
 
     await gotoStable('/documentos/subir');
-    await page.selectOption('[data-testid="upload-case"]', { value: caseId });
+    await selectUploadCase(page);
     await page.setInputFiles('[data-testid="upload-file-input"]', [
       { name: `retry.pdf`, mimeType: 'application/pdf', buffer: Buffer.from('%PDF-1.4 Retry Me') }
     ]);
@@ -327,7 +338,7 @@ test.describe.serial('Anulus AI - Flujo Jurídico E2E Obligatorio', () => {
   test('08. request manipulado (magic bytes)', async () => {
     // To truly manipulate, we bypass UI restrictions and send wrong content with a PDF mime
     await gotoStable('/documentos/subir');
-    await page.selectOption('[data-testid="upload-case"]', { value: caseId });
+    await selectUploadCase(page);
 
     await page.setInputFiles('[data-testid="upload-file-input"]', [
       { name: `fake.pdf`, mimeType: 'application/pdf', buffer: Buffer.from('FAKE PDF CONTENT NO MAGIC') }
@@ -368,17 +379,15 @@ test.describe.serial('Anulus AI - Flujo Jurídico E2E Obligatorio', () => {
       await gotoStable(`${caseUrl}?tab=checklist`);
       const row = await openChecklistManagement(page);
       const select = row.getByTestId('select-doc-0');
-      await expect(select.locator('..')).toContainText('Vincular documento');
+      const trigger = select.getByRole('button');
+      await expect(trigger).toHaveAccessibleName('Vincular documento');
 
-      // El select debe tener mas de 1 opcion por los documentos previos
-      const options = select.locator('option');
+      // El menú debe tener más de 1 opción por los documentos previos
+      await trigger.click();
+      const options = page.getByRole('option');
       await expect.poll(async () => options.count()).toBeGreaterThan(1);
 
-      const firstDocumentOption = select.locator('option:not([value=""])').first();
-      const firstDocumentValue = await firstDocumentOption.getAttribute('value');
-      expect(firstDocumentValue).toBeTruthy();
-
-      await select.selectOption(firstDocumentValue!);
+      await options.nth(1).click();
 
       const saveBtn = row.getByTestId('btn-guardar-doc-0');
       diagnostic.mark('link-save');
@@ -388,18 +397,19 @@ test.describe.serial('Anulus AI - Flujo Jurídico E2E Obligatorio', () => {
       await expect(page).toHaveURL(/checklist_document=linked/);
       await expect(page.locator('[data-testid="checklist-document-feedback"]')).toContainText('Documento vinculado correctamente');
       await openChecklistManagement(page);
-      await expect(select.locator('..')).toContainText('Cambiar documento vinculado');
+      await expect(trigger).toHaveAccessibleName('Cambiar documento vinculado');
       await expect(page.getByTestId('checklist-linked-info-0')).toBeVisible();
 
       diagnostic.mark('link-reload-start');
       await page.reload();
       diagnostic.mark('link-reload-complete');
       await openChecklistManagement(page);
-      await expect(select.locator('..')).toContainText('Cambiar documento vinculado');
+      await expect(trigger).toHaveAccessibleName('Cambiar documento vinculado');
       await expect(page.getByTestId('checklist-linked-info-0')).toBeVisible();
 
       await openChecklistManagement(page);
-      await select.selectOption({ value: '' });
+      await trigger.click();
+      await page.getByRole('option', { name: '-- sin vincular --' }).click();
       diagnostic.mark('unlink-save');
       await saveBtn.click();
       await confirmChecklistReview(page, 'Revisar vínculo');
@@ -407,14 +417,14 @@ test.describe.serial('Anulus AI - Flujo Jurídico E2E Obligatorio', () => {
       await expect(page).toHaveURL(/checklist_document=unlinked/);
       await expect(page.locator('[data-testid="checklist-document-feedback"]')).toContainText('Documento desvinculado correctamente');
       await openChecklistManagement(page);
-      await expect(select.locator('..')).toContainText('Vincular documento');
+      await expect(trigger).toHaveAccessibleName('Vincular documento');
       await expect(page.getByTestId('checklist-linked-info-0')).toHaveCount(0);
 
       diagnostic.mark('unlink-reload-start');
       await page.reload();
       diagnostic.mark('unlink-reload-complete');
       await openChecklistManagement(page);
-      await expect(select.locator('..')).toContainText('Vincular documento');
+      await expect(trigger).toHaveAccessibleName('Vincular documento');
       await expect(page.getByTestId('checklist-linked-info-0')).toHaveCount(0);
     } finally {
       await test.info().attach('checklist-navigation-sanitized', {
@@ -444,7 +454,8 @@ test.describe.serial('Anulus AI - Flujo Jurídico E2E Obligatorio', () => {
     await page.fill('[data-testid="agenda-titulo"]', audienciaTitle);
     await page.fill('[data-testid="agenda-fecha"]', todayStr);
     await page.fill('[data-testid="agenda-hora"]', '09:30');
-    await page.selectOption('[data-testid="agenda-categoria"]', 'turno');
+    await page.getByTestId('agenda-categoria').getByRole('button').click();
+    await page.getByRole('option', { name: 'Turno' }).click();
     await page.click('[data-testid="agenda-submit"]');
 
     await expectSavedAgendaEvent(page, audienciaTitle, '09:30');
@@ -456,7 +467,8 @@ test.describe.serial('Anulus AI - Flujo Jurídico E2E Obligatorio', () => {
     await page.fill('[data-testid="agenda-titulo"]', reunionTitle);
     await page.fill('[data-testid="agenda-fecha"]', todayStr);
     await page.fill('[data-testid="agenda-hora"]', '14:15');
-    await page.selectOption('[data-testid="agenda-categoria"]', 'evento');
+    await page.getByTestId('agenda-categoria').getByRole('button').click();
+    await page.getByRole('option', { name: 'Recordatorio' }).click();
     await page.click('[data-testid="agenda-submit"]');
 
     await expectSavedAgendaEvent(page, reunionTitle, '14:15');
@@ -479,7 +491,8 @@ test.describe.serial('Anulus AI - Flujo Jurídico E2E Obligatorio', () => {
     await page.fill('[data-testid="agenda-titulo"]', fixedTitle);
     await page.fill('[data-testid="agenda-fecha"]', todayStr);
     await page.fill('[data-testid="agenda-hora"]', '10:00');
-    await page.selectOption('[data-testid="agenda-categoria"]', 'evento');
+    await page.getByTestId('agenda-categoria').getByRole('button').click();
+    await page.getByRole('option', { name: 'Recordatorio' }).click();
     await page.click('[data-testid="agenda-submit"]');
     await expect(page.locator('body')).toContainText(fixedTitle);
 
@@ -490,7 +503,8 @@ test.describe.serial('Anulus AI - Flujo Jurídico E2E Obligatorio', () => {
     await page.fill('[data-testid="agenda-titulo"]', fixedTitle);
     await page.fill('[data-testid="agenda-fecha"]', todayStr);
     await page.fill('[data-testid="agenda-hora"]', '10:00');
-    await page.selectOption('[data-testid="agenda-categoria"]', 'evento');
+    await page.getByTestId('agenda-categoria').getByRole('button').click();
+    await page.getByRole('option', { name: 'Recordatorio' }).click();
     await page.click('[data-testid="agenda-submit"]');
 
     // Should show error or conflict
@@ -546,15 +560,17 @@ test.describe.serial('Anulus AI - Flujo Jurídico E2E Obligatorio', () => {
     await openChecklistManagement(page);
 
     const selectLink = page.locator('[data-testid="select-doc-0"]');
-    await expect(selectLink).toBeVisible();
+    const linkTrigger = selectLink.getByRole('button');
+    await expect(linkTrigger).toBeVisible();
 
-    const options = await selectLink.locator('option').all();
-    expect(options.length).toBeGreaterThan(1);
-    const targetVal = await options[1].getAttribute('value');
-    expect(targetVal).toBeTruthy();
+    await linkTrigger.click();
+    const options = page.getByRole('option');
+    expect(await options.count()).toBeGreaterThan(1);
+    const targetName = (await options.nth(1).innerText()).trim();
+    expect(targetName).toBeTruthy();
 
     // 1. Vincular manualmente
-    await selectLink.selectOption(targetVal!);
+    await options.nth(1).click();
     await page.getByTestId('btn-guardar-doc-0').click();
     await confirmChecklistReview(page, 'Revisar vínculo');
     await expect(page).toHaveURL(/checklist_document=linked/);
@@ -574,7 +590,7 @@ test.describe.serial('Anulus AI - Flujo Jurídico E2E Obligatorio', () => {
     if (!await selectLink.isVisible()) {
       await openChecklistManagement(page);
     }
-    await expect(selectLink).toHaveValue(targetVal!);
+    await expect(linkTrigger).toContainText(targetName);
 
     // 4. Disparar AutoMatch
     const autoMatchBtn = page.locator('[data-testid="btn-auto-match"]');
@@ -593,7 +609,8 @@ test.describe.serial('Anulus AI - Flujo Jurídico E2E Obligatorio', () => {
     if (!await selectLink.isVisible()) {
       await openChecklistManagement(page);
     }
-    await selectLink.selectOption('');
+    await linkTrigger.click();
+    await page.getByRole('option', { name: '-- sin vincular --' }).click();
     await page.getByTestId('btn-guardar-doc-0').click();
     await confirmChecklistReview(page, 'Revisar vínculo');
     await expect(page).toHaveURL(/checklist_document=unlinked/);
@@ -604,7 +621,7 @@ test.describe.serial('Anulus AI - Flujo Jurídico E2E Obligatorio', () => {
     if (!await selectLink.isVisible()) {
       await openChecklistManagement(page);
     }
-    await expect(selectLink).toHaveValue('');
+    await expect(linkTrigger).toContainText('-- sin vincular --');
   });
 
   test('14c. modelo outdated en /modelos sin campos editables, sin copiar, sin descargar', async () => {
@@ -626,17 +643,21 @@ test.describe.serial('Anulus AI - Flujo Jurídico E2E Obligatorio', () => {
   test('14d. selectores de Agenda y Modelos segregados por vertical', async () => {
     await gotoStable('/agenda');
     await page.getByRole('button', { name: 'Nuevo evento' }).click();
-    const caseSelect = page.locator('[data-testid="agenda-case-select"]');
+    const caseSelect = page.getByTestId('agenda-case-select');
     await expect(caseSelect).toBeVisible();
-    const agendaText = await caseSelect.innerText();
+    await caseSelect.getByRole('button').click();
+    const agendaText = await page.getByRole('listbox').innerText();
+    await caseSelect.getByRole('button').click();
     expect(agendaText).not.toContain('Propiedad 1');
     expect(agendaText).not.toContain('Escritura 1');
     expect(agendaText).not.toContain('Compraventa');
 
     await gotoStable('/modelos?modelo=solicita-tramite');
-    const modeloCaseSelect = page.locator('[data-testid="modelos-expediente-select"]');
+    const modeloCaseSelect = page.getByTestId('modelos-expediente-select');
     await expect(modeloCaseSelect).toBeVisible();
-    const modeloText = await modeloCaseSelect.innerText();
+    await modeloCaseSelect.getByRole('button').click();
+    const modeloText = await page.getByRole('listbox').innerText();
+    await modeloCaseSelect.getByRole('button').click();
     expect(modeloText).not.toContain('Propiedad 1');
     expect(modeloText).not.toContain('Escritura 1');
     expect(modeloText).not.toContain('Compraventa');

@@ -8,6 +8,7 @@ import type { AgendaEvento } from './AgendaClient';
 import { AnulusCalendar, type CalendarView } from './AnulusCalendar';
 import { getAgendaEventMeta } from './agendaPresentation';
 import { AppButton } from '@/components/ui/AppButton';
+import { SelectField } from '@/components/ui/SelectField';
 import styles from './Agenda.module.css';
 
 type Vista = CalendarView;
@@ -108,9 +109,17 @@ export function AgendaCommandCenter({
       <div className={styles.segments} role="group" aria-label="Vista de calendario">
         {(['hoy','semana','mes'] as Vista[]).map(item => <button key={item} type="button" onClick={() => setVista(item)} aria-pressed={vista === item}>{item === 'hoy' ? 'Hoy' : item === 'semana' ? 'Semana' : 'Mes'}</button>)}
       </div>
-      <label className={styles.filterLabel}>Mostrar<select aria-label="Mostrar eventos" value={filtro} onChange={event => setFiltro(event.target.value as Filtro)}>
-        {filters.map(item => <option key={item.value} value={item.value}>{item.label}</option>)}
-      </select></label>
+      <div className={styles.filterWrap}>
+        <span className={styles.filterLabel}>Mostrar</span>
+        <SelectField
+          name="agenda-filtro"
+          label="Mostrar eventos"
+          value={filtro}
+          options={filters.map(item => ({ value: item.value, label: item.label }))}
+          placeholder="Todos"
+          onChange={(next) => setFiltro(next as Filtro)}
+        />
+      </div>
     </div>
     <div className={styles.agendaGrid}>
       <AnulusCalendar eventos={filteredEvents} vista={vista} agendaLabels={agendaLabels} terms={terms} onSelect={onSelect} />

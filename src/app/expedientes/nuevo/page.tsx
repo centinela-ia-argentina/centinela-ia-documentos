@@ -7,6 +7,7 @@ import { getUserProfile } from '@/lib/auth/getUserProfile';
 import { createClient } from '@/lib/supabase/server';
 import { createCase } from '../actions';
 import { NewOperationForm } from '@/app/operaciones/nueva/NewOperationForm';
+import { SelectField } from '@/components/ui/SelectField';
 
 export default async function NewCasePage() {
   const { user, profile } = await getUserProfile();
@@ -98,39 +99,22 @@ export default async function NewCasePage() {
               />
             </div>
 
-            <div>
-              <label className="text-sm font-semibold text-slate-700">
-                {`Tipo de ${terms.expedienteSingular.toLowerCase()}`}
-              </label>
-              <select
-                name="case_type"
-                data-testid="case-type"
-                className="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none focus:ring-2 focus:ring-sky-400"
-              >
-                {caseTypes.map((caseType) => (
-                  <option key={caseType} value={caseType}>
-                    {caseType}
-                  </option>
-                ))}
-              </select>
-            </div>
+            <SelectField
+              name="case_type"
+              label={`Tipo de ${terms.expedienteSingular.toLowerCase()}`}
+              defaultValue={caseTypes[0]}
+              options={caseTypes.map((caseType) => ({ value: caseType, label: caseType }))}
+              placeholder={caseTypes[0]}
+              testId="case-type"
+            />
 
-            <div>
-              <label className="text-sm font-semibold text-slate-700">
-                Estado inicial
-              </label>
-              <select
-                name="status"
-                defaultValue={caseStatuses[0]?.value ?? 'active'}
-                className="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none focus:ring-2 focus:ring-sky-400"
-              >
-                {caseStatuses.map((status) => (
-                  <option key={status.value} value={status.value}>
-                    {status.label}
-                  </option>
-                ))}
-              </select>
-            </div>
+            <SelectField
+              name="status"
+              label="Estado inicial"
+              defaultValue={caseStatuses[0]?.value ?? 'active'}
+              options={caseStatuses.map((status) => ({ value: status.value, label: status.label }))}
+              placeholder={caseStatuses[0]?.label ?? 'Activo'}
+            />
 
             {caseFields.length > 0 ? (
               <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
@@ -146,17 +130,16 @@ export default async function NewCasePage() {
                       </label>
 
                       {field.type === 'select' ? (
-                        <select
+                        <SelectField
                           name={`case_metadata.${field.key}`}
-                          className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 outline-none focus:ring-2 focus:ring-sky-400"
-                        >
-                          <option value="">Sin definir</option>
-                          {(field.options ?? []).map((option) => (
-                            <option key={option} value={option}>
-                              {option}
-                            </option>
-                          ))}
-                        </select>
+                          label={field.label}
+                          defaultValue=""
+                          options={[
+                            { value: '', label: 'Sin definir' },
+                            ...(field.options ?? []).map((option) => ({ value: option, label: option })),
+                          ]}
+                          placeholder="Sin definir"
+                        />
                       ) : (
                         <input
                           name={`case_metadata.${field.key}`}

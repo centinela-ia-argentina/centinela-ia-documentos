@@ -12,6 +12,7 @@ import {
   X,
 } from '@phosphor-icons/react';
 import { AppButton } from '@/components/ui/AppButton';
+import { SelectField } from '@/components/ui/SelectField';
 import { AgendaDialog } from './AgendaDialog';
 import styles from './Agenda.module.css';
 import { guardarEventoManual, guardarTurno, eliminarEventoAgenda, editarEventoAgenda } from './actions';
@@ -173,24 +174,34 @@ export function AgendaClient({ eventos, cases, industry, puedeGuardar = true }: 
       />
 
       {showForm && (
-        <AgendaDialog onClose={() => setShowForm(false)} labelledById="agenda-form-title">
-          <div className="p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h2 id="agenda-form-title" className="text-base font-semibold text-[#252a2d]">Cargar evento manual</h2>
-            <button type="button" onClick={() => setShowForm(false)} aria-label="Cerrar formulario" className="text-[#626b73] hover:text-[#252a2d]">
-              <X className="h-5 w-5" />
+        <AgendaDialog onClose={() => setShowForm(false)} labelledById="agenda-form-title"><div>
+          <div className="flex items-start justify-between gap-4 border-b border-[#d9dddd] px-5 py-5 sm:px-6">
+            <div className="min-w-0">
+              <span className="font-ui text-[10px] font-bold uppercase tracking-[0.08em]" style={{ color: '#626b73' }}>Agenda</span>
+              <h3 id="agenda-form-title" className="mt-1 font-display text-xl font-medium leading-tight tracking-[-0.035em] text-[#252a2d]">Cargar evento manual</h3>
+            </div>
+            <button type="button" onClick={() => setShowForm(false)} aria-label="Cerrar formulario" className="grid h-10 w-10 shrink-0 place-items-center rounded-md border border-[#d9dddd] text-[#626b73] transition hover:border-[#d9dddd] hover:bg-white hover:text-[#252a2d] focus-visible:ring-2">
+              <X size={18} />
             </button>
           </div>
-          <div className="space-y-4">
-            <label className="block">
+          <div className="space-y-4 px-5 py-5 sm:px-6">
+            <div>
               <span className="mb-1 block text-xs font-semibold text-[#626b73]">Categoría</span>
-              <select value={nuevoTipo} onChange={(e) => setNuevoTipo(e.target.value as any)} className="w-full rounded-md border border-[#d9dddd] bg-white px-3 py-2 text-sm text-[#252a2d] focus:ring-1" data-testid="agenda-categoria">
-                <option value="plazo">{agendaLabels.plazoLabel}</option>
-                <option value="evento">Recordatorio</option>
-                <option value="turno">Turno</option>
-                <option value="firma">Firma</option>
-              </select>
-            </label>
+              <SelectField
+                name="agenda-categoria"
+                label="Categoría"
+                value={nuevoTipo}
+                options={[
+                  { value: 'plazo', label: agendaLabels.plazoLabel },
+                  { value: 'evento', label: 'Recordatorio' },
+                  { value: 'turno', label: 'Turno' },
+                  { value: 'firma', label: 'Firma' },
+                ]}
+                placeholder="Seleccioná categoría"
+                testId="agenda-categoria"
+                onChange={(next) => setNuevoTipo(next as any)}
+              />
+            </div>
             <label className="block">
               <span className="mb-1 block text-xs font-semibold text-[#626b73]">Fecha</span>
               <input type="date" value={nuevaFecha} onChange={(e) => setNuevaFecha(e.target.value)} className="w-full rounded-md border border-[#d9dddd] bg-white px-3 py-2 text-sm text-[#252a2d] focus:ring-1" data-testid="agenda-fecha" />
@@ -215,20 +226,21 @@ export function AgendaClient({ eventos, cases, industry, puedeGuardar = true }: 
               <span className="mb-1 block text-xs font-semibold text-[#626b73]">Detalle (opcional)</span>
               <input type="text" value={nuevoDetalle} onChange={(e) => setNuevoDetalle(e.target.value)} placeholder="Descripción adicional" className="w-full rounded-md border border-[#d9dddd] bg-white px-3 py-2 text-sm text-[#252a2d] placeholder-slate-500 focus:ring-1" />
             </label>
-            <label className="block">
+            <div>
               <span className="mb-1 block text-xs font-medium text-[#626b73]">{terms.expedienteSingular} (opcional)</span>
-              <select
+              <SelectField
+                name="agenda-case-select"
+                label={`${terms.expedienteSingular} (opcional)`}
                 value={nuevoCaseId}
-                onChange={(e) => setNuevoCaseId(e.target.value)}
-                data-testid="agenda-case-select"
-                className="w-full rounded-md border border-[#d9dddd] bg-white px-3 py-2 text-sm text-[#252a2d] focus:ring-1"
-              >
-                <option value="">Sin {terms.expedienteSingular.toLowerCase()}</option>
-                {cases.map((c) => (
-                  <option key={c.id} value={c.id}>{c.title}</option>
-                ))}
-              </select>
-            </label>
+                options={[
+                  { value: '', label: `Sin ${terms.expedienteSingular.toLowerCase()}` },
+                  ...cases.map((c) => ({ value: c.id, label: c.title })),
+                ]}
+                placeholder={`Sin ${terms.expedienteSingular.toLowerCase()}`}
+                testId="agenda-case-select"
+                onChange={setNuevoCaseId}
+              />
+            </div>
             <AppButton
               type="button"
               onClick={crearEvento}
@@ -277,20 +289,23 @@ export function AgendaClient({ eventos, cases, industry, puedeGuardar = true }: 
 
             {editando ? (
               <div className="space-y-3 px-5 py-5 sm:px-6">
-                <label className="block">
+                <div>
                   <span className="mb-1 block text-xs font-semibold text-[#626b73]">Categoría</span>
-                  <select
+                  <SelectField
+                    name="agenda-edit-categoria"
+                    label="Categoría"
                     value={editTipo}
-                    onChange={(e) => setEditTipo(e.target.value as any)}
-                    className="w-full rounded-md border border-[#d9dddd] bg-white px-3 py-2 text-sm text-[#252a2d] focus:ring-1"
-                    data-testid="agenda-edit-categoria"
-                  >
-                    <option value="plazo">{agendaLabels.plazoLabel}</option>
-                    <option value="evento">Recordatorio</option>
-                    <option value="turno">Turno</option>
-                    <option value="firma">Firma</option>
-                  </select>
-                </label>
+                    options={[
+                      { value: 'plazo', label: agendaLabels.plazoLabel },
+                      { value: 'evento', label: 'Recordatorio' },
+                      { value: 'turno', label: 'Turno' },
+                      { value: 'firma', label: 'Firma' },
+                    ]}
+                    placeholder="Seleccioná categoría"
+                    testId="agenda-edit-categoria"
+                    onChange={(next) => setEditTipo(next as any)}
+                  />
+                </div>
 
                 <div className="grid grid-cols-2 gap-2">
                   <label className="block">
@@ -337,20 +352,21 @@ export function AgendaClient({ eventos, cases, industry, puedeGuardar = true }: 
                   />
                 </label>
 
-                <label className="block">
+                <div>
                   <span className="mb-1 block text-xs font-medium text-[#626b73]">{terms.expedienteSingular} (opcional)</span>
-                  <select
+                  <SelectField
+                    name="agenda-edit-case-select"
+                    label={`${terms.expedienteSingular} (opcional)`}
                     value={editCaseId}
-                    onChange={(e) => setEditCaseId(e.target.value)}
-                    className="w-full rounded-md border border-[#d9dddd] bg-white px-3 py-2 text-sm text-[#252a2d] focus:ring-1"
-                    data-testid="agenda-edit-case-select"
-                  >
-                    <option value="">Sin {terms.expedienteSingular.toLowerCase()}</option>
-                    {cases.map((c) => (
-                      <option key={c.id} value={c.id}>{c.title}</option>
-                    ))}
-                  </select>
-                </label>
+                    options={[
+                      { value: '', label: `Sin ${terms.expedienteSingular.toLowerCase()}` },
+                      ...cases.map((c) => ({ value: c.id, label: c.title })),
+                    ]}
+                    placeholder={`Sin ${terms.expedienteSingular.toLowerCase()}`}
+                    testId="agenda-edit-case-select"
+                    onChange={setEditCaseId}
+                  />
+                </div>
 
                 {errorEdicion && <p className="text-xs text-[#785820]">{errorEdicion}</p>}
 

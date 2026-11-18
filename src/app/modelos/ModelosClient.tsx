@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui/Badge';
 import { redactarEscritoIA, extraerDatosParaModelo } from './actions';
 import { AiDisclaimer } from '@/lib/industries/disclaimers';
 import type { IndustryType } from '@/lib/industries/documentTypes';
+import { SelectField } from '@/components/ui/SelectField';
 
 export type ExpedienteLite = {
   id: string;
@@ -496,25 +497,26 @@ export function ModelosClient({
 
                   {expedientes.length > 0 && (
                     <div>
-                      <label>
+                      <div className="flex items-center gap-2 text-sm font-semibold text-slate-700">
                         <FolderKanban />
                         Prellenar desde {industria === 'inmobiliaria' ? 'una operación' : industria === 'escribania' ? 'un legajo' : 'un expediente'}
-                      </label>
-                      <select
+                      </div>
+                      <SelectField
+                        name="expediente_prellenado"
+                        label={`Prellenar desde ${industria === 'inmobiliaria' ? 'una operación' : industria === 'escribania' ? 'un legajo' : 'un expediente'}`}
                         value={expedienteId}
-                        onChange={(e) => aplicarExpediente(e.target.value)}
+                        onChange={aplicarExpediente}
                         disabled={cargandoPrellenado}
-                        aria-busy={cargandoPrellenado}
-                        data-testid="modelos-expediente-select"
-
-                      >
-                        <option value="">— Sin selección (completar a mano) —</option>
-                        {expedientes.map((exp) => (
-                          <option key={exp.id} value={exp.id}>
-                            {exp.title || 'Sin título'}{exp.client_name ? ` — ${exp.client_name}` : ''}
-                          </option>
-                        ))}
-                      </select>
+                        testId="modelos-expediente-select"
+                        options={[
+                          { value: '', label: '— Sin selección (completar a mano) —' },
+                          ...expedientes.map((exp) => ({
+                            value: exp.id,
+                            label: `${exp.title || 'Sin título'}${exp.client_name ? ` — ${exp.client_name}` : ''}`,
+                          })),
+                        ]}
+                        placeholder="— Sin selección (completar a mano) —"
+                      />
                       {expedienteId ? (
                         cargandoPrellenado ? (
                           <div

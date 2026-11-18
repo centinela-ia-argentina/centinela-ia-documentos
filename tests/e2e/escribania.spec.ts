@@ -98,12 +98,11 @@ test.describe.serial('Anulus AI - Escribania E2E', () => {
     try {
       await page.goto('/expedientes/nuevo');
 
-      const caseType = page.locator('[data-testid="case-type"]');
+      const caseType = page.getByTestId('case-type');
       await expect(caseType).toBeVisible();
 
-      const values = await caseType.locator('option').evaluateAll(
-        options => options.map(option => (option as HTMLOptionElement).value)
-      );
+      await caseType.getByRole('button').click();
+      const values = await page.getByRole('option').allInnerTexts();
 
       expect(values).toContain('Escritura');
       expect(values).toContain('Poder');
@@ -131,7 +130,8 @@ test.describe.serial('Anulus AI - Escribania E2E', () => {
       const uniqueTitle = `Escritura E2E ${Date.now()}`;
       await page.fill('[data-testid="case-title"]', uniqueTitle);
       await page.fill('[data-testid="case-client"]', 'Cliente Notarial');
-      await page.selectOption('[data-testid="case-type"]', 'Escritura');
+      await page.getByTestId('case-type').getByRole('button').click();
+      await page.getByRole('option', { name: 'Escritura' }).click();
       await page.click('[data-testid="case-submit"]');
 
       await expect(page).toHaveURL(/\/expedientes\/[a-f0-9\-]+/);
@@ -437,7 +437,10 @@ test.describe.serial('Anulus AI - Escribania E2E', () => {
 
       // Formulario de nuevo evento: opción plazo disponible y no oculta en escribanía
       await page.locator('button:has-text("Nuevo evento")').click();
-      await expect(page.locator('select[data-testid="agenda-categoria"] option[value="plazo"]')).toBeAttached();
+      await page.getByTestId('agenda-categoria').getByRole('button').click();
+      await expect(page.getByRole('option', { name: 'Plazo / vencimiento' })).toBeVisible();
+      // Re-click del trigger cierra el menú sin cerrar el modal (Escape dispara onCancel del dialog).
+      await page.getByTestId('agenda-categoria').getByRole('button').click();
       // El formulario abre como modal: se cierra con su propio botón de cerrar.
       await page.locator('button[aria-label="Cerrar formulario"]').click();
       await expect(page.locator('dialog[aria-labelledby="agenda-form-title"]')).not.toBeVisible();
@@ -455,10 +458,13 @@ test.describe.serial('Anulus AI - Escribania E2E', () => {
 
       // Al entrar en edición: la categoría seleccionada es plazo y caseId inferido
       await page.locator('[data-testid="agenda-editar-btn"]').click();
-      await expect(page.locator('[data-testid="agenda-edit-categoria"]')).toBeVisible();
-      await expect(page.locator('[data-testid="agenda-edit-categoria"]')).toHaveValue('plazo');
-      await expect(page.locator('[data-testid="agenda-edit-categoria"] option[value="plazo"]')).toBeAttached();
-      await expect(page.locator('[data-testid="agenda-edit-case-select"]')).toHaveValue(CASE_PALERMO_ID);
+      await expect(page.getByTestId('agenda-edit-categoria')).toBeVisible();
+      await expect(page.getByTestId('agenda-edit-categoria')).toContainText('Plazo / vencimiento');
+      await page.getByTestId('agenda-edit-categoria').getByRole('button').click();
+      await expect(page.getByRole('option', { name: 'Plazo / vencimiento' })).toHaveAttribute('aria-selected', 'true');
+      // Re-click del trigger cierra el menú sin cerrar el modal (Escape dispara onCancel del dialog).
+      await page.getByTestId('agenda-edit-categoria').getByRole('button').click();
+      await expect(page.getByTestId('agenda-edit-case-select')).toContainText('Compraventa Depto Palermo Cuba');
     } finally {
       await page.close();
       await context.close();

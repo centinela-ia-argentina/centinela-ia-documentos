@@ -666,11 +666,13 @@ test.describe.serial('Anulus AI - Inmobiliaria E2E', () => {
       await detectionDialog.getByRole('button', { name: 'Cerrar', exact: true }).click();
       await expect(detectionDialog).not.toBeVisible();
       const row = await openChecklistManagement(page);
-      const docSelect = row.getByTestId('select-doc-0');
-      await expect.poll(async () => docSelect.locator('option').count(), { timeout: 10000 }).toBeGreaterThan(1);
+      const docTrigger = row.getByTestId('select-doc-0').getByRole('button');
+      await docTrigger.click();
+      const options = page.getByRole('option');
+      await expect.poll(async () => options.count(), { timeout: 10000 }).toBeGreaterThan(1);
 
       // 7. Vincular manualmente al documento propio
-      await docSelect.selectOption(fixtDocId);
+      await page.getByRole('option', { name: `titulo-propiedad-${uniqueSuffix}.pdf` }).click();
       const saveBtn = row.getByTestId('btn-guardar-doc-0');
       await saveBtn.click();
       await confirmChecklistReview(page, 'Revisar vínculo');
@@ -695,8 +697,9 @@ test.describe.serial('Anulus AI - Inmobiliaria E2E', () => {
 
       // 10. Desvincular
       const rowAfterReload = await openChecklistManagement(page);
-      const selectAfterReload = rowAfterReload.getByTestId('select-doc-0');
-      await selectAfterReload.selectOption('');
+      const selectAfterReload = rowAfterReload.getByTestId('select-doc-0').getByRole('button');
+      await selectAfterReload.click();
+      await page.getByRole('option', { name: '-- sin vincular --' }).click();
       const saveBtnUnlink = rowAfterReload.getByTestId('btn-guardar-doc-0');
       await saveBtnUnlink.click();
       await confirmChecklistReview(page, 'Revisar vínculo');
@@ -729,8 +732,9 @@ test.describe.serial('Anulus AI - Inmobiliaria E2E', () => {
 
       // 14. Reversibilidad: volver a vincular
       const rowFinal = await openChecklistManagement(page);
-      const selectFinal = rowFinal.getByTestId('select-doc-0');
-      await selectFinal.selectOption(fixtDocId);
+      const selectFinal = rowFinal.getByTestId('select-doc-0').getByRole('button');
+      await selectFinal.click();
+      await page.getByRole('option', { name: `titulo-propiedad-${uniqueSuffix}.pdf` }).click();
       await rowFinal.getByTestId('btn-guardar-doc-0').click();
       await confirmChecklistReview(page, 'Revisar vínculo');
       await expect(page).toHaveURL(/checklist_document=linked/);

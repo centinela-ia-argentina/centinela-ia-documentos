@@ -9,6 +9,7 @@ import Link from 'next/link';
 import styles from './Upload.module.css';
 import { IndustryType } from '@/lib/industries/documentTypes';
 import { getIndustryTerms } from '@/lib/industries/uiLabels';
+import { SelectField } from '@/components/ui/SelectField';
 
 export function UploadClient({
   cases,
@@ -176,8 +177,6 @@ export function UploadClient({
     // Eliminado el redireccionamiento automático para permitir que
     // el usuario (y E2E) vea el resumen de estado y decida cuándo avanzar.
   }, [isUploading, totalFiles, successCount, errorCount, caseId, router]);
-
-  const destination = cases.find(item => item.id === caseId)?.title || 'Sin asociación';
   return (
     <div className={styles.root}>
       {totalFiles > 0 && (successCount > 0 || errorCount > 0 || duplicateCount > 0) && !isUploading && (
@@ -187,18 +186,26 @@ export function UploadClient({
           {successCount > 0 && <button type="button" onClick={() => {router.refresh(); router.push(caseId ? `${industry === 'inmobiliaria' ? '/operaciones' : '/expedientes'}/${caseId}?tab=documentos` : '/documentos');}}>{caseId ? `Ver en ${terms.elExpediente}` : 'Ver documentos'}</button>}
         </section>
       )}
-      <div className={styles.uploadLayout}>
       <form onSubmit={handleSubmit}>
         <section><header className={styles.uploadSectionHead}><h2>Datos de la carga</h2><p>Se aplican a todos los archivos seleccionados.</p></header>
           <div className={styles.uploadFields}>
-            <div className={`${styles.uploadField} ${styles.uploadFull}`}><label htmlFor="uploadCase">{terms.expedienteSingular}</label>
-              <select id="uploadCase" name="case_id" data-testid="upload-case" value={caseId} onChange={e => setCaseId(e.target.value)} disabled={isUploading} aria-describedby="uploadCaseHelp">
-                <option value="">{industry === 'inmobiliaria' ? 'Sin asociar a una operación' : `Sin ${terms.expedienteSingular.toLowerCase()} / general`}</option>
-                {cases.map(item => <option key={item.id} value={item.id}>{item.title}</option>)}
-              </select><p id="uploadCaseHelp">Podés cambiar el destino o cargar sin asociación. Los reintentos usan los datos actuales.</p>
+            <div className={`${styles.uploadField} ${styles.uploadFull}`}><label>{terms.expedienteSingular}</label>
+              <SelectField
+                name="case_id"
+                label={terms.expedienteSingular}
+                value={caseId}
+                options={[
+                  { value: '', label: industry === 'inmobiliaria' ? 'Sin asociar a una operación' : `Sin ${terms.expedienteSingular.toLowerCase()} / general` },
+                  ...cases.map(item => ({ value: item.id, label: item.title })),
+                ]}
+                placeholder={industry === 'inmobiliaria' ? 'Sin asociar a una operación' : `Sin ${terms.expedienteSingular.toLowerCase()} / general`}
+                testId="upload-case"
+                disabled={isUploading}
+                onChange={setCaseId}
+              /><p id="uploadCaseHelp">Podés cambiar el destino o cargar sin asociación. Los reintentos usan los datos actuales.</p>
             </div>
-            <div className={styles.uploadField}><label htmlFor="uploadType">Tipo documental</label><select id="uploadType" name="document_type" data-testid="upload-type" value={documentType} onChange={e => setDocumentType(e.target.value)} disabled={isUploading}><option value="">Sin Clasificar</option>{documentTypes.map(dt => <option key={dt} value={dt}>{dt}</option>)}</select></div>
-            <div className={styles.uploadField}><label htmlFor="uploadSensitivity">Nivel de sensibilidad</label><select id="uploadSensitivity" name="sensitivity_level" data-testid="upload-sensitivity" value={sensitivityLevel} onChange={e => setSensitivityLevel(e.target.value)} disabled={isUploading}><option value="low">Bajo</option><option value="medium">Medio</option><option value="high">Alto</option><option value="critical">Crítico</option></select></div>
+            <div className={styles.uploadField}><label>Tipo documental</label><SelectField name="document_type" label="Tipo documental" value={documentType} options={[{ value: '', label: 'Sin Clasificar' }, ...documentTypes.map(dt => ({ value: dt, label: dt }))]} placeholder="Sin Clasificar" testId="upload-type" disabled={isUploading} onChange={setDocumentType} /></div>
+            <div className={styles.uploadField}><label>Nivel de sensibilidad</label><SelectField name="sensitivity_level" label="Nivel de sensibilidad" value={sensitivityLevel} options={[{ value: 'low', label: 'Bajo' }, { value: 'medium', label: 'Medio' }, { value: 'high', label: 'Alto' }, { value: 'critical', label: 'Crítico' }]} placeholder="Medio" testId="upload-sensitivity" disabled={isUploading} onChange={setSensitivityLevel} /></div>
             <div className={styles.uploadField}><label htmlFor="uploadExpiry">Fecha de vencimiento <span>· Opcional</span></label><input id="uploadExpiry" name="expires_at" type="date" value={expiresAt} onChange={e => setExpiresAt(e.target.value)} disabled={isUploading} aria-describedby="uploadExpiryHelp"/><p id="uploadExpiryHelp">Completala solo si los documentos vencen.</p></div>
           </div>
         </section>
@@ -226,8 +233,6 @@ export function UploadClient({
         </section>
         <footer className={styles.uploadActions}><button type="submit" data-testid="upload-submit" disabled={isUploading || !files.length} className={styles.primary}>{isUploading ? 'Subiendo…' : `Subir ${files.length} documento${files.length !== 1 ? 's' : ''}`}</button><p>Subir no implica analizar ni confirmar validez documental.</p></footer>
       </form>
-      <aside className={styles.uploadAside} aria-label="Antes de subir"><p className={styles.eyebrow}>ANTES DE SUBIR</p><h2>Un destino, los mismos datos</h2><section><h3>{terms.expedienteSingular} de destino</h3><p>{destination}</p></section><section><h3>Almacenamiento privado</h3><p>Los archivos quedan asociados a tu organización.</p></section><section><h3>Un archivo no equivale a una revisión</h3><p>Subir no confirma validez documental ni revisión profesional. El análisis IA es una acción separada.</p></section><p className={styles.uploadAsideNote}>Para usar tipos, sensibilidades o fechas diferentes, prepará cargas separadas.</p></aside>
-      </div>
     </div>
   );
 }

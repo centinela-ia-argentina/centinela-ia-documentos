@@ -7,9 +7,12 @@ import { AppShell } from '@/components/layout/AppShell';
 import { createClient } from '@/lib/supabase/server';
 import { getUserProfile } from '@/lib/auth/getUserProfile';
 import {
+  getDocumentTypeLabel,
   getDocumentTypes,
   normalizeIndustryType,
 } from '@/lib/industries/documentTypes';
+import { formatTimestampDate } from '@/lib/format/date';
+import { FileText } from 'lucide-react';
 import { UploadClient } from './UploadClient';
 
 interface UploadDocumentPageProps {
@@ -49,6 +52,14 @@ export default async function UploadDocumentPage({
     .eq('organization_id', profile.organization_id)
     .order('created_at', { ascending: false });
 
+  const { data: recentDocuments } = await supabase
+    .from('documents')
+    .select('id, file_name, case_id, document_type, created_at')
+    .eq('organization_id', profile.organization_id)
+    .is('archived_at', null)
+    .order('created_at', { ascending: false })
+    .limit(5);
+
   const { data: organization } = await supabase
     .from('organizations')
     .select('industry_type')
@@ -62,10 +73,33 @@ export default async function UploadDocumentPage({
   const allowed = isUserRole(profile.role) && canUploadDocument(profile.role);
   const industry = normalizeIndustryType(organization?.industry_type);
   const back = selectedCaseId ? `${getCaseBasePath(industry)}/${selectedCaseId}?tab=documentos` : '/documentos';
+  const recent = (recentDocuments ?? []).map(doc => ({
+    id: doc.id,
+    fileName: doc.file_name,
+    meta: [
+      (cases ?? []).find(item => item.id === doc.case_id)?.title ?? 'Sin asociación',
+      formatTimestampDate(doc.created_at),
+      getDocumentTypeLabel(doc.document_type),
+    ].filter(Boolean).join(' · '),
+  }));
+  const pageHead = <header className={styles.uploadHead}><p className={styles.eyebrow}>BÓVEDA · CARGA DE ARCHIVOS</p><h1 id="uploadTitle">Subir documento</h1><p>Seleccioná los archivos y revisá los datos que se aplicarán a la carga.</p></header>;
   return <AppShell><section className={styles.root} aria-labelledby="uploadTitle">
     <nav className={styles.uploadCrumb} aria-label="Ubicación"><Link href={back}>← {selectedCaseId ? 'Documentos de la ficha' : 'Documentos'}</Link><span aria-hidden="true">›</span><span>Subir documento</span></nav>
-    <header className={styles.uploadHead}><p className={styles.eyebrow}>BÓVEDA · CARGA DE ARCHIVOS</p><h1 id="uploadTitle">Subir documento</h1><p>Seleccioná los archivos y revisá los datos que se aplicarán a la carga.</p></header>
-    {errorMessage && <div role="alert" className={styles.uploadSelectionAlert}>{errorMessage}</div>}
-    {allowed ? <UploadClient cases={cases ?? []} documentTypes={documentTypes} initialCaseId={selectedCaseId} industry={industry}/> : <section className={styles.uploadPermission}><h2>La carga no está disponible para este rol</h2><p>Administrador y Operador pueden subir documentos.</p><Link href={back}>Volver a los documentos</Link></section>}
+    {allowed ? <div className={styles.uploadLayout}>
+      <div className={styles.uploadMain}>
+        {pageHead}
+        {errorMessage && <div role="alert" className={styles.uploadSelectionAlert}>{errorMessage}</div>}
+        <UploadClient cases={cases ?? []} documentTypes={documentTypes} initialCaseId={selectedCaseId} industry={industry}/>
+      </div>
+      <aside className={styles.uploadAside} aria-label="Subidos recientemente">
+        <p className={styles.eyebrow}>BÓVEDA</p>
+        <h2>Subidos recientemente</h2>
+        {recent.length > 0 ? <ul className={styles.uploadRecent}>
+          {recent.map(doc => <li key={doc.id} className={styles.uploadRecentItem}><Link href={`/documentos/${doc.id}`} className={styles.uploadRecentLink}><FileText aria-hidden="true"/><div className={styles.uploadRecentText}><h3>{doc.fileName}</h3><p>{doc.meta}</p></div></Link></li>)}
+        </ul> : <p className={styles.uploadRecentEmpty}>Todavía no hay documentos en la bóveda.</p>}
+        <p className={styles.uploadRecentFoot}><Link href="/documentos">Ver todos los documentos</Link></p>
+        <div className={styles.uploadAsideNote}><p>Los archivos quedan en el almacenamiento privado de tu organización.</p><p>Subir no confirma validez documental ni revisión profesional; el análisis IA es una acción separada.</p></div>
+      </aside>
+    </div> : <>{pageHead}<section className={styles.uploadPermission}><h2>La carga no está disponible para este rol</h2><p>Administrador y Operador pueden subir documentos.</p><Link href={back}>Volver a los documentos</Link></section></>}
   </section></AppShell>;
 }
