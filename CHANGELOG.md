@@ -5,6 +5,12 @@ Formato por fecha; los PR quedan enlazados con su detalle completo (commits, che
 
 ---
 
+## 2026-11-19 — S1 Gobernanza + S2 Tipografía (PR #31 — merged `4176181`)
+
+- **S1 — Gobernanza**: `SYNC.md` (protocolo de estandarización UI/UX: fuentes, escala, paleta, botones, componentes, 5 estados, UX writing, prohibiciones) como fuente de verdad referenciada por `AGENTS.md`; `CHANGELOG.md` con backfill (PR #27–#30); tokens tipográficos y de radios en `globals.css` (`--text-*`, `--radius-*`, `.textMono`); ruta interna **`/ui-kit`** (solo admin): catálogo de primitivos en una pantalla — la regla es que si algo de la app no se parece al kit, es deuda a corregir.
+- **S2 — Tipografía**: Space Grotesk eliminado del interior de la app (14 módulos CSS + TSX internos); queda solo en landing y superficies de marca. **JetBrains Mono** cargada como `--font-mono` y aplicada a datos de alta visibilidad: referencias del Dashboard, fechas y porcentajes de Operaciones, fechas de Cronología. El rollout punto por punto continúa en S4.
+- Verificación local completa (typecheck, lint, 1454 unit, build); 6 checks verdes en CI. Aprobado por el usuario en Preview de Vercel recorriendo /ui-kit, Clientes (lista y ficha), Propiedades (lista y ficha), Modelos (biblioteca, ficha, borrador y vista previa), Dashboard, Operaciones, Agenda, Cronología y Landing.
+
 ## 2026-11-18 — S3 Tanda 2: migración de selects + rediseño de Subir (PR #30 — merged `e38011c`)
 
 - **Últimos selects nativos de componentes compartidos → SelectField**: Expedientes→Nuevo (tipo, estado, metadata), Cronología (tipo de evento + filtro Origen), Checklist de documentos (vinculación), Modelos (prellenado desde expediente). Wizard de operaciones ya estaba migrado.
@@ -34,8 +40,6 @@ Formato por fecha; los PR quedan enlazados con su detalle completo (commits, che
 
 ## Próximos lotes (roadmap)
 
-- **S1 Gobernanza**: este lote — SYNC.md, CHANGELOG.md, tokens tipográficos/mono, /ui-kit.
-- **S2 Tipografía**: quitar Space Grotesk del interior de la app (solo landing) + JetBrains Mono para datos.
 - **S3 restos menores**: chip "i" azul en Usuarios, rol "Sin definir" en invitaciones, truncado de nombres largos en "Subidos recientemente".
 - **S4**: catálogo de primitivos en `src/components/ui` + migración de islas de estilo por fases.
 - **S5**: auditoría de los 5 estados (vacío/carga/progreso/error/éxito) en secciones críticas.
