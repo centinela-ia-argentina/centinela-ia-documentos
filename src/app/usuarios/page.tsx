@@ -285,7 +285,7 @@ function RolePill({ role }: { role?: string | null }) {
 
   return (
     <span className="inline-flex items-center gap-1.5 rounded-full border border-neutral-200 bg-neutral-100 px-3 py-1 text-[12px] font-bold text-neutral-600">
-      <MinusIcon /> Sin definir
+      <MinusIcon /> Rol pendiente
     </span>
   );
 }

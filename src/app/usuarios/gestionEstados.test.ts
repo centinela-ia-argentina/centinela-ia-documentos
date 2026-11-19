@@ -92,7 +92,7 @@ describe('Usuarios — fallo de consulta no se presenta como vacío', () => {
 
     const html = renderToString(await UsuariosPage({ searchParams: Promise.resolve({}) }));
 
-    expect(html).toContain('Sin definir');
+    expect(html).toContain('Rol pendiente');
     expect(html).not.toContain('value="employee" selected');
     expect(html).toContain('los últimos 80 eventos de la organización');
   });
