@@ -99,6 +99,6 @@ Estas reglas no se negocian:
 
 ## 10. Deuda conocida (no la considéres estándar)
 
-- Ligera variación de gris de texto entre módulos legacy (`#252a2d`, `#272b2e`, `#25272a`) — converger en S4.
+- ~~Ligera variación de gris de texto entre módulos legacy (`#252a2d`, `#272b2e`, `#25272a`) — converger en S4.~~ **Convergido en S4 Fase A** (PR `feat/s4-faseA-grises`): todos los módulos usan `#25272a`. No introducir otros grises de texto principal.
 - Dos valores de focus (`#3d526c` / `#415a71`) — converger en S4.
 - Módulos con CSS propio extenso (Propiedades, PropertyDetail, Copiloto, Viewer, IndustryTools) — migración de islas en S4 por fases.

@@ -34,7 +34,7 @@ export default function DocumentError({
         </svg>
       </div>
 
-      <h2 className="mb-3 text-2xl font-semibold text-[#272b2e]">
+      <h2 className="mb-3 text-2xl font-semibold text-[#25272a]">
         No se pudo cargar este documento
       </h2>
 

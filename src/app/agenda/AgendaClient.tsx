@@ -178,9 +178,9 @@ export function AgendaClient({ eventos, cases, industry, puedeGuardar = true }: 
           <div className="flex items-start justify-between gap-4 border-b border-[#d9dddd] px-5 py-5 sm:px-6">
             <div className="min-w-0">
               <span className="font-ui text-[10px] font-bold uppercase tracking-[0.08em]" style={{ color: '#626b73' }}>Agenda</span>
-              <h3 id="agenda-form-title" className="mt-1 font-ui text-xl font-medium leading-tight tracking-[-0.035em] text-[#252a2d]">Cargar evento manual</h3>
+              <h3 id="agenda-form-title" className="mt-1 font-ui text-xl font-medium leading-tight tracking-[-0.035em] text-[#25272a]">Cargar evento manual</h3>
             </div>
-            <button type="button" onClick={() => setShowForm(false)} aria-label="Cerrar formulario" className="grid h-10 w-10 shrink-0 place-items-center rounded-md border border-[#d9dddd] text-[#626b73] transition hover:border-[#d9dddd] hover:bg-white hover:text-[#252a2d] focus-visible:ring-2">
+            <button type="button" onClick={() => setShowForm(false)} aria-label="Cerrar formulario" className="grid h-10 w-10 shrink-0 place-items-center rounded-md border border-[#d9dddd] text-[#626b73] transition hover:border-[#d9dddd] hover:bg-white hover:text-[#25272a] focus-visible:ring-2">
               <X size={18} />
             </button>
           </div>
@@ -204,7 +204,7 @@ export function AgendaClient({ eventos, cases, industry, puedeGuardar = true }: 
             </div>
             <label className="block">
               <span className="mb-1 block text-xs font-semibold text-[#626b73]">Fecha</span>
-              <input type="date" value={nuevaFecha} onChange={(e) => setNuevaFecha(e.target.value)} className="w-full rounded-md border border-[#d9dddd] bg-white px-3 py-2 text-sm text-[#252a2d] focus:ring-1" data-testid="agenda-fecha" />
+              <input type="date" value={nuevaFecha} onChange={(e) => setNuevaFecha(e.target.value)} className="w-full rounded-md border border-[#d9dddd] bg-white px-3 py-2 text-sm text-[#25272a] focus:ring-1" data-testid="agenda-fecha" />
             </label>
             <div>
               <label htmlFor="agenda-create-time" className="mb-1 block text-xs font-semibold text-[#626b73]">Hora</label>
@@ -213,18 +213,18 @@ export function AgendaClient({ eventos, cases, industry, puedeGuardar = true }: 
                 id="agenda-create-time"
                 value={nuevaHora}
                 onChange={(e) => setNuevaHora(e.target.value)}
-                className="w-full rounded-md border border-[#d9dddd] bg-white px-3 py-2 text-sm text-[#252a2d] focus:ring-1"
+                className="w-full rounded-md border border-[#d9dddd] bg-white px-3 py-2 text-sm text-[#25272a] focus:ring-1"
                 data-testid="agenda-hora"
               />
               <span className="mt-1 block text-[10px] text-[#626b73]">Se interpreta como America/Argentina/Buenos_Aires. Vacio = todo el día.</span>
             </div>
             <label className="block">
               <span className="mb-1 block text-xs font-semibold text-[#626b73]">Título</span>
-              <input type="text" value={nuevoTitulo} onChange={(e) => setNuevoTitulo(e.target.value)} placeholder={industry === 'inmobiliaria' ? 'Ej: Firma de boleto - Martina López' : industry === 'escribania' ? 'Ej: Firma de escritura - López' : 'Ej: Presentar escrito - Pérez c/ García'} className="w-full rounded-md border border-[#d9dddd] bg-white px-3 py-2 text-sm text-[#252a2d] placeholder-slate-500 focus:ring-1" data-testid="agenda-titulo" />
+              <input type="text" value={nuevoTitulo} onChange={(e) => setNuevoTitulo(e.target.value)} placeholder={industry === 'inmobiliaria' ? 'Ej: Firma de boleto - Martina López' : industry === 'escribania' ? 'Ej: Firma de escritura - López' : 'Ej: Presentar escrito - Pérez c/ García'} className="w-full rounded-md border border-[#d9dddd] bg-white px-3 py-2 text-sm text-[#25272a] placeholder-slate-500 focus:ring-1" data-testid="agenda-titulo" />
             </label>
             <label className="block">
               <span className="mb-1 block text-xs font-semibold text-[#626b73]">Detalle (opcional)</span>
-              <input type="text" value={nuevoDetalle} onChange={(e) => setNuevoDetalle(e.target.value)} placeholder="Descripción adicional" className="w-full rounded-md border border-[#d9dddd] bg-white px-3 py-2 text-sm text-[#252a2d] placeholder-slate-500 focus:ring-1" />
+              <input type="text" value={nuevoDetalle} onChange={(e) => setNuevoDetalle(e.target.value)} placeholder="Descripción adicional" className="w-full rounded-md border border-[#d9dddd] bg-white px-3 py-2 text-sm text-[#25272a] placeholder-slate-500 focus:ring-1" />
             </label>
             <div>
               <span className="mb-1 block text-xs font-medium text-[#626b73]">{terms.expedienteSingular} (opcional)</span>
@@ -246,7 +246,7 @@ export function AgendaClient({ eventos, cases, industry, puedeGuardar = true }: 
               onClick={crearEvento}
               disabled={guardando}
               data-testid="agenda-submit"
-              className="mt-2 inline-flex w-full items-center justify-center gap-1.5 rounded-md bg-[#252a2d] px-3 py-2 text-sm font-semibold text-white transition hover:bg-[#414b51] disabled:opacity-60"
+              className="mt-2 inline-flex w-full items-center justify-center gap-1.5 rounded-md bg-[#25272a] px-3 py-2 text-sm font-semibold text-white transition hover:bg-[#414b51] disabled:opacity-60"
             >
               {guardando ? 'Guardando…' : 'Guardar'}
             </AppButton>
@@ -272,7 +272,7 @@ export function AgendaClient({ eventos, cases, industry, puedeGuardar = true }: 
                   <span className="font-ui text-[10px] font-bold uppercase tracking-[0.08em]" style={{ color: '#626b73' }}>
                     {selectedMeta?.label}
                   </span>
-                  <h3 id="agenda-detail-title" className="mt-1 font-ui text-xl font-medium leading-tight tracking-[-0.035em] text-[#252a2d]">
+                  <h3 id="agenda-detail-title" className="mt-1 font-ui text-xl font-medium leading-tight tracking-[-0.035em] text-[#25272a]">
                   {editando ? 'Editar evento' : eventoDetalle.titulo}
                   </h3>
                 </div>
@@ -281,7 +281,7 @@ export function AgendaClient({ eventos, cases, industry, puedeGuardar = true }: 
                 type="button"
                 onClick={() => { setEventoDetalle(null); setEditando(false); }}
                 aria-label="Cerrar detalle"
-                className="grid h-10 w-10 shrink-0 place-items-center rounded-md border border-[#d9dddd] text-[#626b73] transition hover:border-[#d9dddd] hover:bg-white hover:text-[#252a2d] focus-visible:ring-2"
+                className="grid h-10 w-10 shrink-0 place-items-center rounded-md border border-[#d9dddd] text-[#626b73] transition hover:border-[#d9dddd] hover:bg-white hover:text-[#25272a] focus-visible:ring-2"
               >
                 <X size={18} />
               </button>
@@ -314,7 +314,7 @@ export function AgendaClient({ eventos, cases, industry, puedeGuardar = true }: 
                       type="date"
                       value={editFecha}
                       onChange={(e) => setEditFecha(e.target.value)}
-                      className="w-full rounded-md border border-[#d9dddd] bg-white px-3 py-2 text-sm text-[#252a2d] focus:ring-1"
+                      className="w-full rounded-md border border-[#d9dddd] bg-white px-3 py-2 text-sm text-[#25272a] focus:ring-1"
                       data-testid="agenda-edit-fecha"
                     />
                   </label>
@@ -324,7 +324,7 @@ export function AgendaClient({ eventos, cases, industry, puedeGuardar = true }: 
                       type="time"
                       value={editHora}
                       onChange={(e) => setEditHora(e.target.value)}
-                      className="w-full rounded-md border border-[#d9dddd] bg-white px-3 py-2 text-sm text-[#252a2d] focus:ring-1"
+                      className="w-full rounded-md border border-[#d9dddd] bg-white px-3 py-2 text-sm text-[#25272a] focus:ring-1"
                       data-testid="agenda-edit-hora"
                     />
                   </label>
@@ -336,7 +336,7 @@ export function AgendaClient({ eventos, cases, industry, puedeGuardar = true }: 
                     type="text"
                     value={editTitulo}
                     onChange={(e) => setEditTitulo(e.target.value)}
-                    className="w-full rounded-md border border-[#d9dddd] bg-white px-3 py-2 text-sm text-[#252a2d] focus:ring-1"
+                    className="w-full rounded-md border border-[#d9dddd] bg-white px-3 py-2 text-sm text-[#25272a] focus:ring-1"
                     data-testid="agenda-edit-titulo"
                   />
                 </label>
@@ -347,7 +347,7 @@ export function AgendaClient({ eventos, cases, industry, puedeGuardar = true }: 
                     type="text"
                     value={editDetalle}
                     onChange={(e) => setEditDetalle(e.target.value)}
-                    className="w-full rounded-md border border-[#d9dddd] bg-white px-3 py-2 text-sm text-[#252a2d] focus:ring-1"
+                    className="w-full rounded-md border border-[#d9dddd] bg-white px-3 py-2 text-sm text-[#25272a] focus:ring-1"
                     data-testid="agenda-edit-detalle"
                   />
                 </label>
@@ -383,7 +383,7 @@ export function AgendaClient({ eventos, cases, industry, puedeGuardar = true }: 
                     disabled={guardandoEdicion}
                     onClick={guardarEdicion}
                     data-testid="agenda-edit-submit"
-                    className="rounded-md bg-[#252a2d] px-4 py-1.5 text-xs font-semibold text-white transition hover:bg-[#414b51] disabled:opacity-50"
+                    className="rounded-md bg-[#25272a] px-4 py-1.5 text-xs font-semibold text-white transition hover:bg-[#414b51] disabled:opacity-50"
                   >
                     {guardandoEdicion ? 'Guardando…' : 'Guardar cambios'}
                   </button>
@@ -394,21 +394,21 @@ export function AgendaClient({ eventos, cases, industry, puedeGuardar = true }: 
                 <div className="space-y-4 px-5 py-5 sm:px-6">
                   <div className="grid gap-3 sm:grid-cols-2">
                     <div className="flex items-center gap-3 rounded-md border border-[#d9dddd] bg-white p-3.5">
-                      <span className="grid h-9 w-9 place-items-center rounded-md bg-white text-[#252a2d]">
+                      <span className="grid h-9 w-9 place-items-center rounded-md bg-white text-[#25272a]">
                         <CalendarBlank size={18} weight="regular" />
                       </span>
                       <span>
                         <span className="block font-ui text-[10px] font-semibold text-[#626b73]">Fecha</span>
-                        <span className="mt-0.5 block font-ui text-sm font-bold text-[#252a2d]">{eventoDetalle.fecha.split('-').reverse().join('/')}</span>
+                        <span className="mt-0.5 block font-ui text-sm font-bold text-[#25272a]">{eventoDetalle.fecha.split('-').reverse().join('/')}</span>
                       </span>
                     </div>
                     <div className="flex items-center gap-3 rounded-md border border-[#d9dddd] bg-white p-3.5">
-                      <span className="grid h-9 w-9 place-items-center rounded-md bg-white text-[#252a2d]">
+                      <span className="grid h-9 w-9 place-items-center rounded-md bg-white text-[#25272a]">
                         <Clock size={18} weight="regular" />
                       </span>
                       <span>
                         <span className="block font-ui text-[10px] font-semibold text-[#626b73]">Horario</span>
-                        <span className="mt-0.5 block font-ui text-sm font-bold text-[#252a2d]">{eventoDetalle.hora ? `${eventoDetalle.hora} hs` : 'Todo el día'}</span>
+                        <span className="mt-0.5 block font-ui text-sm font-bold text-[#25272a]">{eventoDetalle.hora ? `${eventoDetalle.hora} hs` : 'Todo el día'}</span>
                       </span>
                     </div>
                   </div>
@@ -416,13 +416,13 @@ export function AgendaClient({ eventos, cases, industry, puedeGuardar = true }: 
                   {eventoDetalle.detalle && (
                     <div className="rounded-md border border-[#d9dddd] bg-white p-4">
                       <p className="font-ui text-[10px] font-semibold text-[#626b73]">Detalle</p>
-                      <p className="mt-2 whitespace-pre-wrap font-ui text-sm leading-6 text-[#252a2d]">{eventoDetalle.detalle}</p>
+                      <p className="mt-2 whitespace-pre-wrap font-ui text-sm leading-6 text-[#25272a]">{eventoDetalle.detalle}</p>
                     </div>
                   )}
                   {eventoDetalle.expedienteNombre && (
                     <div className="rounded-md border border-[#d9dddd] bg-white p-4">
                       <p className="font-ui text-[10px] font-semibold text-[#626b73]">{terms.expedienteSingular} asociado</p>
-                      <p className="mt-1 font-ui text-sm font-bold text-[#252a2d]">{eventoDetalle.expedienteNombre}</p>
+                      <p className="mt-1 font-ui text-sm font-bold text-[#25272a]">{eventoDetalle.expedienteNombre}</p>
                     </div>
                   )}
                   <p className="font-ui text-[10px] text-[#626b73]">America/Argentina/Buenos_Aires · UTC-3</p>
@@ -446,7 +446,7 @@ export function AgendaClient({ eventos, cases, industry, puedeGuardar = true }: 
                           type="button"
                           onClick={() => iniciarEdicion(eventoDetalle)}
                           data-testid="agenda-editar-btn"
-                          className="inline-flex min-h-10 items-center gap-2 rounded-md border border-[#d9dddd] bg-white px-3 font-ui text-xs font-bold text-[#252a2d] hover:bg-white"
+                          className="inline-flex min-h-10 items-center gap-2 rounded-md border border-[#d9dddd] bg-white px-3 font-ui text-xs font-bold text-[#25272a] hover:bg-white"
                         >
                           <PencilSimple size={14} /> Editar
                         </button>
@@ -463,7 +463,7 @@ export function AgendaClient({ eventos, cases, industry, puedeGuardar = true }: 
                     <button
                       type="button"
                       onClick={() => { setEventoDetalle(null); setEditando(false); }}
-                      className="min-h-10 rounded-md border border-[#d9dddd] px-4 font-ui text-xs font-bold text-[#252a2d] hover:bg-white"
+                      className="min-h-10 rounded-md border border-[#d9dddd] px-4 font-ui text-xs font-bold text-[#25272a] hover:bg-white"
                     >
                       Cerrar
                     </button>
