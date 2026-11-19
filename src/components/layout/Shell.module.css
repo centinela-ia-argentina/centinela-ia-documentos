@@ -41,7 +41,7 @@
 .navGroup:not([open]) > .navSummary .navCaret { transform: rotate(-90deg); }
 .navItem { display: flex; align-items: center; gap: 10px; min-height: 33px; margin: 1px 0; padding: 7px 9px; border: 1px solid transparent; border-radius: 5px; color: #50565d; font-size: 11px; font-weight: 500; line-height: 1.5; transition: background-color 130ms ease; }
 .navItem svg { flex-shrink: 0; color: #60666d; }
-.navItem[aria-current=page] { background: #eceeed; border-color: #e3e6e4; color: #252a2d; box-shadow: inset 0 1px 0 #ffffff9c; font-weight: 700; }
+.navItem[aria-current=page] { background: #eceeed; border-color: #e3e6e4; color: #25272a; box-shadow: inset 0 1px 0 #ffffff9c; font-weight: 700; }
 .navItem:hover { background: #f0f1f0; color: #22272c; }
 .account { position: relative; border-top: 1px solid #e5e7e5; padding: 10px 12px; }
 .accountTrigger { display: flex; align-items: center; gap: 9px; min-height: 44px; padding: 4px 14px 4px 2px; cursor: pointer; list-style: none; }

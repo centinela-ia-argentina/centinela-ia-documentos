@@ -5,6 +5,13 @@ Formato por fecha; los PR quedan enlazados con su detalle completo (commits, che
 
 ---
 
+## 2026-11-19 — Restos menores S3 (PR #32 — merged `4200457`)
+
+- **Rol pendiente**: la pill para perfiles sin rol asignado pasa de "Sin definir" (texto de sistema) a **"Rol pendiente"** en /usuarios e /invitaciones. Test `gestionEstados.test.ts` actualizado.
+- **Elipsis en aside "Subidos recientemente"** (/documentos/subir): nombres de archivo largos ahora se truncan en una sola línea con `…` (antes cortaban a mitad de palabra por `overflow-wrap:anywhere`); tooltip `title` con el nombre completo.
+- Cierre de restos de la auditoría: U1 (chip "i" azul) y U2/U3 (frases rotas) ya resueltos de facto en Tanda 1 — verificados sin cambios extra.
+- Con este PR, **la auditoría UI/UX (6 paquetes, 91 capturas) queda saldada**. CI 6 checks verdes; aprobado por el usuario en Preview de Vercel.
+
 ## 2026-11-19 — S1 Gobernanza + S2 Tipografía (PR #31 — merged `4176181`)
 
 - **S1 — Gobernanza**: `SYNC.md` (protocolo de estandarización UI/UX: fuentes, escala, paleta, botones, componentes, 5 estados, UX writing, prohibiciones) como fuente de verdad referenciada por `AGENTS.md`; `CHANGELOG.md` con backfill (PR #27–#30); tokens tipográficos y de radios en `globals.css` (`--text-*`, `--radius-*`, `.textMono`); ruta interna **`/ui-kit`** (solo admin): catálogo de primitivos en una pantalla — la regla es que si algo de la app no se parece al kit, es deuda a corregir.
@@ -40,8 +47,7 @@ Formato por fecha; los PR quedan enlazados con su detalle completo (commits, che
 
 ## Próximos lotes (roadmap)
 
-- **S3 restos menores**: chip "i" azul en Usuarios, rol "Sin definir" en invitaciones, truncado de nombres largos en "Subidos recientemente".
-- **S4**: catálogo de primitivos en `src/components/ui` + migración de islas de estilo por fases.
+- **S4**: catálogo de primitivos en `src/components/ui` + migración de islas de estilo por fases (converger grises `#252a2d`/`#272b2e`/`#25272a` y focus `#3d526c`/`#415a71`; rollout de mono punto por punto).
 - **S5**: auditoría de los 5 estados (vacío/carga/progreso/error/éxito) en secciones críticas.
 - **Lote 2 de selects**: calculadoras (~49), protocolo (~34), recibidos (~35), tasación (~47), módulos (~8), ClientRecordForm, CalificarInquilino.
 - **Secciones personalizadas por rubro** (jurídico, escribanía) en lotes propios.
