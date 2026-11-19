@@ -3,6 +3,12 @@
 > Brief de contexto para agentes de código. Leé este archivo antes de tocar nada.
 > Si el código contradice este documento, el código manda; avisá la discrepancia.
 
+## 0. Estándar UI/UX (obligatorio)
+
+Antes de tocar cualquier componente, página o CSS de la interfaz, leé **`SYNC.md`** (raíz del repo): fuentes, escala tipográfica, paleta, botones, componentes, los 5 estados, UX writing y prohibiciones anti-slop. Es el estándar vigente; el historial de hitos vive en **`CHANGELOG.md`**.
+
+Reglas rápidas: Manrope en toda la app · Space Grotesk SOLO landing · **JetBrains Mono para datos** (expedientes, montos, fechas de vencimiento, porcentajes, códigos, con `tabular-nums`) · selects siempre con `SelectField` (nunca `<select>` nativo) · jerarquía de botones: grafito sólido = principal, blanco con borde = consultar, verde = habilitar, rojo suave = cancelar · sin violeta/azul neón, sin glow, sin sombras difusas, sin cards decorativas, sin métrica inventada, sin emoji en interfaz.
+
 ## 1. Qué es
 SaaS web multi-organización de gestión documental inteligente para rubros con documentación sensible (jurídico, escribanía, inmobiliaria). Centraliza expedientes + PDFs, control de acceso por rol, auditoría de acciones y análisis documental beta en entorno controlado, con funciones IA integradas server-side condicionadas por configuración, permisos y guardrails. Etapa: beta operativa comercial, producto online.
 

@@ -12,7 +12,7 @@ export function WorkflowStepper({ steps, step, onStepChange }: {
         <span className={`${styles.stepNumber}${step > item.id ? ` ${styles.stepComplete}` : ''}`}>
           {step > item.id ? <Check size={15} aria-hidden="true" /> : item.id}
         </span>
-        <span><span className={`font-display ${styles.stepLabel}`}>{item.label}</span><span className={`font-ui ${styles.stepHelp}`}>{item.helper}</span></span>
+        <span><span className={`font-ui ${styles.stepLabel}`}>{item.label}</span><span className={`font-ui ${styles.stepHelp}`}>{item.helper}</span></span>
       </button>
     </li>)}
   </ol>;

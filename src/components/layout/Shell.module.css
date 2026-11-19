@@ -31,7 +31,7 @@
 .skip:focus { top: 24px; }
 .sidebar { position: fixed; inset: 0 auto 0 0; z-index: 30; display: flex; flex-direction: column; width: 226px; border-right: 1px solid #e3e4e5; border-radius: 0; background: #fcfcfc; color: #25272a; }
 .brand { display: block; padding: 23px 21px 18px; border-bottom: 1px solid #ececed; }
-.brandName { font-family: var(--font-display), sans-serif; font-size: 19px; font-weight: 600; letter-spacing: -.7px; }
+.brandName { font-family: var(--font-ui), sans-serif; font-size: 19px; font-weight: 600; letter-spacing: -.7px; }
 .brandNote { display: block; margin-top: 4px; color: #777e84; font-size: 9px; letter-spacing: .06em; text-transform: uppercase; }
 .navScroll { min-height: 0; flex: 1; overflow-y: auto; padding: 19px 12px 14px; scrollbar-width: thin; }
 .navGroup { margin-bottom: 18px; }

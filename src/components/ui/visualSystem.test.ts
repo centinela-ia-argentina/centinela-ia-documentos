@@ -48,7 +48,7 @@ describe('Reconstructed visual primitives', () => {
   });
   it('keeps heading semantics and the two approved font roles', () => {
     render(h('div', null, h(Eyebrow, null, 'Cartera'), h(PageTitle, null, 'Nueva'), h(SectionTitle, { id: 'section' }, 'Paso'), h(SupportingCopy, null, 'Ayuda')));
-    expect(screen.getByRole('heading', { level: 1 }).className).toContain('font-display');
+    expect(screen.getByRole('heading', { level: 1 }).className).toContain('font-ui');
     expect(screen.getByRole('heading', { level: 2 }).id).toBe('section');
     expect(screen.getByText('Ayuda').className).toContain('font-ui');
   });
