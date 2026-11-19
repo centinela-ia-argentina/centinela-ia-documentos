@@ -32,7 +32,7 @@ export function ClientMatchAiButton({ clientId }: { clientId: string }) {
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
             <Sparkles className="h-5 w-5" />
-            <h4 className="font-display text-lg font-bold">Análisis de Opciones (IA)</h4>
+            <h4 className="font-ui text-lg font-bold">Análisis de Opciones (IA)</h4>
           </div>
           <button 
             onClick={() => setResult(null)} 

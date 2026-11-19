@@ -12,7 +12,7 @@
 .page .card:focus-visible { outline: 2px solid #415a71; outline-offset: 4px; }
 .cardTop { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 16px; }
 .identity { min-width: 0; }
-.identity h2 { font-family: var(--font-display), sans-serif; font-weight: 600; font-size: 22px; letter-spacing: -.5px; line-height: 1.25; margin: 0 0 6px; overflow-wrap: anywhere; }
+.identity h2 { font-family: var(--font-ui), sans-serif; font-weight: 600; font-size: 22px; letter-spacing: -.5px; line-height: 1.25; margin: 0 0 6px; overflow-wrap: anywhere; }
 .type { font-size: 14px; color: #60605d; overflow-wrap: anywhere; }
 .badge { flex-shrink: 0; display: flex; align-items: center; gap: 5px; max-width: 50%; border: 1px solid #d5d5d2; border-radius: 6px; padding: 4px 7px; font-size: 14px; line-height: 1.4; overflow-wrap: anywhere; }
 .active { color: #60605d; background: #fff; }
@@ -39,7 +39,7 @@
 .page .state { min-height: 400px; display: flex; align-items: center; justify-content: center; text-align: center; border: 1px solid #d5d5d2; border-radius: 15px; background: #fff; box-shadow: none; }
 .stateContent { max-width: 520px; padding: 40px 24px; }
 .stateIcon { display: inline-flex; align-items: center; justify-content: center; width: 64px; height: 64px; border: 1px solid #d5d5d2; border-radius: 12px; background: #fff; color: #60605d; margin-bottom: 24px; }
-.state h2 { font-family: var(--font-display), sans-serif; font-size: 28px; font-weight: 600; line-height: 1.25; letter-spacing: -.7px; margin: 0 0 12px; }
+.state h2 { font-family: var(--font-ui), sans-serif; font-size: 28px; font-weight: 600; line-height: 1.25; letter-spacing: -.7px; margin: 0 0 12px; }
 .state p { color: #60605d; margin: 0 0 24px; line-height: 1.5; }
 .error .stateIcon { color: #60605d; background: #fff; border-color: #d5d5d2; }
 .retry { background: transparent; border-color: #d5d5d2; color: #60605d; }

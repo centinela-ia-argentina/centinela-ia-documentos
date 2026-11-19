@@ -3,7 +3,7 @@
 .page :is(button,input,textarea):focus-visible { outline:2px solid #415a71; outline-offset:3px; }
 .page .back { padding-left:0; padding-right:0; margin-bottom:22px; font-size:13px; font-weight:500; }
 .header { margin-bottom:28px; }
-.header h1 { font-family:var(--font-display),sans-serif; font-size:36px; line-height:1.2; font-weight:600; margin:12px 0; letter-spacing:-.025em; }
+.header h1 { font-family:var(--font-ui),sans-serif; font-size:36px; line-height:1.2; font-weight:600; margin:12px 0; letter-spacing:-.025em; }
 .header > p:last-child { color:#60605d; font-size:14px; line-height:1.55; margin:0; }
 .page .eyebrow { display:flex; align-items:center; gap:10px; color:#60605d; font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:1.2px; margin:0; }
 .note { padding:14px 18px; border:1px solid #d5d5d2; border-radius:10px; background:#fff; color:#60605d; font-size:14px; line-height:1.55; margin-bottom:24px; }

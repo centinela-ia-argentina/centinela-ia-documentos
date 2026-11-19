@@ -22,6 +22,31 @@
   --glow-violeta: rgba(200, 255, 98, 0.12);
 }
 
+/* ===== Tokens de la app interna (modo claro / grafito) — ver SYNC.md =====
+   La landing usa la paleta oscura de arriba; el shell de la app usa estos tokens. */
+:root {
+  /* Escala tipográfica (tamaños base; peso, line-height y tracking por rol en SYNC.md) */
+  --text-h1: 34px;
+  --text-h2: 22px;
+  --text-h3: 15px;
+  --text-body: 13px;
+  --text-small: 11px;
+  --text-caption: 9px;
+
+  /* Radios estándar */
+  --radius-sm: 4px;
+  --radius: 7px;
+  --radius-lg: 10px;
+}
+
+/* Dato (número de expediente, monto, fecha, código, porcentaje): JetBrains Mono + tabular-nums.
+   Clase utilitaria; la aplicación punto por punto se completa en S4. */
+.textMono {
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+}
+
 html {
   scroll-behavior: smooth;
 }

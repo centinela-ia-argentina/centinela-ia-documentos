@@ -22,21 +22,21 @@
 .type { color: #60605d; font-size: 12px; line-height: 1.5; text-align: right; overflow-wrap: anywhere; min-width: 0; }
 .cardHeading { display: flex; align-items: flex-start; gap: 12px; margin-top: 23px; min-height: 58px; }
 .typeIcon { width: 38px; height: 38px; flex-shrink: 0; border-radius: 9px; background: #fff; display: grid; place-items: center; color: #60605d; }
-.cardTitle { min-width: 0; margin: 0; padding-top: 3px; font-family: var(--font-display), sans-serif; font-size: 21px; font-weight: 600; letter-spacing: -.02em; line-height: 1.35; overflow-wrap: anywhere; }
+.cardTitle { min-width: 0; margin: 0; padding-top: 3px; font-family: var(--font-ui), sans-serif; font-size: 21px; font-weight: 600; letter-spacing: -.02em; line-height: 1.35; overflow-wrap: anywhere; }
 .address { display: flex; align-items: flex-start; gap: 9px; min-height: 42px; margin: 12px 0 20px; color: #60605d; font-size: 13px; line-height: 1.6; }
 .address svg { margin-top: 3px; }
 .address span { min-width: 0; overflow-wrap: anywhere; }
 .facts { display: grid; grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr); gap: 12px; margin-top: auto; padding-top: 20px; border-top: 1px solid #d5d5d2; }
 .facts > div { min-width: 0; }
 .factLabel { display: block; margin-bottom: 9px; color: #60605d; font-size: 11px; }
-.price, .area { display: block; font-family: var(--font-display), sans-serif; font-size: 23px; letter-spacing: -.02em; font-weight: 600; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.price, .area { display: block; font-family: var(--font-ui), sans-serif; font-size: 23px; letter-spacing: -.02em; font-weight: 600; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
 .area { font-size: 20px; }
 .missing { display: block; font-size: 14px; font-weight: 400; line-height: 1.5; color: #60605d; overflow-wrap: anywhere; }
 .cardFoot { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 24px -3px 0; padding: 11px 13px; border-radius: 8px; background: #fff; color: #60605d; font-size: 12px; font-weight: 600; transition: background .18s ease; }
 .card:hover .cardFoot, .card:focus-visible .cardFoot { background: #f3f3f2; }
 .page .empty { padding: 70px 30px; border: 1px solid #d5d5d2; border-radius: 12px; background: #fff; text-align: center; box-shadow: none; }
 .empty > svg { margin: 0 auto 20px; }
-.empty h2 { margin: 0; font-family: var(--font-display), sans-serif; font-size: 28px; font-weight: 600; }
+.empty h2 { margin: 0; font-family: var(--font-ui), sans-serif; font-size: 28px; font-weight: 600; }
 .empty p { max-width: 430px; margin: 15px auto 25px; color: #60605d; line-height: 1.7; }
 @media (max-width: 1100px) { .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 650px) { .grid { grid-template-columns: minmax(0, 1fr); } .header { align-items: flex-start; flex-direction: column; } .page .pageTitle { font-size: 34px; } .page .empty { padding: 45px 22px; } }

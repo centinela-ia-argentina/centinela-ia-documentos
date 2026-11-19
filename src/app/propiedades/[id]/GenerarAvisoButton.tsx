@@ -47,7 +47,7 @@ export function GenerarAvisoButton({ propertyId }: { propertyId: string }) {
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2 text-cyan-400">
             <Sparkles className="h-5 w-5" />
-            <h4 className="font-display text-lg font-bold text-white">Aviso generado por IA</h4>
+            <h4 className="font-ui text-lg font-bold text-white">Aviso generado por IA</h4>
           </div>
           <button 
             onClick={() => setResult(null)} 

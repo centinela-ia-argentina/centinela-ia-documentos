@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { Manrope, Space_Grotesk } from 'next/font/google';
+import { JetBrains_Mono, Manrope, Space_Grotesk } from 'next/font/google';
 import { brand } from '@/config/brand';
 import './globals.css';
 
@@ -13,6 +13,12 @@ const display = Space_Grotesk({
   subsets: ['latin'],
   weight: ['500', '600', '700'],
   variable: '--font-display',
+});
+
+const mono = JetBrains_Mono({
+  subsets: ['latin'],
+  weight: ['400', '500', '600'],
+  variable: '--font-mono',
 });
 
 export const metadata: Metadata = {
@@ -62,7 +68,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="es" className={`${ui.variable} ${display.variable}`}>
+    <html lang="es" className={`${ui.variable} ${display.variable} ${mono.variable}`}>
       <body className="font-ui">{children}</body>
     </html>
   );

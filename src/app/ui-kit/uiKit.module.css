@@ -1,0 +1,61 @@
+.uiKit{padding:8px 0 0;min-width:0;color:#25272a}
+.uiKit h1{font:600 34px/1.2 var(--font-ui),sans-serif;letter-spacing:-1.1px;margin:8px 0 12px}
+.intro{font-size:12px;line-height:1.8;color:#626b73;margin:0;max-width:640px}
+.section{margin-top:34px;padding-top:24px;border-top:1px solid #d9dddd}
+.sectionHead{display:flex;justify-content:space-between;align-items:baseline;gap:16px;margin-bottom:16px}
+.sectionHead h2{font:600 20px/1.35 var(--font-ui),sans-serif;letter-spacing:-.5px;margin:0}
+.sectionHead p{font-size:11px;color:#626b73;margin:0}
+.row{display:flex;flex-wrap:wrap;gap:12px;align-items:center}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,minmax(0,1fr)));gap:20px}
+
+/* Tipografía */
+.specimen{display:grid;gap:14px}
+.specimen dt{font-size:9px;text-transform:uppercase;letter-spacing:1px;color:#626b73;margin-bottom:4px}
+.spH1{font:600 var(--text-h1)/1.2 var(--font-ui),sans-serif;letter-spacing:-1.1px;margin:0}
+.spH2{font:600 var(--text-h2)/1.35 var(--font-ui),sans-serif;letter-spacing:-.5px;margin:0}
+.spH3{font:600 var(--text-h3)/1.5 var(--font-ui),sans-serif;margin:0}
+.spBody{font-size:var(--text-body);line-height:1.8;margin:0}
+.spSmall{font-size:var(--text-small);line-height:1.7;color:#626b73;margin:0}
+.spCaption{font-size:var(--text-caption);text-transform:uppercase;letter-spacing:1px;color:#626b73;margin:0}
+.spMono{font-family:var(--font-mono),monospace;font-variant-numeric:tabular-nums;font-size:13px;margin:0}
+
+/* Botones */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:44px;padding:10px 16px;border-radius:var(--radius-sm);font:600 12px/1.4 var(--font-ui),sans-serif;cursor:pointer}
+.btn.sm{height:36px;padding:7px 13px}
+.btnPrimary{background:#25272a;color:#fff;border:1px solid #25272a}
+.btnSecondary{background:#fff;color:#25272a;border:1px solid #cbd0d2}
+.btnSuccess{background:#fff;color:#2f5d3a;border:1px solid #bcd8c2}
+.btnDanger{background:#fff;color:#a33f38;border:1px solid #e4c1bd}
+.btnGhost{background:transparent;color:#25272a;border:0}
+.btnPrimary:hover{background:#3a3d41}.btnSecondary:hover,.btnSuccess:hover,.btnDanger:hover{background:#f0f2f1}
+
+/* Campos */
+.field label{display:block;font-size:11px;font-weight:600;color:#414b51;margin-bottom:6px}
+.field input{width:100%;height:40px;border:1px solid #cbd0d2;border-radius:var(--radius-sm);background:#fff;color:#25272a;font:13px var(--font-ui),sans-serif;padding:8px 12px;box-sizing:border-box}
+.field small{display:block;font-size:9px;line-height:1.6;color:#626b73;margin-top:6px}
+.field input:focus-visible{outline:2px solid #415a71;outline-offset:2px}
+
+/* Pills y badges */
+.pill{display:inline-flex;align-items:center;gap:6px;height:28px;padding:4px 10px;border:1px solid #d9dddd;border-radius:999px;background:#f0f2f1;color:#515f5a;font:500 11px/1 var(--font-ui),sans-serif}
+.pill:before{content:'';width:5px;height:5px;border-radius:50%;background:#77837b}
+.pillOk:before{background:#3f7d4e}
+.pillWarn:before{background:#a8842f}
+.pillLate:before{background:#a33f38}
+.tag{display:inline-flex;align-items:center;height:24px;padding:3px 8px;border:1px solid #d9dddd;border-radius:var(--radius-sm);background:#fff;color:#515f5a;font:500 10px/1 var(--font-ui),sans-serif}
+
+/* Card */
+.card{border:1px solid #e3e4e5;border-radius:var(--radius);background:#fff;padding:20px;box-shadow:0 1px 2px #0000000c}
+.card h3{font:600 15px/1.5 var(--font-ui),sans-serif;margin:0 0 8px}
+.card p{font-size:12px;line-height:1.7;color:#626b73;margin:0 0 16px}
+.cardFoot{display:flex;gap:8px;justify-content:flex-end}
+
+/* Dato en mono */
+.dataRow{display:grid;grid-template-columns:130px minmax(0,1fr);gap:12px;align-items:baseline}
+.dataRow dt{font-size:10px;color:#626b73}
+.dataRow dd{font-family:var(--font-mono),monospace;font-variant-numeric:tabular-nums;font-size:12px;margin:0}
+
+/* Estados (referencia) */
+.stateNote{border:1px solid #e3e4e5;border-radius:var(--radius);background:#fafafa;padding:16px 18px;font-size:11px;line-height:1.8;color:#626b73}
+.stateNote strong{color:#25272a;font-weight:600}
+.stateNote ul{margin:8px 0 0;padding-left:18px}
+.uiFoot{margin-top:34px;padding-top:18px;border-top:1px solid #d9dddd;font-size:9px;line-height:1.8;color:#626b73}

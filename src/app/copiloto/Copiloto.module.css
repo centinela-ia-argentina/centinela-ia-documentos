@@ -8,7 +8,7 @@
 .metric:last-child { border-right: 0; }
 .metricLabel { display: flex; align-items: center; justify-content: space-between; gap: 8px; color: #60605d; font-size: 13px; }
 .metricLabel svg { color: #60605d; }
-.metricValue { margin-top: 7px; font-family: var(--font-display), sans-serif; font-size: 37px; line-height: 1.25; font-weight: 500; letter-spacing: -1px; }
+.metricValue { margin-top: 7px; font-family: var(--font-ui), sans-serif; font-size: 37px; line-height: 1.25; font-weight: 500; letter-spacing: -1px; }
 .unavailable { display: block; padding: 7px 0; font-family: var(--font-ui), sans-serif; font-size: 14px; letter-spacing: normal; }
 .metricScope { font-size: 11px; line-height: 1.7; color: #60605d; margin: 4px 0 7px; }
 .page .metricLink { padding: 8px 0; min-height: 40px; justify-content: flex-start; font-weight: 500; color: #60605d; }
@@ -17,7 +17,7 @@
 .sectionCopy { margin-top: 10px; color: #60605d; max-width: 820px; }
 .adjustmentSignals { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); margin-top: 22px; gap: 24px; }
 .signal { display: flex; align-items: center; gap: 17px; padding: 16px 0 20px; border-color: #d5d5d2; min-width: 0; }
-.signalNumber { font-family: var(--font-display), sans-serif; font-size: 33px; color: #60605d; line-height: 1; }
+.signalNumber { font-family: var(--font-ui), sans-serif; font-size: 33px; color: #60605d; line-height: 1; }
 .signal:first-child .signalNumber { color: #60605d; }
 .signal h3 { font-size: 15px; font-weight: 500; color: #60605d; }
 .signal p { color: #60605d; font-size: 12px; margin-top: 5px; line-height: 1.6; }
@@ -40,7 +40,7 @@
 .tabs button[aria-selected='true'] { color: #60605d; border-bottom-color: #d5d5d2; }
 .tabs button:focus-visible, .pane:focus-visible { outline: 2px solid #415a71; outline-offset: -3px; }
 .pane { padding: 28px 30px; min-width: 0; }
-.paneTitle { display: flex; align-items: center; gap: 11px; font-family: var(--font-display), sans-serif; font-size: 24px; color: #60605d; }
+.paneTitle { display: flex; align-items: center; gap: 11px; font-family: var(--font-ui), sans-serif; font-size: 24px; color: #60605d; }
 .paneTitle svg { color: #60605d; }
 .paneCopy { margin-top: 11px; max-width: 850px; font-size: 14px; line-height: 1.8; color: #60605d; }
 .summaryActions { display: flex; align-items: center; gap: 24px; margin-top: 22px; }
@@ -104,7 +104,7 @@
 }
 
 /* Approved V8 visual study, scoped to this route. Brand name/palette remain undecided. */
-.page .pageTitle, .page .adjustmentTitle, .intelligenceTitle, .paneTitle { font-family: var(--font-ui), var(--font-display), sans-serif; font-weight: 600; letter-spacing: -.035em; }
+.page .pageTitle, .page .adjustmentTitle, .intelligenceTitle, .paneTitle { font-family: var(--font-ui), sans-serif; font-weight: 600; letter-spacing: -.035em; }
 .page .pageTitle { font-size: clamp(38px, 4.3vw, 60px); line-height: 1.12; }
 .page .sector { font-family: var(--font-ui), sans-serif; font-size: 15px; font-weight: 500; color: #60605d; gap: 11px; margin-bottom: 16px; }
 .sector svg { color: #60605d; flex-shrink: 0; }
@@ -177,4 +177,4 @@
 }
 /* V3 interna aprobada: traslado de paleta/controles, composición y lógica conservadas. */
 
-.page{color:#2c2c2b}.page :is(h1,h2,h3,h4,strong){color:#2c2c2b}.page .pageTitle{font-size:32px}.page :is(a,button){min-height:44px}.page .metricValue{font-family:var(--font-display),sans-serif;font-size:34px;color:#2c2c2b}.page .metricLink,.page .moduleAction,.intelligence .primaryAction{background:#2c2c2b;color:#fff;border:1px solid #2c2c2b;box-shadow:none}.page .metricLink svg,.page .moduleAction svg{color:inherit}.page .metricLink:hover,.intelligence .primaryAction:hover{background:#424242;color:#fff}.page .metricLink:focus-visible,.intelligence .primaryAction:focus-visible,.page .moduleAction:focus-visible{outline-color:#415a71}.adjustmentSignals,.scopeNote,.intelligenceFooter,.tabs{background:#f5f5f4}.page .signalNumber,.page .signal:first-child .signalNumber{color:#2c2c2b;font-family:var(--font-display),sans-serif;font-size:34px}.signalStatus[data-status='late'],.signalStatus[data-status='unavailable']{color:#80501d}.intelligenceHeader{background:#fafafa}.intelligenceTitle{font-family:var(--font-display),sans-serif;font-size:25px}.aiMark{background:#f1f1ef;color:#555;box-shadow:none;border:1px solid #d5d5d2}.intelligence .questionForm textarea{background:#fff!important;color:#2c2c2b!important}.intelligence .questionForm textarea::placeholder{color:#70706d!important}.tabs button[aria-selected=true]{background:#e9e9e6;color:#252525;border-color:#b6b6b2}.tabs button:hover,.intelligence .suggestion:hover{background:#f1f1ef;color:#2c2c2b}.intelligence .suggestion{border-color:#b6b6b2;color:#2c2c2b}.page .error{background:#fff4f2;color:#9e3e38;border-color:#e1bbb5}.page .editor{background:#fff}.userMessage{background:#f1f2f1}.page :is(h1,h2,h3,h4,p,dd,a,button){overflow-wrap:anywhere}.intelligenceHeader,.aiHeading,.metricLabel,.adjustmentHeading{min-width:0}.intelligenceHeader>*{min-width:0}.intelligence .toggleAction{white-space:normal}.page [hidden]{display:none!important}@media(max-width:640px){.page .pageTitle{font-size:28px}.metricValue{font-size:30px}.page .signalNumber,.page .signal:first-child .signalNumber{font-size:30px}}
+.page{color:#2c2c2b}.page :is(h1,h2,h3,h4,strong){color:#2c2c2b}.page .pageTitle{font-size:32px}.page :is(a,button){min-height:44px}.page .metricValue{font-family:var(--font-ui),sans-serif;font-size:34px;color:#2c2c2b}.page .metricLink,.page .moduleAction,.intelligence .primaryAction{background:#2c2c2b;color:#fff;border:1px solid #2c2c2b;box-shadow:none}.page .metricLink svg,.page .moduleAction svg{color:inherit}.page .metricLink:hover,.intelligence .primaryAction:hover{background:#424242;color:#fff}.page .metricLink:focus-visible,.intelligence .primaryAction:focus-visible,.page .moduleAction:focus-visible{outline-color:#415a71}.adjustmentSignals,.scopeNote,.intelligenceFooter,.tabs{background:#f5f5f4}.page .signalNumber,.page .signal:first-child .signalNumber{color:#2c2c2b;font-family:var(--font-ui),sans-serif;font-size:34px}.signalStatus[data-status='late'],.signalStatus[data-status='unavailable']{color:#80501d}.intelligenceHeader{background:#fafafa}.intelligenceTitle{font-family:var(--font-ui),sans-serif;font-size:25px}.aiMark{background:#f1f1ef;color:#555;box-shadow:none;border:1px solid #d5d5d2}.intelligence .questionForm textarea{background:#fff!important;color:#2c2c2b!important}.intelligence .questionForm textarea::placeholder{color:#70706d!important}.tabs button[aria-selected=true]{background:#e9e9e6;color:#252525;border-color:#b6b6b2}.tabs button:hover,.intelligence .suggestion:hover{background:#f1f1ef;color:#2c2c2b}.intelligence .suggestion{border-color:#b6b6b2;color:#2c2c2b}.page .error{background:#fff4f2;color:#9e3e38;border-color:#e1bbb5}.page .editor{background:#fff}.userMessage{background:#f1f2f1}.page :is(h1,h2,h3,h4,p,dd,a,button){overflow-wrap:anywhere}.intelligenceHeader,.aiHeading,.metricLabel,.adjustmentHeading{min-width:0}.intelligenceHeader>*{min-width:0}.intelligence .toggleAction{white-space:normal}.page [hidden]{display:none!important}@media(max-width:640px){.page .pageTitle{font-size:28px}.metricValue{font-size:30px}.page .signalNumber,.page .signal:first-child .signalNumber{font-size:30px}}

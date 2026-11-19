@@ -179,7 +179,7 @@ export function NewOperationForm({ caseFields, caseStatuses, caseTypes, properti
                               {visual.icon}
                             </span>
                             <span className="min-w-0">
-                              <span className="block truncate font-display text-sm font-medium tracking-[-0.02em] text-[#303030]">{type}</span>
+                              <span className="block truncate font-ui text-sm font-medium tracking-[-0.02em] text-[#303030]">{type}</span>
                               <span className="mt-0.5 block truncate font-ui text-[10px] text-[#60605d]">{visual.helper}</span>
                             </span>
                             <span className={`absolute right-0 top-0 h-full w-[3px] ${selected ? 'bg-[#555555]' : 'bg-transparent'}`} />
@@ -279,7 +279,7 @@ export function NewOperationForm({ caseFields, caseStatuses, caseTypes, properti
                             value={metadata[field.key] ?? ''}
                             onChange={(value) => setMetadata((current) => ({ ...current, [field.key]: value }))}
                             placeholder="Sin definir"
-                            icon={field.key === 'moneda_operacion' ? <span className="font-display text-sm font-semibold">$</span> : <ShieldCheck size={16} />}
+                            icon={field.key === 'moneda_operacion' ? <span className="font-ui text-sm font-semibold">$</span> : <ShieldCheck size={16} />}
                             options={[
                               { value: '', label: 'Sin definir', detail: 'Podés completarlo más adelante' },
                               ...(field.options ?? []).map((option) => ({
@@ -321,17 +321,17 @@ export function NewOperationForm({ caseFields, caseStatuses, caseTypes, properti
                 <p className="font-ui text-[10px] font-bold uppercase tracking-[0.12em] text-[#60605d]">Resumen</p>
                 <Sparkle size={16} className="text-[#303030]" />
               </div>
-              <h3 className="mt-4 break-words font-display text-xl font-medium tracking-[-0.035em] text-[#303030]">{title || 'Operación sin nombre'}</h3>
+              <h3 className="mt-4 break-words font-ui text-xl font-medium tracking-[-0.035em] text-[#303030]">{title || 'Operación sin nombre'}</h3>
               <p className="mt-1 font-ui text-xs text-[#303030]">{caseType || 'Tipo sin definir'}</p>
 
               <dl className="mt-6 space-y-4 border-t border-[#d5d5d2] pt-5">
                 <div>
                   <dt className="font-ui text-[9px] font-bold uppercase tracking-[0.1em] text-[#60605d]">Cliente</dt>
-                  <dd className="mt-1 font-display text-sm font-medium text-[#303030]">{client || 'Sin cliente'}</dd>
+                  <dd className="mt-1 font-ui text-sm font-medium text-[#303030]">{client || 'Sin cliente'}</dd>
                 </div>
                 <div>
                   <dt className="font-ui text-[9px] font-bold uppercase tracking-[0.1em] text-[#60605d]">Propiedad</dt>
-                  <dd className="mt-1 flex items-start gap-2 font-display text-sm font-medium text-[#303030]">
+                  <dd className="mt-1 flex items-start gap-2 font-ui text-sm font-medium text-[#303030]">
                     <MapPin className="mt-0.5 shrink-0 text-[#60605d]" size={14} />
                     <span>{selectedProperty ? selectedProperty.name : 'Sin asociar'}</span>
                   </dd>
