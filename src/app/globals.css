@@ -585,7 +585,7 @@ body:has(.internal-shell[data-visual-system="v3"]) { background: #ededec; }
   padding-left: 14px;
 }
 .internal-shell[data-visual-system="v3"] select option { background: #fff; color: #25272a; }
-.internal-shell[data-visual-system="v3"] :is(input, select, textarea):focus-visible { outline: 2px solid #3d526c; outline-offset: 2px; }
+.internal-shell[data-visual-system="v3"] :is(input, select, textarea):focus-visible { outline: 2px solid #415a71; outline-offset: 2px; }
 @media (forced-colors: active) {
   .internal-shell[data-visual-system="v3"] select:not([multiple]):not([size]) { appearance: auto; -webkit-appearance: auto; background-image: none; }
 }
