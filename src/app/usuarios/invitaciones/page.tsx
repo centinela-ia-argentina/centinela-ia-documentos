@@ -230,7 +230,7 @@ function RolePill({ role }: { role?: string | null }) {
 
   return (
     <span className={`${base} border border-neutral-200 bg-neutral-100 text-neutral-600`}>
-      <MinusIcon /> Sin definir
+      <MinusIcon /> Rol pendiente
     </span>
   );
 }

@@ -95,7 +95,7 @@ export default async function UploadDocumentPage({
         <p className={styles.eyebrow}>BÓVEDA</p>
         <h2>Subidos recientemente</h2>
         {recent.length > 0 ? <ul className={styles.uploadRecent}>
-          {recent.map(doc => <li key={doc.id} className={styles.uploadRecentItem}><Link href={`/documentos/${doc.id}`} className={styles.uploadRecentLink}><FileText aria-hidden="true"/><div className={styles.uploadRecentText}><h3>{doc.fileName}</h3><p>{doc.meta}</p></div></Link></li>)}
+          {recent.map(doc => <li key={doc.id} className={styles.uploadRecentItem}><Link href={`/documentos/${doc.id}`} className={styles.uploadRecentLink} title={doc.fileName}><FileText aria-hidden="true"/><div className={styles.uploadRecentText}><h3>{doc.fileName}</h3><p>{doc.meta}</p></div></Link></li>)}
         </ul> : <p className={styles.uploadRecentEmpty}>Todavía no hay documentos en la bóveda.</p>}
         <p className={styles.uploadRecentFoot}><Link href="/documentos">Ver todos los documentos</Link></p>
         <div className={styles.uploadAsideNote}><p>Los archivos quedan en el almacenamiento privado de tu organización.</p><p>Subir no confirma validez documental ni revisión profesional; el análisis IA es una acción separada.</p></div>
