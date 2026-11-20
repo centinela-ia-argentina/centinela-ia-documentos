@@ -17,7 +17,7 @@ function BotonGenerar({ tieneResumen }: { tieneResumen: boolean }) {
     <div>
       <button type="submit" disabled={pending}
         className={styles.action} aria-busy={pending}>
-        {pending ? 'Generando…' : tieneResumen ? 'Actualizar resumen con IA' : 'Generar resumen con IA'}
+        {pending ? <><svg className="animate-spin" width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" opacity="0.25" /><path d="M22 12a10 10 0 0 1-10 10" stroke="currentColor" strokeWidth="4" /></svg>Generando…</> : tieneResumen ? 'Actualizar resumen con IA' : 'Generar resumen con IA'}
       </button>
       {pending && <p className={styles.actionHint}>Esto puede tardar hasta un minuto. No cierres la página.</p>}
     </div>
