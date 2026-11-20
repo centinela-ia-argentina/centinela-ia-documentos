@@ -39,7 +39,8 @@ export function CaseFacts({ caseId, caseType, status, industry, metadata, visibl
           </dd></div>;
         }
         const displayValue = field.key === 'moneda_operacion' && !value ? 'Sin definir' : value;
-        return <div key={field.key}><dt>{field.label}</dt><dd>{displayValue}</dd></div>;
+        const monoValue = field.key === 'numero_expediente' || field.key === 'valor_operacion' || field.key === 'registro_protocolo' || field.key === 'referencia_interna';
+        return <div key={field.key}><dt>{field.label}</dt><dd className={monoValue ? styles.monoValue : undefined}>{displayValue}</dd></div>;
       })}
     </dl>
     <details open={visibleFields.length === 0} className={styles.editor}>
