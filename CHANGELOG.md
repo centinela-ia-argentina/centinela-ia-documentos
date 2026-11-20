@@ -5,6 +5,12 @@ Formato por fecha; los PR quedan enlazados con su detalle completo (commits, che
 
 ---
 
+## 2026-11-19 — S4 Fase C lote 2: mono en expedientes y agenda (PR #36 — merged)
+
+- **Fichas de expedientes**: mono por `field.key` en N° de expediente, valor de la operación, registro/protocolo y referencia interna (`.monoValue` en `RecordFacts`); los campos de texto común (carátula, juzgado, contraparte) siguen en Manrope.
+- **Modal de Agenda**: fecha y horario del detalle del evento en mono (`font-mono`).
+- CHANGELOG con la entrada del PR #35.
+
 ## 2026-11-19 — S4 Fase C lote 1: mono en fichas de detalle (PR #35 — merged `8e84289`)
 
 - **JetBrains Mono en los datos protagonistas de las fichas**: precio/superficies/ambientes de la ficha de propiedad (`PropertyDetail` `.facts strong`), presupuesto desde/hasta y ambientes de la ficha de cliente (`ApprovedDetail` `.budget strong`, `.rooms strong`), y fecha de vencimiento + "faltan N días" de la ficha de expediente (`RecordFacts` `.dateValue`). Peso 500 + `tabular-nums`.
