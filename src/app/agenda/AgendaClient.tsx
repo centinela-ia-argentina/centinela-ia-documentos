@@ -399,7 +399,7 @@ export function AgendaClient({ eventos, cases, industry, puedeGuardar = true }: 
                       </span>
                       <span>
                         <span className="block font-ui text-[10px] font-semibold text-[#626b73]">Fecha</span>
-                        <span className="mt-0.5 block font-ui text-sm font-bold text-[#25272a]">{eventoDetalle.fecha.split('-').reverse().join('/')}</span>
+                        <span className="mt-0.5 block font-mono text-sm font-bold text-[#25272a]">{eventoDetalle.fecha.split('-').reverse().join('/')}</span>
                       </span>
                     </div>
                     <div className="flex items-center gap-3 rounded-md border border-[#d9dddd] bg-white p-3.5">
@@ -408,7 +408,7 @@ export function AgendaClient({ eventos, cases, industry, puedeGuardar = true }: 
                       </span>
                       <span>
                         <span className="block font-ui text-[10px] font-semibold text-[#626b73]">Horario</span>
-                        <span className="mt-0.5 block font-ui text-sm font-bold text-[#25272a]">{eventoDetalle.hora ? `${eventoDetalle.hora} hs` : 'Todo el día'}</span>
+                        <span className="mt-0.5 block font-mono text-sm font-bold text-[#25272a]">{eventoDetalle.hora ? `${eventoDetalle.hora} hs` : 'Todo el día'}</span>
                       </span>
                     </div>
                   </div>

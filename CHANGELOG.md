@@ -5,6 +5,12 @@ Formato por fecha; los PR quedan enlazados con su detalle completo (commits, che
 
 ---
 
+## 2026-11-19 — S4 Fase C lote 1: mono en fichas de detalle (PR #35 — merged `8e84289`)
+
+- **JetBrains Mono en los datos protagonistas de las fichas**: precio/superficies/ambientes de la ficha de propiedad (`PropertyDetail` `.facts strong`), presupuesto desde/hasta y ambientes de la ficha de cliente (`ApprovedDetail` `.budget strong`, `.rooms strong`), y fecha de vencimiento + "faltan N días" de la ficha de expediente (`RecordFacts` `.dateValue`). Peso 500 + `tabular-nums`.
+- Las listas (cartera de propiedades/clientes) siguen en Manrope: el dato es protagonista solo en la ficha.
+- Nota de diseño abierta: el fallback "No cargado" también queda en mono (el slot completo habla en mono); decidir si se restringe a valores numéricos.
+
 ## 2026-11-19 — S4 Fase B: focus único (PR #34 — merged `d3047e7`)
 
 - Focus visible convergido a `#415a71` en todo el sistema: eliminadas las 15 ocurrencias de `#3d526c` (Agenda, Agent, `globals.css` shell v3, Dashboard, Shell, RecordFacts, RecordWhatsApp, SharedControls). Un solo azul de foco, el del estándar SYNC.md.
