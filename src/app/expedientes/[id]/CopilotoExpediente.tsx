@@ -14,10 +14,13 @@ type ResumenExpediente = {
 function BotonGenerar({ tieneResumen }: { tieneResumen: boolean }) {
   const { pending } = useFormStatus();
   return (
-    <button type="submit" disabled={pending}
-      className={styles.action} aria-busy={pending}>
-      {pending ? 'Generando…' : tieneResumen ? 'Actualizar resumen con IA' : 'Generar resumen con IA'}
-    </button>
+    <div>
+      <button type="submit" disabled={pending}
+        className={styles.action} aria-busy={pending}>
+        {pending ? 'Generando…' : tieneResumen ? 'Actualizar resumen con IA' : 'Generar resumen con IA'}
+      </button>
+      {pending && <p className={styles.actionHint}>Esto puede tardar hasta un minuto. No cierres la página.</p>}
+    </div>
   );
 }
 
