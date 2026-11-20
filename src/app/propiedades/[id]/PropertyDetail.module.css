@@ -20,7 +20,7 @@
 .facts > div { display:flex; align-items:center; gap:12px; min-width:0; }
 .facts svg { color:#60605d; flex-shrink:0; }
 .facts span { display:block; font-size:12px; margin-bottom:5px; color:#60605d; }
-.facts strong { font-family:var(--font-ui),sans-serif; font-size:22px; font-weight:600; overflow-wrap:anywhere; font-variant-numeric:tabular-nums; }
+.facts strong { font-family:var(--font-mono),monospace; font-size:22px; font-weight:500; overflow-wrap:anywhere; font-variant-numeric:tabular-nums; }
 .tabs { display:flex; align-items:stretch; gap:5px; padding:6px; margin:0 0 32px; border:1px solid #d5d5d2; border-radius:13px; background:#fff; }
 .tabs button { display:flex; align-items:center; justify-content:center; gap:10px; flex:1; min-height:50px; border:1px solid transparent; border-radius:9px; padding:10px 14px; color:#60605d; font-weight:600; font-size:13px; cursor:pointer; transition:background .18s, border-color .18s; }
 .tabs button[aria-selected=true] { color:#60605d; background:#fff; border-color:#d5d5d2; box-shadow:none; }

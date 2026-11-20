@@ -5,6 +5,11 @@ Formato por fecha; los PR quedan enlazados con su detalle completo (commits, che
 
 ---
 
+## 2026-11-19 — S4 Fase B: focus único (PR #34 — merged `d3047e7`)
+
+- Focus visible convergido a `#415a71` en todo el sistema: eliminadas las 15 ocurrencias de `#3d526c` (Agenda, Agent, `globals.css` shell v3, Dashboard, Shell, RecordFacts, RecordWhatsApp, SharedControls). Un solo azul de foco, el del estándar SYNC.md.
+- `SYNC.md`: deuda de focus marcada como resuelta.
+
 ## 2026-11-19 — S4 Fase A: convergencia de grises (PR #33 — merged `aae8ad0`)
 
 - Grises de texto principal convergidos a `#25272a` (el estándar de SYNC.md): eliminados `#252a2d` (31) y `#272b2e` (52) en 24 archivos (Agenda, Configuración, Shell, SharedControls, ui-kit, Reportes, Observaciones, Upload, Agent, Dashboard, Expedientes, RecordDialog, CaseDetailHeader, Viewer, error de visor, etc.). Cambio invisible al ojo — unifica la fuente de color para lo que sigue.
