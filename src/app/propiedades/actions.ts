@@ -485,7 +485,7 @@ export async function extraerDatosPropiedadIA(propertyId: string, documentId: st
 
   if (downloadError || !fileData) {
     console.error('Error al descargar archivo:', downloadError);
-    return { ok: false, error: 'error_descarga' };
+    return { ok: false, error: 'No se pudo descargar el archivo. Probá de nuevo en unos segundos.' };
   }
 
   const buffer = Buffer.from(await fileData.arrayBuffer());
@@ -494,7 +494,7 @@ export async function extraerDatosPropiedadIA(propertyId: string, documentId: st
   const extractedData = await extraerDatosPropiedadDeArchivo(buffer, mimeType);
 
   if (!extractedData) {
-    return { ok: false, error: 'error_ia' };
+    return { ok: false, error: 'La IA no pudo leer este documento. Probá con otro archivo de la Bóveda.' };
   }
 
   await createAuditLog({

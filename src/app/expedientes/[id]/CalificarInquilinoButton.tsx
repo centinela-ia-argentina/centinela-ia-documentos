@@ -2,6 +2,7 @@
 
 import styles from './IndustryTools.module.css';
 import { useFormStatus } from 'react-dom';
+import { SelectField } from '@/components/ui/SelectField';
 import { calificarInquilinoExpediente } from '../actions';
 
 function SubmitButton({ yaGenerada }: { yaGenerada: boolean }) {
@@ -25,7 +26,7 @@ export function CalificarInquilinoButton({ caseId, yaGenerada }: { caseId: strin
         <input id={`prescore-${caseId}-alquiler`} name="alquiler" type="text" inputMode="decimal" placeholder="Ej: 1.250.000" />
       </label>
       <label htmlFor={`prescore-${caseId}-moneda`}>Moneda
-        <select id={`prescore-${caseId}-moneda`} aria-label="Moneda" name="moneda"><option value="ARS">ARS</option><option value="USD">USD</option></select>
+        <SelectField name="moneda" label="Moneda" defaultValue="ARS" placeholder="Seleccionar" options={[{ value: 'ARS', label: 'ARS' }, { value: 'USD', label: 'USD' }]} />
       </label>
       <SubmitButton yaGenerada={yaGenerada} />
     </form>

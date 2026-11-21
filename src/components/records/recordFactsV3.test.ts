@@ -28,8 +28,8 @@ for(const industry of ['inmobiliaria','legal','escribania'] as const){
    expect(data.get('case_id')).toBe(props.caseId);expect(data.get('status')).toBe('in_review');
    expect(Array.from(data.keys()).sort()).toEqual(['case_id','status',...fields.map(f=>'case_metadata.'+f.key)].sort());
    expect(data.has('title')).toBe(false);expect(data.has('client_name')).toBe(false);
-   for(const f of fields){expect(data.get('case_metadata.'+f.key)).toBe(metadata[f.key]);const field=screen.getByLabelText(f.label,{selector:'input,select'});expect(field.id).not.toBe('');if(f.type==='select')expect(Array.from((field as HTMLSelectElement).options).map(o=>o.value)).toEqual(['',...f.options??[]]);}
-   expect(Array.from((screen.getByLabelText('Estado',{selector:'select'}) as HTMLSelectElement).options).map(o=>o.value)).toEqual(getCaseStatuses(industry).map(s=>s.value));
+   for(const f of fields){expect(data.get('case_metadata.'+f.key)).toBe(metadata[f.key]);if(f.type==='select'){const trigger=screen.getByLabelText(f.label);expect(trigger.tagName).toBe('BUTTON');fireEvent.click(trigger);expect(Array.from(document.querySelectorAll('[role="option"]')).map(o=>o.textContent)).toEqual(['Sin definir',...f.options??[]]);}}
+   fireEvent.click(screen.getByLabelText('Estado'));expect(document.querySelectorAll('[role="option"]')).toHaveLength(getCaseStatuses(industry).length);
   });
   it('mantiene únicamente los metadatos que la ruta declaró visibles',()=>{
    const {container}=render(el(CaseFacts,{...props,visibleFields:fields.slice(0,1)}));
@@ -46,7 +46,7 @@ for(const industry of ['inmobiliaria','legal','escribania'] as const){
    const options=[{value:'legacy_state',label:'Estado histórico'},...getCaseStatuses(industry)];
    const {container}=render(el(CaseFacts,{...props,status:'legacy_state',statusOptions:options}));
    expect(new FormData(container.querySelector('form')!).get('status')).toBe('legacy_state');
-   expect((screen.getByLabelText('Estado',{selector:'select'}) as HTMLSelectElement).options[0].text).toBe('Estado histórico');
+   fireEvent.click(screen.getByLabelText('Estado'));expect(document.querySelectorAll('[role="option"]')[0].textContent).toBe('Estado histórico');
   });
   it('retiene el borrador al plegar y renderizar otra vez el mismo registro',()=>{
    const {container,rerender}=render(el(CaseFacts,props));const field=fields.find(f=>f.type==='text')!;
@@ -58,7 +58,7 @@ for(const industry of ['inmobiliaria','legal','escribania'] as const){
   });
   it('remite la misma acción y payload solo al enviar explícitamente',async()=>{
    const action=vi.fn().mockResolvedValue(undefined);const {container}=render(el(CaseFacts,{...props,visibleFields:[],updateAction:action}));
-   expect(action).not.toHaveBeenCalled();fireEvent.change(screen.getByLabelText('Estado',{selector:'select'}),{target:{value:'waiting_client'}});fireEvent.submit(container.querySelector('form')!);
+   expect(action).not.toHaveBeenCalled();const estadoLabel=getCaseStatuses(industry).find(s=>s.value==='waiting_client')!.label;fireEvent.click(screen.getByLabelText('Estado'));fireEvent.click(screen.getByRole('option',{name:estadoLabel}));fireEvent.submit(container.querySelector('form')!);
    await waitFor(()=>expect(action).toHaveBeenCalledTimes(1));const data=action.mock.calls[0][0] as FormData;
    expect(data.get('case_id')).toBe(props.caseId);expect(data.get('status')).toBe('waiting_client');
   });
@@ -82,11 +82,11 @@ describe('Presentación de datos y propiedad',()=>{
   const action=vi.fn();const {container}=render(el(LinkedProperty,{caseId:'fake',property,properties,canUpdate:canUpdateCase(role),linkAction:action}));
   expect(screen.getByRole('link',{name:'Ver ficha'}).getAttribute('href')).toBe('/propiedades/p2');expect(screen.getByText('Sin dirección')).toBeDefined();expect(screen.getByText(getPropertyStatusLabel('reservada'))).toBeDefined();
   expect(container.querySelectorAll('form')).toHaveLength(canUpdateCase(role)?1:0);expect(action).not.toHaveBeenCalled();
-  if(canUpdateCase(role)){const form=container.querySelector('form')!,data=new FormData(form);expect(Object.fromEntries(data)).toEqual({case_id:'fake',property_id:'p2'});expect(Array.from((screen.getByLabelText('Vincular propiedad') as HTMLSelectElement).options).map(o=>o.value)).toEqual(['','p2','p1']);}
+  if(canUpdateCase(role)){const form=container.querySelector('form')!,data=new FormData(form);expect(Object.fromEntries(data)).toEqual({case_id:'fake',property_id:'p2'});fireEvent.click(screen.getByLabelText('Vincular propiedad'));expect(Array.from(document.querySelectorAll('[role="option"]')).map(o=>o.textContent)).toEqual(['Sin propiedad asociada (desvincular)','Departamento Centro','Casa — Calle 1']);}
  });
  it('mantiene desvincular como valor vacío y envía la misma acción',async()=>{
   const action=vi.fn().mockResolvedValue(undefined);const {container}=render(el(LinkedProperty,{caseId:'fake',property,properties,canUpdate:true,linkAction:action}));
-  fireEvent.change(screen.getByLabelText('Vincular propiedad'),{target:{value:''}});fireEvent.submit(container.querySelector('form')!);await waitFor(()=>expect(action).toHaveBeenCalledTimes(1));expect(Object.fromEntries(action.mock.calls[0][0] as FormData)).toEqual({case_id:'fake',property_id:''});
+  fireEvent.click(screen.getByLabelText('Vincular propiedad'));fireEvent.click(screen.getByRole('option',{name:'Sin propiedad asociada (desvincular)'}));fireEvent.submit(container.querySelector('form')!);await waitFor(()=>expect(action).toHaveBeenCalledTimes(1));expect(Object.fromEntries(action.mock.calls[0][0] as FormData)).toEqual({case_id:'fake',property_id:''});
  });
  it('presenta propiedad ausente sin inventar vínculos',()=>{
   const {container}=render(el(LinkedProperty,{caseId:'fake',property:null,properties:[],canUpdate:true,linkAction:vi.fn()}));expect(screen.getByText('Sin propiedad asociada.')).toBeDefined();expect(screen.queryByRole('link')).toBeNull();expect(new FormData(container.querySelector('form')!).get('property_id')).toBe('');

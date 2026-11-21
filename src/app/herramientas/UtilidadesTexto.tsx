@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { Coins, Hash, GitCompare, CalendarSearch, Copy, Check } from 'lucide-react';
+import { SelectField } from '@/components/ui/SelectField';
 import { montoALetras } from '@/lib/format/numeroALetras';
 
 type Tab = 'montos' | 'contador' | 'comparar' | 'fechas';
@@ -86,15 +87,7 @@ function MontosALetras() {
 					value={monto}
 					onChange={(e) => handleMontoChange(e.target.value)}
 				/>
-				<select
-					className="rounded-lg border border-slate-200 px-3 py-2 text-sm"
-					value={moneda}
-					onChange={(e) => setMoneda(e.target.value)}
-				>
-					<option value="PESOS">Pesos</option>
-					<option value="DÓLARES ESTADOUNIDENSES">Dólares</option>
-					<option value="EUROS">Euros</option>
-				</select>
+				<SelectField name="moneda-montos" label="Moneda" value={moneda} onChange={setMoneda} placeholder="Seleccionar" options={[{ value: 'PESOS', label: 'Pesos' }, { value: 'DÓLARES ESTADOUNIDENSES', label: 'Dólares' }, { value: 'EUROS', label: 'Euros' }]} />
 			</div>
 			{error && monto.trim() && (
 				<p className="text-xs text-rose-500 font-medium">{error}</p>

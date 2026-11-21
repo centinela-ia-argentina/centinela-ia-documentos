@@ -5,6 +5,20 @@ Formato por fecha; los PR quedan enlazados con su detalle completo (commits, che
 
 ---
 
+## 2026-11-20 — S5: hint de progreso en acciones IA largas (PR #38 — merged) — **S1–S5 COMPLETOS**
+
+- Auditoría de los 5 estados (vacío/carga/progreso/error/éxito): relevamiento en código de todas las superficies asíncronas críticas → los 5 estados ya existían (roles status/alert, aria-busy, aria-live correctos). Registro en auditoria-uiux-registro.md sección S5.
+- Fix único de código (S5-G1): hint "Esto puede tardar hasta un minuto. No cierres la página." + spinner en las 3 acciones IA largas — análisis de documento (AnalyzeDetailButtonClient), resumen ejecutivo (CopilotoExpediente), análisis desde aside de Documentos (DocumentLibrary). Pendientes S5-G2 (éxito de acciones IA de fichas, verificar) y S5-G3 (paleta slate en Modelos/Agente → lote de pulido posterior).
+- **Lección preview falso positivo:** Chrome marca "Peligroso" subdominios de vercel.app (abuso de terceros, no es la app); solo previews, producción no afectada.
+- **Lección de componentes:** la misma acción puede vivir en 2 componentes (aside de lista vs. visor) → siempre grep del texto del botón en todo el repo antes de asumir que un fix alcanzó todos los puntos.
+- **Verificación aprobada por usuario:** spinner + hint visibles en acción (capturas), banner de éxito verde en visor.
+
+## 2026-11-19 — S4 Fase C lote 3: métricas en mono (PR #37 — merged) — **S4 CERRADO**
+
+- Métricas grandes en mono: tiles del Dashboard (`.metric dd`, 32px), métricas de Agenda (`.metric strong`, 30px), fechas de la lista priorizada (`.when`), contadores del resumen de subida (`.uploadResults dd`).
+- CI: 1 flake en `PropertyWorkspace.test.ts` (pasa 10/10 local, y 1455/1455 local con solo el ruido CRLF conocido de `shellV3.test.ts` en Windows) → re-run del job dio verde.
+- **S4 completo**: A (grises `#25272a`), B (focus `#415a71`), C lote 1 (fichas), lote 2 (expedientes/agenda), lote 3 (métricas). Lección CI: `PropertyWorkspace.test.ts` es flaky en CI de vez en cuando → re-run failed jobs.
+
 ## 2026-11-19 — S4 Fase C lote 2: mono en expedientes y agenda (PR #36 — merged)
 
 - **Fichas de expedientes**: mono por `field.key` en N° de expediente, valor de la operación, registro/protocolo y referencia interna (`.monoValue` en `RecordFacts`); los campos de texto común (carátula, juzgado, contraparte) siguen en Manrope.
