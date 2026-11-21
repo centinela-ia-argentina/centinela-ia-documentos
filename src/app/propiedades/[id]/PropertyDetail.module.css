@@ -83,6 +83,7 @@
 .documentControls { display:flex; flex-wrap:wrap; align-items:center; gap:14px; }
 .documentControls label { width:100%; font-size:13px; }
 .page .documentControls select { flex:1; min-width:180px; width:auto; }
+.documentControls > div { flex:1; min-width:180px; }
 .suggestions { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:14px; margin:22px 0; }
 .suggestions > div { padding:16px; border:1px solid #d5d5d2; background:#fff; border-radius:9px; }
 .page .error { padding:14px; border:1px solid #d5d5d2; background:#fff; color:#60605d; border-radius:9px; }

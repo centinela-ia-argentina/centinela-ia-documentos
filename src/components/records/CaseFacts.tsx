@@ -1,5 +1,6 @@
 import { CaretDown, PencilSimple } from '@phosphor-icons/react/dist/ssr';
 import { AppButton } from '@/components/ui/AppButton';
+import { SelectField } from '@/components/ui/SelectField';
 import type { CaseFieldDef, CaseStatusDef } from '@/lib/industries/caseConfig';
 import { getCaseStatusLabel, getCaseTypeLabel } from '@/lib/industries/caseConfig';
 import type { IndustryType } from '@/lib/industries/documentTypes';
@@ -49,16 +50,11 @@ export function CaseFacts({ caseId, caseType, status, industry, metadata, visibl
         <input type="hidden" name="case_id" value={caseId} />
         <div className={styles.field}>
           <label htmlFor={`${idPrefix}-status`}>Estado</label>
-          <select id={`${idPrefix}-status`} name="status" defaultValue={status}>
-            {statusOptions.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
-          </select>
+          <SelectField name="status" label="Estado" defaultValue={status} placeholder="Seleccionar" options={statusOptions.map(option => ({ value: option.value, label: option.label }))} />
         </div>
         {fields.length > 0 ? <div className={styles.fields}>{fields.map(field => <div key={field.key} className={styles.field}>
           <label htmlFor={`${idPrefix}-${field.key}`}>{field.label}</label>
-          {field.type === 'select' ? <select id={`${idPrefix}-${field.key}`} name={`case_metadata.${field.key}`} defaultValue={metadataValue(metadata, field.key)}>
-            <option value="">Sin definir</option>
-            {(field.options ?? []).map(option => <option key={option} value={option}>{option}</option>)}
-          </select> : <input id={`${idPrefix}-${field.key}`} name={`case_metadata.${field.key}`} type={field.type} defaultValue={metadataValue(metadata, field.key)} />}
+          {field.type === 'select' ? <SelectField name={`case_metadata.${field.key}`} label={field.label} defaultValue={metadataValue(metadata, field.key)} placeholder="Sin definir" options={[{ value: '', label: 'Sin definir' }, ...(field.options ?? []).map(option => ({ value: option, label: option }))]} /> : <input id={`${idPrefix}-${field.key}`} name={`case_metadata.${field.key}`} type={field.type} defaultValue={metadataValue(metadata, field.key)} />}
         </div>)}</div> : null}
         <AppButton type="submit">{labels.update}</AppButton>
       </form>

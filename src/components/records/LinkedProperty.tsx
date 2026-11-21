@@ -1,5 +1,6 @@
 import { ArrowRight, Buildings, MapPin } from '@phosphor-icons/react/dist/ssr';
 import { AppButtonLink } from '@/components/ui/AppButton';
+import { SelectField } from '@/components/ui/SelectField';
 import { getPropertyStatusLabel, getPropertyTypeLabel } from '@/lib/properties/labels';
 import type { PropertyRecord } from '@/types/property';
 import type { RecordFormAction } from './CaseFacts';
@@ -25,10 +26,7 @@ export function LinkedProperty({ caseId, property, properties, canUpdate, linkAc
     {canUpdate && <form action={linkAction} className={`${styles.form} ${styles.propertyForm}`}>
       <input type="hidden" name="case_id" value={caseId} />
       <div className={styles.field}><label htmlFor={`property-${caseId}`}>Vincular propiedad</label>
-        <select id={`property-${caseId}`} name="property_id" defaultValue={property?.id || ''}>
-          <option value="">Sin propiedad asociada (desvincular)</option>
-          {properties.map(p => <option key={p.id} value={p.id}>{p.name} {p.address ? `— ${p.address}` : ''}</option>)}
-        </select>
+        <SelectField name="property_id" label="Vincular propiedad" defaultValue={property?.id || ''} placeholder="Sin propiedad asociada (desvincular)" options={[{ value: '', label: 'Sin propiedad asociada (desvincular)' }, ...properties.map(p => ({ value: p.id, label: `${p.name}${p.address ? ` — ${p.address}` : ''}` }))]} />
       </div>
       <RecordPendingButton label="Guardar propiedad" loadingLabel="Guardando..." />
     </form>}

@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { ImagePlus, Download, Trash2, Loader2, Repeat } from 'lucide-react';
+import { SelectField } from '@/components/ui/SelectField';
 
 type Item = { id: string; nombre: string; dataUrl: string; pesoOriginal: number };
 
@@ -158,16 +159,7 @@ export function ConversorImagenes() {
           <div className="grid gap-4 rounded-xl border border-slate-100 bg-white p-4 sm:grid-cols-3">
             <label className="flex flex-col gap-1 text-sm">
               <span className="font-medium text-slate-700">Convertir a</span>
-              <select
-                value={formato}
-                onChange={(e) =>
-                  setFormato(e.target.value as 'image/jpeg' | 'image/png')
-                }
-                className="rounded-lg border border-slate-200 px-3 py-2 text-sm"
-              >
-                <option value="image/jpeg">JPG (más liviano)</option>
-                <option value="image/png">PNG (sin pérdida)</option>
-              </select>
+              <SelectField name="formato-conversion" label="Convertir a" value={formato} onChange={(v) => setFormato(v as 'image/jpeg' | 'image/png')} placeholder="Seleccionar" options={[{ value: 'image/jpeg', label: 'JPG (más liviano)' }, { value: 'image/png', label: 'PNG (sin pérdida)' }]} />
             </label>
 
             <label className="flex flex-col gap-1 text-sm">

@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { Lock, Building2 } from 'lucide-react';
 import { AppShell } from '@/components/layout/AppShell';
+import { SelectField } from '@/components/ui/SelectField';
 import { createClient } from '@/lib/supabase/server';
 import { getUserProfile } from '@/lib/auth/getUserProfile';
 import { isPlatformOwner } from '@/lib/permissions/platformOwner';
@@ -204,21 +205,13 @@ export default async function ConfiguracionPage({ searchParams }: ConfiguracionP
                 </p>
               ) : null}
 
-              <select
+              <SelectField
                 name="industry_type"
-                required
+                label="Rubro del espacio"
                 defaultValue=""
-                className="w-full rounded-lg border border-[#e3e4e5] bg-white px-3.5 py-2.5 pr-10 text-[13.5px] text-[#25272a] outline-none focus:border-[#25272a] focus:ring-1 focus:ring-[#25272a]/20"
-              >
-                <option value="" disabled>
-                  — Sin selección (definir explícitamente) —
-                </option>
-                {(['legal', 'escribania', 'inmobiliaria'] as const).map((t) => (
-                  <option key={t} value={t}>
-                    {industryLabels[t]}
-                  </option>
-                ))}
-              </select>
+                placeholder="— Sin selección (definir explícitamente) —"
+                options={(['legal', 'escribania', 'inmobiliaria'] as const).map((t) => ({ value: t, label: industryLabels[t] }))}
+              />
               <p className="text-[11.5px] text-[#6b7075]">El cambio afecta solo la estructura operativa. No modifica datos existentes.</p>
               <FormSubmitButton
                 label="Guardar rubro"

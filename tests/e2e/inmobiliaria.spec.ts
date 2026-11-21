@@ -407,21 +407,26 @@ test.describe.serial('Anulus AI - Inmobiliaria E2E', () => {
       await page.goto('/clientes/nuevo');
       await expect(page.getByRole('heading', { name: 'Registrar nuevo cliente', exact: true })).toBeVisible();
       await expect(page.locator('input[name="name"]')).toBeVisible();
-      await expect(page.locator('select[name="client_type"]')).toBeVisible();
+      const clientTypeTrigger = page.getByRole('button', { name: 'Tipo de cliente' });
+      await expect(clientTypeTrigger).toBeVisible();
 
-      // Verificar existencia y conducta de los campos de preferencias de búsqueda
-      await expect(page.locator('select[name="operation_interest"]')).toBeVisible();
-      await expect(page.locator('select[name="desired_property_type"]')).toBeVisible();
+      // Verificar existencia y conducta de los campos de preferencias de búsqueda (SelectField)
+      const interesTrigger = page.getByRole('button', { name: 'Interés' });
+      const tipoTrigger = page.getByRole('button', { name: 'Tipo de propiedad buscada' });
+      await expect(interesTrigger).toBeVisible();
+      await expect(tipoTrigger).toBeVisible();
       await expect(page.locator('input[name="desired_city"]')).toBeVisible();
 
       await page.locator('input[name="name"]').fill('Cliente Preferencias QA');
-      await page.locator('select[name="operation_interest"]').selectOption('compra');
-      await page.locator('select[name="desired_property_type"]').selectOption('departamento');
+      await interesTrigger.click();
+      await page.getByRole('option', { name: 'Compra' }).click();
+      await tipoTrigger.click();
+      await page.getByRole('option', { name: 'Departamento' }).click();
       await page.locator('input[name="desired_city"]').fill('CABA');
 
       expect(await page.locator('input[name="name"]').inputValue()).toBe('Cliente Preferencias QA');
-      expect(await page.locator('select[name="operation_interest"]').inputValue()).toBe('compra');
-      expect(await page.locator('select[name="desired_property_type"]').inputValue()).toBe('departamento');
+      await expect(page.locator('input[name="operation_interest"]')).toHaveValue('compra');
+      await expect(page.locator('input[name="desired_property_type"]')).toHaveValue('departamento');
       expect(await page.locator('input[name="desired_city"]').inputValue()).toBe('CABA');
     } finally {
       await page.close();

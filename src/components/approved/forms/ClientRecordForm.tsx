@@ -1,12 +1,13 @@
 import Link from 'next/link';
 import type {ClientRecord} from '@/types/client';
 import {FormSubmitButton} from '@/components/ui/FormSubmitButton';
+import {SelectField} from '@/components/ui/SelectField';
 import {FormField,FormSection,type FormAction} from './FormParts';
 import styles from './ApprovedForm.module.css';
 const options = {"client_type": [["comprador", "Comprador"], ["inquilino", "Inquilino"], ["vendedor", "Vendedor"], ["propietario", "Propietario"], ["otro", "Otro"]], "status": [["activo", "Activo"], ["en_seguimiento", "En seguimiento"], ["cerrado", "Cerrado"], ["descartado", "Descartado"]], "operation_interest": [["", "No especificado"], ["compra", "Compra"], ["alquiler", "Alquiler"]], "desired_property_type": [["", "No especificado"], ["casa", "Casa"], ["departamento", "Departamento"], ["lote", "Lote/Terreno"], ["local", "Local"], ["oficina", "Oficina"], ["cochera", "Cochera"], ["cualquiera", "Cualquiera"]], "currency": [["USD", "u$s"], ["ARS", "$ (ARS)"]]};
 export function ClientRecordForm({action,record}:{action:FormAction;record?:ClientRecord}) {
  const prefix=record?`client-${record.id}`:'new-client';const id=(name:string)=>`${prefix}-${name}`;
- function select(name:keyof typeof options,label:string,value:string,two=false){return <FormField key={name} id={id(name)} label={label} two={two}><select id={id(name)} name={name} defaultValue={value}>{options[name].map(([value,label])=><option key={value} value={value}>{label}</option>)}</select></FormField>}
+ function select(name:keyof typeof options,label:string,value:string,two=false){const opts=options[name].filter(([v])=>v!=='').map(([v,l])=>({value:v,label:l}));const placeholder=options[name].some(([v])=>v==='')?'No especificado':'Seleccionar';return <FormField key={name} id={id(name)} label={label} two={two}><SelectField name={name} label={label} defaultValue={value} options={opts} placeholder={placeholder}/></FormField>}
  function input(name:string,label:string,value:string|number,type='text',placeholder='',two=false,required=false){return <FormField key={name} id={id(name)} label={label} two={two}><input id={id(name)} name={name} type={type} defaultValue={value} placeholder={placeholder} required={required}/></FormField>}
  return <div className={styles.root}><form action={action} className={styles.ncPanel} aria-label={record?'Editar cliente':'Nuevo cliente'}>{record&&<input type="hidden" name="client_id" value={record.id}/>}<div className={styles.ncIntro}><p>Registrá el contacto y, si corresponde, sus criterios de búsqueda.</p><span className={styles.ncTag}>* Campo obligatorio</span></div>
  <FormSection number="01" title="Contacto" description="Nombre, medios de contacto y situación del cliente." three>
