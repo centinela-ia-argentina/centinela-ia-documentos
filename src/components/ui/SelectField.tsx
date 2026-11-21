@@ -112,7 +112,7 @@ export function SelectField({
   return (
     <div
       ref={rootRef}
-      className="relative mt-2"
+      className="relative mt-2 min-w-0"
       data-testid={testId}
       onBlur={(event) => {
         if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setOpen(false);
