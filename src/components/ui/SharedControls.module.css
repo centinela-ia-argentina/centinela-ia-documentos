@@ -70,9 +70,10 @@
   border: 1px solid #d2d8dd; border-radius: 6px; background: #fff;
   color: #25272a; box-shadow: 0 7px 20px #1b26341a;
 }
-.option { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 40px; padding: 8px 10px; border-radius: 3px; text-align: left; font-size: 12px; }
+.popup .option { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 40px; padding: 8px 10px; border: 0; border-radius: 3px; min-width: 0; background: transparent; color: inherit; text-align: left; font-size: 12px; }
 .option:hover, .option:focus { background: #f1f3f4; }
 .option[aria-selected=true] { background: #edf0f1; font-weight: 600; }
+.popup .option svg { flex-shrink: 0; }
 .steps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .step { position: relative; display: flex; align-items: center; gap: 10px; width: 100%; min-height: 72px; padding: 10px; text-align: left; color: #62676d; border-bottom: 2px solid transparent; }
 .step[aria-current=step] { color: #25272a; border-bottom-color: #363b40; }

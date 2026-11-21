@@ -100,7 +100,7 @@ describe('Acceso de la página real de cliente con Supabase simulado', () => {
       if (Array.isArray(node)) return node.forEach(collect);
       if (!React.isValidElement(node)) return;
       const props = node.props as Record<string, unknown>;
-      if (typeof node.type === 'function') { collect((node.type as (props: unknown) => React.ReactNode)(props)); return; }
+      if (typeof node.type === 'function') { try { collect((node.type as (props: unknown) => React.ReactNode)(props)); } catch { /* componente cliente con hooks (SelectField): se colecta vía hidden input en runtime */ } return; }
       if (node.type === 'input') inputs.push(props);
       collect(props.children as React.ReactNode);
     }

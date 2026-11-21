@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react';
 import { ArrowRight } from 'lucide-react';
 import { Sparkle, FileText, CheckCircle } from '@phosphor-icons/react';
 import { AppButton, AppButtonLink } from '@/components/ui/AppButton';
+import { SelectField } from '@/components/ui/SelectField';
 import { extraerDatosPropiedadIA } from '../actions';
 import type { PropertyExtraction } from '@/lib/ai/extraerPropiedad';
 import styles from './PropertyDetail.module.css';
@@ -38,7 +39,7 @@ export function PropertyAiAssistant({ propertyId, documents, onApply, disabled =
       <AppButton variant="secondary" aria-expanded={open} aria-controls="property-document-help" disabled={busy} onClick={() => setOpen(value => !value)}>{open ? 'Ocultar ayuda documental' : 'Revisar un documento'}<ArrowRight size={18} strokeWidth={1.7} aria-hidden="true" /></AppButton>
       <div id="property-document-help" hidden={!open}>
         <p className={styles.note}>Documentos de la organización: verificá que el seleccionado corresponda a esta propiedad.</p>
-        {!extractedData && <div className={styles.documentControls}><label htmlFor="property-document">Documento de la Bóveda</label><select id="property-document" value={selectedDocId} disabled={busy} onChange={e => setSelectedDocId(e.target.value)}>{documents.map(doc => <option key={doc.id} value={doc.id}>{doc.file_name}</option>)}</select><AppButton className={styles.primary} disabled={busy || !selectedDocId} onClick={extract}><FileText size={18} weight="duotone" aria-hidden="true" />{isPending ? 'Leyendo…' : 'Leer con IA'}<ArrowRight size={18} strokeWidth={1.7} aria-hidden="true" /></AppButton></div>}
+        {!extractedData && <div className={styles.documentControls}><label htmlFor="property-document">Documento de la Bóveda</label><SelectField name="property-document" label="Documento de la Bóveda" value={selectedDocId} disabled={busy} onChange={setSelectedDocId} placeholder="Seleccionar documento" options={documents.map(doc => ({ value: doc.id, label: doc.file_name }))} /><AppButton className={styles.primary} disabled={busy || !selectedDocId} onClick={extract}><FileText size={18} weight="duotone" aria-hidden="true" />{isPending ? 'Leyendo…' : 'Leer con IA'}<ArrowRight size={18} strokeWidth={1.7} aria-hidden="true" /></AppButton></div>}
         {error && <p role="alert" className={styles.error}>{error}</p>}
         {extractedData && <>
           <div className={styles.intro}><h4><CheckCircle size={20} weight="duotone" aria-hidden="true" />Sugerencias del documento</h4><AppButton variant="secondary" disabled={busy} onClick={() => setExtractedData(null)}>Descartar sugerencias</AppButton></div>
