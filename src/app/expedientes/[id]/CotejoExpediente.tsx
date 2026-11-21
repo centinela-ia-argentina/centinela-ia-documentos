@@ -3,6 +3,7 @@
 import { MagnifyingGlass } from '@phosphor-icons/react';
 import styles from './IndustryTools.module.css';
 import { useFormStatus } from 'react-dom';
+import { CollapseArea } from './CollapseArea';
 import { cotejarExpediente } from '../actions';
 
 type CotejoNotarial = {
@@ -129,7 +130,12 @@ export function CotejoExpediente({
       )}
 
       {cotejo && (
-        <div className={styles.result}>
+        <CollapseArea
+          openLabel="Ver resultado del cotejo"
+          closeLabel="Ocultar resultado del cotejo"
+          hint={`${rotuloDiscrepancias}: ${discrepancias.length} · ${rotuloVigencias}: ${alertasVigencia.length}`}
+        >
+          <div className={styles.result}>
           <p className={styles.description}>{veredicto}</p>
           <Bloque titulo={rotuloCoincidencias} items={coincidencias} tono="emerald" />
           <div data-testid="cotejo-discrepancias">
@@ -144,7 +150,8 @@ export function CotejoExpediente({
               Cotejo generado el {new Date(generadoEl).toLocaleString('es-AR')} · Borrador orientativo, {pieAccion}.
             </p>
           )}
-        </div>
+          </div>
+        </CollapseArea>
       )}
     </div>
   );

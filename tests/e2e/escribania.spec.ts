@@ -346,7 +346,10 @@ test.describe.serial('Anulus AI - Escribania E2E', () => {
       await expect(btnCotejo).toBeVisible();
       await btnCotejo.click();
 
-      // Verificar aserciones scoped de discrepancias y vigencias en Cotejo
+      // Verificar aserciones scoped de discrepancias y vigencias en Cotejo (sección plegable)
+      const btnVerCotejo = page.locator('button:has-text("Ver resultado del cotejo")').first();
+      await expect(btnVerCotejo).toBeVisible();
+      await btnVerCotejo.click();
       const cotejoDiscrepancias = page.locator('[data-testid="cotejo-discrepancias"]');
       await expect(cotejoDiscrepancias).toContainText('Plazo contractual: la fecha tentativa de escritura (10/09/2026) supera el límite contractual (08/09/2026) por 2 días corridos.');
 
@@ -358,7 +361,10 @@ test.describe.serial('Anulus AI - Escribania E2E', () => {
       await expect(btnBorrador).toBeVisible();
       await btnBorrador.click();
 
-      // Verificar cláusula UIF autónoma, leyenda de ITI derogada, y preservación de COTI
+      // Verificar cláusula UIF autónoma, leyenda de ITI derogada, y preservación de COTI (sección plegable)
+      const btnVerBorrador = page.locator('button:has-text("Ver borrador")').first();
+      await expect(btnVerBorrador).toBeVisible();
+      await btnVerBorrador.click();
       await expect(page.locator('body')).toContainText('MEDIOS DE PAGO Y ORIGEN DE FONDOS');
       await expect(page.locator('body')).toContainText('[COMPLETAR/VERIFICAR: declaración y documentación respaldatoria sobre medios y origen de fondos]');
       await expect(page.locator('body')).toContainText('I.T.I.: No resulta aplicable por encontrarse derogado conforme Ley 27.743 para operaciones otorgadas a partir del 08/07/2024.');
