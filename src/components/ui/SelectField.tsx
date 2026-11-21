@@ -178,6 +178,7 @@ export function SelectField({
                   setActiveIndex(nextIndex);
                 }}
                 aria-selected={active}
+                data-select-option=""
                 onClick={() => choose(option.value)}
                 className={styles.option}
               >
