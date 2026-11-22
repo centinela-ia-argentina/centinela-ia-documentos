@@ -28,11 +28,18 @@ Metodología: auditoría por paquetes de capturas → registro con severidad →
 - Fixes de verificación con el usuario: popup compacto en todo contexto, `min-w-0` para columnas angostas (causa raíz del desborde en la columna de datos), botones en una línea, errores de IA humanizados (`error_descarga` → mensaje en español).
 - Adaptación de tests unitarios (patrón trigger/option/hidden input) y e2e.
 
-## Lote 4 — Secciones plegables en ficha de expediente (PR #40, en curso)
+## Lote 4 — Secciones plegables en ficha de expediente (PR #40, merged)
 
 - Componente `CollapseArea` (patrón "Consultar al agente"): header con label + resumen (chips/counts) + caret; el cuerpo queda montado para no perder borradores ni estados.
 - Aplicado a: Cotejo (3 rubros), Pre-Score, Borrador de reserva/boleto, Borrador de escritura, Análisis UIF, Liquidación, Vencimiento procesal, Tasa de justicia, Aviso comercial.
 - Documentación del sistema: `docs/DESIGN-SYSTEM.md` (tokens, reglas, componentes) + este registro.
+
+## Lote 5 — Sub-lote oscuro + pulido Modelos (PR #41, en curso)
+
+- Variante `dark` de SelectField (tema oscuro en SharedControls: trigger `#181c1f`, popup `#1c2124`, focus del sistema) para las superficies oscuras: Calculadoras (3 selects), Protocolo (3), Tasación (1).
+- Alquileres/Índices resultó tema CLARO: sus 3 selects van al SelectField estándar (sin variante oscuro).
+- S5-G3: paleta slate de Modelos convergiendo a grises del sistema (`#25272a` texto, `#62676d` secundario, `#8a8f94` terciario, `#d9d9d6`/`#e0e1e1` bordes, focus `#415a71`) en `RevisarEscrito` y `ModelosClient`.
+- Pendiente para un lote posterior: botones con gradientes violeta/ámbar/cian de las superficies oscuras (Calculadoras/Protocolo) → alineación con jerarquía de botones del sistema.
 
 ## Ruta pendiente (orden agilizado)
 

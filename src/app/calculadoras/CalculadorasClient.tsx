@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { MotionCard } from '@/components/ui/MotionCard';
 import { MotionButton } from '@/components/ui/MotionButton';
+import { SelectField } from '@/components/ui/SelectField';
 import { guardarPlazoEnAgenda } from './actions';
 import {
   UMA_VALOR,
@@ -242,16 +243,15 @@ function PlazosCalc({ puedeGuardar = true }: { puedeGuardar?: boolean }) {
     <Card title="Plazos procesales" subtitle="Calculá la fecha de vencimiento desde una fecha de inicio.">
       <div className="mb-4">
         <Field label="Jurisdicción (obligatorio)">
-          <select
+          <SelectField
+            name="plazos-jurisdiccion"
+            label="Jurisdicción"
+            dark
             value={jurisdiccion}
-            onChange={(e) => { setJurisdiccion(e.target.value as LegalJurisdiction | ''); setGuardado(null); setResultado(null); }}
-            className={inputClass}
-          >
-            <option value="" className="bg-white text-slate-900">-- Seleccionar jurisdicción --</option>
-            {Object.entries(JURISDICTION_LABELS).map(([k, v]) => (
-              <option key={k} value={k} className="bg-white text-slate-900">{v}</option>
-            ))}
-          </select>
+            placeholder="Seleccionar jurisdicción"
+            onChange={(v) => { setJurisdiccion(v as LegalJurisdiction | ''); setGuardado(null); setResultado(null); }}
+            options={[{ value: '', label: 'Seleccionar jurisdicción' }, ...Object.entries(JURISDICTION_LABELS).map(([k, v]) => ({ value: k, label: v }))]}
+          />
         </Field>
         {jurisdiccion && (
           <div className="mt-2 text-xs text-slate-400">
@@ -475,24 +475,28 @@ function TasaCalc() {
       <Card title="Tasa de justicia" subtitle="Porcentaje sobre el monto del proceso (Ley 23.898 — Justicia Nacional/Federal).">
         <div className="mb-4">
           <Field label="Jurisdicción (obligatorio)">
-            <select
+            <SelectField
+              name="tasa-jurisdiccion"
+              label="Jurisdicción"
+              dark
+              testId="tasa-jurisdiccion"
               value={jurisdiccion}
-              data-testid="tasa-jurisdiccion"
-              onChange={(e) => {
-                const j = e.target.value as LegalJurisdiction | '';
+              placeholder="Seleccionar jurisdicción"
+              onChange={(v) => {
+                const j = v as LegalJurisdiction | '';
                 setJurisdiccion(j);
                 setTipoProceso('');
                 setTasaRes(null);
                 setError(null);
                 setConfirmacion(false);
               }}
-              className={inputClass}
-            >
-              <option value="" className="bg-white text-slate-900">-- Seleccionar jurisdicción --</option>
-              <option value="nacion" className="bg-white text-slate-900">Justicia Nacional / Federal</option>
-              <option value="pba" className="bg-white text-slate-900">Provincia de Buenos Aires</option>
-              <option value="corrientes" className="bg-white text-slate-900">Provincia de Corrientes</option>
-            </select>
+              options={[
+                { value: '', label: 'Seleccionar jurisdicción' },
+                { value: 'nacion', label: 'Justicia Nacional / Federal' },
+                { value: 'pba', label: 'Provincia de Buenos Aires' },
+                { value: 'corrientes', label: 'Provincia de Corrientes' },
+              ]}
+            />
           </Field>
         </div>
 
@@ -510,30 +514,34 @@ function TasaCalc() {
         {jurisdiccion === 'nacion' && (
           <>
             <Field label="Tipo de proceso (Ley 23.898)">
-              <select
+              <SelectField
+                name="tasa-tipo-proceso"
+                label="Tipo de proceso"
+                dark
+                testId="tasa-tipo-proceso"
                 value={tipoProceso}
-                data-testid="tasa-tipo-proceso"
-                onChange={(e) => {
-                  setTipoProceso(e.target.value as NationalJusticeFeeCaseType);
+                placeholder="Seleccionar tipo de proceso"
+                onChange={(v) => {
+                  setTipoProceso(v as NationalJusticeFeeCaseType);
                   setTasaRes(null);
                   setError(null);
                   setConfirmacion(false);
                 }}
-                className={inputClass}
-              >
-                <option value="" className="bg-white text-slate-900">-- Seleccionar tipo de proceso --</option>
-                <option value="general_pecuniary" className="bg-white text-slate-900">Pretensión pecuniaria general (3%)</option>
-                <option value="succession" className="bg-white text-slate-900">Sucesorio</option>
-                <option value="employment" className="bg-white text-slate-900">Laboral</option>
-                <option value="family" className="bg-white text-slate-900">Familia</option>
-                <option value="indeterminate" className="bg-white text-slate-900">Monto indeterminado</option>
-                <option value="insolvency" className="bg-white text-slate-900">Concurso / Quiebra</option>
-                <option value="third_party_claim" className="bg-white text-slate-900">Tercería</option>
-                <option value="survey_boundary" className="bg-white text-slate-900">Mensura / Deslinde</option>
-                <option value="amparo" className="bg-white text-slate-900">Acción de amparo</option>
-                <option value="legal_aid" className="bg-white text-slate-900">Beneficio de litigar sin gastos</option>
-                <option value="other" className="bg-white text-slate-900">Otro</option>
-              </select>
+                options={[
+                  { value: '', label: 'Seleccionar tipo de proceso' },
+                  { value: 'general_pecuniary', label: 'Pretensión pecuniaria general (3%)' },
+                  { value: 'succession', label: 'Sucesorio' },
+                  { value: 'employment', label: 'Laboral' },
+                  { value: 'family', label: 'Familia' },
+                  { value: 'indeterminate', label: 'Monto indeterminado' },
+                  { value: 'insolvency', label: 'Concurso / Quiebra' },
+                  { value: 'third_party_claim', label: 'Tercería' },
+                  { value: 'survey_boundary', label: 'Mensura / Deslinde' },
+                  { value: 'amparo', label: 'Acción de amparo' },
+                  { value: 'legal_aid', label: 'Beneficio de litigar sin gastos' },
+                  { value: 'other', label: 'Otro' },
+                ]}
+              />
             </Field>
             {tipoProceso === 'general_pecuniary' && (
               <>

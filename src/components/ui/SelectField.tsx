@@ -20,6 +20,7 @@ export type SelectFieldProps = {
   icon?: ReactNode;
   testId?: string;
   disabled?: boolean;
+  dark?: boolean;
   onChange?: (value: string) => void;
 };
 
@@ -33,6 +34,7 @@ export function SelectField({
   icon,
   testId,
   disabled,
+  dark,
   onChange,
 }: SelectFieldProps) {
   const [open, setOpen] = useState(false);
@@ -112,7 +114,7 @@ export function SelectField({
   return (
     <div
       ref={rootRef}
-      className="relative mt-2 min-w-0"
+      className={`relative mt-2 min-w-0${dark ? ` ${styles.dark}` : ''}`}
       data-testid={testId}
       onBlur={(event) => {
         if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setOpen(false);

@@ -497,7 +497,7 @@ export function ModelosClient({
 
                   {expedientes.length > 0 && (
                     <div>
-                      <div className="flex items-center gap-2 text-sm font-semibold text-slate-700">
+                      <div className="flex items-center gap-2 text-sm font-semibold text-[#25272a]">
                         <FolderKanban />
                         Prellenar desde {industria === 'inmobiliaria' ? 'una operación' : industria === 'escribania' ? 'un legajo' : 'un expediente'}
                       </div>

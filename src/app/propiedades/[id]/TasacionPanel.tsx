@@ -10,6 +10,7 @@ import { AppButton } from '@/components/ui/AppButton';
 import styles from './PropertyDetail.module.css';
 import type { ComparableRecord } from '@/types/comparable';
 import { TasarButton } from './TasarButton';
+import { SelectField } from '@/components/ui/SelectField';
 
 interface TasacionPanelProps {
   propertyId: string;
@@ -192,10 +193,7 @@ export function TasacionPanel({ propertyId, propertyType, comparables, canManage
                 {/* FILA 6 */}
                 <div>
                   <label htmlFor="comparable-currency" className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-400">Moneda *</label>
-                  <select id="comparable-currency" name="currency" required className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2.5 text-sm text-white outline-none focus:ring-2 focus:ring-cyan-500">
-                    <option value="USD" className="bg-[#0C162D]">USD</option>
-                    <option value="ARS" className="bg-[#0C162D]">ARS</option>
-                  </select>
+                  <SelectField name="currency" label="Moneda" placeholder="Elegí la moneda" dark defaultValue="USD" options={[{value:'USD',label:'USD'},{value:'ARS',label:'ARS'}]} />
                 </div>
                 <div>
                   <label htmlFor="comparable-price" className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-400">Precio *</label>
