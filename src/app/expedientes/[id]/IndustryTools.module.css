@@ -9,3 +9,12 @@
 .input{display:block}
 
 .inlineBulletList{list-style:none;padding-left:0}
+
+/* Sección plegable (patrón "Consultar al agente"): header sobrio + cuerpo oculto. */
+.disclosure{display:flex;align-items:center;gap:10px;width:100%;min-height:40px;padding:8px 12px;border:0;border-radius:5px;background:#f1f2f1;color:#62676d;text-align:left;font-size:12px;font-weight:500;cursor:pointer}
+.disclosure:hover{color:#25272a;background:#ececea}
+.disclosure:focus-visible{outline:2px solid #415a71;outline-offset:1px}
+.disclosure svg{flex-shrink:0}
+.disclosureLabel{flex-shrink:0}
+.disclosureHint{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:400;color:#8a8f94}
+.disclosureBody{padding-top:12px;min-width:0}

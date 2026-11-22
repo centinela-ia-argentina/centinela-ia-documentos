@@ -5,6 +5,13 @@ Formato por fecha; los PR quedan enlazados con su detalle completo (commits, che
 
 ---
 
+## 2026-11-20 (noche) — Lote 2: SelectField en formularios de clientes, alquileres y expedientes (PR #39 — merged)
+
+- 22 selects nativos migrados a `SelectField` en 16 archivos: ClientRecordForm (5), RentalContractForm (5), CaseFacts (estado + metadata), LinkedProperty, CalificarInquilinoButton, configuración (rubro), onboarding, UtilidadesTexto, ConversorImagenes, PropertyAiAssistant. Tests unitarios adaptados al patrón trigger/option/hidden input + e2e inmobiliaria.
+- Fixes de la verificación con el usuario: popup de opciones compacto en todo contexto (`.popup .option` por especificidad + exclusión `[data-select-option]`), `min-w-0` en el root de SelectField (causa raíz del desborde en la columna de datos de 235px: el texto largo nowrap excedía la columna por min-content), "Cotejar documentos con IA" en una línea (`white-space:nowrap` ≥640px), y errores de IA humanizados (`error_descarga`/`error_ia` → "No se pudo descargar el archivo…" / "La IA no pudo leer este documento…").
+- "Leer con IA" (panel Ayuda con documentos al final de la edición de propiedad) verificado por el usuario con lectura real de documentos y aplicación de sugerencias al borrador.
+- **Lección min-width en grid:** columna fija + texto nowrap → el contenedor desborda por min-content intrínseco aunque haya overflow-hidden; fix en el componente (`min-w-0`), no en estilos periféricos.
+
 ## 2026-11-20 — S5: hint de progreso en acciones IA largas (PR #38 — merged) — **S1–S5 COMPLETOS**
 
 - Auditoría de los 5 estados (vacío/carga/progreso/error/éxito): relevamiento en código de todas las superficies asíncronas críticas → los 5 estados ya existían (roles status/alert, aria-busy, aria-live correctos). Registro en auditoria-uiux-registro.md sección S5.

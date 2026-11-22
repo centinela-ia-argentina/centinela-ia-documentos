@@ -10,6 +10,7 @@ import type { AnalisisUIF } from '@/lib/ai/uif';
 import type { PreScoreInquilino } from '@/lib/ai/preScore';
 import { CotejoExpediente } from './CotejoExpediente';
 import { RedactarEscrituraButton } from './RedactarEscrituraButton';
+import { CollapseArea } from './CollapseArea';
 import { AnalizarUifButton } from './AnalizarUifButton';
 import { CalificarInquilinoButton } from './CalificarInquilinoButton';
 import { RosDraftButton } from './RosDraftButton';
@@ -77,6 +78,11 @@ export function CaseIndustryTools({industry,caseRecord,profile,puedeUsarIA,liqui
                     <p className={styles.description}>
                       Estimación orientativa calculada por el Agente IA a partir de los datos del expediente. No constituye una certeza legal definitiva.
                     </p>
+                    <CollapseArea
+                      openLabel="Ver cálculo completo"
+                      closeLabel="Ocultar cálculo completo"
+                      hint={`Capital estimado: ${new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(liquidacion.capital)}`}
+                    >
                     <div className={styles.grid}>
                       <div className={styles.metric}>
                         <p className={styles.caption}>Capital estimado</p>
@@ -113,6 +119,7 @@ export function CaseIndustryTools({industry,caseRecord,profile,puedeUsarIA,liqui
                     <p className={styles.footnote}>
                       Base de cálculo: ingreso mensual {new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(liquidacion.ingreso_mensual)} · edad {liquidacion.edad} · incapacidad {liquidacion.incapacidad}% · tasa de descuento {(liquidacion.tasa_descuento * 100).toFixed(0)}%
                     </p>
+                    </CollapseArea>
                   </section>
                 )}
                 {industry === 'legal' && plazo && (
@@ -125,6 +132,11 @@ export function CaseIndustryTools({industry,caseRecord,profile,puedeUsarIA,liqui
                     <p className={styles.description}>
                       Cómputo orientativo sobre el calendario de la Justicia Nacional/Federal (fines de semana, feriados y feria judicial). Verificá los feriados provinciales que correspondan.
                     </p>
+                    <CollapseArea
+                      openLabel="Ver detalle del cómputo"
+                      closeLabel="Ocultar detalle del cómputo"
+                      hint={`Vence el ${plazo.vencimiento.split('-').reverse().join('/')}`}
+                    >
                     <div className={styles.grid}>
                       <div className={styles.metric}>
                         <p className={styles.caption}>Vence el</p>
@@ -167,6 +179,7 @@ export function CaseIndustryTools({industry,caseRecord,profile,puedeUsarIA,liqui
                         ))}
                       </ul>
                     </div>
+                    </CollapseArea>
                   </section>
                 )}
                 {industry === 'legal' && tasaJusticia && (
@@ -179,6 +192,11 @@ export function CaseIndustryTools({industry,caseRecord,profile,puedeUsarIA,liqui
                     <p className={styles.description}>
                       Estimación orientativa de la tasa de justicia (Ley 23.898). Se abona al iniciar la demanda. Verificá exenciones, mínimos y la alícuota vigente en la jurisdicción.
                     </p>
+                    <CollapseArea
+                      openLabel="Ver detalle de la tasa"
+                      closeLabel="Ocultar detalle de la tasa"
+                      hint={`Tasa: ${new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(tasaJusticia.tasa)} · ${tasaJusticia.porcentaje}%`}
+                    >
                     <div className={styles.grid}>
                       <div className={styles.metric}>
                         <p className={styles.caption}>Tasa a abonar</p>
@@ -199,6 +217,7 @@ export function CaseIndustryTools({industry,caseRecord,profile,puedeUsarIA,liqui
                         </p>
                       </div>
                     </div>
+                    </CollapseArea>
                   </section>
                 )}
                 {(industry === 'escribania' || industry === 'legal' || industry === 'inmobiliaria') && (
@@ -223,6 +242,11 @@ export function CaseIndustryTools({industry,caseRecord,profile,puedeUsarIA,liqui
                       )}
                     </div>
                     {borradorEscritura ? (
+                      <CollapseArea
+                        openLabel="Ver borrador"
+                        closeLabel="Ocultar borrador"
+                        hint={`Datos a completar: ${borradorEscritura.datos_faltantes.length} · Advertencias: ${borradorEscritura.advertencias.length}`}
+                      >
                       <div className={styles.result}>
                         <p className={styles.caption}>{borradorEscritura.titulo}</p>
                         <pre className={styles.draft}>{borradorEscritura.cuerpo}</pre>
@@ -245,6 +269,7 @@ export function CaseIndustryTools({industry,caseRecord,profile,puedeUsarIA,liqui
                         <AiDisclaimer industry={industry} className={styles.disclaimer} />
                         <p className={styles.description}>Borrador generado por IA. Revisalo y completalo antes de otorgar.</p>
                       </div>
+                      </CollapseArea>
                     ) : (
                       <p className={styles.description}>
                         Generá un borrador de escritura a partir de los documentos analizados del legajo.
@@ -296,6 +321,11 @@ export function CaseIndustryTools({industry,caseRecord,profile,puedeUsarIA,liqui
                           )}
                         </div>
                         {analisisUif.fundamento && <p className={styles.description}>{analisisUif.fundamento}</p>}
+                        <CollapseArea
+                          openLabel="Ver análisis completo"
+                          closeLabel="Ocultar análisis completo"
+                          hint={`Factores: ${analisisUif.factores_riesgo.length} · Señales de alerta: ${analisisUif.senales_alerta.length}`}
+                        >
                         {analisisUif.factores_riesgo.length > 0 && (
                           <div>
                             <p className={styles.caption}>Factores de riesgo</p>
@@ -321,6 +351,7 @@ export function CaseIndustryTools({industry,caseRecord,profile,puedeUsarIA,liqui
                           </div>
                         )}
                         <AiDisclaimer industry={industry} className={styles.disclaimer} />
+                        </CollapseArea>
                       </div>
                     ) : (
                       <p className={styles.description}>Generá un análisis de riesgo PLA/FT del legajo con IA.</p>
@@ -355,6 +386,11 @@ export function CaseIndustryTools({industry,caseRecord,profile,puedeUsarIA,liqui
                             </span>
                           )}
                         </div>
+                        <CollapseArea
+                          openLabel="Ver análisis completo"
+                          closeLabel="Ocultar análisis completo"
+                          hint={prescore.ingreso_neto_mensual_estimado ? `Ingreso estimado: ${new Intl.NumberFormat('es-AR', { style: 'currency', currency: prescore.moneda_ingreso || 'ARS', maximumFractionDigits: 0 }).format(prescore.ingreso_neto_mensual_estimado)}` : undefined}
+                        >
                         <div className={styles.description}>
                           <p>
                             <span className={styles.strong}>Ingreso estimado:</span> {
@@ -400,6 +436,7 @@ export function CaseIndustryTools({industry,caseRecord,profile,puedeUsarIA,liqui
                           </div>
                         )}
                         <AiDisclaimer industry="inmobiliaria" className={styles.disclaimer} />
+                        </CollapseArea>
                       </div>
                     ) : (
                       <p className={styles.description}>Evaluá la solvencia del inquilino y solidez de garantías con IA.</p>
@@ -466,6 +503,11 @@ export function CaseIndustryTools({industry,caseRecord,profile,puedeUsarIA,liqui
                     </div>
 
                     {borradorInmoData && (
+                      <CollapseArea
+                        openLabel="Ver borrador"
+                        closeLabel="Ocultar borrador"
+                        hint={`Datos a completar: ${borradorInmoData.datos_faltantes.length} · Advertencias: ${borradorInmoData.advertencias.length}`}
+                      >
                       <div className={styles.result}>
                         <div className={styles.output}>
                           <p className={styles.title}>{borradorInmoData.titulo}</p>
@@ -499,6 +541,7 @@ export function CaseIndustryTools({industry,caseRecord,profile,puedeUsarIA,liqui
                           </div>
                         )}
                       </div>
+                      </CollapseArea>
                     )}
                   </div>
                 )}
@@ -510,6 +553,7 @@ export function CaseIndustryTools({industry,caseRecord,profile,puedeUsarIA,liqui
                       <h3 className={styles.title}>Aviso comercial (IA)</h3>
                     </div>
                     <p className={styles.description}>{avisoComercial.titulo}</p>
+                    <CollapseArea openLabel="Ver aviso completo" closeLabel="Ocultar aviso completo">
                     <p className={styles.description}>{avisoComercial.aviso}</p>
                     {avisoComercial.destacados.length > 0 && (
                       <div className={styles.space}>
@@ -533,6 +577,7 @@ export function CaseIndustryTools({industry,caseRecord,profile,puedeUsarIA,liqui
                       </div>
                     )}
                     <p className={styles.footnote}>Aviso generado por IA a partir de los datos de la operación. Revisalo antes de publicar.</p>
+                    </CollapseArea>
                   </div>
                 )}
 
