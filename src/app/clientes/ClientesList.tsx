@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { MagnifyingGlass, X } from '@phosphor-icons/react/dist/ssr';
+import { HouseLine, Key, MagnifyingGlass, X } from '@phosphor-icons/react/dist/ssr';
 import { AppButtonLink } from '@/components/ui/AppButton';
 import { getClientStatusLabel, getClientTypeLabel, getOperationInterestLabel, getDesiredPropertyTypeLabel } from '@/lib/clients/labels';
 import type { ClientRecord } from '@/types/client';
@@ -29,7 +29,16 @@ function budgetLabel(amount: number | null, currency: string | null) {
   return currency ? `${currency} ${value}` : `${value} · moneda sin definir`;
 }
 
-/** Listado denso de cartera de clientes, alineado al patrón aprobado de Operaciones. */
+/** Iniciales de la persona: hasta dos palabras, primera letra de cada una, en mayúsculas. */
+function initialsOf(name: string) {
+  const words = name.trim().split(/\s+/).filter(Boolean);
+  if (words.length === 0) return '—';
+  const first = words[0]?.charAt(0) ?? '';
+  const second = words[1]?.charAt(0) ?? '';
+  return `${first}${second}`.toUpperCase() || '—';
+}
+
+/** Cartera de clientes como archivo de personas: ficha con iniciales, criterio al centro, presupuesto en mono. */
 export function ClientesList({ records, filters, basePath, totalActivos }: { records: ClientRecord[]; filters: ClientesFilters; basePath: string; totalActivos: number }) {
   const activeSegment = segments.find(s => s.estado === filters.estado) ?? segments[0];
   return <>
@@ -53,46 +62,58 @@ export function ClientesList({ records, filters, basePath, totalActivos }: { rec
       <header className={styles.listSummary}>
         <div>
           <h2>{activeSegment.label === 'Todos' ? 'Clientes en la cartera' : activeSegment.label}</h2>
-          <p>Ordenados por alta más reciente.</p>
+          <p>Cada ficha, una persona: criterio de búsqueda, presupuesto y contacto.</p>
         </div>
         <span>{records.length === totalActivos ? `${records.length} ${records.length === 1 ? 'cliente' : 'clientes'}` : `${records.length} de ${totalActivos} ${totalActivos === 1 ? 'cliente' : 'clientes'}`}</span>
       </header>
       {records.length > 0 ? (
-        <table className={styles.records}>
-          <thead><tr>
-            <th scope="col">Cliente</th><th scope="col">Búsqueda</th><th scope="col">Estado</th>
-            <th scope="col">Presupuesto máx.</th><th scope="col">Contacto</th><th scope="col"><span className={styles.srOnly}>Acciones</span></th>
-          </tr></thead>
-          <tbody>
-            {records.map(client => {
-              const name = client.name || 'Cliente sin nombre';
-              const criteriaTitle = [
-                client.operation_interest ? getOperationInterestLabel(client.operation_interest) : null,
-                client.desired_property_type ? getDesiredPropertyTypeLabel(client.desired_property_type) : null,
-              ].filter(Boolean).join(' · ');
-              const budget = budgetLabel(client.budget_max, client.currency);
-              const contact = client.phone || client.email || null;
-              return (
-                <tr key={client.id}>
-                  <td>
-                    <Link className={styles.recordTitle} href={`/clientes/${client.id}`}>{name}</Link>
+        <ul className={styles.cards}>
+          {records.map(client => {
+            const name = client.name || 'Cliente sin nombre';
+            const href = `/clientes/${client.id}`;
+            const criteriaTitle = [
+              client.operation_interest ? getOperationInterestLabel(client.operation_interest) : null,
+              client.desired_property_type ? getDesiredPropertyTypeLabel(client.desired_property_type) : null,
+            ].filter(Boolean).join(' · ');
+            const budget = budgetLabel(client.budget_max, client.currency);
+            const contact = client.phone || client.email || null;
+            return (
+              <li key={client.id} className={styles.card}>
+                <div className={styles.cardHead}>
+                  <span className={styles.initial} aria-hidden="true">{initialsOf(name)}</span>
+                  <span className={styles.ident}>
+                    <Link className={styles.recordTitle} href={href}>{name}</Link>
                     <span className={styles.type}>{getClientTypeLabel(client.client_type)}</span>
-                  </td>
-                  <td data-label="Búsqueda">
-                    {criteriaTitle ? <span className={styles.criteria}>{criteriaTitle}</span> : <span className={styles.missing}>Sin criterios específicos</span>}
-                    <span className={styles.type}>{client.zone || 'Zona sin definir'}</span>
-                  </td>
-                  <td data-label="Estado"><span className={styles.stateTag} data-status={client.status?.toLowerCase() || 'undefined'}>{getClientStatusLabel(client.status)}</span></td>
-                  <td data-label="Presupuesto máx.">{budget ? <span className={styles.mono}>{budget}</span> : <span className={styles.missing}>Sin definir</span>}</td>
-                  <td data-label="Contacto">{contact ? <span className={styles.contactText}>{contact}</span> : <span className={styles.missing}>Sin contacto registrado</span>}</td>
-                  <td className={styles.rowActions}>
-                    <AppButtonLink href={`/clientes/${client.id}`} variant="secondary" aria-label={`Ver ficha: ${name}`}>Ver ficha</AppButtonLink>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+                  </span>
+                  <span className={styles.stateTag} data-status={client.status?.toLowerCase() || 'undefined'}>{getClientStatusLabel(client.status)}</span>
+                </div>
+                <div className={styles.criteria}>
+                  {criteriaTitle ? <>
+                    {client.operation_interest === 'alquiler' ? <Key size={16} aria-hidden="true" /> : <HouseLine size={16} aria-hidden="true" />}
+                    <span>{criteriaTitle}</span>
+                  </> : <span className={styles.missing}>Sin criterios específicos</span>}
+                </div>
+                <div className={styles.zone}>{client.zone || 'Zona sin definir'}</div>
+                <div className={styles.cardData}>
+                  <span className={styles.budget}>
+                    <span className={styles.dataLabel}>Presupuesto máx.</span>
+                    {budget ? <span className={styles.mono}>{budget}</span> : <span className={styles.missing}>Sin definir</span>}
+                  </span>
+                  {client.min_rooms != null ? (
+                    <span className={styles.rooms}>
+                      <span className={styles.dataLabel}>Ambientes</span>
+                      <span className={styles.mono}>{`${client.min_rooms}+`}</span>
+                    </span>
+                  ) : null}
+                  <span className={styles.contact}>
+                    {contact ? contact : <span className={styles.missing}>Sin contacto registrado</span>}
+                  </span>
+                  <AppButtonLink href={href} variant="secondary" aria-label={`Ver ficha: ${name}`}>Ver ficha</AppButtonLink>
+                </div>
+              </li>
+            );
+          })}
+        </ul>
       ) : (
         <div className={styles.noMatches}>
           <h3>{filters.q || filters.estado ? 'No hay coincidencias con este filtro' : 'Todavía no hay clientes registrados'}</h3>

@@ -36,9 +36,11 @@ describe('ClientesList · listado denso de cartera', () => {
   it('datos en mono para presupuesto y fallback Sin definir', () => {
     const { container } = view();
     expect(screen.getByText('u$s 190.000')).toBeTruthy();
-    expect(container.querySelector('[class*="mono"]')).not.toBeNull();
+    const budget = container.querySelector('[class*="budget"]');
+    expect(budget?.querySelector('[class*="mono"]')).not.toBeNull();
     const { container: missing } = view({ budget_max: null });
-    expect(missing.querySelector('[class*="mono"]')).toBeNull();
+    const missingBudget = missing.querySelector('[class*="budget"]');
+    expect(missingBudget?.querySelector('[class*="mono"]')).toBeNull();
     expect(screen.getByText('Sin definir')).toBeTruthy();
   });
 
@@ -54,9 +56,11 @@ describe('ClientesList · listado denso de cartera', () => {
     for (const text of ['Sin criterios específicos', 'Zona sin definir', 'Sin contacto registrado']) expect(screen.getByText(text)).toBeTruthy();
   });
 
-  it('ambientes mínimos no se muestran como columna vacía', () => {
-    const { container } = view({ min_rooms: null });
-    expect(container.querySelector('table')).not.toBeNull();
+  it('ambientes mínimos no se muestran como bloque vacío', () => {
+    view({ min_rooms: null });
+    expect(screen.queryByText('Ambientes')).toBeNull();
+    const { container } = view({ min_rooms: 3 });
+    expect(container.querySelector('[class*="rooms"]')?.querySelector('[class*="mono"]')?.textContent).toBe('3+');
   });
 
   it('segmentos de estado con aria-current y links al recorte', () => {

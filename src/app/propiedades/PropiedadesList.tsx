@@ -1,6 +1,5 @@
 import Link from 'next/link';
-import { MagnifyingGlass, X } from '@phosphor-icons/react/dist/ssr';
-import { AppButtonLink } from '@/components/ui/AppButton';
+import { ArrowRight, MagnifyingGlass, X } from '@phosphor-icons/react/dist/ssr';
 import { getPropertyStatusLabel, getPropertyTypeLabel } from '@/lib/properties/labels';
 import type { PropertyRecord } from '@/types/property';
 import styles from './Propiedades.module.css';
@@ -21,7 +20,7 @@ function buildHref(basePath: string, q: string, estado?: string) {
   return qs ? `${basePath}?${qs}` : basePath;
 }
 
-/** Listado denso de cartera, alineado al patrón aprobado de Operaciones (tabla + filtros + búsqueda). */
+/** Cartera de propiedades como índice editorial: cada registro, un número; nombre grande y precio protagonista. */
 export function PropiedadesList({ records, filters, basePath, totalActivas }: { records: PropertyRecord[]; filters: PropiedadesFilters; basePath: string; totalActivas: number }) {
   const activeSegment = segments.find(s => s.estado === filters.estado) ?? segments[0];
   const searchHref = buildHref(basePath, '', filters.estado);
@@ -46,38 +45,45 @@ export function PropiedadesList({ records, filters, basePath, totalActivas }: { 
       <header className={styles.listSummary}>
         <div>
           <h2>{activeSegment.label === 'Todas' ? 'Propiedades en la cartera' : activeSegment.label}</h2>
-          <p>Ordenadas por alta más reciente.</p>
+          <p>El listado lee como una guía de la cartera: nombre, ubicación y valor de un vistazo.</p>
         </div>
         <span>{records.length === totalActivas ? `${records.length} ${records.length === 1 ? 'propiedad' : 'propiedades'}` : `${records.length} de ${totalActivas} ${totalActivas === 1 ? 'propiedad' : 'propiedades'}`}</span>
       </header>
       {records.length > 0 ? (
-        <table className={styles.records}>
-          <thead><tr>
-            <th scope="col">Propiedad</th><th scope="col">Dirección</th><th scope="col">Estado</th>
-            <th scope="col">Precio registrado</th><th scope="col">Superficie</th><th scope="col"><span className={styles.srOnly}>Acciones</span></th>
-          </tr></thead>
-          <tbody>
-            {records.map(property => {
-              const name = property.name || 'Propiedad sin nombre';
-              const price = property.price == null ? null : `${property.currency === 'USD' ? 'u$s' : '$'} ${property.price.toLocaleString('es-AR')}`;
-              return (
-                <tr key={property.id}>
-                  <td>
-                    <Link className={styles.recordTitle} href={`/propiedades/${property.id}`}>{name}</Link>
-                    <span className={styles.type}>{getPropertyTypeLabel(property.property_type)}</span>
-                  </td>
-                  <td data-label="Dirección">{property.address || 'Dirección no cargada'}</td>
-                  <td data-label="Estado"><span className={styles.stateTag} data-status={property.status?.toLowerCase() || 'undefined'}>{getPropertyStatusLabel(property.status)}</span></td>
-                  <td data-label="Precio registrado">{price ? <span className={styles.mono}>{price}</span> : <span className={styles.missing}>Precio no cargado</span>}</td>
-                  <td data-label="Superficie">{property.surface_total_m2 == null ? <span className={styles.missing}>No cargada</span> : <span className={styles.mono}>{`${property.surface_total_m2} m²`}</span>}</td>
-                  <td className={styles.rowActions}>
-                    <AppButtonLink href={`/propiedades/${property.id}`} variant="secondary" aria-label={`Ver ficha: ${name}`}>Ver ficha</AppButtonLink>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+        <ol className={styles.index}>
+          {records.map((property, position) => {
+            const name = property.name || 'Propiedad sin nombre';
+            const href = `/propiedades/${property.id}`;
+            const price = property.price == null ? null : `${property.currency === 'USD' ? 'u$s' : '$'} ${property.price.toLocaleString('es-AR')}`;
+            const typeLabel = property.property_type ? getPropertyTypeLabel(property.property_type) : null;
+            const address = property.address || 'Dirección no cargada';
+            return (
+              <li key={property.id} className={styles.row}>
+                <span className={styles.no} aria-hidden="true">{String(position + 1).padStart(2, '0')}</span>
+                <span className={styles.title}>
+                  <Link className={styles.recordTitle} href={href}>{name}</Link>
+                  <span className={styles.meta}>
+                    {typeLabel ? <span className={styles.type}>{typeLabel}</span> : null}
+                    {typeLabel ? <span className={styles.sep} aria-hidden="true">·</span> : null}
+                    <span className={styles.addr}>{address}</span>
+                  </span>
+                </span>
+                <span className={styles.aux}>
+                  <span className={styles.stateTag} data-status={property.status?.toLowerCase() || 'undefined'}>{getPropertyStatusLabel(property.status)}</span>
+                  <span className={styles.data}>
+                    {price ? <span className={styles.mono}>{price}</span> : <span className={styles.missing}>Precio no cargado</span>}
+                    <small className={styles.dataSub}>
+                      {property.surface_total_m2 == null ? <span className={styles.missing}>No cargada</span> : <span className={styles.mono}>{`${property.surface_total_m2} m²`}</span>}
+                    </small>
+                  </span>
+                </span>
+                <Link className={styles.go} href={href} aria-label={`Ver ficha: ${name}`}>
+                  <ArrowRight size={18} aria-hidden="true" />
+                </Link>
+              </li>
+            );
+          })}
+        </ol>
       ) : (
         <div className={styles.noMatches}>
           <h3>{filters.q || filters.estado ? 'No hay coincidencias con este filtro' : 'Todavía no hay propiedades cargadas'}</h3>

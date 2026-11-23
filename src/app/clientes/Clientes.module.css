@@ -1,4 +1,4 @@
-/* Cartera de clientes · listado denso alineado al patrón de Operaciones (V1 aprobada). */
+/* Cartera de clientes · archivo de personas: ficha con iniciales, criterio al centro, presupuesto en mono. */
 
 .page { min-width: 0; color: #25272a; font-family: var(--font-ui), sans-serif; padding: 8px 0 22px; }
 .page .eyebrow { display: flex; align-items: center; gap: 10px; color: #626b73; font-size: 11px; letter-spacing: .08em; font-weight: 600; text-transform: uppercase; }
@@ -28,37 +28,40 @@
 .listSummary p { font-size: 10px; color: #626b73; margin: 0; }
 .listSummary > span { font-size: 11px; color: #626b73; font-variant-numeric: tabular-nums; }
 
-/* Tabla de cartera */
-.records { width: 100%; border-collapse: collapse; table-layout: fixed; }
-.records th { font-size: 9px; letter-spacing: .6px; text-transform: uppercase; color: #535f68; font-weight: 500; background: #f0f2f1; border-block: 1px solid #d9dddd; text-align: left; padding: 11px 10px; }
-.records td { padding: 18px 10px; border-bottom: 1px solid #e0e3e2; font-size: 12px; vertical-align: middle; overflow-wrap: anywhere; color: #25272a; }
-.records th:nth-child(1) { width: 20%; }
-.records th:nth-child(2) { width: 20%; }
-.records th:nth-child(3) { width: 13%; }
-.records th:nth-child(4) { width: 15%; }
-.records th:nth-child(5) { width: 18%; }
-.records th:nth-child(6) { width: 14%; text-align: right; }
-.recordTitle { font-weight: 650; font-size: 13px; line-height: 1.6; color: #25272a; text-decoration: none; display: block; }
+/* Fichas con iniciales */
+.cards { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 14px; }
+.card { border: 1px solid #d9d9d6; border-radius: 10px; padding: 16px; display: flex; flex-direction: column; gap: 12px; min-width: 0; transition: border-color .16s ease, background .16s ease; }
+.card:hover { border-color: #b9bcb8; background: #fbfbfa; }
+.cardHead { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.initial { width: 42px; height: 42px; flex-shrink: 0; border-radius: 10px; background: #2c2c2b; color: #fff; display: grid; place-items: center; font-size: 14px; font-weight: 700; letter-spacing: .02em; }
+.ident { min-width: 0; flex: 1; }
+.recordTitle { font-weight: 700; font-size: 14.5px; line-height: 1.45; letter-spacing: -.01em; color: #25272a; text-decoration: none; display: block; overflow-wrap: anywhere; }
 .recordTitle:hover { text-decoration: underline; text-underline-offset: 3px; }
-.type { font-size: 10px; line-height: 1.7; color: #626b73; display: block; margin-top: 4px; }
-.criteria { font-size: 12px; font-weight: 600; color: #25272a; display: block; }
-.contactText { font-size: 12px; color: #25272a; }
-.records tbody tr:hover { background: #f4f5f4; }
+.type { font-size: 10.5px; color: #626b73; display: block; margin-top: 2px; }
+.cardHead .stateTag { margin-left: auto; }
 
 /* Pill de estado ≤28px con punto de color (sistema) */
-.stateTag { display: inline-flex; align-items: center; gap: 5px; padding: 3px 8px; max-height: 28px; border: 1px solid #d9dddd; border-radius: 4px; background: #f1f1ef; color: #555; font-size: 11px; line-height: 1.4; }
+.stateTag { display: inline-flex; align-items: center; gap: 5px; padding: 3px 8px; max-height: 28px; border: 1px solid #d9dddd; border-radius: 4px; background: #f1f1ef; color: #555; font-size: 11px; line-height: 1.4; white-space: nowrap; flex-shrink: 0; }
 .stateTag::before { content: ''; width: 4px; height: 4px; flex-shrink: 0; border-radius: 50%; background: #77837b; }
 .stateTag[data-status="activo"] { background: #edf3ef; color: #3d6451; border-color: #c8d8cc; }
 .stateTag[data-status="activo"]::before { background: #3d6451; }
 .stateTag[data-status="en_seguimiento"] { background: #fff8ed; color: #80501d; border-color: #e2cfaa; }
 .stateTag[data-status="en_seguimiento"]::before { background: #b07830; }
 
-/* Datos en mono */
-.mono { font-family: var(--font-mono), ui-monospace, monospace; font-size: 12px; font-weight: 500; font-variant-numeric: tabular-nums; color: #25272a; }
-.missing { font-size: 11px; color: #626b73; }
+/* Criterio de búsqueda al centro */
+.criteria { display: flex; align-items: center; gap: 8px; font-size: 12.5px; font-weight: 600; color: #25272a; min-width: 0; }
+.criteria > svg { color: #626b73; flex-shrink: 0; }
+.zone { font-size: 11px; color: #626b73; margin-top: -8px; padding-left: 24px; }
 
-.rowActions { text-align: right; }
-.rowActions > a { min-height: 32px; padding: 0 10px; font-size: 11px; }
+/* Pie de datos: presupuesto en mono + contacto + acción */
+.cardData { display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; border-top: 1px solid #e4e5e3; padding-top: 12px; margin-top: auto; flex-wrap: wrap; }
+.dataLabel { display: block; font-size: 10px; letter-spacing: .08em; color: #626b73; font-weight: 600; text-transform: uppercase; margin-bottom: 3px; }
+.budget { min-width: 0; }
+.budget .mono { font-family: var(--font-mono), ui-monospace, monospace; font-size: 17px; font-weight: 500; font-variant-numeric: tabular-nums; color: #25272a; }
+.rooms .mono { font-family: var(--font-mono), ui-monospace, monospace; font-size: 14px; font-weight: 500; font-variant-numeric: tabular-nums; color: #25272a; }
+.contact { font-size: 11px; color: #626b73; text-align: right; line-height: 1.55; overflow-wrap: anywhere; max-width: 190px; }
+.missing { font-size: 11px; color: #626b73; }
+.cardData > a { min-height: 34px; padding: 0 12px; font-size: 11.5px; white-space: nowrap; flex-shrink: 0; }
 
 /* Sin coincidencias (filtro) */
 .noMatches { padding: 48px 20px; border-block: 1px solid #d9dddd; }
@@ -80,15 +83,10 @@
 @media (max-width: 900px) {
   .tools { align-items: stretch; flex-direction: column; gap: 16px; }
   .searchForm { max-width: none; }
-  .records { display: block; }
-  .records thead { display: none; }
-  .records tbody { display: block; }
-  .records tr { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px 12px; padding: 18px 6px; border-bottom: 1px solid #e0e3e2; }
-  .records td { display: block; border: 0; padding: 0; }
-  .records td:first-child { grid-column: 1 / -1; }
-  .records td[data-label]:before { content: attr(data-label) ' · '; font-size: 9px; color: #626b73; }
-  .records td:nth-child(2), .records td:nth-child(3), .records td:nth-child(4), .records td:nth-child(5) { grid-column: 1; }
-  .records td.rowActions { grid-column: 2; grid-row: 2 / 6; align-self: end; }
+  .cards { grid-template-columns: 1fr; }
+  .cardData { align-items: flex-start; flex-direction: column; gap: 10px; }
+  .contact { text-align: left; max-width: none; }
+  .cardData > a { align-self: flex-end; }
   .listSummary { align-items: flex-start; }
   .listSummary > span { font-size: 10px; padding-top: 6px; text-align: right; }
 }
@@ -97,5 +95,5 @@
   .page .pageTitle { font-size: 29px; }
   .stateContent { padding: 32px 20px; }
 }
-@media (hover: none) { .records tbody tr:hover { background: transparent; } }
+@media (hover: none) { .card:hover { background: transparent; border-color: #d9d9d6; } }
 @media (prefers-reduced-motion: reduce) { .page * { transition: none !important; animation: none !important; } }
