@@ -67,8 +67,8 @@ export function RevisarEscrito({ industria = 'legal' }: { industria?: string }) 
 
   return (
     <section className="rounded-2xl border border-[#d9d9d6] bg-white p-4 shadow-sm">
-      <h2 className="flex items-center gap-2 text-base font-semibold text-[#25272a]"><Pencil className="h-4 w-4" /> {tituloRevision}</h2>
-      <p className="mt-1 text-sm text-[#62676d]">
+      <h2 style={{ color: '#25272a', WebkitTextFillColor: '#25272a' }} className="flex items-center gap-2 text-base font-semibold"><Pencil className="h-4 w-4" /> {tituloRevision}</h2>
+      <p className="mt-1 text-sm text-[#62676d]" style={{ color: '#62676d' }}>
         {subtituloRevision}
       </p>
 
