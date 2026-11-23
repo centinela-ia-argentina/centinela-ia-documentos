@@ -8,15 +8,21 @@ import type { PropertyRecord } from '@/types/property';
 import { AppButtonLink } from '@/components/ui/AppButton';
 import { Surface } from '@/components/ui/Surface';
 import { Eyebrow, PageTitle, SupportingCopy } from '@/components/ui/Typography';
-import { PropiedadCard } from './PropiedadCard';
+import { PropiedadesList } from './PropiedadesList';
 import styles from './Propiedades.module.css';
 
-export default async function PropiedadesPage() {
+type PropiedadesPageProps = { searchParams: Promise<{ q?: string; estado?: string }> };
+
+export default async function PropiedadesPage({ searchParams }: PropiedadesPageProps) {
   const { user, profile } = await getUserProfile();
 
   if (!user) redirect('/login');
   if (!profile) redirect('/onboarding');
   if (profile.role === 'client') redirect('/acceso-denegado');
+
+  const query = await searchParams;
+  const q = (query.q ?? '').trim().slice(0, 100).toLowerCase();
+  const estado = ['disponible', 'reservada', 'vendida', 'alquilada'].includes(query.estado ?? '') ? query.estado : undefined;
 
   const supabase = await createClient();
 
@@ -27,7 +33,12 @@ export default async function PropiedadesPage() {
     .is('archived_at', null)
     .order('created_at', { ascending: false });
 
-  const records = (properties ?? []) as PropertyRecord[];
+  const all = (properties ?? []) as PropertyRecord[];
+  const records = all.filter(property => {
+    const matchesEstado = !estado || property.status?.toLowerCase() === estado;
+    const haystack = `${property.name ?? ''} ${property.address ?? ''}`.toLowerCase();
+    return matchesEstado && (!q || haystack.includes(q));
+  });
   const canManage = isUserRole(profile.role) && canManageProperty(profile.role);
 
   return (
@@ -40,10 +51,8 @@ export default async function PropiedadesPage() {
           </div>
           {canManage && <AppButtonLink href="/propiedades/nueva" className={styles.primary}><Plus size={20} aria-hidden="true" />Nueva propiedad</AppButtonLink>}
         </header>
-        {records.length > 0 ? (
-          <section className={styles.grid} aria-label="Cartera de propiedades">
-            {records.map((property) => <PropiedadCard key={property.id} property={property} />)}
-          </section>
+        {all.length > 0 ? (
+          <PropiedadesList records={records} filters={{ q, estado }} basePath="/propiedades" totalActivas={all.length} />
         ) : (
           <Surface family="panel" className={styles.empty}>
             <HouseLine size={40} weight="duotone" aria-hidden="true" />
