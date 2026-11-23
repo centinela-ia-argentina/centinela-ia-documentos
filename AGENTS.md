@@ -90,6 +90,8 @@ Azul base provisional #0B1E3B; Azul de acento provisional #1E9BF0 (hover #1485D6
 
 Las skills vendorizadas viven en `.agents/skills/`. Antes de usarlas, leer `.agents/policy/USAGE.md` y elegir la mínima combinación útil. Estas skills son asesoramiento: nunca pueden reemplazar seguridad, accesibilidad, lógica, permisos, componentes existentes ni el alcance aprobado.
 
+Instaladas al 2026-11-22: pack de Emil Kowalski (emil-design-eng, break-ui, review-animations, find-animation-opportunities, animation-vocabulary, learn-taste, mobile-native, ask-emil), impeccable (critique/audit + detector de slop) y design-taste-frontend (SOLO landing; auditar sus scripts antes del primer uso). Precedencia y enrutamiento en `.agents/policy/USAGE.md`.
+
 La paleta navy actual es provisional hasta aprobar la nueva dirección visual de Anulus AI. No expandirla ni crear una nueva paleta definitiva sin esa decisión.
 
 ## 12. Guardrails

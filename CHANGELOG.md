@@ -5,6 +5,14 @@ Formato por fecha; los PR quedan enlazados con su detalle completo (commits, che
 
 ---
 
+## 2026-11-21/22 — Sub-lote oscuro + fixes Modelos + tooling de skills de diseño (PR #41 — merged)
+
+- **SelectField tema oscuro** (prop `dark` + bloque `.dark` en SharedControls.module.css: trigger `#181c1f`, popup `#1c2124`, focus `#415a71`): migrados Calculadoras (3), Protocolo (3), Tasación (1). Alquileres/índices corregido a tema CLARO (Rentals es claro — la memoria decía oscuro y era incorrecto). Solo queda landing-contact-form con selects nativos (superficie de marca, NUNCA tocar).
+- **S5-G3 saldado:** paleta slate de Modelos al sistema en `RevisarEscrito.tsx` y `ModelosClient.tsx` (slate-800/700→`#25272a`, 600/500→`#62676d`, 400/300→`#8a8f94`, bordes `#d9d9d6`/`#e0e1e1`, focus `#415a71`; emerald se mantiene como semántico). El título lavado del panel de revisión IA era la regla legacy `[class*="text-slate"]` — resuelto de raíz por la migración.
+- Fixes por feedback de preview: panel "Revisión con IA" sin espacio blanco sobrante (`034f947`), summary con sangría 14px (`910b51b`), título siempre visible con color explícito inline (`1acd6e4`).
+- **Tooling de skills de diseño** (en rama `chore/skills-diseno`): instaladas y versionadas en el repo — emil's skills (emil-design-eng, break-ui, review-animations, find-animation-opportunities, animation-vocabulary, learn-taste, mobile-native, ask-emil en `.agents/skills/`), impeccable (revisor critique/audit + detector de slop en `.agents/skills/impeccable` + agents/hooks en `.github/`) y design-taste-frontend (dirección de arte, uso exclusivo para landing; pendiente auditoría de sus `scripts/` — marcado Critical Risk por su código ejecutable y descarga de assets).
+- **Precedencia registrada:** AGENTS.md > SYNC.md/DESIGN-SYSTEM.md prevalecen sobre skills; skills = herramientas según requerimiento (animaciones → emil; segundo par de ojos → impeccable critique/audit; landing → taste-skill).
+
 ## 2026-11-20 (noche 3) — Secciones plegables + documentación del sistema (PR #40 — merged)
 
 - Nuevo componente `CollapseArea` (expedientes): plegable con el patrón "Consultar al agente" — header con label + resumen (chips/counts) + caret, cuerpo siempre montado con `hidden` para no perder borradores ni estados al cerrar.
