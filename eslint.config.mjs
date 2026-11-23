@@ -10,7 +10,11 @@ const config = [
       "playwright-report/**",
       "test-results/**",
       "out/**",
-      "build/**"
+      "build/**",
+      ".tmp-muestras/**",
+      ".agents/**",
+      ".github/**",
+      ".codex/**"
     ]
   }
 ];
