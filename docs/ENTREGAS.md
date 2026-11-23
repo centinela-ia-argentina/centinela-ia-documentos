@@ -34,19 +34,21 @@ Metodología: auditoría por paquetes de capturas → registro con severidad →
 - Aplicado a: Cotejo (3 rubros), Pre-Score, Borrador de reserva/boleto, Borrador de escritura, Análisis UIF, Liquidación, Vencimiento procesal, Tasa de justicia, Aviso comercial.
 - Documentación del sistema: `docs/DESIGN-SYSTEM.md` (tokens, reglas, componentes) + este registro.
 
-## Lote 5 — Sub-lote oscuro + pulido Modelos (PR #41, en curso)
+## Lote 5 — Sub-lote oscuro + pulido Modelos (PR #41, merged 22/11)
 
 - Variante `dark` de SelectField (tema oscuro en SharedControls: trigger `#181c1f`, popup `#1c2124`, focus del sistema) para las superficies oscuras: Calculadoras (3 selects), Protocolo (3), Tasación (1).
 - Alquileres/Índices resultó tema CLARO: sus 3 selects van al SelectField estándar (sin variante oscuro).
-- S5-G3: paleta slate de Modelos convergiendo a grises del sistema (`#25272a` texto, `#62676d` secundario, `#8a8f94` terciario, `#d9d9d6`/`#e0e1e1` bordes, focus `#415a71`) en `RevisarEscrito` y `ModelosClient`.
+- S5-G3: paleta slate de Modelos convergiendo a grises del sistema (`#25272a` texto, `#62676d` secundario, `#8a8f94` terciario, `#d9d9d6`/`#e0e1e1` bordes, focus `#415a71`) en `RevisarEscrito` y `ModelosClient`. El título lavado del panel de revisión IA era la regla legacy `[class*="text-slate"]` — resuelto de raíz.
+- Fixes de preview: panel sin espacio blanco (`034f947`), summary con sangría (`910b51b`), título siempre visible con color inline (`1acd6e4`). Verificado por usuario (título legible, panel compacto, summary sangrado) — merged con 6 checks verdes.
+- Tooling versionado (rama `chore/skills-diseno`): emil's skills (emil-design-eng + 7, en `.agents/skills/`), impeccable (critique/audit + detector de slop, `.agents/skills/impeccable` + `.github/`) y design-taste-frontend (uso exclusivo landing; auditoría de scripts pendiente).
 - Pendiente para un lote posterior: botones con gradientes violeta/ámbar/cian de las superficies oscuras (Calculadoras/Protocolo) → alineación con jerarquía de botones del sistema.
 
 ## Ruta pendiente (orden agilizado)
 
-1. **Sub-lote oscuro**: SelectField + alineación visual de módulos oscuros (calculadoras, protocolo, tasación, índices) + paleta slate de Modelos/Agente (S5-G3).
-2. **Secciones por rubro** (jurídico, escribanía): el lote de valor diferencial.
+1. ~~Sub-lote oscuro~~ (saldado PR #41) → **Lote de valor global**: secciones por rubro (jurídico, escribanía) + restos globales (S5-G2 éxito de acciones IA de fichas, decisión "No cargado").
+2. **Lote módulos oscuros**: alineación visual completa de Calculadoras/Protocolo (títulos blanco-sobre-blanco, gradientes → jerarquía de botones, tokens).
 3. **Ciberseguridad P0 + certificación básica** antes de datos reales de terceros.
-4. **Lanzamiento**: onboarding, tutoriales.
+4. **Lanzamiento**: onboarding, tutoriales. Landing con taste-skill (previa auditoría de scripts).
 5. Backlog no bloqueante: Vercel X (29/11), estrategia fundraising (conversación aparte).
 
 ## Lecciones de proceso (resumen)
