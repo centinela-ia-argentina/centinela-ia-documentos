@@ -523,9 +523,11 @@ test.describe.serial('Anulus AI - Flujo Jurídico E2E Obligatorio', () => {
 
     const jurisdiccion = page.locator('[data-testid="tasa-jurisdiccion"]');
     await expect(jurisdiccion).toBeVisible();
-    await jurisdiccion.selectOption('nacion');
+    await jurisdiccion.locator('button[aria-haspopup="listbox"]').click();
+    await page.getByRole('option', { name: 'Justicia Nacional / Federal' }).click();
 
-    await page.getByLabel('Tipo de proceso').selectOption('general_pecuniary');
+    await page.locator('[data-testid="tasa-tipo-proceso"] button[aria-haspopup="listbox"]').click();
+    await page.getByRole('option', { name: 'Pretensión pecuniaria general (3%)' }).click();
     await page.locator('[data-testid="tasa-monto"]').fill('28000000');
 
     await page

@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { BookText, Plus, X, Trash2, FileDown } from 'lucide-react';
 import { registrarEscritura, eliminarEscritura } from './actions';
+import { SelectField } from '@/components/ui/SelectField';
 
 export type EscrituraProtocolo = {
   id: string;
@@ -196,10 +197,7 @@ export function ProtocoloClient({ escrituras, cases }: { escrituras: EscrituraPr
             </div>
             <div className="sm:col-span-2">
               <label className="mb-1 block text-xs text-slate-400">Expediente (opcional)</label>
-              <select value={caseId} onChange={(e) => setCaseId(e.target.value)} className="w-full rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2 text-sm text-white outline-none focus:border-amber-400">
-                <option value="">Sin expediente</option>
-                {cases.map((c) => <option key={c.id} value={c.id}>{c.title}</option>)}
-              </select>
+              <SelectField name="protocolo-case" label="Expediente (opcional)" dark value={caseId} placeholder="Sin expediente" onChange={setCaseId} options={[{value:'',label:'Sin expediente'},...cases.map((c) => ({value:c.id,label:c.title}))]} />
             </div>
             <div className="sm:col-span-2">
               <label className="mb-1 block text-xs text-slate-400">Observaciones (opcional)</label>
@@ -214,12 +212,8 @@ export function ProtocoloClient({ escrituras, cases }: { escrituras: EscrituraPr
       )}
 
       <div className="flex flex-wrap items-center gap-3">
-        <select value={anio} onChange={(e) => setAnio(Number(e.target.value))} className="rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2 text-sm text-white">
-          {aniosDisponibles.map((a) => <option key={a} value={a}>{a}</option>)}
-        </select>
-        <select value={mes} onChange={(e) => setMes(Number(e.target.value))} className="rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2 text-sm text-white">
-          {MESES.map((m, i) => <option key={i} value={i}>{m}</option>)}
-        </select>
+        <SelectField name="protocolo-anio" label="Año" dark value={String(anio)} placeholder="Año" onChange={(v) => setAnio(Number(v))} options={aniosDisponibles.map((a) => ({value:String(a),label:String(a)}))} />
+        <SelectField name="protocolo-mes" label="Mes" dark value={String(mes)} placeholder="Mes" onChange={(v) => setMes(Number(v))} options={MESES.map((m, i) => ({value:String(i),label:m}))} />
         <span className="text-sm text-white/50">{filtradas.length} escritura(s) y acta(s)</span>
         <button onClick={exportarIndicePDF} className="ml-auto inline-flex items-center gap-1.5 rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2 text-sm text-white hover:bg-white/[0.06]">
           <FileDown className="h-4 w-4" /> Exportar PDF

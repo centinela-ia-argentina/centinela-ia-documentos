@@ -96,3 +96,15 @@
   .button, .selectTrigger, .popup, .option, .tab, .stepNumber { border-color: ButtonText; }
   .option[aria-selected=true], .tab[aria-selected=true], .step[aria-current=step] { outline: 2px solid Highlight; outline-offset: -2px; }
 }
+/* Tema oscuro de primitivos (calculadoras, protocolo, tasación). */
+.dark { --ui-control: #181c1f; --ui-control-border: #3a4046; --ui-text: #f2f4f5; --ui-line: #3a4046; }
+.dark .selectTrigger { background: #181c1f; border-color: #3a4046; color: #f2f4f5; }
+.dark .selectTrigger:hover { border-color: #4d5459; background: #1e2327; }
+.dark .selectTrigger[aria-expanded=true] { border-color: #565e64; }
+.dark .selectTrigger:focus-visible { outline-color: var(--ui-focus, #415a71); }
+.dark .selectPlaceholder, .dark .selectDetail { color: #8a9196; }
+.dark .selectIcon { color: #8a9196; }
+.dark .popup { background: #1c2124; border-color: #3a4046; color: #e6e9ea; box-shadow: 0 10px 26px #00000066; }
+.dark .option { color: #e6e9ea; }
+.dark .option:hover, .dark .option:focus { background: #262c30; }
+.dark .option[aria-selected=true] { background: #262c30; }

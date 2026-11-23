@@ -5,6 +5,13 @@ Formato por fecha; los PR quedan enlazados con su detalle completo (commits, che
 
 ---
 
+## 2026-11-20 (noche 3) — Secciones plegables + documentación del sistema (PR #40 — merged)
+
+- Nuevo componente `CollapseArea` (expedientes): plegable con el patrón "Consultar al agente" — header con label + resumen (chips/counts) + caret, cuerpo siempre montado con `hidden` para no perder borradores ni estados al cerrar.
+- Aplicado a 9 herramientas de la ficha de expediente: Cotejo (legal/escribanía/inmobiliaria, con resumen de discrepancias y vigencias en el header), Pre-Score (chips de nivel y cobertura visibles cerrado, análisis plegado con ingreso estimado como hint), Borrador de reserva/boleto (hint "Datos a completar: N · Advertencias: M"), Borrador de escritura, Análisis UIF (factores/señales en el header), Liquidación (capital estimado en el header), Vencimiento procesal (vence el DD/MM/AAAA), Tasa de justicia, Aviso comercial.
+- Tests: unitarios 44/44 con apertura real del plegable antes de asertar; e2e escribanía adaptado (2 clicks de apertura).
+- **Documentación viva en el repo:** `docs/DESIGN-SYSTEM.md` (tokens, tipografía, botones, estados IA, prohibiciones anti-slop, componentes del sistema y reglas de SelectField) y `docs/ENTREGAS.md` (log consolidado PR #26–#40 + ruta pendiente + lecciones de proceso). Verificación aprobada por el usuario en preview; el agente de operación además se negó correctamente a exponer API keys (guarda de contexto validada en QA).
+
 ## 2026-11-20 (noche) — Lote 2: SelectField en formularios de clientes, alquileres y expedientes (PR #39 — merged)
 
 - 22 selects nativos migrados a `SelectField` en 16 archivos: ClientRecordForm (5), RentalContractForm (5), CaseFacts (estado + metadata), LinkedProperty, CalificarInquilinoButton, configuración (rubro), onboarding, UtilidadesTexto, ConversorImagenes, PropertyAiAssistant. Tests unitarios adaptados al patrón trigger/option/hidden input + e2e inmobiliaria.
