@@ -8,14 +8,20 @@ import { AppButton, AppButtonLink } from '@/components/ui/AppButton';
 import { Surface } from '@/components/ui/Surface';
 import { Eyebrow, PageTitle, SupportingCopy } from '@/components/ui/Typography';
 import type { ClientRecord } from '@/types/client';
-import { ClienteCard } from './ClienteCard';
+import { ClientesList } from './ClientesList';
 import styles from './Clientes.module.css';
 
-export default async function ClientesPage() {
+type ClientesPageProps = { searchParams: Promise<{ q?: string; estado?: string }> };
+
+export default async function ClientesPage({ searchParams }: ClientesPageProps) {
   const { user, profile } = await getUserProfile();
   if (!user) redirect('/login');
   if (!profile) redirect('/onboarding');
   if (profile.role === 'client') redirect('/acceso-denegado');
+
+  const query = await searchParams;
+  const q = (query.q ?? '').trim().slice(0, 100).toLowerCase();
+  const estado = ['activo', 'en_seguimiento', 'cerrado', 'descartado'].includes(query.estado ?? '') ? query.estado : undefined;
 
   const supabase = await createClient();
   const { data: clientsData, error } = await supabase
@@ -25,7 +31,12 @@ export default async function ClientesPage() {
     .is('archived_at', null)
     .order('created_at', { ascending: false });
 
-  const clients = (clientsData ?? []) as ClientRecord[];
+  const all = (clientsData ?? []) as ClientRecord[];
+  const clients = all.filter(client => {
+    const matchesEstado = !estado || client.status?.toLowerCase() === estado;
+    const haystack = [client.name, client.zone, client.phone, client.email].filter(Boolean).join(' ').toLowerCase();
+    return matchesEstado && (!q || haystack.includes(q));
+  });
   const canManage = isUserRole(profile.role) && canManageClient(profile.role);
 
   return (
@@ -44,8 +55,8 @@ export default async function ClientesPage() {
               <form action="/clientes" method="get"><AppButton type="submit" variant="secondary" className={styles.retry}><ArrowCounterClockwise size={20} weight="duotone" aria-hidden="true" />Reintentar</AppButton></form>
             </div>
           </Surface>
-        ) : clients.length > 0 ? (
-          <section className={styles.grid} aria-label="Cartera de clientes">{clients.map(client => <ClienteCard key={client.id} client={client} />)}</section>
+        ) : all.length > 0 ? (
+          <ClientesList records={clients} filters={{ q, estado }} basePath="/clientes" totalActivos={all.length} />
         ) : (
           <Surface family="panel" className={styles.state}>
             <div className={styles.stateContent}><span className={styles.stateIcon}><UsersThree size={32} weight="duotone" aria-hidden="true" /></span>
