@@ -12,9 +12,10 @@ CHANGELOG (una entrada por PR).
 |---|---|---|
 | Toda la aplicación | **Manrope** | Interface única; pesos 400/500/650 |
 | Landing (marca) | **Space Grotesk** | SOLO landing y `BrandWordmark`; nunca en módulos internos |
-| Datos protagonistas | **JetBrains Mono** | Peso 500 + `tabular-nums`; precios, superficies, fechas, expedientes, métricas grandes (tiles 30–32px, dd, `.when`, `.uploadResults dd`) |
+| Datos protagonistas | **JetBrains Mono** | Peso 500 + `tabular-nums`; datos densos y de tabla: fechas, expedientes, montos en listas, dd, `.when`, `.uploadResults dd` |
+| Números héroe (carteras y paneles) | **Manrope** | Peso 600 + `tabular-nums` + tracking −0.01em; el precio/métrica protagonista de una ficha (propiedades, clientes, tiles grandes). Decisión 24/11: el mono lee como código en tamaños grandes; el héroe se habla en la tipografía de la app |
 
-Regla: el dato numérico clave de una ficha se habla en mono; las listas y textos comunes siguen en Manrope.
+Regla en dos niveles: el dato denso de una lista o tabla se habla en mono; el número protagonista de una ficha se habla en Manrope 600 tabular.
 
 ## 2. Color
 
