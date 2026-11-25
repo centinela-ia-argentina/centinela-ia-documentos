@@ -17,6 +17,11 @@ CHANGELOG (una entrada por PR).
 
 Regla en dos niveles: el dato denso de una lista o tabla se habla en mono; el número protagonista de una ficha se habla en Manrope 600 tabular.
 
+### Fallbacks de datos (decisión 24/11, "No cargado")
+- Un fallback ("No cargado", "Sin definir", "Sin contacto registrado") es **texto de UI, nunca un dato**: va en Manrope, peso 500, color `#626b73`, sin tabular-nums, sin mono.
+- Nunca se muestra un `0` ni una línea vacía como falso dato; el cero real (precio 0, superficie 0) SÍ es dato y se muestra.
+- En números héroe (precio de ficha, presupuesto), el fallback entra en tamaño de texto normal dentro del mismo contenedor.
+
 ## 2. Color
 
 ### Superficies y grises

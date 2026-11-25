@@ -115,10 +115,10 @@ export default async function PropertyDetailPage({ params }: PropertyDetailPageP
         <div className={styles.identity}><span><Buildings size={18} weight="duotone" aria-hidden="true" />{getPropertyTypeLabel(record.property_type)}</span><span className={styles.status}><SealCheck size={18} weight="duotone" aria-hidden="true" />{getPropertyStatusLabel(record.status)}</span></div>
         <h1>{record.name}</h1><p className={styles.address}><MapPin size={22} weight="duotone" aria-hidden="true" />{record.address || 'Sin dirección cargada'}</p>
         <div className={styles.facts}>
-          <div><CurrencyDollar size={22} weight="duotone" aria-hidden="true" /><div><span>Precio registrado</span><strong>{record.price != null ? `${record.currency === 'USD' ? 'u$s' : '$'} ${record.price.toLocaleString('es-AR')}` : 'No cargado'}</strong></div></div>
-          <div><Ruler size={22} weight="duotone" aria-hidden="true" /><div><span>Superficie total</span><strong>{present(record.surface_total_m2, ' m²')}</strong></div></div>
-          <div><Buildings size={22} weight="duotone" aria-hidden="true" /><div><span>Superficie cubierta</span><strong>{present(record.surface_covered_m2, ' m²')}</strong></div></div>
-          <div><Door size={22} weight="duotone" aria-hidden="true" /><div><span>Ambientes</span><strong>{present(record.rooms)}</strong></div></div>
+          <div><CurrencyDollar size={22} weight="duotone" aria-hidden="true" /><div><span>Precio registrado</span><strong className={record.price == null ? styles.noValue : undefined}>{record.price != null ? `${record.currency === 'USD' ? 'u$s' : '$'} ${record.price.toLocaleString('es-AR')}` : 'No cargado'}</strong></div></div>
+          <div><Ruler size={22} weight="duotone" aria-hidden="true" /><div><span>Superficie total</span><strong className={record.surface_total_m2 == null ? styles.noValue : undefined}>{present(record.surface_total_m2, ' m²')}</strong></div></div>
+          <div><Buildings size={22} weight="duotone" aria-hidden="true" /><div><span>Superficie cubierta</span><strong className={record.surface_covered_m2 == null ? styles.noValue : undefined}>{present(record.surface_covered_m2, ' m²')}</strong></div></div>
+          <div><Door size={22} weight="duotone" aria-hidden="true" /><div><span>Ambientes</span><strong className={record.rooms == null ? styles.noValue : undefined}>{present(record.rooms)}</strong></div></div>
         </div>
       </div>}
       ficha={<>

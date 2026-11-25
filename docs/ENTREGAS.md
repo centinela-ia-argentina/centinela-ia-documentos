@@ -43,9 +43,22 @@ Metodología: auditoría por paquetes de capturas → registro con severidad →
 - Tooling versionado (rama `chore/skills-diseno`): emil's skills (emil-design-eng + 7, en `.agents/skills/`), impeccable (critique/audit + detector de slop, `.agents/skills/impeccable` + `.github/`) y design-taste-frontend (uso exclusivo landing; auditoría de scripts pendiente).
 - Pendiente para un lote posterior: botones con gradientes violeta/ámbar/cian de las superficies oscuras (Calculadoras/Protocolo) → alineación con jerarquía de botones del sistema.
 
+## Lote 6 — Carteras de propiedades y clientes (PR #43, merged 24/11)
+
+- Rediseño completo de las dos carteras con el usuario: 4 iteraciones (workbench → muestras A/B/C → índice editorial rechazado en preview → "Vitrina sin ruido" aprobada).
+- Ficha propiedades: tile con icono por tipo de propiedad, nombre/dirección/pill, specs, precio héroe, CTA grafito primario. Ficha clientes: iniciales grafito + criterio + presupuesto/contacto.
+- **Decisión tipográfica (nueva regla en DESIGN-SYSTEM):** dos niveles — mono para datos densos; números héroe en Manrope 600 tabular. Y la decisión "No cargado": un fallback es texto de UI (Manrope 500 `#626b73`), nunca mono ni falso cero.
+
+## Lote 7 — Valor global (PR #44, en curso)
+
+- **Secciones por rubro verificadas en código** (auditoría paquete 7): el filtrado por `industries` + reetiquetado por rubro ya funciona; página /herramientas con eyebrow inconsistente corregido a "Utilidades" en los 3 rubros (hallazgo H1); grupo neutro "Herramientas" para empresa/general (H2). El resto: confirmado correcto (Modelos y Buscar comparten pantalla con contenido por rubro).
+- **S5-G2 saldado con evidencia:** las 4 acciones IA de fichas (aviso, matching propiedades, tasación, matching clientes) muestran el resultado inline — el resultado es el feedback de éxito; sin refresh.
+- **Fixes anti-slop en fichas de propiedades:** emojis reemplazados por iconos Phosphor (WhatsApp, Regenerar, Copiar, Warning) y panel de resultado de matching sin gradiente ni glow (superficie consistente con las demás).
+- **Decisión "No cargado" implementada** en ficha de detalle de propiedad (fallback ya no en mono 22px).
+- Pendiente en este lote: control de funcionamiento completo por rubro (escribanía → jurídico) y verificación en preview.
 ## Ruta pendiente (orden agilizado)
 
-1. ~~Sub-lote oscuro~~ (saldado PR #41) → **Lote de valor global**: secciones por rubro (jurídico, escribanía) + restos globales (S5-G2 éxito de acciones IA de fichas, decisión "No cargado").
+1. ~~Sub-lote oscuro~~ (saldado PR #41) → ~~Lote de valor global~~ (en curso, PR #44): secciones por rubro verificadas + S5-G2 saldado + "No cargado" decidido → falta control de funcionamiento por rubro (escribanía, jurídico).
 2. **Lote módulos oscuros**: alineación visual completa de Calculadoras/Protocolo (títulos blanco-sobre-blanco, gradientes → jerarquía de botones, tokens).
 3. **Ciberseguridad P0 + certificación básica** antes de datos reales de terceros.
 4. **Lanzamiento**: onboarding, tutoriales. Landing con taste-skill (previa auditoría de scripts).

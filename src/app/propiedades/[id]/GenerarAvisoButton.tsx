@@ -1,7 +1,7 @@
 'use client';
 
 import { ArrowRight } from 'lucide-react';
-import { Sparkle } from '@phosphor-icons/react';
+import { Sparkle, WhatsappLogo, ArrowClockwise } from '@phosphor-icons/react';
 import { AppButton } from '@/components/ui/AppButton';
 import styles from './PropertyDetail.module.css';
 
@@ -71,7 +71,8 @@ export function GenerarAvisoButton({ propertyId }: { propertyId: string }) {
               onClick={() => window.open(`https://wa.me/?text=${encodeURIComponent(result!)}`, '_blank')}
               className="flex-1 min-w-[110px] inline-flex items-center justify-center gap-1.5 h-9 px-3 rounded-lg text-xs font-semibold text-white bg-[#25D366]/20 hover:bg-[#25D366]/30 border border-[#25D366]/30 transition-colors"
             >
-              📲 WhatsApp
+              <WhatsappLogo size={14} weight="duotone" aria-hidden="true" />
+              WhatsApp
             </button>
             <button
               type="button"
@@ -87,7 +88,8 @@ export function GenerarAvisoButton({ propertyId }: { propertyId: string }) {
               disabled={isPending}
               className="flex-1 min-w-[110px] inline-flex items-center justify-center gap-1.5 h-9 px-3 rounded-lg text-xs font-semibold text-cyan-300 bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-400/20 transition-colors disabled:opacity-50"
             >
-              {isPending ? 'Regenerando…' : '🔄 Regenerar'}
+              <ArrowClockwise size={14} aria-hidden="true" />
+              {isPending ? 'Regenerando…' : 'Regenerar'}
             </button>
           </div>
         </div>
