@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import type { ReactNode } from 'react';
-import { Calculator, Landmark, Receipt, Coins, Info } from 'lucide-react';
+import { Calculator, Landmark, Receipt, Coins, Info, AlertTriangle } from 'lucide-react';
 import { calcularImpuestoSellos } from '@/lib/legal/sellos';
 
 // --- Helpers ---
@@ -14,7 +14,7 @@ const currency = (n: number) =>
   }).format(Number.isFinite(n) ? n : 0);
 
 const inputClass =
-  'w-full rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2 text-sm text-white outline-none placeholder-slate-500 focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400';
+  'w-full rounded-[8px] border border-[#d9d9d6] bg-white px-3 py-2 text-sm text-[#25272a] outline-none placeholder:text-[#8a8f94] focus:border-[#415a71]';
 
 const num = (s: string) => {
   const n = parseFloat(String(s).replace(/\./g, '').replace(',', '.'));
@@ -38,9 +38,9 @@ function Card({
   children: ReactNode;
 }) {
   return (
-    <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-5">
-      <h3 className="text-base font-semibold text-white">{title}</h3>
-      {subtitle && <p className="mt-1 text-xs text-slate-400">{subtitle}</p>}
+    <div className="rounded-[10px] border border-[#d9d9d6] bg-white p-5">
+      <h3 className="text-base font-semibold text-[#25272a]">{title}</h3>
+      {subtitle && <p className="mt-1 text-xs text-[#626b73]">{subtitle}</p>}
       <div className="mt-4 space-y-3">{children}</div>
     </div>
   );
@@ -61,7 +61,7 @@ function Field({
 }) {
   return (
     <label className="block">
-      <span className="mb-1 block text-xs font-medium text-slate-300">{label}</span>
+      <span className="mb-1 block text-xs text-[#626b73]">{label}</span>
       <div className="relative">
         <input
           inputMode="decimal"
@@ -71,7 +71,7 @@ function Field({
           placeholder={placeholder}
         />
         {suffix && (
-          <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-500">
+          <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-[#8a8f94]">
             {suffix}
           </span>
         )}
@@ -90,7 +90,7 @@ function Check({
   children: ReactNode;
 }) {
   return (
-    <label className="flex items-center gap-2 text-xs text-slate-300">
+    <label className="flex items-center gap-2 text-xs text-[#40403e]">
       <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} />
       {children}
     </label>
@@ -100,24 +100,24 @@ function Check({
 function Result({
   label,
   value,
-  strong,
 }: {
   label: string;
   value: string;
-  strong?: boolean;
 }) {
   return (
-    <div
-      className={`flex items-center justify-between rounded-xl border border-white/10 px-4 py-2.5 ${
-        strong ? 'bg-cyan-400/10' : 'bg-white/[0.02]'
-      }`}
-    >
-      <span className={`text-sm ${strong ? 'font-semibold text-cyan-300' : 'text-slate-300'}`}>
-        {label}
-      </span>
-      <span className={`text-sm ${strong ? 'font-bold text-cyan-200' : 'font-medium text-white'}`}>
-        {value}
-      </span>
+    <div className="flex items-center justify-between rounded-[8px] border border-[#e4e5e3] bg-white px-4 py-2.5">
+      <span className="text-sm text-[#626b73]">{label}</span>
+      <span className="text-sm font-medium tabular-nums text-[#25272a]">{value}</span>
+    </div>
+  );
+}
+
+function TotalHero({ label, value, hint }: { label: string; value: string; hint?: string }) {
+  return (
+    <div className="mt-4 border-t border-[#d9d9d6] pt-4">
+      <div className="text-[11px] font-bold uppercase tracking-[1px] text-[#626b73]">{label}</div>
+      <div className="mt-1 text-[40px] font-semibold leading-tight tracking-[-.03em] text-[#25272a]" style={{ fontVariantNumeric: 'tabular-nums' }}>{value}</div>
+      {hint && <div className="mt-1 text-[11px] text-[#8a8f94]">{hint}</div>}
     </div>
   );
 }
@@ -136,18 +136,18 @@ export function CalculadorasNotarialesClient() {
   return (
     <div className="space-y-6">
       <div>
-        <p className="text-xs font-semibold uppercase tracking-wider text-cyan-400">
+        <p className="text-[11px] font-semibold uppercase tracking-[.08em] text-[#626b73]">
           Herramientas notariales
         </p>
-        <h1 className="mt-1 text-2xl font-bold text-white">Calculadoras</h1>
-        <p className="mt-1 text-sm text-slate-400">
+        <h1 className="mt-2 text-[26px] font-semibold tracking-[-.02em] text-[#25272a]">Calculadoras</h1>
+        <p className="mt-1 text-xs text-[#626b73]">
           Estimaciones orientativas de los costos de una escritura (CABA).
         </p>
       </div>
 
-      <div className="flex items-start gap-2 rounded-xl border border-amber-400/20 bg-amber-400/5 p-3">
-        <Info className="mt-0.5 h-4 w-4 shrink-0 text-amber-400" />
-        <p className="text-xs text-amber-200/80">
+      <div className="flex items-start gap-2 rounded-[10px] border border-amber-200 bg-amber-50 p-3">
+        <Info className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" strokeWidth={1.7} aria-hidden="true" />
+        <p className="text-xs text-amber-800">
           Resultados estimativos y no vinculantes. Las alícuotas de sellos, ITI y aranceles cambian y
           varían por jurisdicción: verificá siempre los valores vigentes con el Colegio de Escribanos y
           la normativa fiscal antes de informar a un cliente.
@@ -162,13 +162,13 @@ export function CalculadorasNotarialesClient() {
             <button
               key={t.id}
               onClick={() => setTab(t.id)}
-              className={`inline-flex items-center gap-2 rounded-xl border px-4 py-2 text-sm font-semibold transition ${
+              className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 text-xs font-semibold transition-colors ${
                 active
-                  ? 'border-cyan-400/50 bg-cyan-400/10 text-cyan-400'
-                  : 'border-white/10 bg-white/[0.02] text-slate-400 hover:bg-white/[0.04]'
+                  ? 'border-[#2c2c2b] bg-[#2c2c2b] text-white'
+                  : 'border-[#d9d9d6] bg-white text-[#626b73] hover:border-[#92928f]'
               }`}
             >
-              <Icon className="h-4 w-4" />
+              <Icon className="h-4 w-4" strokeWidth={1.7} aria-hidden="true" />
               {t.label}
             </button>
           );
@@ -210,7 +210,7 @@ function EscrituraCalc() {
   const total = sellosRes.sellosTotal + iti + honorarios + aporte + iva;
 
   return (
-    <div className="grid gap-4 lg:grid-cols-2">
+    <div className="mt-5 grid gap-4 lg:grid-cols-[1.15fr_.85fr]">
       <Card
         title="Datos de la operación"
         subtitle="Cargá el valor y ajustá las alícuotas según la jurisdicción y el caso."
@@ -229,15 +229,44 @@ function EscrituraCalc() {
         </Check>
       </Card>
 
-      <Card title="Estimación de costos" subtitle="Desglose orientativo del cierre de la escritura.">
-        <Result label="Base imponible de Sellos" value={`${currency(sellosRes.baseImponible)} (${sellosRes.baseUtilizada === 'valuacion_fiscal' ? 'Valuación fiscal' : sellosRes.baseUtilizada === 'precio' ? 'Precio' : 'Equivalente'})`} />
-        <Result label="Impuesto de Sellos" value={currency(sellosRes.sellosTotal)} />
-        {conIti && <Result label="ITI" value={currency(iti)} />}
-        <Result label="Honorarios notariales" value={currency(honorarios)} />
-        <Result label="Aporte Colegio/Caja" value={currency(aporte)} />
-        {conIva && <Result label="IVA 21%" value={currency(iva)} />}
-        <Result label="Total estimado de gastos" value={currency(total)} strong />
-      </Card>
+      <div className="flex flex-col rounded-[10px] border border-[#d9d9d6] bg-white p-5">
+        <div className="text-[11px] font-bold uppercase tracking-[1.4px] text-[#626b73]">Desglose orientativo</div>
+        <div className="mt-3">
+          <div className="flex items-center justify-between border-b border-[#e4e5e3] py-2.5 text-[13px]">
+            <span className="text-[#626b73]">Base imponible de Sellos</span>
+            <span className="font-semibold tabular-nums text-[#25272a]">{currency(sellosRes.baseImponible)} <span className="font-medium text-[#8a8f94]">({sellosRes.baseUtilizada === 'valuacion_fiscal' ? 'Valuación fiscal' : sellosRes.baseUtilizada === 'precio' ? 'Precio' : 'Equivalente'})</span></span>
+          </div>
+          <div className="flex items-center justify-between border-b border-[#e4e5e3] py-2.5 text-[13px]">
+            <span className="text-[#626b73]">Impuesto de Sellos</span>
+            <span className="font-semibold tabular-nums text-[#25272a]">{currency(sellosRes.sellosTotal)}</span>
+          </div>
+          {conIti && (
+            <div className="flex items-center justify-between border-b border-[#e4e5e3] py-2.5 text-[13px]">
+              <span className="text-[#626b73]">ITI</span>
+              <span className="font-semibold tabular-nums text-[#25272a]">{currency(iti)}</span>
+            </div>
+          )}
+          <div className="flex items-center justify-between border-b border-[#e4e5e3] py-2.5 text-[13px]">
+            <span className="text-[#626b73]">Honorarios notariales</span>
+            <span className="font-semibold tabular-nums text-[#25272a]">{currency(honorarios)}</span>
+          </div>
+          <div className="flex items-center justify-between border-b border-[#e4e5e3] py-2.5 text-[13px]">
+            <span className="text-[#626b73]">Aporte Colegio/Caja</span>
+            <span className="font-semibold tabular-nums text-[#25272a]">{currency(aporte)}</span>
+          </div>
+          {conIva && (
+            <div className="flex items-center justify-between border-b border-[#e4e5e3] py-2.5 text-[13px]">
+              <span className="text-[#626b73]">IVA 21%</span>
+              <span className="font-semibold tabular-nums text-[#25272a]">{currency(iva)}</span>
+            </div>
+          )}
+        </div>
+        <TotalHero
+          label="Total estimado de gastos"
+          value={currency(total)}
+          hint={basePrecio > 0 ? `≈ ${(Math.round((total / basePrecio) * 10000) / 100).toLocaleString('es-AR', { maximumFractionDigits: 2 })} % del valor de la operación` : undefined}
+        />
+      </div>
     </div>
   );
 }
@@ -260,8 +289,9 @@ function SellosCalc() {
       title="Impuesto de Sellos (CABA / Provincial)"
       subtitle="Compraventa de inmueble. Se liquida sobre el mayor valor entre el precio y la valuación fiscal (art. 268 Código Fiscal CABA y leyes tarifarias provinciales)."
     >
-      <div className="rounded-xl border border-sky-500/20 bg-sky-500/10 p-3 text-xs text-sky-200">
-        ℹ️ <strong>Criterio normativo:</strong> El impuesto se determina sobre el valor que resulte mayor entre el precio convenido por las partes y la valuación fiscal homogénea / base imponible del inmueble. Las alícuotas y exenciones (ej. vivienda única) son orientativas y sujetas a la normativa vigente.
+      <div className="flex items-start gap-2 rounded-[10px] border border-[#d9d9d6] bg-[#fafaf9] p-3 text-xs text-[#626b73]">
+        <Info className="mt-0.5 h-4 w-4 shrink-0 text-[#626b73]" strokeWidth={1.7} aria-hidden="true" />
+        <span><strong>Criterio normativo:</strong> El impuesto se determina sobre el valor que resulte mayor entre el precio convenido por las partes y la valuación fiscal homogénea / base imponible del inmueble. Las alícuotas y exenciones (ej. vivienda única) son orientativas y sujetas a la normativa vigente.</span>
       </div>
       <Field label="Precio / valor de la operación" value={precio} onChange={setPrecio} suffix="ARS" placeholder="Ej: 85000000" />
       <Field label="Valuación fiscal / base imponible" value={valuacion} onChange={setValuacion} suffix="ARS" placeholder="Ej: 90000000" />
@@ -273,8 +303,9 @@ function SellosCalc() {
         label="Base imponible aplicada"
         value={`${currency(res.baseImponible)} (${res.baseUtilizada === 'valuacion_fiscal' ? 'Mayor: Valuación fiscal' : res.baseUtilizada === 'precio' ? 'Mayor: Precio de la operación' : 'Valores equivalentes'})`}
       />
-      <Result label="Sellos total" value={currency(res.sellosTotal)} strong />
+      <Result label={dividir ? 'Sellos total (50/50)' : 'Sellos total'} value={currency(res.sellosTotal)} />
       {dividir && <Result label="A cargo de cada parte" value={currency(res.aCargoCadaParte)} />}
+      <TotalHero label="Sellos total" value={currency(res.sellosTotal)} />
     </Card>
   );
 }
@@ -288,12 +319,13 @@ function ItiCalc() {
       title="ITI — Impuesto a la Transferencia de Inmuebles"
       subtitle="Aplica a personas humanas que venden inmuebles no alcanzados por Impuesto a las Ganancias (adquiridos antes del 01/01/2018)."
     >
-      <div className="rounded-xl border border-amber-500/20 bg-amber-500/10 p-3 text-xs text-amber-200">
-        ⚠️ <strong>Atención normativa:</strong> El art. 67 de la Ley 27.743 (B.O. 08/07/2024) derogó el Título VII de la Ley 23.905 (Impuesto a la Transferencia de Inmuebles - ITI) para las transferencias y operaciones formalizadas a partir del 8 de julio de 2024. Este cálculo se conserva como referencia histórica para operaciones formalizadas u obligaciones devengadas con anterioridad a dicha fecha.
+      <div className="flex items-start gap-2 rounded-[10px] border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
+        <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" strokeWidth={1.7} aria-hidden="true" />
+        <span><strong>Atención normativa:</strong> El art. 67 de la Ley 27.743 (B.O. 08/07/2024) derogó el Título VII de la Ley 23.905 (Impuesto a la Transferencia de Inmuebles - ITI) para las transferencias y operaciones formalizadas a partir del 8 de julio de 2024. Este cálculo se conserva como referencia histórica para operaciones formalizadas u obligaciones devengadas con anterioridad a dicha fecha.</span>
       </div>
       <Field label="Valor de transferencia" value={monto} onChange={setMonto} suffix="ARS" placeholder="Ej: 85000000" />
       <Field label="Alícuota" value={alic} onChange={setAlic} suffix="%" />
-      <Result label="ITI estimado" value={currency(total)} strong />
+      <TotalHero label="ITI estimado" value={currency(total)} />
     </Card>
   );
 }
@@ -321,7 +353,7 @@ function ArancelesCalc() {
       <Result label="Honorarios" value={currency(honorarios)} />
       <Result label="Aporte Colegio/Caja" value={currency(aporteMonto)} />
       {conIva && <Result label="IVA 21%" value={currency(ivaMonto)} />}
-      <Result label="Total honorarios + aportes" value={currency(total)} strong />
+      <TotalHero label="Total honorarios + aportes" value={currency(total)} />
     </Card>
   );
 }

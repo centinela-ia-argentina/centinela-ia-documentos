@@ -50,7 +50,7 @@ export function CaseCardMenu({ caseId, isArchived, canArchive, canDelete, indust
     <div className="absolute right-3 top-3 z-10" ref={menuRef}>
       <button
         onClick={handleToggle}
-        className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-900/50 text-slate-300 transition-colors hover:bg-slate-800 hover:text-white"
+        className="flex h-8 w-8 items-center justify-center rounded-full text-[#8a8f94] transition-colors hover:bg-[#f1f1ef] hover:text-[#25272a]"
         aria-label="Opciones de la operación"
       >
         <MoreVertical className="h-4 w-4" />
@@ -58,7 +58,7 @@ export function CaseCardMenu({ caseId, isArchived, canArchive, canDelete, indust
 
       {isOpen && (
         <div 
-          className="absolute right-0 mt-1 w-48 overflow-hidden rounded-xl border border-slate-700 bg-slate-800 shadow-xl"
+          className="absolute right-0 mt-1 w-48 overflow-hidden rounded-[10px] border border-[#d9d9d6] bg-white shadow-lg"
           onClick={preventNavigation}
         >
           <div className="flex flex-col py-1">
@@ -68,7 +68,7 @@ export function CaseCardMenu({ caseId, isArchived, canArchive, canDelete, indust
                 <button
                   type="submit"
                   onClick={(e) => e.stopPropagation()}
-                  className="w-full px-4 py-2 text-left text-sm text-slate-300 transition-colors hover:bg-slate-700 hover:text-white"
+                  className="w-full px-4 py-2 text-left text-sm text-[#25272a] transition-colors hover:bg-[#f1f1ef]"
                 >
                   Archivar
                 </button>
@@ -81,7 +81,7 @@ export function CaseCardMenu({ caseId, isArchived, canArchive, canDelete, indust
                 <button
                   type="submit"
                   onClick={(e) => e.stopPropagation()}
-                  className="w-full px-4 py-2 text-left text-sm text-slate-300 transition-colors hover:bg-slate-700 hover:text-white"
+                  className="w-full px-4 py-2 text-left text-sm text-[#25272a] transition-colors hover:bg-[#f1f1ef]"
                 >
                   Desarchivar
                 </button>
@@ -98,7 +98,7 @@ export function CaseCardMenu({ caseId, isArchived, canArchive, canDelete, indust
                 <button
                   type="submit"
                   onClick={(e) => e.stopPropagation()}
-                  className="w-full px-4 py-2 text-left text-sm font-semibold text-rose-500 transition-colors hover:bg-rose-500/10"
+                  className="w-full px-4 py-2 text-left text-sm font-semibold text-[#a63d33] transition-colors hover:bg-[#fbf1f0]"
                 >
                   Eliminar
                 </button>

@@ -5,6 +5,15 @@ Formato por fecha; los PR quedan enlazados con su detalle completo (commits, che
 
 ---
 
+## 2026-11-24 — Carteras de propiedades y clientes rediseñadas + tipografía de números héroe (PR #43 — merged)
+
+- **Carteras al patrón "fichas" con identidad propia** (4 iteraciones con el usuario: workbench → muestras A/B/C → índice editorial rechazado en preview → D/E → F-2 rechazada → "Vitrina sin ruido" aprobada):
+  - **Propiedades**: ficha blanca con tile de icono por tipo (edificio/casa/comercio según `property_type`), nombre + dirección + pill de estado, línea de specs "Tipo · superficie", pie con precio héroe y CTA grafito primario. Segmentos de estado, búsqueda GET, "N de M", fallbacks explícitos y estado de error con Reintentar se conservan del contrato.
+  - **Clientes**: fichas con iniciales en tile grafito, criterio de búsqueda con icono (casa/llave), zona, presupuesto + ambientes + contacto + CTA "Ver ficha".
+- **Decisión tipográfica del usuario (nueva regla en `docs/DESIGN-SYSTEM.md`)**: dos niveles de dato — JetBrains Mono queda para datos densos de tablas/listas; **números héroe (precio/presupuesto protagonista de una ficha) en Manrope 600 + tabular-nums**. El mono a 20px lee como código, no como un valor comercial.
+- **Decisión "No cargado" (nueva regla)**: un fallback es texto de UI, nunca un dato — Manrope 500 `#626b73`, sin mono, sin falso cero; el cero real SÍ es dato. Aplicado a ficha de propiedad (fallback de precio/superficie/ambientes ya no se renderiza en mono 22px).
+- Tarjetas viejas eliminadas (PropiedadCard/ClienteCard y sus tests, autorizado por el usuario). Tests 168/168 (PropiedadesList/ClientesList/pages/propertyV3) + lint + tsc + build ✓.
+
 ## 2026-11-21/22 — Sub-lote oscuro + fixes Modelos + tooling de skills de diseño (PR #41 — merged)
 
 - **SelectField tema oscuro** (prop `dark` + bloque `.dark` en SharedControls.module.css: trigger `#181c1f`, popup `#1c2124`, focus `#415a71`): migrados Calculadoras (3), Protocolo (3), Tasación (1). Alquileres/índices corregido a tema CLARO (Rentals es claro — la memoria decía oscuro y era incorrecto). Solo queda landing-contact-form con selects nativos (superficie de marca, NUNCA tocar).

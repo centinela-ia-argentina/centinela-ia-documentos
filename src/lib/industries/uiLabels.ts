@@ -4,6 +4,9 @@ import type { IndustryType } from './documentTypes';
 const groupLabelOverrides: Partial<Record<IndustryType, Record<string, string>>> = {
   escribania: { 'Herramientas jurídicas': 'Herramientas notariales' },
   inmobiliaria: { 'Herramientas jurídicas': 'Herramientas inmobiliarias' },
+  // H2 (paquete 7): rubros sin módulos jurídicos propios — grupo neutro (solo Agenda + Modelos)
+  empresa: { 'Herramientas jurídicas': 'Herramientas' },
+  general: { 'Herramientas jurídicas': 'Herramientas' },
 };
 
 export function getNavGroupLabel(group: string, industry: IndustryType): string {
@@ -450,7 +453,7 @@ const agendaLabelsByIndustry: Partial<Record<IndustryType, AgendaLabels>> = {
     feriaLabel: 'Feriado extendido',
   },
   empresa: {
-    eyebrow: 'Herramientas de gestión',
+    eyebrow: 'Herramientas',
     subtitulo: 'Feriados, vencimientos de documentos y fechas clave de la organización.',
     plazoLabel: 'Plazo',
     feriaLabel: 'Feriado extendido',

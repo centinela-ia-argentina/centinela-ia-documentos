@@ -1,7 +1,7 @@
 'use client';
 
 import { ArrowRight } from 'lucide-react';
-import { MagicWand } from '@phosphor-icons/react';
+import { MagicWand, Warning } from '@phosphor-icons/react';
 import { AppButton } from '@/components/ui/AppButton';
 import styles from './PropertyDetail.module.css';
 
@@ -70,7 +70,7 @@ export function TasarButton({ propertyId }: { propertyId: string }) {
               className="flex items-center gap-1 text-xs font-semibold text-white bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded-lg transition-colors"
             >
               {copied ? <Check className="h-4 w-4 text-green-400" /> : <Copy className="h-4 w-4" />}
-              {copied ? 'Copiado!' : '📋 Copiar'}
+              {copied ? 'Copiado!' : 'Copiar'}
             </button>
             <button
               onClick={handleTasar}
@@ -90,7 +90,7 @@ export function TasarButton({ propertyId }: { propertyId: string }) {
       {error && (
         <div className="mb-4 rounded-xl border border-red-500/20 bg-red-500/10 p-4">
           <div className="flex items-start gap-3">
-            <span className="text-xl">⚠️</span>
+            <Warning size={20} weight="duotone" aria-hidden="true" />
             <div>
               <h4 className="text-sm font-bold text-red-400">No se pudo tasar</h4>
               <p className="mt-1 text-sm text-red-200/80">{error}</p>
