@@ -100,24 +100,24 @@ function Check({
 function Result({
   label,
   value,
-  strong,
 }: {
   label: string;
   value: string;
-  strong?: boolean;
 }) {
   return (
-    <div
-      className={`flex items-center justify-between rounded-[8px] border px-4 py-2.5 ${
-        strong ? 'border-[#d9d9d6] bg-[#f1f1ef]' : 'border-[#e4e5e3] bg-white'
-      }`}
-    >
-      <span className={`text-sm ${strong ? 'font-semibold text-[#25272a]' : 'text-[#626b73]'}`}>
-        {label}
-      </span>
-      <span className={`text-sm tabular-nums ${strong ? 'font-bold text-[#25272a]' : 'font-medium text-[#25272a]'}`}>
-        {value}
-      </span>
+    <div className="flex items-center justify-between rounded-[8px] border border-[#e4e5e3] bg-white px-4 py-2.5">
+      <span className="text-sm text-[#626b73]">{label}</span>
+      <span className="text-sm font-medium tabular-nums text-[#25272a]">{value}</span>
+    </div>
+  );
+}
+
+function TotalHero({ label, value, hint }: { label: string; value: string; hint?: string }) {
+  return (
+    <div className="mt-4 border-t border-[#d9d9d6] pt-4">
+      <div className="text-[11px] font-bold uppercase tracking-[1px] text-[#626b73]">{label}</div>
+      <div className="mt-1 text-[40px] font-semibold leading-tight tracking-[-.03em] text-[#25272a]" style={{ fontVariantNumeric: 'tabular-nums' }}>{value}</div>
+      {hint && <div className="mt-1 text-[11px] text-[#8a8f94]">{hint}</div>}
     </div>
   );
 }
@@ -210,7 +210,7 @@ function EscrituraCalc() {
   const total = sellosRes.sellosTotal + iti + honorarios + aporte + iva;
 
   return (
-    <div className="grid gap-4 lg:grid-cols-2">
+    <div className="mt-5 grid gap-4 lg:grid-cols-[1.15fr_.85fr]">
       <Card
         title="Datos de la operación"
         subtitle="Cargá el valor y ajustá las alícuotas según la jurisdicción y el caso."
@@ -229,15 +229,44 @@ function EscrituraCalc() {
         </Check>
       </Card>
 
-      <Card title="Estimación de costos" subtitle="Desglose orientativo del cierre de la escritura.">
-        <Result label="Base imponible de Sellos" value={`${currency(sellosRes.baseImponible)} (${sellosRes.baseUtilizada === 'valuacion_fiscal' ? 'Valuación fiscal' : sellosRes.baseUtilizada === 'precio' ? 'Precio' : 'Equivalente'})`} />
-        <Result label="Impuesto de Sellos" value={currency(sellosRes.sellosTotal)} />
-        {conIti && <Result label="ITI" value={currency(iti)} />}
-        <Result label="Honorarios notariales" value={currency(honorarios)} />
-        <Result label="Aporte Colegio/Caja" value={currency(aporte)} />
-        {conIva && <Result label="IVA 21%" value={currency(iva)} />}
-        <Result label="Total estimado de gastos" value={currency(total)} strong />
-      </Card>
+      <div className="flex flex-col rounded-[10px] border border-[#d9d9d6] bg-white p-5">
+        <div className="text-[11px] font-bold uppercase tracking-[1.4px] text-[#626b73]">Desglose orientativo</div>
+        <div className="mt-3">
+          <div className="flex items-center justify-between border-b border-[#e4e5e3] py-2.5 text-[13px]">
+            <span className="text-[#626b73]">Base imponible de Sellos</span>
+            <span className="font-semibold tabular-nums text-[#25272a]">{currency(sellosRes.baseImponible)} <span className="font-medium text-[#8a8f94]">({sellosRes.baseUtilizada === 'valuacion_fiscal' ? 'Valuación fiscal' : sellosRes.baseUtilizada === 'precio' ? 'Precio' : 'Equivalente'})</span></span>
+          </div>
+          <div className="flex items-center justify-between border-b border-[#e4e5e3] py-2.5 text-[13px]">
+            <span className="text-[#626b73]">Impuesto de Sellos</span>
+            <span className="font-semibold tabular-nums text-[#25272a]">{currency(sellosRes.sellosTotal)}</span>
+          </div>
+          {conIti && (
+            <div className="flex items-center justify-between border-b border-[#e4e5e3] py-2.5 text-[13px]">
+              <span className="text-[#626b73]">ITI</span>
+              <span className="font-semibold tabular-nums text-[#25272a]">{currency(iti)}</span>
+            </div>
+          )}
+          <div className="flex items-center justify-between border-b border-[#e4e5e3] py-2.5 text-[13px]">
+            <span className="text-[#626b73]">Honorarios notariales</span>
+            <span className="font-semibold tabular-nums text-[#25272a]">{currency(honorarios)}</span>
+          </div>
+          <div className="flex items-center justify-between border-b border-[#e4e5e3] py-2.5 text-[13px]">
+            <span className="text-[#626b73]">Aporte Colegio/Caja</span>
+            <span className="font-semibold tabular-nums text-[#25272a]">{currency(aporte)}</span>
+          </div>
+          {conIva && (
+            <div className="flex items-center justify-between border-b border-[#e4e5e3] py-2.5 text-[13px]">
+              <span className="text-[#626b73]">IVA 21%</span>
+              <span className="font-semibold tabular-nums text-[#25272a]">{currency(iva)}</span>
+            </div>
+          )}
+        </div>
+        <TotalHero
+          label="Total estimado de gastos"
+          value={currency(total)}
+          hint={basePrecio > 0 ? `≈ ${(Math.round((total / basePrecio) * 10000) / 100).toLocaleString('es-AR', { maximumFractionDigits: 2 })} % del valor de la operación` : undefined}
+        />
+      </div>
     </div>
   );
 }
@@ -274,8 +303,9 @@ function SellosCalc() {
         label="Base imponible aplicada"
         value={`${currency(res.baseImponible)} (${res.baseUtilizada === 'valuacion_fiscal' ? 'Mayor: Valuación fiscal' : res.baseUtilizada === 'precio' ? 'Mayor: Precio de la operación' : 'Valores equivalentes'})`}
       />
-      <Result label="Sellos total" value={currency(res.sellosTotal)} strong />
+      <Result label={dividir ? 'Sellos total (50/50)' : 'Sellos total'} value={currency(res.sellosTotal)} />
       {dividir && <Result label="A cargo de cada parte" value={currency(res.aCargoCadaParte)} />}
+      <TotalHero label="Sellos total" value={currency(res.sellosTotal)} />
     </Card>
   );
 }
@@ -295,7 +325,7 @@ function ItiCalc() {
       </div>
       <Field label="Valor de transferencia" value={monto} onChange={setMonto} suffix="ARS" placeholder="Ej: 85000000" />
       <Field label="Alícuota" value={alic} onChange={setAlic} suffix="%" />
-      <Result label="ITI estimado" value={currency(total)} strong />
+      <TotalHero label="ITI estimado" value={currency(total)} />
     </Card>
   );
 }
@@ -323,7 +353,7 @@ function ArancelesCalc() {
       <Result label="Honorarios" value={currency(honorarios)} />
       <Result label="Aporte Colegio/Caja" value={currency(aporteMonto)} />
       {conIva && <Result label="IVA 21%" value={currency(ivaMonto)} />}
-      <Result label="Total honorarios + aportes" value={currency(total)} strong />
+      <TotalHero label="Total honorarios + aportes" value={currency(total)} />
     </Card>
   );
 }

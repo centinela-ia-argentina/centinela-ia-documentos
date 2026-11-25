@@ -79,6 +79,29 @@ export function ProtocoloClient({ escrituras, cases }: { escrituras: EscrituraPr
     return max + 1;
   }, [escrituras, anioActual]);
 
+  // Riel anual del ledger: escrituras del año, movimiento del mes y folios consumidos.
+  const escriturasAnio = useMemo(() => escrituras.filter((e) => e.anio === anio), [escrituras, anio]);
+  const escriturasMesObjetivo = useMemo(() => {
+    const mesObjetivo = mes !== 0 ? mes : new Date().getMonth() + 1;
+    return escriturasAnio.filter((e) => e.fecha_otorgamiento && Number(e.fecha_otorgamiento.slice(5, 7)) === mesObjetivo).length;
+  }, [escriturasAnio, mes]);
+  const folios = useMemo(() => {
+    let consumidos = 0;
+    let actual = 0;
+    for (const e of escriturasAnio) {
+      const desde = Number(e.folio_desde);
+      const hasta = Number(e.folio_hasta);
+      if (Number.isFinite(desde) && Number.isFinite(hasta) && hasta >= desde) consumidos += hasta - desde + 1;
+      if (Number.isFinite(hasta) && hasta > actual) actual = hasta;
+    }
+    return { consumidos, actual };
+  }, [escriturasAnio]);
+  const ultimaFecha = useMemo(() => {
+    const fechas = escriturasAnio.map((e) => e.fecha_otorgamiento).filter((v): v is string => Boolean(v)).sort();
+    return fechas.length > 0 ? fechas[fechas.length - 1].split('-').reverse().join('/') : null;
+  }, [escriturasAnio]);
+  const mesRailLabel = mes !== 0 ? MESES[mes].toUpperCase() : MESES[new Date().getMonth() + 1].toUpperCase();
+
   const guardar = async () => {
     if (!fecha) { setAviso('Completá la fecha de otorgamiento.'); return; }
     setGuardando(true);
@@ -157,6 +180,24 @@ export function ProtocoloClient({ escrituras, cases }: { escrituras: EscrituraPr
         <button onClick={() => setShowForm(!showForm)} className="inline-flex items-center gap-1.5 rounded-[6px] bg-[#2c2c2b] px-3.5 py-2 text-xs font-semibold text-white hover:bg-[#424242]">
           {showForm ? <X className="h-4 w-4" /> : <Plus className="h-4 w-4" />} Registrar escritura o acta
         </button>
+      </div>
+
+      <div className="mt-6 grid grid-cols-1 border-y border-[#d5d5d2] sm:grid-cols-3">
+        <div className="px-0 py-5 sm:px-6 sm:first:pl-0">
+          <div className="flex items-center justify-between text-[13px] text-[#626b73]"><span>Escrituras {anio}</span></div>
+          <div className="mt-1.5 text-[34px] font-medium tracking-[-1px] text-[#25272a]">{escriturasAnio.length}</div>
+          <div className="mt-1 text-[11px] text-[#8a8f94]">Próximo N°: {proximoNumero}</div>
+        </div>
+        <div className="px-0 py-5 sm:px-6 sm:border-l sm:border-[#d5d5d2]">
+          <div className="flex items-center justify-between text-[13px] text-[#626b73]"><span>Este mes</span><span className="text-[10px] font-bold text-[#626b73]">{mesRailLabel}</span></div>
+          <div className="mt-1.5 text-[34px] font-medium tracking-[-1px] text-[#25272a]">{escriturasMesObjetivo}</div>
+          <div className="mt-1 text-[11px] text-[#8a8f94]">{ultimaFecha ? `Última: ${ultimaFecha}` : 'Sin otorgamientos'}</div>
+        </div>
+        <div className="px-0 py-5 sm:px-6 sm:border-l sm:border-[#d5d5d2]">
+          <div className="flex items-center justify-between text-[13px] text-[#626b73]"><span>Folios consumidos</span></div>
+          <div className="mt-1.5 text-[34px] font-medium tracking-[-1px] text-[#25272a]">{folios.consumidos}</div>
+          <div className="mt-1 text-[11px] text-[#8a8f94]">{folios.actual > 0 ? `Folio actual: ${folios.actual}` : 'Sin folios registrados'}</div>
+        </div>
       </div>
 
       {showForm && (
@@ -241,8 +282,8 @@ export function ProtocoloClient({ escrituras, cases }: { escrituras: EscrituraPr
             )}
             {filtradas.map((e) => (
               <tr key={e.id} className="border-t border-[#e4e5e3]">
-                <td className="px-3 py-2 font-semibold text-[#25272a]">{e.numero}</td>
-                <td className="px-3 py-2 text-[#25272a]">{e.fecha_otorgamiento ? e.fecha_otorgamiento.split('-').reverse().join('/') : '-'}</td>
+                <td className="px-3 py-2 text-[19px] font-semibold tracking-[-.02em] text-[#25272a]" style={{ fontVariantNumeric: 'tabular-nums' }}>{e.numero}</td>
+                <td className="px-3 py-2 text-[#25272a]" style={{ fontVariantNumeric: 'tabular-nums' }}>{e.fecha_otorgamiento ? e.fecha_otorgamiento.split('-').reverse().join('/') : '-'}</td>
                 <td className="px-3 py-2 text-[#40403e]">{e.tipo_acto || '-'}</td>
                 <td className="px-3 py-2 text-[#40403e]">{e.comparecientes || '-'}</td>
                 <td className="px-3 py-2 text-[#626b73]">{e.folio_desde || e.folio_hasta ? `${e.folio_desde || '?'} – ${e.folio_hasta || '?'}` : '-'}</td>
