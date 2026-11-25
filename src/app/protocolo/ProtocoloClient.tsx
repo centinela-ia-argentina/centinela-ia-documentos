@@ -89,6 +89,8 @@ export function ProtocoloClient({ escrituras, cases }: { escrituras: EscrituraPr
     let consumidos = 0;
     let actual = 0;
     for (const e of escriturasAnio) {
+      // Sin folios cargados (null o vacío) no se cuenta: Number(null) daría 0 y sumaría un rango falso.
+      if (e.folio_desde == null || e.folio_hasta == null || e.folio_desde === '' || e.folio_hasta === '') continue;
       const desde = Number(e.folio_desde);
       const hasta = Number(e.folio_hasta);
       if (Number.isFinite(desde) && Number.isFinite(hasta) && hasta >= desde) consumidos += hasta - desde + 1;
