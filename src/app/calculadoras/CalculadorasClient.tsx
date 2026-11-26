@@ -18,8 +18,10 @@ import {
   HeartPulse,
   MapPin,
   Percent,
+  Info,
+  Lock,
+  Check,
 } from 'lucide-react';
-import { MotionCard } from '@/components/ui/MotionCard';
 import { MotionButton } from '@/components/ui/MotionButton';
 import { SelectField } from '@/components/ui/SelectField';
 import { guardarPlazoEnAgenda } from './actions';
@@ -93,24 +95,24 @@ const formatDateLarga = (d: Date) =>
   new Intl.DateTimeFormat('es-AR', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' }).format(d);
 
 const inputClass =
-  'w-full rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2 text-sm text-white outline-none placeholder-slate-500 focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400';
+  'w-full rounded-[8px] border border-[#d9d9d6] bg-white px-3 py-2 text-sm text-[#25272a] outline-none placeholder:text-[#8a8f94] focus:border-[#415a71]';
 const btnClass =
-  'mt-5 inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-accent to-brandviolet px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition disabled:opacity-50 disabled:cursor-not-allowed';
+  'mt-5 inline-flex items-center justify-center gap-2 rounded-[8px] bg-[#25272a] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#393c42] disabled:opacity-50 disabled:cursor-not-allowed';
 
-function Card({ title, subtitle, children, index = 0 }: { title: string; subtitle?: string; children: ReactNode; index?: number }) {
+function Card({ title, subtitle, children }: { title: string; subtitle?: string; children: ReactNode }) {
   return (
-    <MotionCard index={index} className="p-6">
-      <h2 className="text-base font-semibold text-white">{title}</h2>
-      {subtitle && <p className="mt-1 text-sm text-slate-400">{subtitle}</p>}
+    <div className="rounded-[10px] border border-[#d9d9d6] bg-white p-5">
+      <h2 className="text-base font-semibold text-[#25272a]">{title}</h2>
+      {subtitle && <p className="mt-1 text-xs text-[#626b73]">{subtitle}</p>}
       <div className="mt-4">{children}</div>
-    </MotionCard>
+    </div>
   );
 }
 
 function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
     <label className="block">
-      <span className="mb-1 block text-xs font-semibold text-slate-400">{label}</span>
+      <span className="mb-1 block text-xs text-[#626b73]">{label}</span>
       {children}
     </label>
   );
@@ -121,8 +123,8 @@ function RadioPill({ active, onClick, label }: { active: boolean; onClick: () =>
     <button
       type="button"
       onClick={onClick}
-      className={`rounded-lg border px-3 py-2 text-sm font-semibold transition ${
-        active ? 'border-cyan-400/50 bg-cyan-400/10 text-cyan-400' : 'border-white/10 bg-transparent text-slate-400 hover:bg-white/[0.04]'
+      className={`rounded-full border px-3.5 py-2 text-xs font-semibold transition-colors ${
+        active ? 'border-[#2c2c2b] bg-[#2c2c2b] text-white' : 'border-[#d9d9d6] bg-white text-[#626b73] hover:border-[#92928f]'
       }`}
     >
       {label}
@@ -142,10 +144,10 @@ function ResultBox({
   highlight?: boolean;
 }) {
   return (
-    <div className={`rounded-xl border p-4 ${highlight ? 'border-cyan-400/30 bg-cyan-400/10' : 'border-white/10 bg-white/[0.02]'}`}>
-      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</p>
-      <p className={`mt-1 text-lg font-semibold ${highlight ? 'text-cyan-400' : 'text-white'}`}>{value}</p>
-      {subtitle && <p className="mt-1 text-xs text-slate-400">{subtitle}</p>}
+    <div className={`rounded-[8px] border bg-white p-4 ${highlight ? 'border-[#415a71]' : 'border-[#e4e5e3]'}`}>
+      <p className="text-[11px] font-bold uppercase tracking-[1px] text-[#626b73]">{label}</p>
+      <p className="mt-1 text-lg font-semibold text-[#25272a]" style={{ fontVariantNumeric: 'tabular-nums' }}>{value}</p>
+      {subtitle && <p className="mt-1 text-xs text-[#626b73]">{subtitle}</p>}
     </div>
   );
 }
@@ -230,8 +232,8 @@ function PlazosCalc({ puedeGuardar = true }: { puedeGuardar?: boolean }) {
     setGuardado(
       res.ok
         ? res.existing
-          ? 'ℹ️ Ya en agenda'
-          : '✅ Cargado a la agenda'
+          ? 'Ya en agenda'
+          : 'Cargado a la agenda'
         : res.motivo === 'no_auth'
           ? 'Iniciá sesión para guardar.'
           : 'No se pudo guardar, intentá de nuevo.'
@@ -246,7 +248,6 @@ function PlazosCalc({ puedeGuardar = true }: { puedeGuardar?: boolean }) {
           <SelectField
             name="plazos-jurisdiccion"
             label="Jurisdicción"
-            dark
             value={jurisdiccion}
             placeholder="Seleccionar jurisdicción"
             onChange={(v) => { setJurisdiccion(v as LegalJurisdiction | ''); setGuardado(null); setResultado(null); }}
@@ -254,11 +255,17 @@ function PlazosCalc({ puedeGuardar = true }: { puedeGuardar?: boolean }) {
           />
         </Field>
         {jurisdiccion && (
-          <div className="mt-2 text-xs text-slate-400">
+          <div className="mt-2 flex items-center gap-1.5 text-xs">
             {LEGAL_CALENDARS[jurisdiccion as LegalJurisdiction].coverage === 'verified' ? (
-              <span className="text-emerald-400">✓ Calendario verificado para el año {LEGAL_CALENDARS[jurisdiccion as LegalJurisdiction].year} (actualizado el {LEGAL_CALENDARS[jurisdiccion as LegalJurisdiction].verifiedAt})</span>
+              <>
+                <Check className="h-3.5 w-3.5 text-emerald-600" strokeWidth={2} aria-hidden="true" />
+                <span className="text-[#626b73]">Calendario verificado para el año {LEGAL_CALENDARS[jurisdiccion as LegalJurisdiction].year} (actualizado el {LEGAL_CALENDARS[jurisdiccion as LegalJurisdiction].verifiedAt})</span>
+              </>
             ) : (
-              <span className="text-amber-400">⚠️ Calendario todavía no configurado para esta jurisdicción/año</span>
+              <>
+                <AlertTriangle className="h-3.5 w-3.5 text-amber-600" strokeWidth={1.7} aria-hidden="true" />
+                <span className="text-amber-700">Calendario todavía no configurado para esta jurisdicción/año</span>
+              </>
             )}
           </div>
         )}
@@ -288,24 +295,25 @@ function PlazosCalc({ puedeGuardar = true }: { puedeGuardar?: boolean }) {
 
       <MotionButton type="button" onClick={calcular} className={btnClass}>Calcular vencimiento</MotionButton>
 
-      {error && <p className="mt-3 text-sm text-rose-600">{error}</p>}
+      {error && <p className="mt-3 text-sm text-[#a63d33]">{error}</p>}
 
       {resultado && (
-        <div className="mt-4 rounded-xl border border-cyan-400/30 bg-cyan-400/10 p-4">
-          <p className="text-xs font-semibold uppercase tracking-wide text-cyan-400">Vencimiento</p>
-          <p className="mt-1 text-lg font-semibold capitalize text-white">{formatDateLarga(resultado.vencimiento)}</p>
-          <p className="mt-1 text-xs text-slate-400">
+        <div className="mt-4 rounded-[8px] border border-[#415a71] bg-white p-4">
+          <p className="text-[11px] font-bold uppercase tracking-[1px] text-[#626b73]">Vencimiento</p>
+          <p className="mt-1 text-lg font-semibold capitalize text-[#25272a]" style={{ fontVariantNumeric: 'tabular-nums' }}>{formatDateLarga(resultado.vencimiento)}</p>
+          <p className="mt-1 text-xs text-[#626b73]">
             Contados {resultado.texto}
             {tipo === 'habiles' ? ' (sin fines de semana, feriados ni feria judicial).' : '.'}
           </p>
           {tipo === 'habiles' && (
-            <div className="mt-2 text-[11px] text-amber-200">
-              ⚠️ {resultado.adv} | {JURISDICTION_LABELS[jurisdiccion as LegalJurisdiction]} ({resultado.calAnio}) — Fuente: {resultado.fuente}
+            <div className="mt-2 flex items-start gap-1.5 text-[11px] text-amber-800">
+              <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-600" strokeWidth={1.7} aria-hidden="true" />
+              <span>{resultado.adv} | {JURISDICTION_LABELS[jurisdiccion as LegalJurisdiction]} ({resultado.calAnio}) — Fuente: {resultado.fuente}</span>
             </div>
           )}
 
           {puedeGuardar && (
-            <div className="mt-4 border-t border-emerald-100 pt-4">
+            <div className="mt-4 border-t border-[#e4e5e3] pt-4">
               <input
                 type="text"
                 value={referencia}
@@ -317,13 +325,18 @@ function PlazosCalc({ puedeGuardar = true }: { puedeGuardar?: boolean }) {
                 type="button"
                 onClick={cargarAgenda}
                 disabled={guardando}
-                className="mt-3 inline-flex w-full items-center justify-center gap-1.5 rounded-xl bg-cyan-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-cyan-500 disabled:opacity-60"
+                className="mt-3 inline-flex w-full items-center justify-center gap-1.5 rounded-[8px] border border-[#c7ced2] bg-white px-3 py-2 text-xs font-semibold text-[#25272a] transition hover:border-[#92928f] disabled:opacity-60"
               >
                 {guardando ? <Loader2 className="h-4 w-4 animate-spin" /> : <CalendarPlus className="h-4 w-4" />}
                 Cargar a la agenda
               </MotionButton>
               {guardado && (
-                <p className={`mt-2 text-center text-[11px] font-medium ${guardado.startsWith('✓') ? 'text-emerald-700' : 'text-amber-700'}`}>
+                <p className={`mt-2 flex items-center justify-center gap-1.5 text-center text-[11px] font-medium ${(guardado.startsWith('Ya en agenda') || guardado.startsWith('Cargado')) ? 'text-emerald-700' : 'text-[#a63d33]'}`}>
+                  {guardado.startsWith('Ya en agenda') || guardado.startsWith('Cargado') ? (
+                    <Check className="h-3.5 w-3.5" strokeWidth={2} aria-hidden="true" />
+                  ) : (
+                    <Info className="h-3.5 w-3.5" strokeWidth={1.7} aria-hidden="true" />
+                  )}
                   {guardado}
                 </p>
               )}
@@ -405,18 +418,21 @@ function HonorariosCalc() {
         </div>
       </Field>
 
-      <div className="mt-4 p-3 bg-cyan-500/10 border border-cyan-500/20 rounded-md">
-        <p className="text-xs text-cyan-400 font-medium">
-          Parámetro oficial UMA verificado (Res. SGA 1352/2026 CSJN). La fórmula de escala del art. 21 Ley 27.423 es orientativa y requiere verificación profesional en cada caso.
-        </p>
-        <p className="text-xs text-slate-300 mt-2">
-          UMA oficial: {currency(UMA_VALOR)} (vigente desde el {UMA_VIGENCIA}). Fuente oficial: {LEGAL_PARAMETERS.uma.sourceName}. La escala del art. 21 Ley 27.423 es continua y acumulativa por tramos respetando el máximo del grado anterior (no se descartan fracciones de UMA). 2ª instancia = 30–35% de lo de 1ª si se confirma; 30–40% si se revoca. Apoderado sin patrocinio = 140%; procurador = 40% (art. 20).
-        </p>
+      <div className="mt-4 flex items-start gap-2 rounded-[8px] border border-[#d9d9d6] bg-[#fafaf9] p-3">
+        <Info className="mt-0.5 h-4 w-4 shrink-0 text-[#626b73]" strokeWidth={1.7} aria-hidden="true" />
+        <div>
+          <p className="text-xs font-medium text-[#25272a]">
+            Parámetro oficial UMA verificado (Res. SGA 1352/2026 CSJN). La fórmula de escala del art. 21 Ley 27.423 es orientativa y requiere verificación profesional en cada caso.
+          </p>
+          <p className="text-xs text-[#626b73] mt-2">
+            UMA oficial: {currency(UMA_VALOR)} (vigente desde el {UMA_VIGENCIA}). Fuente oficial: {LEGAL_PARAMETERS.uma.sourceName}. La escala del art. 21 Ley 27.423 es continua y acumulativa por tramos respetando el máximo del grado anterior (no se descartan fracciones de UMA). 2ª instancia = 30–35% de lo de 1ª si se confirma; 30–40% si se revoca. Apoderado sin patrocinio = 140%; procurador = 40% (art. 20).
+          </p>
+        </div>
       </div>
 
       <MotionButton onClick={calcular} className={btnClass}>Calcular honorarios</MotionButton>
 
-      {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
+      {error && <p className="mt-3 text-sm text-[#a63d33]">{error}</p>}
 
       {res && (
         <div className="mt-5 grid gap-3 sm:grid-cols-2">
@@ -478,7 +494,6 @@ function TasaCalc() {
             <SelectField
               name="tasa-jurisdiccion"
               label="Jurisdicción"
-              dark
               testId="tasa-jurisdiccion"
               value={jurisdiccion}
               placeholder="Seleccionar jurisdicción"
@@ -501,13 +516,15 @@ function TasaCalc() {
         </div>
 
         {jurisdiccion === 'pba' && (
-          <div className="rounded-xl border border-amber-500/20 bg-amber-500/10 p-4 text-xs text-amber-200">
-            ⚠️ Cobertura no implementada para Provincia de Buenos Aires (Código Fiscal PBA / Ley Impositiva).
+          <div className="flex items-start gap-2 rounded-[10px] border border-amber-200 bg-amber-50 p-4 text-xs text-amber-800">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" strokeWidth={1.7} aria-hidden="true" />
+            <span>Cobertura no implementada para Provincia de Buenos Aires (Código Fiscal PBA / Ley Impositiva).</span>
           </div>
         )}
         {jurisdiccion === 'corrientes' && (
-          <div className="rounded-xl border border-amber-500/20 bg-amber-500/10 p-4 text-xs text-amber-200">
-            ⚠️ Cobertura no implementada para Provincia de Corrientes (Código Fiscal / Ley Tarifaria).
+          <div className="flex items-start gap-2 rounded-[10px] border border-amber-200 bg-amber-50 p-4 text-xs text-amber-800">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" strokeWidth={1.7} aria-hidden="true" />
+            <span>Cobertura no implementada para Provincia de Corrientes (Código Fiscal / Ley Tarifaria).</span>
           </div>
         )}
 
@@ -517,7 +534,6 @@ function TasaCalc() {
               <SelectField
                 name="tasa-tipo-proceso"
                 label="Tipo de proceso"
-                dark
                 testId="tasa-tipo-proceso"
                 value={tipoProceso}
                 placeholder="Seleccionar tipo de proceso"
@@ -548,14 +564,14 @@ function TasaCalc() {
                 <Field label="Monto del proceso ($)">
                   <input type="text" inputMode="decimal" value={montoTasa} onChange={(e) => setMontoTasa(e.target.value)} placeholder="Ej: 1.000.000" className={inputClass} data-testid="tasa-monto" />
                 </Field>
-                <label className="mt-2 flex items-start gap-2 text-sm text-slate-300">
+                <label className="mt-2 flex items-start gap-2 text-sm text-[#626b73]">
                   <input type="checkbox" checked={confirmacion} onChange={(e) => { setConfirmacion(e.target.checked); setTasaRes(null); setError(null); }} className="mt-1" />
                   Confirmo que se trata de una pretensión pecuniaria general y que no identifico un régimen especial o exención.
                 </label>
               </>
             )}
             {tipoProceso && tipoProceso !== 'general_pecuniary' && (
-              <div className="mt-2 text-xs text-amber-400">
+              <div className="mt-2 text-xs text-amber-600">
                 La Ley 23.898 contempla reglas especiales, tasa reducida o exenciones para esta materia. Requiere revisión profesional.
               </div>
             )}
@@ -594,7 +610,7 @@ function TasaCalc() {
         )}
       </Card>
 
-      {error && <p className="text-sm text-rose-600">{error}</p>}
+      {error && <p className="text-sm text-[#a63d33]">{error}</p>}
     </div>
   );
 }
@@ -693,51 +709,52 @@ function LiquidacionLaboralCalc() {
         </Field>
 
         <div className="grid gap-2 sm:grid-cols-2 pt-1">
-          <label className="flex items-center gap-2 text-xs text-slate-300">
+          <label className="flex items-center gap-2 text-xs text-[#626b73]">
             <input
               type="checkbox"
               checked={renunciaPrueba}
               onChange={(e) => setRenunciaPrueba(e.target.checked)}
-              className="rounded border-white/20 bg-slate-900 text-cyan-400 focus:ring-cyan-400"
+              className="accent-[#415a71]"
             />
             <span>Empleador renunció o perdió el período de prueba (no rige art. 92 bis)</span>
           </label>
-          <label className="flex items-center gap-2 text-xs text-slate-300">
+          <label className="flex items-center gap-2 text-xs text-[#626b73]">
             <input
               type="checkbox"
               checked={periodoPruebaConcluido === true}
               onChange={(e) => setPeriodoPruebaConcluido(e.target.checked ? true : undefined)}
-              className="rounded border-white/20 bg-slate-900 text-cyan-400 focus:ring-cyan-400"
+              className="accent-[#415a71]"
             />
             <span>Confirmación manual: período de prueba concluido</span>
           </label>
         </div>
 
-        <div className="grid gap-2 sm:grid-cols-2 pt-1 border-t border-white/10">
-          <label className="flex items-center gap-2 text-xs text-slate-300">
+        <div className="grid gap-2 sm:grid-cols-2 pt-1 border-t border-[#e4e5e3]">
+          <label className="flex items-center gap-2 text-xs text-[#626b73]">
             <input
               type="checkbox"
               checked={huboPreaviso}
               onChange={(e) => setHuboPreaviso(e.target.checked)}
-              className="rounded border-white/20 bg-slate-900 text-cyan-400 focus:ring-cyan-400"
+              className="accent-[#415a71]"
             />
             <span>Hubo preaviso otorgado oportunamente</span>
           </label>
-          <label className="flex items-center gap-2 text-xs text-slate-300">
+          <label className="flex items-center gap-2 text-xs text-[#626b73]">
             <input
               type="checkbox"
               checked={correspondeIntegracion}
               onChange={(e) => setCorrespondeIntegracion(e.target.checked)}
-              className="rounded border-white/20 bg-slate-900 text-cyan-400 focus:ring-cyan-400"
+              className="accent-[#415a71]"
             />
             <span>Corresponde integración de mes de despido</span>
           </label>
         </div>
       </div>
 
-      <div className="mt-4 rounded-xl border border-amber-500/20 bg-amber-500/10 p-3.5 text-xs text-amber-200/90 leading-relaxed space-y-2">
-        <p className="font-semibold text-amber-300">
-          ⚠️ Exclusiones y advertencias normativas obligatorias:
+      <div className="mt-4 rounded-[10px] border border-amber-200 bg-amber-50 p-3.5 text-xs text-amber-800 leading-relaxed space-y-2">
+        <p className="flex items-center gap-1.5 font-semibold text-amber-800">
+          <AlertTriangle className="h-3.5 w-3.5" strokeWidth={1.7} aria-hidden="true" />
+          Exclusiones y advertencias normativas obligatorias:
         </p>
         <ul className="list-disc pl-4 space-y-1">
           <li><strong>Tope indemnizatorio (art. 245 LCT):</strong> No aplica tope de convenio colectivo ni doctrina jurisprudencial (&ldquo;Vizzoti&rdquo;).</li>
@@ -745,12 +762,12 @@ function LiquidacionLaboralCalc() {
           <li><strong>Multas e indemnizaciones especiales:</strong> No incluye multas derogadas (arts. 8 a 15 Ley 24.013, Ley 25.323, art. 80 LCT modif. Ley 27.742) ni agravamientos por maternidad o matrimonio.</li>
           <li><strong>Rubros salariales:</strong> No computa diferencias de salarios, horas extras, comisiones pendientes ni liquidación de haberes del mes de egreso.</li>
         </ul>
-        <label className="mt-3 flex items-start gap-2 cursor-pointer font-medium text-slate-200 pt-1 border-t border-amber-500/20">
+        <label className="mt-3 flex items-start gap-2 cursor-pointer font-medium text-amber-800 pt-1 border-t border-amber-200">
           <input
             type="checkbox"
             checked={confirmado}
             onChange={(e) => setConfirmado(e.target.checked)}
-            className="mt-0.5 rounded border-amber-400/50 bg-slate-900 text-amber-500 focus:ring-amber-400"
+            className="mt-0.5 accent-[#415a71]"
           />
           <span>Entiendo el alcance meramente estimativo y confirmo que verificaré el CCT, topes y régimen aplicable al caso.</span>
         </label>
@@ -758,17 +775,18 @@ function LiquidacionLaboralCalc() {
 
       <MotionButton onClick={calcular} className={btnClass}>Calcular liquidación</MotionButton>
 
-      {error && <p className="mt-3 text-sm text-rose-600">{error}</p>}
+      {error && <p className="mt-3 text-sm text-[#a63d33]">{error}</p>}
 
       {res && (
         <div className="mt-5 space-y-3">
-          <p className="text-sm text-slate-400">
+          <p className="text-sm text-[#626b73]">
             Antigüedad exacta: <strong>{res.anios} año{res.anios !== 1 ? 's' : ''}, {res.meses} mes{res.meses !== 1 ? 'es' : ''} y {res.dias} día{res.dias !== 1 ? 's' : ''}</strong>{' '}
             ({res.aniosComputablesArt245} período{res.aniosComputablesArt245 !== 1 ? 's' : ''} computable{res.aniosComputablesArt245 !== 1 ? 's' : ''} para el art. 245 LCT).
           </p>
           {res.advertencias.map((adv, idx) => (
-            <div key={idx} className="rounded-lg border border-amber-500/20 bg-amber-500/10 p-2.5 text-xs text-amber-200">
-              ℹ️ {adv}
+            <div key={idx} className="flex items-start gap-1.5 rounded-lg border border-amber-200 bg-amber-50 p-2.5 text-xs text-amber-800">
+              <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" strokeWidth={1.7} aria-hidden="true" />
+              <span>{adv}</span>
             </div>
           ))}
           <div className="grid gap-3 sm:grid-cols-2">
@@ -840,17 +858,18 @@ function InteresesJudicialesCalc() {
         <Field label="Tasa anual a aplicar (%)">
           <input value={tasa} onChange={(e) => setTasa(e.target.value)} placeholder="Ej: 90" className={inputClass} />
         </Field>
-        <p className="mt-1 text-xs text-slate-400">
+        <p className="mt-1 text-xs text-[#626b73]">
           Elegí el tipo de tasa según el fuero y cargá el valor anual (%) a aplicar. Referencia orientativa Banco Nación (cartera general): 27.60% TNA vencida (al 26/08/2026). No se impone automáticamente como obligatoria.
         </p>
-        <div className="mt-2 rounded-lg border border-amber-500/20 bg-amber-500/10 p-2.5 text-[11px] text-amber-300">
-          ℹ️ Anulus AI no computa cálculos automáticos sobre series históricas no cargadas ni aplica tasas fijas predeterminadas. La tasa y período deben ser definidos o verificados manualmente por el profesional según el criterio judicial del fuero o la liquidación del expediente.
+        <div className="mt-2 flex items-start gap-1.5 rounded-lg border border-amber-200 bg-amber-50 p-2.5 text-[11px] text-amber-800">
+          <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-600" strokeWidth={1.7} aria-hidden="true" />
+          <span>Anulus AI no computa cálculos automáticos sobre series históricas no cargadas ni aplica tasas fijas predeterminadas. La tasa y período deben ser definidos o verificados manualmente por el profesional según el criterio judicial del fuero o la liquidación del expediente.</span>
         </div>
       </div>
 
       <MotionButton onClick={calcular} className={btnClass}>Calcular intereses</MotionButton>
 
-      {error && <p className="mt-3 text-sm text-rose-600">{error}</p>}
+      {error && <p className="mt-3 text-sm text-[#a63d33]">{error}</p>}
 
       {res && (
         <div className="mt-5 grid gap-3 sm:grid-cols-3">
@@ -903,13 +922,14 @@ function CuotaAlimentariaCalc() {
         </Field>
       </div>
 
-      <div className="mt-3 rounded-lg border border-white/10 bg-white/[0.02] p-2.5 text-xs text-slate-400">
-        ℹ️ La legislación argentina no establece un porcentaje fijo ni automático. El porcentaje debe ser ingresado por la persona profesional evaluando las necesidades acreditadas, el nivel de vida, el cuidado personal compartido y el criterio judicial del fuero.
+      <div className="mt-3 flex items-start gap-1.5 rounded-lg border border-[#e4e5e3] bg-[#fafaf9] p-2.5 text-xs text-[#626b73]">
+        <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" strokeWidth={1.7} aria-hidden="true" />
+        <span>La legislación argentina no establece un porcentaje fijo ni automático. El porcentaje debe ser ingresado por la persona profesional evaluando las necesidades acreditadas, el nivel de vida, el cuidado personal compartido y el criterio judicial del fuero.</span>
       </div>
 
       <MotionButton onClick={calcular} className={btnClass}>Calcular cuota</MotionButton>
 
-      {error && <p className="mt-3 text-sm text-rose-600">{error}</p>}
+      {error && <p className="mt-3 text-sm text-[#a63d33]">{error}</p>}
 
       {res && (
         <div className="mt-5 grid gap-3 sm:grid-cols-2">
@@ -958,7 +978,7 @@ function DanosCalc() {
 
       <MotionButton onClick={calcular} className={btnClass}>Calcular total</MotionButton>
 
-      {error && <p className="mt-3 text-sm text-rose-600">{error}</p>}
+      {error && <p className="mt-3 text-sm text-[#a63d33]">{error}</p>}
 
       {res && (
         <div className="mt-5 grid gap-3 sm:grid-cols-3">
@@ -1023,7 +1043,7 @@ function CaducidadInstanciaCalc() {
       </div>
 
       <div className="mt-4">
-        <span className="mb-1 block text-xs font-semibold text-slate-400">Instancia / Proceso (art. 310 CPCCN)</span>
+        <span className="mb-1 block text-xs text-[#626b73]">Instancia / Proceso (art. 310 CPCCN)</span>
         <div className="mt-1 flex flex-wrap gap-2">
           <RadioPill active={instancia === 'primera'} onClick={() => { setInstancia('primera'); setError(null); }} label="1ª o única instancia (6 meses — inc. 1)" />
           <RadioPill active={instancia === 'segunda'} onClick={() => { setInstancia('segunda'); setError(null); }} label="2ª o ulterior instancia (3 meses — inc. 2)" />
@@ -1046,7 +1066,7 @@ function CaducidadInstanciaCalc() {
               className={inputClass}
             />
           </Field>
-          <p className="mt-1 text-xs text-slate-400">
+          <p className="mt-1 text-xs text-[#626b73]">
             Conforme art. 310 inc. 3 CPCCN, rige el plazo de prescripción si resulta menor que el plazo ordinario aplicable.
           </p>
         </div>
@@ -1054,7 +1074,7 @@ function CaducidadInstanciaCalc() {
 
       <MotionButton onClick={calcular} className={btnClass}>Calcular fecha base estimada</MotionButton>
 
-      {error && <p className="mt-3 text-sm text-rose-600">{error}</p>}
+      {error && <p className="mt-3 text-sm text-[#a63d33]">{error}</p>}
 
       {res && (
         <div className="mt-5">
@@ -1098,19 +1118,20 @@ function DanosPunitivosCalc() {
       title="Daños punitivos (Fórmula Irigoyen Testa)"
       subtitle="Simulación doctrinal — fórmula Irigoyen Testa. Art. 52 bis, Ley 24.240."
     >
-      <div className="mb-4 rounded-xl border border-amber-500/20 bg-amber-500/10 p-3 text-xs text-amber-200 space-y-1.5">
-        <p className="font-semibold text-amber-300">
-          ⚠️ El art. 52 bis de la Ley 24.240 no establece esta fórmula como método obligatorio de cuantificación.
+      <div className="mb-4 rounded-[10px] border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800 space-y-1.5">
+        <p className="flex items-start gap-1.5 font-semibold text-amber-800">
+          <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" strokeWidth={1.7} aria-hidden="true" />
+          <span>El art. 52 bis de la Ley 24.240 no establece esta fórmula como método obligatorio de cuantificación.</span>
         </p>
         <p>
           Constituye una construcción doctrinaria basada en análisis económico del derecho (D = C × (1 − Pc) / Pc). Los tribunales valoran la gravedad del hecho, la reincidencia, el beneficio obtenido y el tope legal.
         </p>
-        <label className="flex items-center gap-2 pt-2 border-t border-amber-500/20 cursor-pointer font-medium text-slate-200">
+        <label className="flex items-center gap-2 pt-2 border-t border-amber-200 cursor-pointer font-medium text-amber-800">
           <input
             type="checkbox"
             checked={confirmado}
             onChange={(e) => setConfirmado(e.target.checked)}
-            className="rounded border-amber-400/50 bg-slate-900 text-amber-500 focus:ring-amber-400"
+            className="accent-[#415a71]"
           />
           <span>Confirmo que requiero la simulación con fines puramente orientativos y evaluaré el criterio judicial aplicable.</span>
         </label>
@@ -1127,7 +1148,7 @@ function DanosPunitivosCalc() {
 
       <MotionButton className={btnClass} onClick={calcular}>Simular daño punitivo</MotionButton>
 
-      {error && <p className="mt-3 text-sm text-rose-600">{error}</p>}
+      {error && <p className="mt-3 text-sm text-[#a63d33]">{error}</p>}
 
       {res && (
         <div className="mt-4 space-y-2">
@@ -1173,13 +1194,13 @@ function IncapacidadCalc() {
 
   return (
     <Card title="Indemnización por incapacidad" subtitle="Fórmulas orientativas Vuoto (i 6%, tope 65) y Méndez (i 4%, tope 75). C = a × (1 − Vⁿ)/i.">
-      <div className="mb-4 rounded-xl border border-amber-500/20 bg-amber-500/10 p-3 text-xs text-amber-200">
-        <label className="flex items-start gap-2 cursor-pointer font-medium text-slate-200">
+      <div className="mb-4 rounded-[10px] border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
+        <label className="flex items-start gap-2 cursor-pointer font-medium text-amber-800">
           <input
             type="checkbox"
             checked={confirmado}
             onChange={(e) => setConfirmado(e.target.checked)}
-            className="mt-0.5 rounded border-amber-400/50 bg-slate-900 text-amber-500 focus:ring-amber-400"
+            className="mt-0.5 accent-[#415a71]"
           />
           <span>Entiendo que la fórmula no reemplaza la valoración integral del art. 1746 CCyCN ni el criterio judicial aplicable.</span>
         </label>
@@ -1207,13 +1228,14 @@ function IncapacidadCalc() {
 
       <MotionButton className={btnClass} onClick={calcular}>Calcular capital</MotionButton>
 
-      {error && <p className="mt-3 text-sm text-rose-600">{error}</p>}
+      {error && <p className="mt-3 text-sm text-[#a63d33]">{error}</p>}
 
       {res && (
         <div className="mt-4 space-y-2">
           <ResultBox label="Capital matemático orientativo" value={currency(res.capital)} highlight />
-          <div className="text-[11px] text-amber-200 mt-1 mb-2">
-            ⚠️ Este cálculo muestra únicamente el capital matemático de base. No incluye intereses moratorios ni daño moral o no patrimonial (art. 1741 CCyCN).
+          <div className="mt-1 mb-2 flex items-start gap-1.5 text-[11px] text-amber-800">
+            <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" strokeWidth={1.7} aria-hidden="true" />
+            <span>Este cálculo muestra únicamente el capital matemático de base. No incluye intereses moratorios ni daño moral o no patrimonial (art. 1741 CCyCN).</span>
           </div>
           <ResultBox label="Renta anual base (a)" value={currency(res.a)} />
           <ResultBox label="Años computados (n)" value={`${res.n} años · tasa ${(res.i * 100).toFixed(0)}%`} subtitle={res.advertencia} />
@@ -1245,8 +1267,9 @@ function AmpliacionDistanciaCalc() {
       title="Ampliación de plazo por distancia"
       subtitle="Jurisdicción fija: Justicia Nacional/Federal — art. 158 CPCCN. 1 día cada 200 km (o fracción ≥ 100 km). Acordada CSJN 5/2010."
     >
-      <div className="mb-4 rounded-xl border border-white/10 bg-white/[0.02] p-3 text-xs text-slate-400">
-        ℹ️ Ámbito de aplicación exclusivo: <strong>Justicia Nacional y Federal</strong> (art. 158 CPCCN). No se ofrece ni sugiere aplicación provincial automática. Diversas provincias han derogado o sustituido este instituto con la digitalización de notificaciones.
+      <div className="mb-4 flex items-start gap-1.5 rounded-[10px] border border-[#e4e5e3] bg-[#fafaf9] p-3 text-xs text-[#626b73]">
+        <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" strokeWidth={1.7} aria-hidden="true" />
+        <span>Ámbito de aplicación exclusivo: <strong>Justicia Nacional y Federal</strong> (art. 158 CPCCN). No se ofrece ni sugiere aplicación provincial automática. Diversas provincias han derogado o sustituido este instituto con la digitalización de notificaciones.</span>
       </div>
 
       <Field label="Plazo base (días)">
@@ -1313,13 +1336,13 @@ function ProrrateoCalc() {
       title="Prorrateo de honorarios (tope 25%)"
       subtitle="Art. 730 CCyCN: las costas a cargo del condenado no superan el 25% del monto de la sentencia. Pauta orientativa; no constituye distribución definitiva de obligaciones."
     >
-      <div className="mb-4 rounded-xl border border-white/10 bg-white/[0.02] p-3 text-xs text-slate-300">
+      <div className="mb-4 rounded-[10px] border border-[#e4e5e3] bg-[#fafaf9] p-3 text-xs text-[#626b73]">
         <label className="flex items-start gap-2 cursor-pointer font-medium">
           <input
             type="checkbox"
             checked={confirmado}
             onChange={(e) => setConfirmado(e.target.checked)}
-            className="mt-0.5 rounded border-white/20 bg-slate-900 text-cyan-400 focus:ring-cyan-400"
+            className="mt-0.5 accent-[#415a71]"
           />
           <span>Confirmo que los conceptos corresponden a costas y honorarios alcanzados por el tope legal del art. 730 CCyCN (excluyendo defensas de la contraparte o pactos contractuales autónomos).</span>
         </label>
@@ -1336,7 +1359,7 @@ function ProrrateoCalc() {
 
       <MotionButton className={btnClass} onClick={calcular}>Calcular prorrateo</MotionButton>
 
-      {error && <p className="mt-3 text-sm text-rose-600">{error}</p>}
+      {error && <p className="mt-3 text-sm text-[#a63d33]">{error}</p>}
 
       {res && (
         <div className="mt-4 space-y-2">
@@ -1420,20 +1443,21 @@ function MediacionTab() {
 
   return (
     <Card title="Honorarios de mediación">
-      <div className="mb-4 rounded-xl border border-amber-500/30 bg-amber-500/10 p-4">
-        <p className="text-xs font-semibold text-amber-300">
-          ⚠️ Parámetros arancelarios de mediación — Verificación requerida
+      <div className="mb-4 rounded-[10px] border border-amber-200 bg-amber-50 p-4">
+        <p className="flex items-center gap-1.5 text-xs font-semibold text-amber-800">
+          <AlertTriangle className="h-3.5 w-3.5" strokeWidth={1.7} aria-hidden="true" />
+          Parámetros arancelarios de mediación — Verificación requerida
         </p>
-        <p className="mt-1 text-xs text-amber-200/90">
+        <p className="mt-1 text-xs text-amber-800">
           Valores oficiales vigentes de referencia: UHOM Nación ({currency(UHOM_VALOR)}, verificado al 01/08/2026, tabla CPACF), Jus Ley 14.967 PBA ({currency(JUS_BA_MEDIACION)}, verificado al 01/08/2026, Res. SCBA RP 873/26; escala Decreto 600/21 art. 31) y Jus Corrientes ({currency(JUS_CORRIENTES)}, orientativo al 01/05/2026). Requiere confirmación profesional para habilitar el cálculo orientativo.
         </p>
-        <label className="mt-3 flex items-start gap-2.5 cursor-pointer text-xs text-slate-200 font-medium">
+        <label className="mt-3 flex items-start gap-2.5 cursor-pointer text-xs text-amber-800 font-medium">
           <input
             type="checkbox"
             data-testid="mediacion-confirmar-checkbox"
             checked={confirmado}
             onChange={(e) => setConfirmado(e.target.checked)}
-            className="mt-0.5 rounded border-amber-400/50 bg-slate-900 text-amber-500 focus:ring-amber-400"
+            className="mt-0.5 accent-[#415a71]"
           />
           <span>
             Confirmo que revisé la resolución o acordada arancelaria vigente en la jurisdicción correspondiente y habilito el cálculo orientativo bajo supervisión profesional.
@@ -1442,7 +1466,7 @@ function MediacionTab() {
       </div>
 
       <div className="block mb-4">
-        <span className="mb-1 block text-xs font-semibold text-slate-400">Jurisdicción</span>
+        <span className="mb-1 block text-xs text-[#626b73]">Jurisdicción</span>
         <div className="mt-1 flex flex-wrap gap-2">
           <RadioPill active={juris === 'nacion'} onClick={() => setJuris('nacion')} label="Nación" />
           <RadioPill active={juris === 'baires'} onClick={() => setJuris('baires')} label="Buenos Aires" />
@@ -1458,7 +1482,7 @@ function MediacionTab() {
           </Field>
 
           <div className="block">
-            <span className="mb-1 block text-xs font-semibold text-slate-400">Tipo de asunto</span>
+            <span className="mb-1 block text-xs text-[#626b73]">Tipo de asunto</span>
             <div className="mt-1 flex flex-wrap gap-2">
               <RadioPill active={tipoNac === 'patrimonial'} onClick={() => setTipoNac('patrimonial')} label="Patrimonial" />
               <RadioPill active={tipoNac === 'familia'} onClick={() => setTipoNac('familia')} label="Familia" />
@@ -1478,8 +1502,9 @@ function MediacionTab() {
           </Field>
 
           {!confirmado ? (
-            <div data-testid="mediacion-bloqueada" className="mt-4 rounded-xl border border-amber-500/20 bg-amber-500/5 p-3 text-xs text-amber-300">
-              🔒 Cálculo bloqueado: confirmá la revisión del parámetro normativo en la casilla superior para calcular.
+            <div data-testid="mediacion-bloqueada" className="mt-4 flex items-start gap-1.5 rounded-[10px] border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
+              <Lock className="mt-0.5 h-3.5 w-3.5 shrink-0" strokeWidth={1.7} aria-hidden="true" />
+              <span>Cálculo bloqueado: confirmá la revisión del parámetro normativo en la casilla superior para calcular.</span>
             </div>
           ) : rNac ? (
             <div className="mt-4 grid gap-3 sm:grid-cols-2">
@@ -1492,7 +1517,7 @@ function MediacionTab() {
               </div>
             </div>
           ) : (
-            <div className="mt-4 text-sm text-slate-400">Completá el monto para ver el cálculo.</div>
+            <div className="mt-4 text-sm text-[#626b73]">Completá el monto para ver el cálculo.</div>
           )}
         </div>
       )}
@@ -1504,7 +1529,7 @@ function MediacionTab() {
             <input className={inputClass} value={jusBA} onChange={(e) => setJusBA(e.target.value)} type="number" />
           </Field>
           <label className="flex items-center gap-2 text-sm mt-3 cursor-pointer">
-            <input type="checkbox" checked={indetBA} onChange={(e) => setIndetBA(e.target.checked)} className="rounded border-slate-300 text-sky-600 focus:ring-sky-500" />
+            <input type="checkbox" checked={indetBA} onChange={(e) => setIndetBA(e.target.checked)} className="accent-[#415a71]" />
             Monto indeterminado
           </label>
           {!indetBA && (
@@ -1514,8 +1539,9 @@ function MediacionTab() {
           )}
 
           {!confirmado ? (
-            <div data-testid="mediacion-bloqueada" className="mt-4 rounded-xl border border-amber-500/20 bg-amber-500/5 p-3 text-xs text-amber-300">
-              🔒 Cálculo bloqueado: confirmá la revisión del parámetro normativo en la casilla superior para calcular.
+            <div data-testid="mediacion-bloqueada" className="mt-4 flex items-start gap-1.5 rounded-[10px] border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
+              <Lock className="mt-0.5 h-3.5 w-3.5 shrink-0" strokeWidth={1.7} aria-hidden="true" />
+              <span>Cálculo bloqueado: confirmá la revisión del parámetro normativo en la casilla superior para calcular.</span>
             </div>
           ) : rBA ? (
             <>
@@ -1528,10 +1554,13 @@ function MediacionTab() {
               </div>
             </>
           ) : (
-            <div className="mt-4 text-sm text-slate-400">Completá el monto para ver el cálculo.</div>
+            <div className="mt-4 text-sm text-[#626b73]">Completá el monto para ver el cálculo.</div>
           )}
 
-          <p className="text-xs text-slate-500 mt-2">⚠️ En Buenos Aires las causas de familia (divorcio, alimentos, etc.) están excluidas de la mediación previa obligatoria.</p>
+          <p className="mt-2 flex items-start gap-1.5 text-xs text-[#626b73]">
+            <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" strokeWidth={1.7} aria-hidden="true" />
+            <span>En Buenos Aires las causas de familia (divorcio, alimentos, etc.) están excluidas de la mediación previa obligatoria.</span>
+          </p>
         </div>
       )}
 
@@ -1543,7 +1572,7 @@ function MediacionTab() {
           </Field>
 
           <div className="block">
-            <span className="mb-1 block text-xs font-semibold text-slate-400">Resultado de la mediación</span>
+            <span className="mb-1 block text-xs text-[#626b73]">Resultado de la mediación</span>
             <div className="mt-1 flex flex-wrap gap-2">
               <RadioPill active={resC === 'acuerdo'} onClick={() => setResC('acuerdo')} label="Con acuerdo" />
               <RadioPill active={resC === 'sin_acuerdo'} onClick={() => setResC('sin_acuerdo')} label="Sin acuerdo" />
@@ -1551,7 +1580,7 @@ function MediacionTab() {
           </div>
 
           <div className="block">
-            <span className="mb-1 block text-xs font-semibold text-slate-400">Tipo de asunto</span>
+            <span className="mb-1 block text-xs text-[#626b73]">Tipo de asunto</span>
             <div className="mt-1 flex flex-wrap gap-2">
               <RadioPill active={tipoC === 'patrimonial'} onClick={() => setTipoC('patrimonial')} label="Patrimonial" />
               <RadioPill active={tipoC === 'alimentaria'} onClick={() => setTipoC('alimentaria')} label="Cuota alimentaria" />
@@ -1571,8 +1600,9 @@ function MediacionTab() {
           )}
 
           {!confirmado ? (
-            <div data-testid="mediacion-bloqueada" className="mt-4 rounded-xl border border-amber-500/20 bg-amber-500/5 p-3 text-xs text-amber-300">
-              🔒 Cálculo bloqueado: confirmá la revisión del parámetro normativo en la casilla superior para calcular.
+            <div data-testid="mediacion-bloqueada" className="mt-4 flex items-start gap-1.5 rounded-[10px] border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
+              <Lock className="mt-0.5 h-3.5 w-3.5 shrink-0" strokeWidth={1.7} aria-hidden="true" />
+              <span>Cálculo bloqueado: confirmá la revisión del parámetro normativo en la casilla superior para calcular.</span>
             </div>
           ) : rC ? (
             <div className="mt-4 grid gap-3 sm:grid-cols-2">
@@ -1581,16 +1611,17 @@ function MediacionTab() {
               {rC.aplicaMinimo && <ResultBox label="Nota" value="Se aplicó el honorario mínimo de 1 Jus" />}
             </div>
           ) : (
-            <div className="mt-4 text-sm text-slate-400">Completá los montos para ver el cálculo.</div>
+            <div className="mt-4 text-sm text-[#626b73]">Completá los montos para ver el cálculo.</div>
           )}
         </div>
       )}
 
-      <div className="mt-5 p-3 bg-yellow-500/10 border border-yellow-500/20 rounded-md">
-        <p className="text-xs text-yellow-600/90 font-medium">
-          ⚠️ Valor de referencia precargado. Verificá su vigencia, jurisdicción y fuente oficial antes de utilizarlo. El valor puede editarse.
+      <div className="mt-5 p-3 bg-amber-50 border border-amber-200 rounded-md">
+        <p className="flex items-center gap-1.5 text-xs font-medium text-amber-800">
+          <AlertTriangle className="h-3.5 w-3.5" strokeWidth={1.7} aria-hidden="true" />
+          Valor de referencia precargado. Verificá su vigencia, jurisdicción y fuente oficial antes de utilizarlo. El valor puede editarse.
         </p>
-        <p className="text-xs text-slate-400 mt-2">
+        <p className="text-xs text-[#626b73] mt-2">
           Honorarios mínimos indicativos. Nación: Ley 26.589 (CABA/Justicia Nacional). Buenos Aires: Ley 13.951 + Decreto 600/21 art. 31 (Jus Ley 14.967 PBA).
           Corrientes: Ley 5931 + Acuerdo 14/22 del STJ (art. 18 RIM).
         </p>
@@ -1621,19 +1652,19 @@ export function CalculadorasClient({ puedeGuardar = true }: { puedeGuardar?: boo
   return (
     <div className="space-y-6">
       <div>
-        <p className="text-xs font-semibold uppercase tracking-wide text-cyan-400">Herramientas jurídicas</p>
-        <h1 className="mt-1 text-2xl font-bold text-white">Calculadoras</h1>
-        <p className="mt-1 text-sm text-slate-400">
+        <p className="text-[11px] font-semibold uppercase tracking-[.08em] text-[#626b73]">Herramientas jurídicas</p>
+        <h1 className="mt-2 text-[26px] font-semibold tracking-[-.02em] text-[#25272a]">Calculadoras</h1>
+        <p className="mt-1 text-xs text-[#626b73]">
           Cálculos jurídicos orientativos según la jurisdicción y los parámetros indicados en cada herramienta. Verificá normativa, valores oficiales, calendario y criterio judicial aplicable antes de utilizar el resultado.
         </p>
       </div>
 
-      <MotionCard index={0} className="flex items-start gap-3 border-amber-500/20 bg-amber-500/10 p-4">
-        <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-400" />
-        <p className="text-xs text-amber-200">
+      <div className="flex items-start gap-2 rounded-[10px] border border-amber-200 bg-amber-50 p-3">
+        <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" strokeWidth={1.7} aria-hidden="true" />
+        <p className="text-xs text-amber-800">
           Resultados <strong>estimativos y no vinculantes</strong>. Verificá siempre normativa, valores oficiales vigentes, acordadas, calendario judicial y criterio tribunalicio aplicable antes de utilizar cualquier cálculo en presentaciones formales.
         </p>
-      </MotionCard>
+      </div>
 
       <div className="flex flex-wrap gap-2">
         {tabs.map((t) => {
@@ -1644,11 +1675,11 @@ export function CalculadorasClient({ puedeGuardar = true }: { puedeGuardar?: boo
               key={t.id}
               type="button"
               onClick={() => setTab(t.id)}
-              className={`inline-flex items-center gap-2 rounded-xl border px-4 py-2 text-sm font-semibold transition ${
-                active ? 'border-cyan-400/50 bg-cyan-400/10 text-cyan-400' : 'border-white/10 bg-white/[0.02] text-slate-400 hover:bg-white/[0.04]'
+              className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 text-xs font-semibold transition-colors ${
+                active ? 'border-[#2c2c2b] bg-[#2c2c2b] text-white' : 'border-[#d9d9d6] bg-white text-[#626b73] hover:border-[#92928f]'
               }`}
             >
-              <Icon className="h-4 w-4" />
+              <Icon className="h-4 w-4" strokeWidth={1.7} aria-hidden="true" />
               {t.label}
             </button>
           );
