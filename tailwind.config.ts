@@ -13,7 +13,6 @@ const config: Config = {
         mono: ['var(--font-mono)', 'ui-monospace', 'SFMono-Regular', 'monospace'],
       },
       colors: {
-        base: "var(--bg-base)",
         elevated: "var(--bg-elevated)",
         surface: "var(--surface)",
         "surface-hover": "var(--surface-hover)",

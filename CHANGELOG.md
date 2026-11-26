@@ -5,6 +5,18 @@ Formato por fecha; los PR quedan enlazados con su detalle completo (commits, che
 
 ---
 
+## 2026-11-25 — Lote valor global: eyebrow Utilidades, "No cargado", recibidos al sistema y calculadoras notariales (PR #44 — merged)
+
+- **H1/H2:** eyebrow de Herramientas → constante "Utilidades" para los 3 rubros (sin query de organizations); uiLabels de empresa/general alineados (grupo "Herramientas" neutro, eyebrow Agenda).
+- **Regla "No cargado" (nueva en `docs/DESIGN-SYSTEM.md`):** un fallback es texto de UI — Manrope 500 `#626b73`, nunca mono ni falso cero. Aplicado a ficha de propiedad (precio/superficie/ambientes condicionan `.noValue`).
+- **S5-G2 saldado con evidencia:** las 4 acciones IA de fichas muestran resultado inline (el resultado ES el éxito); anti-slop: emojis → iconos Phosphor (WhatsappLogo/ArrowClockwise, Warning/Copy), gradiente+glow de matching → `styles.aiTool`.
+- **Recibidos al sistema completo (H6/H7):** tríptico de contadores por estado (ámbar/verde) + cards con tinte semántico e `ArrowDownLeft`; filtro funcional H8 — la lista ya no expone derivaciones enviadas por mi org (query por `to_organization_id`/`to_email`); H9: emisor real (`from_organization_name`). H10 (RLS multi-org) diferido a ciber P0.
+- **Índice/Repertorio "Ledger notarial":** riel anual (Escrituras del año / Este mes / Folios consumidos) + fix de folios falsos (escritura sin folios ya no cuenta 1). Exportar PDF verificado.
+- **Calculadoras notariales "Total protagonista":** layout 2 col, componente `TotalHero` (total 40px tabular + hint "≈ % del valor"), avisos en ámbar semántico con iconos, chips de pestañas neutros.
+- **H11 (causa raíz):** `MotionCard` arreglado en el componente (estilo oscuro hardcodeado + whileHover fuera; borde/bg claros permanentes) — beneficia Reportes/Buscar/Configuración/Usuarios/Dashboard/Expedientes. **H12:** panel Legajos de Reportes con borde permanente. **H13:** `/protocolo` y calculadoras migrados al sistema (blanco-sobre-blanco fuera).
+- **H14:** código muerto eliminado (`DocumentRowClient`, `MotionTableRow` — 0 usos, con gradiente cian-violeta). **H15:** menú contextual de fichas (`CaseCardMenu`) al sistema. **H16:** `/analisis-documental` huérfana identificada (decidir destino en lote de limpieza).
+- Controles de rubro: escribanía (suite 1434/1435, H6–H16) y jurídico (363/363, sin hallazgos nuevos). Verificación final aprobada por el usuario en preview (riel, Exportar PDF, menú de Legajos, Reportes 4 vistas, Recibidos, Calculadoras).
+
 ## 2026-11-24 — Carteras de propiedades y clientes rediseñadas + tipografía de números héroe (PR #43 — merged)
 
 - **Carteras al patrón "fichas" con identidad propia** (4 iteraciones con el usuario: workbench → muestras A/B/C → índice editorial rechazado en preview → D/E → F-2 rechazada → "Vitrina sin ruido" aprobada):
