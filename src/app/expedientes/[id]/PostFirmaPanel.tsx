@@ -80,7 +80,8 @@ export function PostFirmaPanel({
                 disabled={!fechas[p.id] || estados[p.id] === 'loading'}
                 onClick={() => agendar(p.id, p.titulo)}
                 data-testid={`postfirma-agendar-${p.id}`}
-                className="rounded-lg bg-[#25272a] px-3 py-1.5 text-sm font-medium text-white hover:bg-[#393c42] disabled:opacity-40"
+                style={{ color: '#ffffff', WebkitTextFillColor: '#ffffff' }}
+                className="rounded-lg bg-[#25272a] px-3 py-1.5 text-sm font-medium hover:bg-[#393c42] disabled:opacity-40"
               >
                 {estados[p.id] === 'loading' ? 'Agendando…' : 'Agendar en la Agenda'}
               </button>

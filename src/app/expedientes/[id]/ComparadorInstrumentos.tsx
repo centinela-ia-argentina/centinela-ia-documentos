@@ -26,7 +26,8 @@ function Submit() {
       type="submit"
       disabled={pending}
       data-testid="comparador-submit"
-      className="inline-flex items-center gap-2 rounded-lg bg-[#25272a] px-3 py-2 text-sm font-medium text-white hover:bg-[#393c42] disabled:opacity-50"
+      style={{ color: '#25272a', WebkitTextFillColor: '#25272a' }}
+      className="inline-flex items-center gap-2 rounded-lg border border-[#d9d9d6] bg-white px-3 py-2 text-sm font-medium hover:bg-[#f1f1ef] disabled:opacity-50"
     >
       {pending ? (
         <>
