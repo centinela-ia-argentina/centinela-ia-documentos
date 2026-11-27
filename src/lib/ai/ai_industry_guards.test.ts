@@ -195,15 +195,20 @@ describe("AI Industry Guards (Phase 6)", () => {
       expect(global.fetch).not.toHaveBeenCalled();
       expect(mockCreateAuditLog).not.toHaveBeenCalled();
     });
-    it("7-10. Escribanía e industria desconocida reciben sin_permiso sin llamar API ni Audit", async () => {
+    it("7. Escribanía usa revisarEscritoIA con prompt notarial", async () => {
       setupMock("escribania");
-      let res = await revisarEscritoIA({
+      const res = await revisarEscritoIA({
         texto: "Un texto de 40 caracteres para pasar la validación inicial.",
       });
-      expect((res as any).motivo).toBe("sin_permiso");
-
+      expect(res).toEqual(expect.objectContaining({ ok: true, revision: expect.objectContaining({ puntuacion: 100, semaforo: "verde" }) }));
+      expect(global.fetch).toHaveBeenCalled();
+      const body = (global.fetch as any).mock.calls[0][1].body;
+      expect(body).toContain("escribano senior argentino");
+      expect(body).toContain("matrícula");
+    });
+    it("8. Industria desconocida recibe sin_permiso sin llamar API ni Audit", async () => {
       setupMock("unknown");
-      res = await revisarEscritoIA({
+      const res = await revisarEscritoIA({
         texto: "Un texto de 40 caracteres para pasar la validación inicial.",
       });
       expect((res as any).motivo).toBe("sin_permiso");

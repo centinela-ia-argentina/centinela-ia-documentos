@@ -5,6 +5,11 @@ Formato por fecha; los PR quedan enlazados con su detalle completo (commits, che
 
 ---
 
+## 2026-11-26 — Revisión IA de instrumentos habilitada para escribanía + lote módulos oscuros cerrado (PR #45 — merged, fix H17)
+
+- **PR #45 (merged `da0c6c5`):** CalculadorasClient jurídica (1673 líneas, 13 pestañas) migrada completa al sistema visual + fix del bug `text-base` (el color `base` en tailwind.config generaba la utilidad de color `.text-base{color:var(--bg-base)}` que pisaba el tamaño de fuente homónimo — títulos lavados también en las notariales). **Lección:** nunca nombrar colores en tailwind.config con palabras que colisionen con utilidades de tamaño.
+- **Fix H17 (esta rama):** la revisión IA de escritos en Modelos estaba bloqueada a rubro legal (`modelos/actions.ts`) mientras la UI prometía el panel "Revisión de instrumentos con IA" para escribanía → el escribano recibía error. Habilitada escribanía con prompt notarial propio (revisor de instrumentos: comparecientes/personería, matrícula vs. nomenclatura catastral como datos distintos, asentimiento conyugal, medios de pago y origen de fondos, ITI/sellos; mismas reglas anti-inventar-citas). Guard test actualizado (escribanía `ok:true` con prompt notarial; industria desconocida sigue `sin_permiso`). La revisión para inmobiliaria queda para su lote.
+
 ## 2026-11-25 — Lote valor global: eyebrow Utilidades, "No cargado", recibidos al sistema y calculadoras notariales (PR #44 — merged)
 
 - **H1/H2:** eyebrow de Herramientas → constante "Utilidades" para los 3 rubros (sin query de organizations); uiLabels de empresa/general alineados (grupo "Herramientas" neutro, eyebrow Agenda).

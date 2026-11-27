@@ -203,9 +203,10 @@ export async function revisarEscritoIA(input: { texto: string }): Promise<Revisi
   if (!user || !profile || !profile.organization_id) return { ok: false, motivo: 'sin_permiso' };
   if (!isUserRole(profile.role) || !canUseAi(profile.role)) return { ok: false, motivo: 'sin_permiso' };
 
+  let industry: string;
   try {
-    const industry = await getStrictIndustryForOrganization(profile.organization_id);
-    if (industry !== 'legal') return { ok: false, motivo: 'sin_permiso' };
+    industry = await getStrictIndustryForOrganization(profile.organization_id);
+    if (industry !== 'legal' && industry !== 'escribania') return { ok: false, motivo: 'sin_permiso' };
   } catch (e) {
     return { ok: false, motivo: 'sin_permiso' };
   }
@@ -218,27 +219,37 @@ export async function revisarEscritoIA(input: { texto: string }): Promise<Revisi
 
   const modelo = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
 
+  const esNotarial = industry === 'escribania';
   const prompt = [
-    'Sos un abogado senior argentino, revisor de escritos judiciales. Revisá el ESCRITO que te paso y devolvé una auditoría profesional, clara y accionable, para que un abogado lo mejore antes de presentarlo.',
+    esNotarial
+      ? 'Sos un escribano senior argentino, revisor de instrumentos notariales. Revisá el INSTRUMENTO que te paso (escritura, poder, acta, certificación, minuta) y devolvé una auditoría profesional, clara y accionable, para que el escribano lo complete y corrija antes de otorgarlo.'
+      : 'Sos un abogado senior argentino, revisor de escritos judiciales. Revisá el ESCRITO que te paso y devolvé una auditoría profesional, clara y accionable, para que un abogado lo mejore antes de presentarlo.',
     'Respondé SOLO un objeto JSON válido (sin texto adicional) con esta forma exacta:',
     '{',
-    '  "puntuacion": número 0-100 (qué tan listo está para presentar),',
+    '  "puntuacion": número 0-100 (qué tan listo está para presentar u otorgar),',
     '  "semaforo": "verde" | "amarillo" | "rojo",',
     '  "resumen": "2-3 oraciones con la valoración general",',
-    '  "secciones_faltantes": ["secciones formales que faltan o están flojas: encabezado/carátula, objeto, hechos, derecho, prueba, petitorio, firma, etc."],',
+    esNotarial
+      ? '  "secciones_faltantes": ["secciones formales que faltan o están flojas: encabezado, comparecientes y personería, antecedentes del dominio (título antecedente, matrícula, nomenclatura catastral), cláusulas, manifestaciones (estado civil, asentimiento conyugal), medios de pago y origen de fondos, impuestos (ITI / sellos), fecha y protocolización, firma, etc."],'
+      : '  "secciones_faltantes": ["secciones formales que faltan o están flojas: encabezado/carátula, objeto, hechos, derecho, prueba, petitorio, firma, etc."],',
     '  "errores": ["errores, contradicciones o inconsistencias concretas del texto"],',
-    '  "datos_incompletos": ["datos o marcadores sin completar: nombre, domicilio, monto, fecha, número de expediente, etc."],',
+    esNotarial
+      ? '  "datos_incompletos": ["datos o marcadores sin completar: nombre, DNI/CUIT, domicilio, estado civil, matrícula, nomenclatura catastral, monto, moneda, fecha, folios, etc."],'
+      : '  "datos_incompletos": ["datos o marcadores sin completar: nombre, domicilio, monto, fecha, número de expediente, etc."],',
     '  "sugerencias": ["mejoras de redacción, claridad y fundamentación"],',
     '  "checklist": [{"item": "requisito de presentación", "ok": true/false}]',
     '}',
     'Reglas ESTRICTAS:',
-    '- NO inventes ni corrijas datos personales, montos, fechas ni números de expediente: si faltan, marcalos en "datos_incompletos".',
-    '- Referite solo a artículos o normativa que YA aparezcan en el escrito; NO inventes citas legales. Si una cita parece dudosa, señalala en "errores" como "verificar cita".',
+    '- NO inventes ni corrijas datos personales, montos, fechas ni números: si faltan, marcalos en "datos_incompletos".',
+    '- Referite solo a artículos o normativa que YA aparezcan en el texto; NO inventes citas legales. Si una cita parece dudosa, señalala en "errores" como "verificar cita".',
+    esNotarial
+      ? '- NO confundas la matrícula (folio real, que puede figurar como "F.R.I.", "F.R.", "Folio Real", "Matrícula N°", etc.) con la nomenclatura o designación catastral: son datos distintos y ambos deben figurar en un instrumento de dominio.'
+      : null,
     '- Si algo no aplica, devolvé un array vacío. Basate SOLO en el texto aportado.',
     '',
-    'ESCRITO A REVISAR:',
+    esNotarial ? 'INSTRUMENTO A REVISAR:' : 'ESCRITO A REVISAR:',
     texto,
-  ].join('\n');
+  ].filter(Boolean).join('\n');
 
   try {
     // Usá EXACTAMENTE la misma URL de fetch que ya usa redactarEscritoIA en este archivo.
