@@ -42,11 +42,17 @@ import {
   generarResumenExpediente,
   vincularPropiedadOperacion,
   autoMarcarChecklist,
+  setDocumentoVencimiento,
+  compararDocumentosExpediente,
 } from '../actions';
 import { canUseAi, canUpdateCase } from '@/lib/permissions/roles';
 import { WhatsAppIntentBuilder } from '@/components/WhatsAppIntentBuilder';
 import { generateOperationMessage } from '@/lib/whatsapp';
 import { CopilotoExpediente } from './CopilotoExpediente';
+import { PostFirmaPanel } from './PostFirmaPanel';
+import { ComparadorInstrumentos } from './ComparadorInstrumentos';
+import { NotaPendientesPanel } from './NotaPendientesPanel';
+import { buildNotaPendientes } from '@/lib/checklist/notaPendientes';
 import { AgenteChat } from './AgenteChat';
 import { CaseAgentDisclosure } from '@/components/approved/CaseAgentDisclosure';
 import { CaseSummaryLayout } from '@/components/approved/CaseSummaryLayout';
@@ -241,7 +247,7 @@ export default async function CaseDetailPage({ params, searchParams }: CaseDetai
   if (caseChecklist) {
     let { data, error } = await supabase
       .from('checklist_items')
-      .select('id, checklist_id, title, status, document_id, match_source, notes, created_at, documents(id, file_name)')
+      .select('id, checklist_id, title, status, document_id, match_source, notes, created_at, documents(id, file_name, expires_at)')
       .eq('checklist_id', caseChecklist.id)
       .eq('organization_id', profile.organization_id)
       .order('created_at', { ascending: true })
@@ -250,7 +256,7 @@ export default async function CaseDetailPage({ params, searchParams }: CaseDetai
     if (error && (error.code === '42703' || error.message?.includes('match_source') || error.details?.includes('match_source'))) {
       const fallbackRes = await supabase
         .from('checklist_items')
-        .select('id, checklist_id, title, status, document_id, notes, created_at, documents(id, file_name)')
+        .select('id, checklist_id, title, status, document_id, notes, created_at, documents(id, file_name, expires_at)')
         .eq('checklist_id', caseChecklist.id)
         .eq('organization_id', profile.organization_id)
         .order('created_at', { ascending: true })
@@ -331,6 +337,7 @@ export default async function CaseDetailPage({ params, searchParams }: CaseDetai
     
   const checklistStatuses = checklistItems.map((item) => item.status);
   const checklistProgress = summarizeChecklistStatuses(checklistStatuses);
+  const notaPendientesData = buildNotaPendientes(checklistItems, terms.delExpediente || 'legajo');
 
 
   const { data: rawResumenData } = await supabase
@@ -438,6 +445,21 @@ export default async function CaseDetailPage({ params, searchParams }: CaseDetai
     porcentaje: number;
     tasa: number;
   } | null;
+
+  // B1 · Comparador de instrumentos (solo escribanía): último reporte guardado.
+  let comparacionData: { result_json: unknown; created_at: string } | null = null;
+  if (industry === 'escribania') {
+    const { data: compData } = await supabase
+      .from('ai_outputs')
+      .select('result_json, created_at')
+      .eq('case_id', caseRecord.id)
+      .eq('organization_id', profile.organization_id)
+      .eq('output_type', 'document_comparison')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    comparacionData = compData ?? null;
+  }
 
 
 
@@ -649,7 +671,13 @@ export default async function CaseDetailPage({ params, searchParams }: CaseDetai
             id: 'resumen',
             label: <><SquaresFour size={16} aria-hidden />Resumen</>,
             content: (
-              <CaseSummaryLayout
+              <>
+                {industry === 'escribania' && sp.postfirma === '1' && canUpdateCase(profile.role) && (
+                  <div style={{ marginBottom: 16 }}>
+                    <PostFirmaPanel caseId={caseRecord.id} caseTitle={displayText(caseRecord.title, '')} fechaBase={(caseRecord.metadata?.fecha_otorgamiento as string) || null} />
+                  </div>
+                )}
+                <CaseSummaryLayout
                 facts={<>
 <CaseFacts
                   caseId={caseRecord.id} caseType={caseRecord.case_type} status={caseRecord.status}
@@ -699,6 +727,11 @@ export default async function CaseDetailPage({ params, searchParams }: CaseDetai
 <AgenteChat caseId={caseRecord.id} caseTitle={displayText(caseRecord.title, terms.itemSinTitulo)} industry={industry} puedeUsarIA={puedeUsarIA} historialInicial={historialAgente} modeloUrl={modeloSugerido ? `/modelos?modelo=${modeloSugerido}&expediente=${caseRecord.id}` : '/modelos'} />
                 </CaseAgentDisclosure>}
               >
+              {industry === 'escribania' && (
+                <div style={{ marginBottom: 16 }}>
+                  <ComparadorInstrumentos caseId={caseRecord.id} documents={availableDocuments.map(d => ({ id: d.id, file_name: d.file_name }))} comparacion={(comparacionData?.result_json ?? null) as import('@/lib/ai/comparador').ComparacionInstrumentos | null} generadoEl={comparacionData?.created_at ?? null} puedeUsarIA={puedeUsarIA} feedback={typeof sp.comparacion === 'string' ? sp.comparacion : undefined} />
+                </div>
+              )}
 <CaseIndustryTools industry={industry} caseRecord={caseRecord} profile={profile} puedeUsarIA={puedeUsarIA}
                 liquidacion={liquidacion} plazo={plazo} tasaJusticia={tasaJusticia} borradorEscritura={borradorEscritura}
                 avisoComercial={avisoComercial} borradorInmoData={borradorInmoData} analisisUif={analisisUif} prescore={prescore}
@@ -706,6 +739,7 @@ export default async function CaseDetailPage({ params, searchParams }: CaseDetai
                 extractedPartes={extractedPartes} extractedResumenes={extractedResumenes} modeloSugerido={modeloSugerido}
                 derivation={<DerivarEscribania caseId={caseRecord.id} />} />
               </CaseSummaryLayout>
+              </>
             )
           },
           {
@@ -742,7 +776,12 @@ export default async function CaseDetailPage({ params, searchParams }: CaseDetai
             label: <><ListChecks size={16} aria-hidden />Checklist</>,
             content: (
           <>
-            <CaseChecklistPanel caseId={caseRecord.id} items={checklistItems} documents={availableDocuments} progress={checklistProgress} canEdit={canUpdateCase(profile.role)} feedback={typeof sp.checklist_document === 'string' ? sp.checklist_document : undefined} actions={{ toggle: toggleChecklistItem, exclude: toggleChecklistItemNotRequired, remove: removeChecklistItem, link: linkChecklistItemDocument, add: addChecklistItem, detect: autoMarcarChecklist }} />
+            {(notaPendientesData.faltantes.length > 0 || notaPendientesData.vigencias.length > 0) && (
+              <div style={{ marginBottom: 16 }}>
+                <NotaPendientesPanel texto={notaPendientesData.texto} />
+              </div>
+            )}
+            <CaseChecklistPanel caseId={caseRecord.id} items={checklistItems} documents={availableDocuments} progress={checklistProgress} canEdit={canUpdateCase(profile.role)} feedback={typeof sp.checklist_document === 'string' ? sp.checklist_document : undefined} actions={{ toggle: toggleChecklistItem, exclude: toggleChecklistItemNotRequired, remove: removeChecklistItem, link: linkChecklistItemDocument, add: addChecklistItem, detect: autoMarcarChecklist, setExpiry: setDocumentoVencimiento }} />
           </>
             )
           }

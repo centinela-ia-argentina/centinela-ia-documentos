@@ -19,6 +19,7 @@ import { calificarInquilinoConIA } from '@/lib/ai/preScore';
 import { sugerirCoincidencias } from '@/lib/industries/checklistMatch';
 import { redactarAvisoConIA } from '@/lib/ai/aviso';
 import { analizarRiesgoUIF } from '@/lib/ai/uif';
+import { compararInstrumentosConIA } from '@/lib/ai/comparador';
 import { canUseAi } from '@/lib/permissions/roles';
 import {
   getCaseStatuses,
@@ -367,6 +368,11 @@ export async function updateCaseStatus(formData: FormData) {
       resourceId: caseId,
       metadata: { status, industry_type: industry },
     });
+  }
+
+  // Escribanía: al otorgar el legajo, ofrecemos (no ejecutamos) los plazos post-firma.
+  if (!error && industry === 'escribania' && status === 'archived') {
+    redirect(`/expedientes/${caseId}?postfirma=1`);
   }
 
   revalidatePath('/dashboard');
@@ -2072,4 +2078,183 @@ async function validateChecklistItemChain(
   }
 
   return { ok: true, data: itemData };
+}
+
+/**
+ * A1 · Vigencias: registra o ajusta el vencimiento del documento vinculado a un
+ * requisito del checklist (documents.expires_at). El escribano decide la fecha;
+ * la plataforma solo la guarda y calcula el estado (Vigente / Por vencer / Vencido).
+ */
+export async function setDocumentoVencimiento(formData: FormData) {
+  const { user, profile } = await requireCaseAccess('update');
+
+  const caseId = String(formData.get('case_id') || '');
+  const documentId = String(formData.get('document_id') || '');
+  const expiresAtForm = String(formData.get('expires_at') || '').trim();
+
+  if (!caseId || !documentId) {
+    redirect(`/expedientes${caseId ? `/${caseId}` : ''}?error=missing_data`);
+  }
+
+  // Fecha opcional: vacía limpia el vencimiento (el dato se des-registra, no se falsifica).
+  let expiresAt: string | null = null;
+  if (expiresAtForm) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(expiresAtForm)) {
+      redirect(`/expedientes/${caseId}?error=invalid_expiry`);
+    }
+    expiresAt = expiresAtForm;
+  }
+
+  const supabase = await createClient();
+
+  const { data: doc } = await supabase
+    .from('documents')
+    .select('id, case_id, file_name')
+    .eq('id', documentId)
+    .eq('organization_id', profile.organization_id)
+    .maybeSingle();
+
+  if (!doc || doc.case_id !== caseId) {
+    redirect(`/expedientes/${caseId}?error=document_not_found`);
+  }
+
+  const { error } = await supabase
+    .from('documents')
+    .update({ expires_at: expiresAt })
+    .eq('id', documentId)
+    .eq('organization_id', profile.organization_id);
+
+  if (!error) {
+    await createAuditLog({
+      organizationId: profile.organization_id,
+      userId: user.id,
+      action: 'document_expiry_updated',
+      resourceType: 'document',
+      resourceId: documentId,
+      metadata: { case_id: caseId, expires_at: expiresAt, file_name: doc.file_name },
+    });
+  }
+
+  revalidatePath(`/expedientes/${caseId}`);
+  revalidatePath('/documentos');
+  revalidatePath('/dashboard');
+  revalidatePath('/agenda');
+}
+
+/**
+ * B1 · Comparador de instrumentos (escribanía): coteja dos documentos del legajo
+ * (por ejemplo minuta aprobada vs. protocolizada) y guarda el reporte para revisión.
+ */
+export async function compararDocumentosExpediente(formData: FormData) {
+  const { user, profile } = await requireCaseAccess('update');
+
+  const caseId = String(formData.get('case_id') || '');
+  const documentAId = String(formData.get('document_a') || '');
+  const documentBId = String(formData.get('document_b') || '');
+
+  if (!caseId || !documentAId || !documentBId || documentAId === documentBId) {
+    redirect(`/expedientes/${caseId || ''}?comparacion=datos_faltantes`);
+  }
+  if (!isUserRole(profile.role) || !canUseAi(profile.role)) {
+    denyCaseAction();
+  }
+
+  const supabase = await createClient();
+
+  const { data: orgData } = await supabase
+    .from('organizations')
+    .select('industry_type')
+    .eq('id', profile.organization_id)
+    .single();
+  const industry = normalizeIndustryType(orgData?.industry_type);
+
+  // Disponible primero para escribanía (minuta vs. protocolizada). Otros rubros: lote propio.
+  if (industry !== 'escribania') {
+    redirect(`/expedientes/${caseId}?comparacion=rubro_no_habilitado`);
+  }
+
+  const { data: caseRecord } = await supabase
+    .from('cases')
+    .select('id')
+    .eq('id', caseId)
+    .eq('organization_id', profile.organization_id)
+    .maybeSingle();
+  if (!caseRecord) redirect('/expedientes');
+
+  const { data: docs } = await supabase
+    .from('documents')
+    .select('id, file_name, file_path, file_mime_type')
+    .eq('case_id', caseId)
+    .eq('organization_id', profile.organization_id)
+    .in('id', [documentAId, documentBId]);
+
+  const docA = (docs ?? []).find((d) => d.id === documentAId);
+  const docB = (docs ?? []).find((d) => d.id === documentBId);
+  if (!docA || !docB) {
+    redirect(`/expedientes/${caseId}?comparacion=documento_no_encontrado`);
+  }
+
+  const limpiarTexto = (text: string) =>
+    text.replace(/\s+/g, ' ').replace(/[^\S\r\n]+/g, ' ').trim().slice(0, 18000);
+
+  async function extraerTexto(doc: { file_path: string; file_mime_type: string; file_name: string }): Promise<string> {
+    if (doc.file_mime_type !== 'application/pdf') return '';
+    const { data: blob, error } = await supabase.storage.from('documents').download(doc.file_path);
+    if (error || !blob) return '';
+    const buffer = Buffer.from(await blob.arrayBuffer());
+    try {
+      const pdfParseModule = await import('pdf-parse/lib/pdf-parse.js');
+      const parsed = await pdfParseModule.default(buffer);
+      return limpiarTexto(parsed.text || '');
+    } catch (e) {
+      console.error('pdf-parse error (comparador):', e);
+      return '';
+    }
+  }
+
+  const textoA = await extraerTexto(docA);
+  const textoB = await extraerTexto(docB);
+
+  if (!textoA || !textoB) {
+    redirect(`/expedientes/${caseId}?comparacion=sin_texto`);
+  }
+
+  const result = await compararInstrumentosConIA({
+    nombreA: docA.file_name,
+    textoA,
+    nombreB: docB.file_name,
+    textoB,
+  });
+
+  if (!result.ok) {
+    const motivoMap: Record<string, string> = {
+      sin_api_key: 'comparacion_sin_key',
+      sin_datos: 'comparacion_sin_texto',
+      error: 'comparacion_error',
+    };
+    redirect(`/expedientes/${caseId}?comparacion=${motivoMap[result.motivo] || 'comparacion_error'}`);
+  }
+
+  await supabase.from('ai_outputs').insert({
+    organization_id: profile.organization_id,
+    case_id: caseId,
+    document_id: null,
+    output_type: 'document_comparison',
+    content: result.comparacion.resumen,
+    model_name: result.model,
+    result_json: result.comparacion,
+    created_by: user.id,
+  });
+
+  await createAuditLog({
+    organizationId: profile.organization_id,
+    userId: user.id,
+    action: 'document_comparison_generated',
+    resourceType: 'case',
+    resourceId: caseId,
+    metadata: { documento_a: docA.file_name, documento_b: docB.file_name, diferencias: result.comparacion.diferencias.length },
+  });
+
+  revalidatePath(`/expedientes/${caseId}`);
+  redirect(`/expedientes/${caseId}?comparacion=ok`);
 }

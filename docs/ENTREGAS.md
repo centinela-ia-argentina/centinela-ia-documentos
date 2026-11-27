@@ -56,13 +56,21 @@ Metodología: auditoría por paquetes de capturas → registro con severidad →
 - **Fixes anti-slop en fichas de propiedades:** emojis reemplazados por iconos Phosphor (WhatsApp, Regenerar, Copiar, Warning) y panel de resultado de matching sin gradiente ni glow (superficie consistente con las demás).
 - **Decisión "No cargado" implementada** en ficha de detalle de propiedad (fallback ya no en mono 22px).
 - Pendiente en este lote: control de funcionamiento completo por rubro (escribanía → jurídico) y verificación en preview.
+## Lote 8 — Nodo logístico escribanía (PR #47, en curso)
+
+- **A1 · Vigencias pre-firma:** el checklist muestra el estado del vencimiento del documento vinculado (chip Vigente/por vencer/VENCIDO con tintes semánticos, contadores en el pie) y permite registrar/ajustar la fecha de vencimiento desde "Gestionar requisito" (`setDocumentoVencimiento` → `documents.expires_at`, que Agenda/Dashboard ya consumen). Sin migración: se reutiliza la infraestructura de vencimientos existente.
+- **A2 · Plazos post-firma:** al otorgar el legajo (escribanía), el sistema ofrece (no ejecuta) agendar Sellado e Inscripción en la Agenda, con fechas editables y aviso "no es un plazo legal calculado" (`?postfirma=1` → `PostFirmaPanel` → `guardarPlazoDetectado`).
+- **A3 · Nota de pendientes al cliente:** borrador de texto armado desde el checklist y los vencimientos (`buildNotaPendientes`), editable y copiable; la plataforma no envía nada (`NotaPendientesPanel` en la pestaña Checklist).
+- **B1 · Comparador de instrumentos (escribanía):** cotejo IA de dos documentos del legajo (minuta vs. protocolizada), reporte con diferencias/coincidencias/advertencias guardado en `ai_outputs` (`output_type=document_comparison`), con hint de espera y lectura guardada.
+- H17 (revisión IA de instrumentos para escribanía) saldado en PR #46.
+
 ## Ruta pendiente (orden agilizado)
 
-1. ~~Sub-lote oscuro~~ (saldado PR #41) → ~~Lote de valor global~~ (en curso, PR #44): secciones por rubro verificadas + S5-G2 saldado + "No cargado" decidido → falta control de funcionamiento por rubro (escribanía, jurídico).
-2. **Lote módulos oscuros**: alineación visual completa de Calculadoras/Protocolo (títulos blanco-sobre-blanco, gradientes → jerarquía de botones, tokens).
-3. **Ciberseguridad P0 + certificación básica** antes de datos reales de terceros.
+1. ~~Sub-lote oscuro~~ (PR #41) → ~~Lote valor global~~ (PR #44) → ~~Lote módulos oscuros~~ (PR #45) → ~~H17~~ (PR #46) → **Lote nodo logístico escribanía** (en curso, PR #47).
+2. **Lotes por rubro:** jurídico (patrones Argus/Nino: portales judiciales, cálculos — los cálculos ya existen en versión propia) → inmobiliario (habilitar revisión IA de documentos + mejoras propias).
+3. **Ciberseguridad P0 + certificación básica** antes de datos reales de terceros (con documento propio del usuario).
 4. **Lanzamiento**: onboarding, tutoriales. Landing con taste-skill (previa auditoría de scripts).
-5. Backlog no bloqueante: Vercel X (29/11), estrategia fundraising (conversación aparte).
+5. Backlog no bloqueante: Vercel X (29/11), estrategia fundraising (conversación aparte), liquidación de gastos por legajo / registro de certificaciones / autoevaluación UIF anual / vigencia de mandatos (backlog escribanía).
 
 ## Lecciones de proceso (resumen)
 
