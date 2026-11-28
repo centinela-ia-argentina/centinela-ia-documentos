@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useRef } from 'react';
 import { useFormStatus } from 'react-dom';
 import { ArrowsLeftRight, FileText, Info, Warning } from '@phosphor-icons/react/dist/ssr';
 import type { ComparacionInstrumentos } from '@/lib/ai/comparador';
@@ -57,9 +58,19 @@ export function ComparadorInstrumentos({
   feedback?: string;
 }) {
   const fb = feedback ? FEEDBACK[feedback] : undefined;
+  const sectionRef = useRef<HTMLElement | null>(null);
+
+  // Al volver del redirect con feedback, llevamos la vista a la sección del reporte
+  // (antes quedaba en el inicio del legajo y había que scrollear a mano).
+  useEffect(() => {
+    if (feedback && sectionRef.current) {
+      sectionRef.current.scrollIntoView?.({ behavior: 'smooth', block: 'start' });
+    }
+  }, [feedback]);
 
   return (
     <section
+      ref={sectionRef}
       data-testid="comparador-instrumentos"
       className="rounded-2xl border border-[#e4e5e3] bg-white p-4 shadow-sm"
       aria-labelledby="comparador-title"

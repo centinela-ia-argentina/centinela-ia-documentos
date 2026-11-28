@@ -23,6 +23,8 @@ export function UploadClient({
   industry?: IndustryType;
 }) {
   const fileInput = useRef<HTMLInputElement>(null);
+  const resultsRef = useRef<HTMLElement>(null);
+  const wasUploading = useRef(false);
   const [rejected, setRejected] = useState<string[]>([]);
   const router = useRouter();
   const terms = getIndustryTerms(industry);
@@ -172,15 +174,27 @@ export function UploadClient({
   const successCount = Object.values(uploadStatus).filter(s => s.status === 'success').length;
   const errorCount = Object.values(uploadStatus).filter(s => s.status === 'error').length;
   const duplicateCount = Object.values(uploadStatus).filter(s => s.status === 'duplicate').length;
+  // Todo subido (éxitos/duplicados) y sin errores por reintentar: la carga terminó.
+  const pendientes = totalFiles - successCount - duplicateCount;
+  const cargaCompleta = !isUploading && totalFiles > 0 && errorCount === 0 && pendientes === 0;
 
+  // Eliminado el redireccionamiento automático para permitir que
+  // el usuario (y E2E) vea el resumen de estado y decida cuándo avanzar.
+  // Al terminar la carga, llevamos la vista al resumen (queda arriba y sin
+  // scroll el usuario no lo veía).
   useEffect(() => {
-    // Eliminado el redireccionamiento automático para permitir que
-    // el usuario (y E2E) vea el resumen de estado y decida cuándo avanzar.
-  }, [isUploading, totalFiles, successCount, errorCount, caseId, router]);
+    if (wasUploading.current && !isUploading) {
+      const procesados = successCount + errorCount + duplicateCount;
+      if (totalFiles > 0 && procesados === totalFiles) {
+        resultsRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'start' });
+      }
+    }
+    wasUploading.current = isUploading;
+  }, [isUploading, totalFiles, successCount, errorCount, duplicateCount]);
   return (
     <div className={styles.root}>
       {totalFiles > 0 && (successCount > 0 || errorCount > 0 || duplicateCount > 0) && !isUploading && (
-        <section className={styles.uploadResults} data-testid="upload-summary" aria-label="Resultado de la carga" role="status">
+        <section ref={resultsRef} className={styles.uploadResults} data-testid="upload-summary" aria-label="Resultado de la carga" role="status">
           <h2>Resultado de la carga</h2><p>Revisá cada archivo antes de continuar.</p>
           <dl><div><dt>Seleccionados</dt><dd>{totalFiles}</dd></div><div><dt>Cargados</dt><dd data-testid="upload-success-count">{successCount}</dd></div><div><dt>Errores</dt><dd data-testid="upload-error-count">{errorCount}</dd></div><div><dt>Duplicados omitidos</dt><dd data-testid="upload-duplicate-count">{duplicateCount}</dd></div></dl>
           {successCount > 0 && <button type="button" onClick={() => {router.refresh(); router.push(caseId ? `${industry === 'inmobiliaria' ? '/operaciones' : '/expedientes'}/${caseId}?tab=documentos` : '/documentos');}}>{caseId ? `Ver en ${terms.elExpediente}` : 'Ver documentos'}</button>}
@@ -231,7 +245,7 @@ export function UploadClient({
               </div></li>;
           })}</ul>
         </section>
-        <footer className={styles.uploadActions}><button type="submit" data-testid="upload-submit" disabled={isUploading || !files.length} className={styles.primary}>{isUploading ? 'Subiendo…' : `Subir ${files.length} documento${files.length !== 1 ? 's' : ''}`}</button><p>Subir no implica analizar ni confirmar validez documental.</p></footer>
+        <footer className={styles.uploadActions}><button type="submit" data-testid="upload-submit" disabled={isUploading || !files.length || cargaCompleta} className={styles.primary}>{cargaCompleta ? 'Cargado ✓' : isUploading ? 'Subiendo…' : `Subir ${files.length} documento${files.length !== 1 ? 's' : ''}`}</button><p>Subir no implica analizar ni confirmar validez documental.</p></footer>
       </form>
     </div>
   );
