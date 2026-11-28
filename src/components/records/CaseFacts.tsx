@@ -6,6 +6,7 @@ import { getCaseStatusLabel, getCaseTypeLabel } from '@/lib/industries/caseConfi
 import type { IndustryType } from '@/lib/industries/documentTypes';
 import { getDocumentExpiryStatus, expiryStatusLabel, getDaysUntilExpiry } from '@/lib/documents/expiry';
 import { formatPlazoDate } from '@/lib/format/date';
+import { RecordPendingButton } from './RecordPendingButton';
 import type { CaseRecord } from '@/types/case';
 import styles from './RecordFacts.module.css';
 
@@ -56,7 +57,7 @@ export function CaseFacts({ caseId, caseType, status, industry, metadata, visibl
           <label htmlFor={`${idPrefix}-${field.key}`}>{field.label}</label>
           {field.type === 'select' ? <SelectField name={`case_metadata.${field.key}`} label={field.label} defaultValue={metadataValue(metadata, field.key)} placeholder="Sin definir" options={[{ value: '', label: 'Sin definir' }, ...(field.options ?? []).map(option => ({ value: option, label: option }))]} /> : <input id={`${idPrefix}-${field.key}`} name={`case_metadata.${field.key}`} type={field.type} defaultValue={metadataValue(metadata, field.key)} />}
         </div>)}</div> : null}
-        <AppButton type="submit">{labels.update}</AppButton>
+        <RecordPendingButton label={labels.update} loadingLabel="Guardando…" />
       </form>
     </details>
   </section>;
